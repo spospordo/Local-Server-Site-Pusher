@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Local Server Site Pusher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .card-header h2 {
+            color: #333;
+            font-size: 1.3rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .status-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-value {
+            font-size: 1.2rem;
+            color: #333;
+        }
+        
+        .config-editor {
+            width: 100%;
+            height: 400px;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 1rem;
+            resize: vertical;
+        }
+        
+        .config-editor:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .section-divider {
+            margin: 2rem 0;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Local Server Site Pusher - Admin Dashboard</h1>
+        <form method="POST" action="/admin/logout" style="display: inline;">
+            <button type="submit" class="logout-btn">Logout</button>
+        </form>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h2>Server Status</h2>
+            </div>
+            <div class="card-body">
+                <div class="status-grid" id="statusGrid">
+                    <div class="status-item">
+                        <div class="status-label">Loading...</div>
+                        <div class="status-value">Please wait</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Configuration Editor</h2>
+            </div>
+            <div class="card-body">
+                <textarea id="configEditor" class="config-editor" placeholder="Loading configuration..."></textarea>
+                <div>
+                    <button id="saveConfig" class="btn">Save Configuration</button>
+                    <button id="resetConfig" class="btn btn-secondary">Reset</button>
+                </div>
+                <div id="configAlert" class="alert"></div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Quick Actions</h2>
+            </div>
+            <div class="card-body">
+                <p><strong>API Endpoints:</strong></p>
+                <ul>
+                    <li><code>GET /api/status</code> - Server status for external tools</li>
+                    <li><code>POST /api/webhook</code> - Receive webhooks from external services</li>
+                    <li><code>GET /api/data</code> - Data endpoint for integrations</li>
+                </ul>
+                
+                <div class="section-divider"></div>
+                
+                <p><strong>Public Content:</strong></p>
+                <p>Upload files to the <code>public</code> directory to serve web content.</p>
+                <p><a href="/public/" target="_blank">View Public Directory</a></p>
+                
+                <div class="section-divider"></div>
+                
+                <p><strong>Integration URLs:</strong></p>
+                <ul>
+                    <li><strong>Home Assistant:</strong> Use <code>http://your-server:3000/api/status</code> as a RESTful sensor</li>
+                    <li><strong>Cockpit:</strong> Monitor via <code>http://your-server:3000/api/status</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let originalConfig = '';
+        
+        // Load server status
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                const statusGrid = document.getElementById('statusGrid');
+                statusGrid.innerHTML = `
+                    <div class="status-item">
+                        <div class="status-label">Server Status</div>
+                        <div class="status-value">${status.server.status}</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Uptime</div>
+                        <div class="status-value">${Math.floor(status.server.uptime / 60)} minutes</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Port</div>
+                        <div class="status-value">${status.server.port}</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Memory Usage</div>
+                        <div class="status-value">${Math.round(status.memory.heapUsed / 1024 / 1024)} MB</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Version</div>
+                        <div class="status-value">${status.version}</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Last Updated</div>
+                        <div class="status-value">${new Date(status.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                `;
+            } catch (err) {
+                console.error('Failed to load status:', err);
+            }
+        }
+        
+        // Load configuration
+        async function loadConfig() {
+            try {
+                const response = await fetch('/admin/api/config');
+                const config = await response.json();
+                originalConfig = JSON.stringify(config, null, 2);
+                document.getElementById('configEditor').value = originalConfig;
+            } catch (err) {
+                console.error('Failed to load config:', err);
+                showAlert('Failed to load configuration', 'error');
+            }
+        }
+        
+        // Save configuration
+        async function saveConfig() {
+            try {
+                const configText = document.getElementById('configEditor').value;
+                const config = JSON.parse(configText);
+                
+                const response = await fetch('/admin/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    originalConfig = configText;
+                    showAlert('Configuration saved successfully!', 'success');
+                    setTimeout(loadStatus, 1000); // Refresh status
+                } else {
+                    showAlert('Failed to save: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Invalid JSON format: ' + err.message, 'error');
+            }
+        }
+        
+        // Reset configuration
+        function resetConfig() {
+            document.getElementById('configEditor').value = originalConfig;
+            showAlert('Configuration reset to last saved version', 'success');
+        }
+        
+        // Show alert
+        function showAlert(message, type) {
+            const alert = document.getElementById('configAlert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Event listeners
+        document.getElementById('saveConfig').addEventListener('click', saveConfig);
+        document.getElementById('resetConfig').addEventListener('click', resetConfig);
+        
+        // Load initial data
+        loadStatus();
+        loadConfig();
+        
+        // Refresh status every 30 seconds
+        setInterval(loadStatus, 30000);
+    </script>
+</body>
+</html>

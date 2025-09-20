@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Server Site Pusher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            transition: opacity 0.3s;
+        }
+        
+        .link:hover {
+            opacity: 0.9;
+        }
+        
+        code {
+            background: #f0f0f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Local Server Site Pusher</h1>
+        
+        <div class="info-box">
+            <h3>Welcome to your containerized web server!</h3>
+            <p>This server provides a complete web hosting solution with admin interface for configuration management.</p>
+        </div>
+        
+        <h3>Features:</h3>
+        <ul>
+            <li>🔧 <strong>Admin Interface:</strong> Secure login and configuration management</li>
+            <li>📁 <strong>File Serving:</strong> Serve static web content from the public directory</li>
+            <li>🔗 <strong>API Endpoints:</strong> POST/GET request handling for integrations</li>
+            <li>📊 <strong>Status Monitoring:</strong> Integration with Home Assistant and Cockpit</li>
+            <li>🐳 <strong>Containerized:</strong> Easy deployment with Docker</li>
+        </ul>
+        
+        <h3>API Endpoints:</h3>
+        <ul>
+            <li><code>GET /api/status</code> - Server status and metrics</li>
+            <li><code>POST /api/webhook</code> - Webhook receiver for external services</li>
+            <li><code>GET /api/data</code> - Data endpoint for integrations</li>
+        </ul>
+        
+        <div class="info-box">
+            <h4>For Home Assistant Integration:</h4>
+            <p>Add a RESTful sensor with URL: <code>http://your-server:3000/api/status</code></p>
+        </div>
+        
+        <div class="links">
+            <a href="/admin" class="link">Admin Dashboard</a>
+            <a href="/api/status" class="link">Server Status</a>
+        </div>
+        
+        <p style="margin-top: 2rem; text-align: center; color: #666;">
+            Replace this file with your own content by uploading to the public directory.
+        </p>
+    </div>
+</body>
+</html>
