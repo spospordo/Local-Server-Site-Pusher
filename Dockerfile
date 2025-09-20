@@ -7,13 +7,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --only=production
+RUN npm ci --only=production
 
 # Copy application files
 COPY . .
 
-# Create public directory with proper permissions
-RUN mkdir -p /app/public && \
+# Create public and config directories with proper permissions
+RUN mkdir -p /app/public /app/config && \
     chown -R node:node /app
 
 # Switch to non-root user

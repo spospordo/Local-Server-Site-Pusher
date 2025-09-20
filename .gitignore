@@ -9,3 +9,6 @@ coverage/
 dist/
 build/
 tmp/
+
+# Runtime configuration files (keep directory structure)
+config/config.json

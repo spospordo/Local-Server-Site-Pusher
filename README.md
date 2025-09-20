@@ -36,7 +36,7 @@ docker build -t local-server-site-pusher .
 docker run -d \
   -p 3000:3000 \
   -v $(pwd)/public:/app/public \
-  -v $(pwd)/config.json:/app/config.json \
+  -v $(pwd)/config:/app/config \
   --name local-server \
   local-server-site-pusher
 ```
@@ -55,7 +55,7 @@ npm start
 
 ## Configuration
 
-The server is configured via `config.json`:
+The server is configured via `config.json` located in the `config/` directory. If no configuration file exists, the server will automatically create a default configuration file on startup.
 
 ```json
 {
@@ -82,6 +82,13 @@ The server is configured via `config.json`:
 ```
 
 **⚠️ Important**: Change the default admin credentials in production!
+
+### Configuration Persistence
+
+When using Docker, mount the `config` directory to persist configuration changes:
+- The server creates a default `config/config.json` if none exists
+- Configuration changes via the admin interface are saved to this file
+- Mounting the `config` directory ensures settings persist across container restarts
 
 ## Admin Interface
 
