@@ -1,0 +1,21 @@
+{
+  "server": {
+    "port": 3000,
+    "admin": {
+      "username": "admin",
+      "password": "admin123"
+    }
+  },
+  "homeAssistant": {
+    "enabled": true,
+    "url": "http://localhost:8123"
+  },
+  "cockpit": {
+    "enabled": true,
+    "url": "http://localhost:9090"
+  },
+  "webContent": {
+    "directory": "./public",
+    "defaultFile": "index.html"
+  }
+}
