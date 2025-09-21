@@ -5,15 +5,63 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const configPath = path.join(__dirname, 'config.json');
+const configDir = path.join(__dirname, 'config');
+const configPath = path.join(configDir, 'config.json');
 
-// Load configuration
+// Default configuration
+const defaultConfig = {
+  "server": {
+    "port": 3000,
+    "admin": {
+      "username": "admin",
+      "password": "admin123"
+    }
+  },
+  "homeAssistant": {
+    "enabled": true,
+    "url": "http://localhost:8123"
+  },
+  "cockpit": {
+    "enabled": true,
+    "url": "http://localhost:9090"
+  },
+  "webContent": {
+    "directory": "./public",
+    "defaultFile": "index.html"
+  }
+};
+
+// Load configuration with fallback to default
 let config = {};
 try {
-  config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  // Ensure config directory exists
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+    console.log('Created config directory');
+  }
+  
+  if (fs.existsSync(configPath)) {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    console.log('Loaded configuration from config/config.json');
+  } else {
+    config = defaultConfig;
+    // Create initial config file
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+    console.log('Created default configuration file');
+  }
 } catch (err) {
-  console.error('Error loading config:', err);
-  process.exit(1);
+  console.error('Error loading config, using defaults:', err);
+  config = defaultConfig;
+  // Try to create default config file if possible
+  try {
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+    console.log('Created default configuration file after error');
+  } catch (writeErr) {
+    console.warn('Could not create config file, using in-memory defaults:', writeErr);
+  }
 }
 
 const PORT = config.server.port || 3000;

@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     volumes:
       - ./public:/app/public
-      - ./config.json:/app/config.json
+      - ./config:/app/config:rw
     environment:
       - NODE_ENV=production
     restart: unless-stopped
