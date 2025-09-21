@@ -314,8 +314,8 @@ app.post('/admin/api/links', requireAuth, (req, res) => {
   try {
     const { name, url } = req.body;
     
-    if (!name || !url) {
-      return res.status(400).json({ error: 'Name and URL are required' });
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
     }
     
     // Initialize usefulLinks if it doesn't exist
@@ -323,8 +323,11 @@ app.post('/admin/api/links', requireAuth, (req, res) => {
       config.usefulLinks = [];
     }
     
+    // Use URL as name if name is empty or not provided
+    const linkName = name && name.trim() ? name.trim() : url;
+    
     // Add the new link
-    config.usefulLinks.push({ name, url, id: Date.now() });
+    config.usefulLinks.push({ name: linkName, url, id: Date.now() });
     
     // Try to persist to file
     if (configWritable) {
