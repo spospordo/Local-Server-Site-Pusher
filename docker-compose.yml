@@ -6,17 +6,24 @@ services:
     volumes:
       # Mount directories (not files) to avoid mount type errors
       - ./public:/app/public
-      - ./config:/app/config:rw
+      - ./config:/app/config
     environment:
       - NODE_ENV=production
       # Optional: Set a custom session secret for security
       - SESSION_SECRET=your-secret-key-here-change-this
     restart: unless-stopped
-    # Run as root initially to fix permissions, then switch to node user
-    # Alternative: use user mapping if host directories have correct ownership
-    # user: "1000:1000"  # Uncomment and adjust if needed
+    
+    # Option 1: Run as current user (recommended for development)
+    # Uncomment the next line and run: id to get your user:group IDs
+    # user: "1000:1000"  # Replace with your actual user:group ID
+    
+    # Option 2: For systems where you need to fix permissions
+    # If you get permission errors, ensure the host directories have correct ownership:
+    # sudo chown -R $(id -u):$(id -g) ./config ./public
+    # or create them first: mkdir -p config public && chown $(id -u):$(id -g) config public
+    
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
       interval: 30s
       timeout: 10s
       retries: 3
