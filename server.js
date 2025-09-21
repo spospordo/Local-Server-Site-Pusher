@@ -38,7 +38,16 @@ const defaultConfig = {
       "other": "10MB"
     }
   },
-  "usefulLinks": []
+  "usefulLinks": [],
+  "client": {
+    "enabled": true,
+    "requirePassword": false,
+    "password": "",
+    "showServerStatus": true,
+    "showUsefulLinks": true,
+    "welcomeMessage": "Welcome to Local Server Site Pusher"
+  },
+  "connectedDevices": []
 };
 
 // Function to safely create config file
@@ -454,6 +463,259 @@ app.get('/api/data', (req, res) => {
     timestamp: new Date().toISOString(),
     parameters: req.query
   });
+});
+
+// Client access routes and APIs
+app.get('/client', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client.html'));
+});
+
+// Client authentication middleware
+const requireClientAuth = (req, res, next) => {
+  const clientConfig = config.client || { requirePassword: false };
+  
+  if (!clientConfig.requirePassword) {
+    return next();
+  }
+  
+  if (req.session.clientAuthenticated) {
+    return next();
+  }
+  
+  res.status(401).json({ error: 'Client authentication required' });
+};
+
+// Client API endpoints
+app.get('/api/client/config', (req, res) => {
+  // Ensure client config exists with defaults
+  const clientConfig = config.client || {
+    enabled: true,
+    requirePassword: false,
+    showServerStatus: true,
+    showUsefulLinks: true,
+    welcomeMessage: "Welcome to Local Server Site Pusher"
+  };
+  
+  res.json({
+    enabled: clientConfig.enabled,
+    requirePassword: clientConfig.requirePassword,
+    showServerStatus: clientConfig.showServerStatus,
+    showUsefulLinks: clientConfig.showUsefulLinks,
+    welcomeMessage: clientConfig.welcomeMessage
+  });
+});
+
+app.post('/api/client/authenticate', (req, res) => {
+  const { password } = req.body;
+  
+  // Ensure client config exists
+  const clientConfig = config.client || { requirePassword: false };
+  
+  if (!clientConfig.requirePassword) {
+    return res.json({ success: true, message: 'No password required' });
+  }
+  
+  if (password === clientConfig.password) {
+    req.session.clientAuthenticated = true;
+    res.json({ success: true, message: 'Authentication successful' });
+  } else {
+    res.status(401).json({ success: false, error: 'Invalid password' });
+  }
+});
+
+app.post('/api/client/register', requireClientAuth, (req, res) => {
+  try {
+    const { deviceId, deviceType, browserInfo, userAgent } = req.body;
+    
+    if (!deviceId) {
+      return res.status(400).json({ error: 'Device ID is required' });
+    }
+    
+    // Initialize connectedDevices if it doesn't exist
+    if (!config.connectedDevices) {
+      config.connectedDevices = [];
+    }
+    
+    // Find existing device or create new one
+    let device = config.connectedDevices.find(d => d.deviceId === deviceId);
+    
+    if (device) {
+      // Update existing device
+      device.lastSeen = new Date().toISOString();
+      device.deviceType = deviceType || device.deviceType;
+      device.browserInfo = browserInfo || device.browserInfo;
+      device.userAgent = userAgent || device.userAgent;
+      device.ip = req.ip || req.connection.remoteAddress;
+    } else {
+      // Create new device entry
+      device = {
+        deviceId: deviceId,
+        deviceType: deviceType || 'Unknown',
+        browserInfo: browserInfo || 'Unknown',
+        userAgent: userAgent || '',
+        name: '',
+        ip: req.ip || req.connection.remoteAddress,
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString()
+      };
+      config.connectedDevices.push(device);
+    }
+    
+    // Try to persist to file
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Device registered successfully',
+      deviceName: device.name
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to register device: ' + error.message });
+  }
+});
+
+app.post('/api/client/update-name', requireClientAuth, (req, res) => {
+  try {
+    const { deviceId, name } = req.body;
+    
+    if (!deviceId) {
+      return res.status(400).json({ error: 'Device ID is required' });
+    }
+    
+    if (!config.connectedDevices) {
+      config.connectedDevices = [];
+    }
+    
+    const device = config.connectedDevices.find(d => d.deviceId === deviceId);
+    
+    if (device) {
+      device.name = name || '';
+      device.lastSeen = new Date().toISOString();
+      
+      // Try to persist to file
+      if (configWritable) {
+        createConfigFile(configPath, config);
+      }
+      
+      res.json({ success: true, message: 'Device name updated successfully' });
+    } else {
+      res.status(404).json({ error: 'Device not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update device name: ' + error.message });
+  }
+});
+
+app.get('/api/client/links', requireClientAuth, (req, res) => {
+  res.json(config.usefulLinks || []);
+});
+
+app.get('/api/client/ip', (req, res) => {
+  res.json({ 
+    ip: req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown'
+  });
+});
+
+// Admin API for managing client settings
+app.get('/admin/api/client', requireAuth, (req, res) => {
+  // Ensure client config exists with defaults
+  const clientConfig = config.client || {
+    enabled: true,
+    requirePassword: false,
+    password: "",
+    showServerStatus: true,
+    showUsefulLinks: true,
+    welcomeMessage: "Welcome to Local Server Site Pusher"
+  };
+  
+  res.json({
+    config: clientConfig,
+    connectedDevices: config.connectedDevices || []
+  });
+});
+
+app.post('/admin/api/client', requireAuth, (req, res) => {
+  try {
+    const { enabled, requirePassword, password, showServerStatus, showUsefulLinks, welcomeMessage } = req.body;
+    
+    // Ensure client config exists
+    if (!config.client) {
+      config.client = {
+        enabled: true,
+        requirePassword: false,
+        password: "",
+        showServerStatus: true,
+        showUsefulLinks: true,
+        welcomeMessage: "Welcome to Local Server Site Pusher"
+      };
+    }
+    
+    config.client = {
+      enabled: enabled !== undefined ? enabled : config.client.enabled,
+      requirePassword: requirePassword !== undefined ? requirePassword : config.client.requirePassword,
+      password: password !== undefined ? password : config.client.password,
+      showServerStatus: showServerStatus !== undefined ? showServerStatus : config.client.showServerStatus,
+      showUsefulLinks: showUsefulLinks !== undefined ? showUsefulLinks : config.client.showUsefulLinks,
+      welcomeMessage: welcomeMessage !== undefined ? welcomeMessage : config.client.welcomeMessage
+    };
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Client configuration updated successfully',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Client configuration updated in memory (file save failed)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Client configuration updated in memory only',
+        persistent: false
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update client configuration: ' + error.message });
+  }
+});
+
+app.delete('/admin/api/client/device/:deviceId', requireAuth, (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    
+    if (!config.connectedDevices) {
+      return res.status(404).json({ error: 'No devices found' });
+    }
+    
+    const initialLength = config.connectedDevices.length;
+    config.connectedDevices = config.connectedDevices.filter(device => device.deviceId !== deviceId);
+    
+    if (config.connectedDevices.length === initialLength) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    
+    // Try to persist to file
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Device removed successfully',
+      devices: config.connectedDevices
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to remove device: ' + error.message });
+  }
 });
 
 // Default route - serve public content
