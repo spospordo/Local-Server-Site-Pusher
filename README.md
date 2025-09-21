@@ -41,6 +41,30 @@ docker run -d \
   local-server-site-pusher
 ```
 
+### TrueNAS Scale / Portainer Deployment
+
+For TrueNAS Scale or Portainer environments, use this docker-compose configuration:
+
+```yaml
+services:
+  local-server:
+    image: local-server-site-pusher:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - /path/to/your/public:/app/public
+      - /path/to/your/config:/app/config
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+```
+
+**Important Notes for TrueNAS/Portainer:**
+- The container automatically creates configuration files if they don't exist
+- Mount directories (not files) to avoid mount type errors
+- The config directory will be created automatically if it doesn't exist
+- Default admin credentials: `admin` / `admin123` (change these immediately!)
+
 ### Local Development
 
 ```bash
