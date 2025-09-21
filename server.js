@@ -125,6 +125,74 @@ function isDirectoryWritable(dirPath) {
   }
 }
 
+// Function to validate and repair configuration
+function validateAndRepairConfig(config) {
+  let needsRepair = false;
+  const repairedConfig = JSON.parse(JSON.stringify(config)); // Deep clone
+  
+  // Ensure all required sections exist
+  const requiredSections = {
+    'server': defaultConfig.server,
+    'server.admin': defaultConfig.server.admin,
+    'homeAssistant': defaultConfig.homeAssistant,
+    'cockpit': defaultConfig.cockpit,
+    'webContent': defaultConfig.webContent,
+    'storage': defaultConfig.storage,
+    'client': defaultConfig.client
+  };
+  
+  for (const [sectionPath, defaultValue] of Object.entries(requiredSections)) {
+    const parts = sectionPath.split('.');
+    let current = repairedConfig;
+    let valid = true;
+    
+    // Check if path exists
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!current[part] || typeof current[part] !== 'object') {
+        valid = false;
+        break;
+      }
+      current = current[part];
+    }
+    
+    const lastPart = parts[parts.length - 1];
+    if (!valid || !current[lastPart]) {
+      console.log(`Repairing missing config section: ${sectionPath}`);
+      
+      // Navigate to parent and set default
+      let target = repairedConfig;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!target[part] || typeof target[part] !== 'object') {
+          target[part] = {};
+        }
+        target = target[part];
+      }
+      target[lastPart] = defaultValue;
+      needsRepair = true;
+    }
+  }
+  
+  // Ensure arrays exist
+  if (!Array.isArray(repairedConfig.usefulLinks)) {
+    repairedConfig.usefulLinks = [];
+    needsRepair = true;
+  }
+  if (!Array.isArray(repairedConfig.connectedDevices)) {
+    repairedConfig.connectedDevices = [];
+    needsRepair = true;
+  }
+  
+  // Validate port
+  if (!repairedConfig.server.port || isNaN(parseInt(repairedConfig.server.port))) {
+    repairedConfig.server.port = 3000;
+    needsRepair = true;
+  }
+  
+  return { config: repairedConfig, needsRepair };
+}
+
 // Load configuration with fallback to default
 let config = {};
 let configWritable = false;
@@ -146,6 +214,25 @@ try {
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     console.log('Loaded configuration from config/config.json');
+    
+    // Validate and repair configuration
+    const validation = validateAndRepairConfig(config);
+    if (validation.needsRepair) {
+      console.log('Configuration validation found issues, applying repairs...');
+      config = validation.config;
+      
+      if (configWritable) {
+        if (createConfigFile(configPath, config)) {
+          console.log('Repaired configuration saved to file');
+        } else {
+          console.warn('Could not save repaired configuration, using in-memory repairs');
+        }
+      } else {
+        console.warn('Config directory not writable, repairs applied in-memory only');
+      }
+    } else {
+      console.log('Configuration validation passed');
+    }
   } else {
     config = defaultConfig;
     if (configWritable) {
@@ -160,10 +247,16 @@ try {
   console.error('Error loading config, using defaults:', err);
   config = defaultConfig;
   
+  // Even with defaults, validate to ensure consistency
+  const validation = validateAndRepairConfig(config);
+  config = validation.config;
+  
   // Try to create config file only if directory is writable
   if (configWritable) {
-    if (!createConfigFile(configPath, defaultConfig)) {
+    if (!createConfigFile(configPath, config)) {
       console.log('Could not create config file, using in-memory defaults');
+    } else {
+      console.log('Created default configuration file after error recovery');
     }
   } else {
     console.log('Config directory not writable, using in-memory defaults');

@@ -114,6 +114,26 @@ When using Docker, mount the `config` directory to persist configuration changes
 - Configuration changes via the admin interface are saved to this file
 - Mounting the `config` directory ensures settings persist across container restarts
 
+**Enhanced Persistence Features:**
+- ✅ **Automatic configuration validation and repair** on startup
+- ✅ **Backup utilities** for safe container updates 
+- ✅ **Data recovery tools** for configuration corruption
+- ✅ **Container update scripts** that preserve all settings
+
+See [PERSISTENCE.md](PERSISTENCE.md) for complete persistence documentation.
+
+### Container Updates
+
+To safely update the container while preserving all settings:
+
+```bash
+# Automatic update with backup and validation
+./scripts/update-container.sh
+
+# Or manual backup before updates
+./scripts/backup-config.sh
+```
+
 ## Admin Interface
 
 1. Navigate to `http://localhost:3000/admin`
