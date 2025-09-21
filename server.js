@@ -618,6 +618,62 @@ app.get('/api/client/ip', (req, res) => {
   });
 });
 
+// Visitor registration endpoint (no authentication required)
+app.post('/api/visitor/register', (req, res) => {
+  try {
+    const { name, deviceId, deviceType, userAgent } = req.body;
+    
+    if (!name || !deviceId) {
+      return res.status(400).json({ error: 'Name and device ID are required' });
+    }
+    
+    // Initialize connectedDevices if it doesn't exist
+    if (!config.connectedDevices) {
+      config.connectedDevices = [];
+    }
+    
+    // Check if device already exists
+    let device = config.connectedDevices.find(d => d.deviceId === deviceId);
+    
+    if (device) {
+      // Update existing device
+      device.name = name;
+      device.lastSeen = new Date().toISOString();
+      device.deviceType = deviceType || device.deviceType;
+      device.userAgent = userAgent || device.userAgent;
+      device.ip = req.ip || req.connection.remoteAddress;
+    } else {
+      // Create new device entry
+      device = {
+        deviceId: deviceId,
+        name: name,
+        deviceType: deviceType || 'Visitor',
+        browserInfo: 'Unknown',
+        userAgent: userAgent || '',
+        ip: req.ip || req.connection.remoteAddress,
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString()
+      };
+      config.connectedDevices.push(device);
+    }
+    
+    // Try to persist to file
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Visitor registered successfully as client',
+      deviceId: deviceId,
+      name: name
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to register visitor: ' + error.message });
+  }
+});
+
 // Admin API for managing client settings
 app.get('/admin/api/client', requireAuth, (req, res) => {
   // Ensure client config exists with defaults

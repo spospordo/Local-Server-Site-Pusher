@@ -3,103 +3,397 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Server Site Pusher</title>
+    <title>Welcome - Local Server Site Pusher</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            background-color: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 1rem;
         }
-        
+
         .container {
+            max-width: 600px;
+            margin: 2rem auto;
             background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
         }
-        
-        h1 {
-            color: #333;
+
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 2rem;
             text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .server-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .server-info h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .status-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        .status-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-online {
+            background: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .join-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
             margin-bottom: 2rem;
         }
-        
-        .info-box {
-            background: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 5px;
-            padding: 1rem;
-            margin: 1rem 0;
+
+        .join-section h3 {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        
+
+        .join-form {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            align-self: flex-end;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .links {
             display: flex;
             gap: 1rem;
             margin-top: 2rem;
             flex-wrap: wrap;
+            justify-content: center;
         }
-        
+
         .link {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #f8f9fa;
+            color: #333;
             text-decoration: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 5px;
-            transition: opacity 0.3s;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
+            text-align: center;
         }
-        
+
         .link:hover {
-            opacity: 0.9;
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
         }
-        
-        code {
-            background: #f0f0f0;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        @media (max-width: 600px) {
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .join-form {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Local Server Site Pusher</h1>
-        
-        <div class="info-box">
-            <h3>Welcome to your containerized web server!</h3>
-            <p>This server provides a complete web hosting solution with admin interface for configuration management.</p>
+        <div class="header">
+            <h1>🚀 Welcome to Local Server</h1>
+            <p id="serverName">Local Server Site Pusher</p>
         </div>
-        
-        <h3>Features:</h3>
-        <ul>
-            <li>🔧 <strong>Admin Interface:</strong> Secure login and configuration management</li>
-            <li>📁 <strong>File Serving:</strong> Serve static web content from the public directory</li>
-            <li>🔗 <strong>API Endpoints:</strong> POST/GET request handling for integrations</li>
-            <li>📊 <strong>Status Monitoring:</strong> Integration with Home Assistant and Cockpit</li>
-            <li>🐳 <strong>Containerized:</strong> Easy deployment with Docker</li>
-        </ul>
-        
-        <h3>API Endpoints:</h3>
-        <ul>
-            <li><code>GET /api/status</code> - Server status and metrics</li>
-            <li><code>POST /api/webhook</code> - Webhook receiver for external services</li>
-            <li><code>GET /api/data</code> - Data endpoint for integrations</li>
-        </ul>
-        
-        <div class="info-box">
-            <h4>For Home Assistant Integration:</h4>
-            <p>Add a RESTful sensor with URL: <code>http://your-server:3000/api/status</code></p>
+
+        <div class="content">
+            <!-- Server Status Section -->
+            <div class="server-info">
+                <h3>🖥️ Server Status</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-label">Status</div>
+                        <div class="status-value">
+                            <span class="status-indicator status-online"></span>
+                            <span id="serverStatus">Online</span>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Uptime</div>
+                        <div class="status-value" id="serverUptime">Loading...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Version</div>
+                        <div class="status-value" id="serverVersion">Loading...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Port</div>
+                        <div class="status-value" id="serverPort">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Join as Client Section -->
+            <div class="join-section">
+                <h3>👋 Join as a Client</h3>
+                <p>Enter your name to connect to this server and access client features.</p>
+                
+                <div id="alertContainer"></div>
+                
+                <form class="join-form" id="joinForm">
+                    <div class="form-group">
+                        <label for="visitorName">Your Name</label>
+                        <input type="text" id="visitorName" placeholder="Enter your name (e.g., John Doe)" required>
+                    </div>
+                    <button type="submit" class="btn" id="joinBtn">Join as Client</button>
+                </form>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="links">
+                <a href="/client" class="link">Client Dashboard</a>
+                <a href="/api/status" class="link">Server Status API</a>
+            </div>
         </div>
-        
-        <div class="links">
-            <a href="/admin" class="link">Admin Dashboard</a>
-            <a href="/api/status" class="link">Server Status</a>
-        </div>
-        
-        <p style="margin-top: 2rem; text-align: center; color: #666;">
-            Replace this file with your own content by uploading to the public directory.
-        </p>
     </div>
+
+    <script>
+        let serverData = null;
+
+        // Load server status
+        async function loadServerStatus() {
+            try {
+                const response = await fetch('/api/status');
+                serverData = await response.json();
+                
+                document.getElementById('serverUptime').textContent = Math.floor(serverData.server.uptime / 60) + ' minutes';
+                document.getElementById('serverPort').textContent = serverData.server.port;
+                document.getElementById('serverVersion').textContent = serverData.version;
+                document.getElementById('serverStatus').textContent = 'Online';
+                
+                // You could customize the server name here based on configuration
+                // For now, we'll keep the default
+            } catch (error) {
+                console.error('Failed to load server status:', error);
+                document.getElementById('serverStatus').textContent = 'Offline';
+                document.querySelector('.status-indicator').className = 'status-indicator';
+                document.querySelector('.status-indicator').style.background = '#f44336';
+            }
+        }
+
+        // Show alert message
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            container.querySelector('.alert').style.display = 'block';
+            
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Handle visitor registration
+        async function registerVisitor(name) {
+            try {
+                // Generate a simple device ID for the visitor
+                const deviceId = 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                
+                const response = await fetch('/api/visitor/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        deviceId: deviceId,
+                        deviceType: 'Visitor',
+                        userAgent: navigator.userAgent
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Welcome ${name}! You've been registered as a client. Redirecting to client dashboard...`, 'success');
+                    
+                    // Redirect to client page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/client';
+                    }, 2000);
+                } else {
+                    showAlert('Registration failed: ' + (result.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Registration failed:', error);
+                showAlert('Registration failed: ' + error.message, 'error');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('joinForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('visitorName').value.trim();
+            if (!name) {
+                showAlert('Please enter your name', 'error');
+                return;
+            }
+            
+            // Disable button to prevent double submission
+            const btn = document.getElementById('joinBtn');
+            btn.disabled = true;
+            btn.textContent = 'Joining...';
+            
+            registerVisitor(name).finally(() => {
+                btn.disabled = false;
+                btn.textContent = 'Join as Client';
+            });
+        });
+
+        // Load server status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServerStatus();
+        });
+    </script>
 </body>
 </html>
