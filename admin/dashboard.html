@@ -466,6 +466,78 @@
             </div>
         </div>
 
+        <!-- Client Access Management -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Client Access Management</h2>
+            </div>
+            <div class="card-body">
+                <h3>Client Settings</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="clientEnabled">Client Access</label>
+                        <select id="clientEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientRequirePassword">Password Protection</label>
+                        <select id="clientRequirePassword">
+                            <option value="false">Disabled</option>
+                            <option value="true">Enabled</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="clientPassword">Client Access Password</label>
+                    <input type="password" id="clientPassword" placeholder="Leave empty to disable password protection">
+                </div>
+                
+                <div class="form-group">
+                    <label for="welcomeMessage">Welcome Message</label>
+                    <input type="text" id="welcomeMessage" placeholder="Welcome to Local Server Site Pusher">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="showServerStatus">Show Server Status</label>
+                        <select id="showServerStatus">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="showUsefulLinks">Show Useful Links</label>
+                        <select id="showUsefulLinks">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="saveClientConfig" class="btn btn-primary">Save Client Settings</button>
+                
+                <div class="section-divider"></div>
+                
+                <h3>Connected Devices</h3>
+                <p>Devices that have accessed the client page:</p>
+                <div id="devicesContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        Loading devices...
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <p><strong>Client Access URL:</strong></p>
+                <p><a href="/client" target="_blank"><code>http://your-server:3000/client</code></a></p>
+                
+                <div id="clientAlert" class="alert"></div>
+            </div>
+        </div>
+
         <!-- System Logs -->
         <div class="card">
             <div class="card-header">
@@ -831,6 +903,123 @@
             }, 5000);
         }
         
+        // Load client configuration and devices
+        async function loadClientConfig() {
+            try {
+                const response = await fetch('/admin/api/client');
+                const data = await response.json();
+                
+                // Populate client configuration
+                const config = data.config;
+                document.getElementById('clientEnabled').value = config.enabled ? 'true' : 'false';
+                document.getElementById('clientRequirePassword').value = config.requirePassword ? 'true' : 'false';
+                document.getElementById('clientPassword').value = config.password || '';
+                document.getElementById('welcomeMessage').value = config.welcomeMessage || '';
+                document.getElementById('showServerStatus').value = config.showServerStatus ? 'true' : 'false';
+                document.getElementById('showUsefulLinks').value = config.showUsefulLinks ? 'true' : 'false';
+                
+                // Load connected devices
+                loadConnectedDevices(data.connectedDevices || []);
+            } catch (err) {
+                console.error('Failed to load client config:', err);
+                showAlert('Failed to load client configuration', 'error', 'clientAlert');
+            }
+        }
+        
+        // Load connected devices
+        function loadConnectedDevices(devices) {
+            const container = document.getElementById('devicesContainer');
+            
+            if (devices.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        No devices have connected yet
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = devices.map(device => {
+                const lastSeen = new Date(device.lastSeen);
+                const timeDiff = Math.floor((Date.now() - lastSeen.getTime()) / 1000 / 60); // minutes
+                const timeAgo = timeDiff < 1 ? 'Just now' : timeDiff < 60 ? `${timeDiff}m ago` : `${Math.floor(timeDiff/60)}h ago`;
+                
+                return `
+                    <div class="link-item" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                            <div>
+                                <strong>${device.name || 'Unnamed Device'}</strong>
+                                <span style="opacity: 0.7; margin-left: 0.5rem;">(${device.deviceType})</span>
+                            </div>
+                            <button class="btn btn-danger" onclick="removeDevice('${device.deviceId}')">Remove</button>
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">
+                            <div><strong>Browser:</strong> ${device.browserInfo}</div>
+                            <div><strong>IP:</strong> ${device.ip}</div>
+                            <div><strong>Last Seen:</strong> ${timeAgo}</div>
+                            <div><strong>Device ID:</strong> ${device.deviceId}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Save client configuration
+        async function saveClientConfig() {
+            const clientConfig = {
+                enabled: document.getElementById('clientEnabled').value === 'true',
+                requirePassword: document.getElementById('clientRequirePassword').value === 'true',
+                password: document.getElementById('clientPassword').value.trim(),
+                welcomeMessage: document.getElementById('welcomeMessage').value.trim(),
+                showServerStatus: document.getElementById('showServerStatus').value === 'true',
+                showUsefulLinks: document.getElementById('showUsefulLinks').value === 'true'
+            };
+            
+            try {
+                const response = await fetch('/admin/api/client', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(clientConfig)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Client configuration saved successfully!', 'success', 'clientAlert');
+                } else {
+                    showAlert('Failed to save client configuration: ' + result.error, 'error', 'clientAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving client configuration: ' + err.message, 'error', 'clientAlert');
+            }
+        }
+        
+        // Remove device
+        async function removeDevice(deviceId) {
+            if (!confirm('Are you sure you want to remove this device?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/client/device/${deviceId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Device removed successfully!', 'success', 'clientAlert');
+                    loadClientConfig(); // Reload to refresh device list
+                } else {
+                    showAlert('Failed to remove device: ' + result.error, 'error', 'clientAlert');
+                }
+            } catch (err) {
+                showAlert('Error removing device: ' + err.message, 'error', 'clientAlert');
+            }
+        }
+        
         // Event listeners
         document.getElementById('saveBasicConfig').addEventListener('click', saveBasicConfig);
         document.getElementById('saveStorageConfig').addEventListener('click', saveStorageConfig);
@@ -838,12 +1027,14 @@
         document.getElementById('resetConfig').addEventListener('click', resetConfig);
         document.getElementById('refreshLogs').addEventListener('click', loadLogs);
         document.getElementById('addLink').addEventListener('click', addLink);
+        document.getElementById('saveClientConfig').addEventListener('click', saveClientConfig);
         
         // Load initial data
         loadStatus();
         loadConfig();
         loadLogs();
         loadLinks();
+        loadClientConfig();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);
