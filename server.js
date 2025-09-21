@@ -31,50 +31,91 @@ const defaultConfig = {
   }
 };
 
+// Function to safely create config file
+function createConfigFile(configPath, config) {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return true;
+  } catch (err) {
+    console.warn('Cannot write config file:', err.message);
+    return false;
+  }
+}
+
+// Function to check if directory is writable
+function isDirectoryWritable(dirPath) {
+  try {
+    const testFile = path.join(dirPath, '.write-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 // Load configuration with fallback to default
 let config = {};
+let configWritable = false;
+
 try {
   // Ensure config directory exists
   if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
-    console.log('Created config directory');
+    try {
+      fs.mkdirSync(configDir, { recursive: true });
+      console.log('Created config directory');
+    } catch (err) {
+      console.warn('Cannot create config directory:', err.message);
+    }
   }
+  
+  // Check if config directory is writable
+  configWritable = isDirectoryWritable(configDir);
   
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     console.log('Loaded configuration from config/config.json');
   } else {
     config = defaultConfig;
-    // Create initial config file
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
-    console.log('Created default configuration file');
+    if (configWritable) {
+      if (createConfigFile(configPath, defaultConfig)) {
+        console.log('Created default configuration file');
+      }
+    } else {
+      console.log('Config directory not writable, using in-memory configuration only');
+    }
   }
 } catch (err) {
-  console.error('Error loading config, using defaults:', err);
+  console.error('Error loading config, using defaults:', err.message);
   config = defaultConfig;
-  // Try to create default config file if possible
-  try {
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
-    console.log('Created default configuration file after error');
-  } catch (writeErr) {
-    console.warn('Could not create config file, using in-memory defaults:', writeErr);
+  
+  if (configWritable) {
+    createConfigFile(configPath, defaultConfig);
   }
 }
 
 const PORT = config.server.port || 3000;
 
+// Session configuration
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || config.server.sessionSecret || 'local-server-secret-' + Date.now(),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+};
+
+// Add session store warning for production
+if (process.env.NODE_ENV === 'production') {
+  console.warn('INFO: Using in-memory session store. For production with multiple instances, consider using a persistent session store like Redis.');
+}
+
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
-  secret: 'local-server-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false }
-}));
+app.use(session(sessionConfig));
 
 // Static files for public web content
 app.use('/public', express.static(path.join(__dirname, 'public')));
@@ -134,13 +175,31 @@ app.post('/admin/api/config', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'Invalid config structure' });
     }
     
-    // Write to file
-    fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
-    
-    // Reload config in memory
+    // Update config in memory first
     config = newConfig;
     
-    res.json({ success: true, message: 'Configuration updated successfully' });
+    // Try to write to file if possible
+    if (configWritable) {
+      if (createConfigFile(configPath, newConfig)) {
+        res.json({ 
+          success: true, 
+          message: 'Configuration updated and saved to file successfully',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Configuration updated in memory (file save failed - config directory not writable)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Configuration updated in memory only (config directory not writable)',
+        persistent: false
+      });
+    }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update configuration: ' + err.message });
   }
