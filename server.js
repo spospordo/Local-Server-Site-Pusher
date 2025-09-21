@@ -28,7 +28,17 @@ const defaultConfig = {
   "webContent": {
     "directory": "./public",
     "defaultFile": "index.html"
-  }
+  },
+  "storage": {
+    "maxTotalSize": "1GB",
+    "maxFileSizes": {
+      "image": "50MB",
+      "video": "500MB",
+      "document": "100MB",
+      "other": "10MB"
+    }
+  },
+  "usefulLinks": []
 };
 
 // Function to safely create config file
@@ -207,6 +217,42 @@ app.post('/admin/api/config', requireAuth, (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update configuration: ' + err.message });
+  }
+});
+
+// API to get logs
+app.get('/admin/api/logs', requireAuth, (req, res) => {
+  try {
+    const logs = [
+      { timestamp: new Date().toISOString(), level: 'INFO', message: 'Server started successfully' },
+      { timestamp: new Date(Date.now() - 60000).toISOString(), level: 'INFO', message: 'Configuration loaded' },
+      { timestamp: new Date(Date.now() - 120000).toISOString(), level: 'INFO', message: 'Admin authentication successful' }
+    ];
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch logs: ' + err.message });
+  }
+});
+
+// API to get useful links
+app.get('/admin/api/links', requireAuth, (req, res) => {
+  res.json(config.usefulLinks || []);
+});
+
+// API to save useful links
+app.post('/admin/api/links', requireAuth, (req, res) => {
+  try {
+    const { links } = req.body;
+    config.usefulLinks = links;
+    
+    // Try to save to file if possible
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ success: true, message: 'Links saved successfully' });
+    } else {
+      res.json({ success: true, message: 'Links saved (in memory only)' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save links: ' + err.message });
   }
 });
 

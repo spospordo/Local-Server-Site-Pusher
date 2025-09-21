@@ -98,6 +98,36 @@
             color: #333;
         }
         
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
         .config-editor {
             width: 100%;
             height: 400px;
@@ -114,22 +144,44 @@
         }
         
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
             border-radius: 5px;
             cursor: pointer;
             font-size: 1rem;
-            margin-top: 1rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: background 0.3s;
         }
         
         .btn:hover {
-            opacity: 0.9;
+            background: #5a6fd8;
         }
         
         .btn-secondary {
             background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
         }
         
         .alert {
@@ -151,9 +203,98 @@
             border: 1px solid #f5c6cb;
         }
         
+        .warning-box {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .warning-box strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
         .section-divider {
-            margin: 2rem 0;
             border-top: 1px solid #eee;
+            margin: 1.5rem 0;
+        }
+        
+        .logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 1rem;
+            background: #f8f9fa;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+        }
+        
+        .log-timestamp {
+            color: #6c757d;
+            margin-right: 1rem;
+        }
+        
+        .log-level {
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        .log-level.INFO {
+            color: #28a745;
+        }
+        
+        .log-level.WARN {
+            color: #ffc107;
+        }
+        
+        .log-level.ERROR {
+            color: #dc3545;
+        }
+        
+        .links-list {
+            list-style: none;
+        }
+        
+        .link-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .link-item a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .link-item a:hover {
+            text-decoration: underline;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .toggle-section {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .toggle-section:hover {
+            color: #667eea;
         }
     </style>
 </head>
@@ -166,6 +307,7 @@
     </div>
     
     <div class="container">
+        <!-- Server Status -->
         <div class="card">
             <div class="card-header">
                 <h2>Server Status</h2>
@@ -179,21 +321,165 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- Configuration Management -->
         <div class="card">
             <div class="card-header">
-                <h2>Configuration Editor</h2>
+                <h2>Configuration Management</h2>
             </div>
             <div class="card-body">
-                <textarea id="configEditor" class="config-editor" placeholder="Loading configuration..."></textarea>
-                <div>
-                    <button id="saveConfig" class="btn">Save Configuration</button>
-                    <button id="resetConfig" class="btn btn-secondary">Reset</button>
+                <!-- Basic Settings Form -->
+                <div id="basicConfig">
+                    <h3>Basic Settings</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serverPort">Server Port</label>
+                            <input type="number" id="serverPort" value="3000">
+                        </div>
+                        <div class="form-group">
+                            <label for="adminUsername">Admin Username</label>
+                            <input type="text" id="adminUsername" value="admin">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminPassword">Admin Password</label>
+                        <input type="password" id="adminPassword" value="admin123">
+                    </div>
+                    
+                    <h3>Integrations</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="homeAssistantEnabled">Home Assistant</label>
+                            <select id="homeAssistantEnabled">
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="homeAssistantUrl">Home Assistant URL</label>
+                            <input type="url" id="homeAssistantUrl" value="http://localhost:8123">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cockpitEnabled">Cockpit</label>
+                            <select id="cockpitEnabled">
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cockpitUrl">Cockpit URL</label>
+                            <input type="url" id="cockpitUrl" value="http://localhost:9090">
+                        </div>
+                    </div>
+                    
+                    <button id="saveBasicConfig" class="btn">Save Basic Configuration</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Advanced Configuration Editor -->
+                <div class="toggle-section" onclick="toggleAdvancedConfig()">
+                    <h3>⚠️ Advanced Users - Configuration Editor (Click to expand)</h3>
+                </div>
+                <div id="advancedConfig" class="hidden">
+                    <div class="warning-box">
+                        <strong>⚠️ Warning - Advanced Configuration</strong>
+                        This section allows direct editing of the configuration file. Incorrect modifications may break the server. 
+                        Only modify these settings if you understand the configuration structure.
+                    </div>
+                    <textarea id="configEditor" class="config-editor" placeholder="Loading configuration..."></textarea>
+                    <div>
+                        <button id="saveConfig" class="btn">Save Advanced Configuration</button>
+                        <button id="resetConfig" class="btn btn-secondary">Reset</button>
+                    </div>
                 </div>
                 <div id="configAlert" class="alert"></div>
             </div>
         </div>
-        
+
+        <!-- Storage Management -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Storage Management</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="maxTotalSize">Maximum Total Storage</label>
+                    <input type="text" id="maxTotalSize" placeholder="e.g., 1GB, 500MB">
+                </div>
+                
+                <h3>File Type Limits</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxImageSize">Images (jpg, png, gif, etc.)</label>
+                        <input type="text" id="maxImageSize" placeholder="e.g., 50MB">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxVideoSize">Videos (mp4, avi, etc.)</label>
+                        <input type="text" id="maxVideoSize" placeholder="e.g., 500MB">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxDocumentSize">Documents (pdf, doc, etc.)</label>
+                        <input type="text" id="maxDocumentSize" placeholder="e.g., 100MB">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxOtherSize">Other Files</label>
+                        <input type="text" id="maxOtherSize" placeholder="e.g., 10MB">
+                    </div>
+                </div>
+                
+                <button id="saveStorageConfig" class="btn">Save Storage Settings</button>
+                <div id="storageAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- Useful Links Management -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Useful Links</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="linkName">Link Name</label>
+                        <input type="text" id="linkName" placeholder="e.g., Documentation">
+                    </div>
+                    <div class="form-group">
+                        <label for="linkUrl">URL</label>
+                        <input type="url" id="linkUrl" placeholder="https://example.com">
+                    </div>
+                </div>
+                <button id="addLink" class="btn btn-success">Add Link</button>
+                
+                <div class="section-divider"></div>
+                
+                <h3>Saved Links</h3>
+                <ul id="linksList" class="links-list">
+                    <!-- Links will be loaded here -->
+                </ul>
+                
+                <div id="linksAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- System Logs -->
+        <div class="card">
+            <div class="card-header">
+                <h2>System Logs</h2>
+            </div>
+            <div class="card-body">
+                <button id="refreshLogs" class="btn btn-secondary">Refresh Logs</button>
+                <div id="logsContainer" class="logs-container">
+                    <!-- Logs will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
         <div class="card">
             <div class="card-header">
                 <h2>Quick Actions</h2>
@@ -225,6 +511,7 @@
     
     <script>
         let originalConfig = '';
+        let currentLinks = [];
         
         // Load server status
         async function loadStatus() {
@@ -270,14 +557,128 @@
                 const response = await fetch('/admin/api/config');
                 const config = await response.json();
                 originalConfig = JSON.stringify(config, null, 2);
+                
+                // Populate basic config form
+                document.getElementById('serverPort').value = config.server.port;
+                document.getElementById('adminUsername').value = config.server.admin.username;
+                document.getElementById('adminPassword').value = config.server.admin.password;
+                document.getElementById('homeAssistantEnabled').value = config.homeAssistant.enabled;
+                document.getElementById('homeAssistantUrl').value = config.homeAssistant.url;
+                document.getElementById('cockpitEnabled').value = config.cockpit.enabled;
+                document.getElementById('cockpitUrl').value = config.cockpit.url;
+                
+                // Populate storage config
+                if (config.storage) {
+                    document.getElementById('maxTotalSize').value = config.storage.maxTotalSize || '';
+                    if (config.storage.maxFileSizes) {
+                        document.getElementById('maxImageSize').value = config.storage.maxFileSizes.image || '';
+                        document.getElementById('maxVideoSize').value = config.storage.maxFileSizes.video || '';
+                        document.getElementById('maxDocumentSize').value = config.storage.maxFileSizes.document || '';
+                        document.getElementById('maxOtherSize').value = config.storage.maxFileSizes.other || '';
+                    }
+                }
+                
+                // Populate advanced editor
                 document.getElementById('configEditor').value = originalConfig;
             } catch (err) {
                 console.error('Failed to load config:', err);
-                showAlert('Failed to load configuration', 'error');
+                showAlert('Failed to load configuration', 'error', 'configAlert');
             }
         }
         
-        // Save configuration
+        // Save basic configuration
+        async function saveBasicConfig() {
+            try {
+                const config = {
+                    server: {
+                        port: parseInt(document.getElementById('serverPort').value),
+                        admin: {
+                            username: document.getElementById('adminUsername').value,
+                            password: document.getElementById('adminPassword').value
+                        }
+                    },
+                    homeAssistant: {
+                        enabled: document.getElementById('homeAssistantEnabled').value === 'true',
+                        url: document.getElementById('homeAssistantUrl').value
+                    },
+                    cockpit: {
+                        enabled: document.getElementById('cockpitEnabled').value === 'true',
+                        url: document.getElementById('cockpitUrl').value
+                    },
+                    webContent: {
+                        directory: "./public",
+                        defaultFile: "index.html"
+                    }
+                };
+                
+                // Get current config to preserve other settings
+                const currentResponse = await fetch('/admin/api/config');
+                const currentConfig = await currentResponse.json();
+                
+                // Merge with existing config
+                const mergedConfig = { ...currentConfig, ...config };
+                
+                const response = await fetch('/admin/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(mergedConfig)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Basic configuration saved successfully!', 'success', 'configAlert');
+                    setTimeout(loadStatus, 1000); // Refresh status
+                    setTimeout(loadConfig, 1000); // Refresh config
+                } else {
+                    showAlert('Failed to save: ' + result.error, 'error', 'configAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving configuration: ' + err.message, 'error', 'configAlert');
+            }
+        }
+        
+        // Save storage configuration
+        async function saveStorageConfig() {
+            try {
+                // Get current config
+                const currentResponse = await fetch('/admin/api/config');
+                const config = await currentResponse.json();
+                
+                // Update storage settings
+                config.storage = {
+                    maxTotalSize: document.getElementById('maxTotalSize').value,
+                    maxFileSizes: {
+                        image: document.getElementById('maxImageSize').value,
+                        video: document.getElementById('maxVideoSize').value,
+                        document: document.getElementById('maxDocumentSize').value,
+                        other: document.getElementById('maxOtherSize').value
+                    }
+                };
+                
+                const response = await fetch('/admin/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Storage settings saved successfully!', 'success', 'storageAlert');
+                } else {
+                    showAlert('Failed to save storage settings: ' + result.error, 'error', 'storageAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving storage settings: ' + err.message, 'error', 'storageAlert');
+            }
+        }
+        
+        // Save advanced configuration
         async function saveConfig() {
             try {
                 const configText = document.getElementById('configEditor').value;
@@ -295,25 +696,132 @@
                 
                 if (result.success) {
                     originalConfig = configText;
-                    showAlert('Configuration saved successfully!', 'success');
+                    showAlert('Advanced configuration saved successfully!', 'success', 'configAlert');
                     setTimeout(loadStatus, 1000); // Refresh status
+                    setTimeout(loadConfig, 1000); // Refresh basic form
                 } else {
-                    showAlert('Failed to save: ' + result.error, 'error');
+                    showAlert('Failed to save: ' + result.error, 'error', 'configAlert');
                 }
             } catch (err) {
-                showAlert('Invalid JSON format: ' + err.message, 'error');
+                showAlert('Invalid JSON format: ' + err.message, 'error', 'configAlert');
             }
         }
         
         // Reset configuration
         function resetConfig() {
             document.getElementById('configEditor').value = originalConfig;
-            showAlert('Configuration reset to last saved version', 'success');
+            showAlert('Configuration reset to last saved version', 'success', 'configAlert');
+        }
+        
+        // Toggle advanced config section
+        function toggleAdvancedConfig() {
+            const section = document.getElementById('advancedConfig');
+            section.classList.toggle('hidden');
+        }
+        
+        // Load logs
+        async function loadLogs() {
+            try {
+                const response = await fetch('/admin/api/logs');
+                const logs = await response.json();
+                
+                const container = document.getElementById('logsContainer');
+                container.innerHTML = logs.map(log => `
+                    <div class="log-entry">
+                        <span class="log-timestamp">${new Date(log.timestamp).toLocaleString()}</span>
+                        <span class="log-level ${log.level}">${log.level}</span>
+                        <span class="log-message">${log.message}</span>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load logs:', err);
+            }
+        }
+        
+        // Load useful links
+        async function loadLinks() {
+            try {
+                const response = await fetch('/admin/api/links');
+                const links = await response.json();
+                currentLinks = links;
+                
+                const container = document.getElementById('linksList');
+                container.innerHTML = links.length > 0 ? links.map((link, index) => `
+                    <li class="link-item">
+                        <a href="${link.url}" target="_blank">${link.name}</a>
+                        <button class="btn btn-danger" onclick="removeLink(${index})">Remove</button>
+                    </li>
+                `).join('') : '<li style="text-align: center; color: #6c757d;">No links saved yet</li>';
+            } catch (err) {
+                console.error('Failed to load links:', err);
+            }
+        }
+        
+        // Add useful link
+        async function addLink() {
+            const name = document.getElementById('linkName').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
+            
+            if (!name || !url) {
+                showAlert('Please enter both name and URL', 'error', 'linksAlert');
+                return;
+            }
+            
+            currentLinks.push({ name, url });
+            
+            try {
+                const response = await fetch('/admin/api/links', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ links: currentLinks })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('linkName').value = '';
+                    document.getElementById('linkUrl').value = '';
+                    showAlert('Link added successfully!', 'success', 'linksAlert');
+                    loadLinks();
+                } else {
+                    showAlert('Failed to add link: ' + result.error, 'error', 'linksAlert');
+                }
+            } catch (err) {
+                showAlert('Error adding link: ' + err.message, 'error', 'linksAlert');
+            }
+        }
+        
+        // Remove useful link
+        async function removeLink(index) {
+            currentLinks.splice(index, 1);
+            
+            try {
+                const response = await fetch('/admin/api/links', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ links: currentLinks })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Link removed successfully!', 'success', 'linksAlert');
+                    loadLinks();
+                } else {
+                    showAlert('Failed to remove link: ' + result.error, 'error', 'linksAlert');
+                }
+            } catch (err) {
+                showAlert('Error removing link: ' + err.message, 'error', 'linksAlert');
+            }
         }
         
         // Show alert
-        function showAlert(message, type) {
-            const alert = document.getElementById('configAlert');
+        function showAlert(message, type, containerId) {
+            const alert = document.getElementById(containerId);
             alert.textContent = message;
             alert.className = `alert alert-${type}`;
             alert.style.display = 'block';
@@ -324,12 +832,18 @@
         }
         
         // Event listeners
+        document.getElementById('saveBasicConfig').addEventListener('click', saveBasicConfig);
+        document.getElementById('saveStorageConfig').addEventListener('click', saveStorageConfig);
         document.getElementById('saveConfig').addEventListener('click', saveConfig);
         document.getElementById('resetConfig').addEventListener('click', resetConfig);
+        document.getElementById('refreshLogs').addEventListener('click', loadLogs);
+        document.getElementById('addLink').addEventListener('click', addLink);
         
         // Load initial data
         loadStatus();
         loadConfig();
+        loadLogs();
+        loadLinks();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);
