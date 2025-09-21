@@ -446,8 +446,8 @@
             <div class="card-body">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="linkName">Link Name</label>
-                        <input type="text" id="linkName" placeholder="e.g., Documentation">
+                        <label for="linkName">Link Name (Optional)</label>
+                        <input type="text" id="linkName" placeholder="e.g., Documentation (optional)">
                     </div>
                     <div class="form-group">
                         <label for="linkUrl">URL</label>
@@ -837,12 +837,10 @@
             const name = document.getElementById('linkName').value.trim();
             const url = document.getElementById('linkUrl').value.trim();
             
-            if (!name || !url) {
-                showAlert('Please enter both name and URL', 'error', 'linksAlert');
+            if (!url) {
+                showAlert('Please enter a URL', 'error', 'linksAlert');
                 return;
             }
-            
-            currentLinks.push({ name, url });
             
             try {
                 const response = await fetch('/admin/api/links', {
@@ -850,7 +848,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ links: currentLinks })
+                    body: JSON.stringify({ name, url })
                 });
                 
                 const result = await response.json();
