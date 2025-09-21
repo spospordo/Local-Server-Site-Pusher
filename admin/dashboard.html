@@ -343,7 +343,8 @@
                     </div>
                     <div class="form-group">
                         <label for="adminPassword">Admin Password</label>
-                        <input type="password" id="adminPassword" value="admin123">
+                        <input type="password" id="adminPassword" value="admin123" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                        <small style="color: #666; display: block; margin-top: 4px;">Password is protected. Use a dedicated password change method to modify.</small>
                     </div>
                     
                     <h3>Integrations</h3>
@@ -665,8 +666,8 @@
                     server: {
                         port: parseInt(document.getElementById('serverPort').value),
                         admin: {
-                            username: document.getElementById('adminUsername').value,
-                            password: document.getElementById('adminPassword').value
+                            username: document.getElementById('adminUsername').value
+                            // Note: password is intentionally omitted to prevent overwriting
                         }
                     },
                     homeAssistant: {
@@ -687,8 +688,10 @@
                 const currentResponse = await fetch('/admin/api/config');
                 const currentConfig = await currentResponse.json();
                 
-                // Merge with existing config
+                // Merge with existing config, preserving the current admin password
                 const mergedConfig = { ...currentConfig, ...config };
+                // Ensure admin password is preserved from current config
+                mergedConfig.server.admin.password = currentConfig.server.admin.password;
                 
                 const response = await fetch('/admin/api/config', {
                     method: 'POST',
