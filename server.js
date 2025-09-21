@@ -86,11 +86,16 @@ try {
     }
   }
 } catch (err) {
-  console.error('Error loading config, using defaults:', err.message);
+  console.error('Error loading config, using defaults:', err);
   config = defaultConfig;
   
+  // Try to create config file only if directory is writable
   if (configWritable) {
-    createConfigFile(configPath, defaultConfig);
+    if (!createConfigFile(configPath, defaultConfig)) {
+      console.log('Could not create config file, using in-memory defaults');
+    }
+  } else {
+    console.log('Config directory not writable, using in-memory defaults');
   }
 }
 
