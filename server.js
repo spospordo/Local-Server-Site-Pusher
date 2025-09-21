@@ -3,10 +3,63 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
 const configPath = path.join(configDir, 'config.json');
+const clientPasswordPath = path.join(configDir, '.client_auth');
+
+// Client password encryption utilities
+const SALT_ROUNDS = 12;
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, SALT_ROUNDS * 1000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, storedPassword) {
+  if (!storedPassword) return false;
+  const [salt, hash] = storedPassword.split(':');
+  if (!salt || !hash) return false;
+  const verifyHash = crypto.pbkdf2Sync(password, salt, SALT_ROUNDS * 1000, 64, 'sha512').toString('hex');
+  return hash === verifyHash;
+}
+
+function saveClientPasswordHash(passwordHash) {
+  try {
+    fs.writeFileSync(clientPasswordPath, passwordHash, { mode: 0o600 });
+    return true;
+  } catch (err) {
+    console.warn('Cannot write client password file:', err.message);
+    return false;
+  }
+}
+
+function loadClientPasswordHash() {
+  try {
+    if (fs.existsSync(clientPasswordPath)) {
+      return fs.readFileSync(clientPasswordPath, 'utf8').trim();
+    }
+    return null;
+  } catch (err) {
+    console.warn('Cannot read client password file:', err.message);
+    return null;
+  }
+}
+
+function deleteClientPasswordHash() {
+  try {
+    if (fs.existsSync(clientPasswordPath)) {
+      fs.unlinkSync(clientPasswordPath);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Cannot delete client password file:', err.message);
+    return false;
+  }
+}
 
 // Default configuration
 const defaultConfig = {
@@ -42,7 +95,6 @@ const defaultConfig = {
   "client": {
     "enabled": true,
     "requirePassword": false,
-    "password": "",
     "showServerStatus": true,
     "showUsefulLinks": true,
     "welcomeMessage": "Welcome to Local Server Site Pusher"
@@ -518,11 +570,168 @@ app.post('/api/client/authenticate', (req, res) => {
     return res.json({ success: true, message: 'No password required' });
   }
   
-  if (password === clientConfig.password) {
+  // Load the hashed password from secure file
+  const storedPasswordHash = loadClientPasswordHash();
+  
+  if (!storedPasswordHash) {
+    return res.status(401).json({ success: false, error: 'No password set. Please set up a password first.' });
+  }
+  
+  if (verifyPassword(password, storedPasswordHash)) {
     req.session.clientAuthenticated = true;
     res.json({ success: true, message: 'Authentication successful' });
   } else {
     res.status(401).json({ success: false, error: 'Invalid password' });
+  }
+});
+
+// Client password management endpoints
+app.post('/api/client/set-password', (req, res) => {
+  const { newPassword } = req.body;
+  
+  // Validate input
+  if (!newPassword) {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+  
+  try {
+    // Hash and save the new password
+    const hashedPassword = hashPassword(newPassword);
+    
+    if (saveClientPasswordHash(hashedPassword)) {
+      // Enable password protection in config
+      if (!config.client) {
+        config.client = {
+          enabled: true,
+          requirePassword: true,
+          showServerStatus: true,
+          showUsefulLinks: true,
+          welcomeMessage: "Welcome to Local Server Site Pusher"
+        };
+      } else {
+        config.client.requirePassword = true;
+      }
+      
+      // Save config
+      if (configWritable) {
+        createConfigFile(configPath, config);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Password set successfully. Password protection is now enabled.' 
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to save password' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to set password: ' + err.message });
+  }
+});
+
+app.post('/api/client/change-password', (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  // Validate input
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  }
+  
+  try {
+    // Load and verify current password
+    const storedPasswordHash = loadClientPasswordHash();
+    
+    if (!storedPasswordHash) {
+      return res.status(400).json({ error: 'No password currently set' });
+    }
+    
+    if (!verifyPassword(currentPassword, storedPasswordHash)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    
+    // Hash and save the new password
+    const hashedPassword = hashPassword(newPassword);
+    
+    if (saveClientPasswordHash(hashedPassword)) {
+      res.json({ 
+        success: true, 
+        message: 'Password changed successfully' 
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to save new password' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to change password: ' + err.message });
+  }
+});
+
+app.post('/api/client/remove-password', (req, res) => {
+  const { currentPassword } = req.body;
+  
+  // Validate input
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'Current password is required' });
+  }
+  
+  try {
+    // Load and verify current password
+    const storedPasswordHash = loadClientPasswordHash();
+    
+    if (!storedPasswordHash) {
+      return res.status(400).json({ error: 'No password currently set' });
+    }
+    
+    if (!verifyPassword(currentPassword, storedPasswordHash)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    
+    // Remove password file and disable password protection
+    if (deleteClientPasswordHash()) {
+      // Disable password protection in config
+      if (config.client) {
+        config.client.requirePassword = false;
+      }
+      
+      // Save config
+      if (configWritable) {
+        createConfigFile(configPath, config);
+      }
+      
+      // Clear any existing client authentication sessions
+      // Note: This won't affect existing sessions, but new access won't require password
+      
+      res.json({ 
+        success: true, 
+        message: 'Password protection removed successfully' 
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to remove password' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove password: ' + err.message });
+  }
+});
+
+app.get('/api/client/password-status', (req, res) => {
+  try {
+    const hasPassword = loadClientPasswordHash() !== null;
+    const clientConfig = config.client || { requirePassword: false };
+    
+    res.json({
+      hasPassword: hasPassword,
+      requirePassword: clientConfig.requirePassword,
+      isProtected: hasPassword && clientConfig.requirePassword
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check password status: ' + err.message });
   }
 });
 
@@ -683,38 +892,46 @@ app.get('/admin/api/client', requireAuth, (req, res) => {
   const clientConfig = config.client || {
     enabled: true,
     requirePassword: false,
-    password: "",
     showServerStatus: true,
     showUsefulLinks: true,
     welcomeMessage: "Welcome to Local Server Site Pusher"
   };
   
+  // Check if client has a password set (but don't expose it)
+  const hasPassword = loadClientPasswordHash() !== null;
+  
   res.json({
-    config: clientConfig,
+    config: {
+      enabled: clientConfig.enabled,
+      requirePassword: clientConfig.requirePassword,
+      hasPassword: hasPassword,
+      showServerStatus: clientConfig.showServerStatus,
+      showUsefulLinks: clientConfig.showUsefulLinks,
+      welcomeMessage: clientConfig.welcomeMessage
+    },
     connectedDevices: config.connectedDevices || []
   });
 });
 
 app.post('/admin/api/client', requireAuth, (req, res) => {
   try {
-    const { enabled, requirePassword, password, showServerStatus, showUsefulLinks, welcomeMessage } = req.body;
+    const { enabled, showServerStatus, showUsefulLinks, welcomeMessage } = req.body;
     
     // Ensure client config exists
     if (!config.client) {
       config.client = {
         enabled: true,
         requirePassword: false,
-        password: "",
         showServerStatus: true,
         showUsefulLinks: true,
         welcomeMessage: "Welcome to Local Server Site Pusher"
       };
     }
     
+    // Admin can only modify these settings, not password-related ones
     config.client = {
       enabled: enabled !== undefined ? enabled : config.client.enabled,
-      requirePassword: requirePassword !== undefined ? requirePassword : config.client.requirePassword,
-      password: password !== undefined ? password : config.client.password,
+      requirePassword: config.client.requirePassword, // Keep existing password requirement setting
       showServerStatus: showServerStatus !== undefined ? showServerStatus : config.client.showServerStatus,
       showUsefulLinks: showUsefulLinks !== undefined ? showUsefulLinks : config.client.showUsefulLinks,
       welcomeMessage: welcomeMessage !== undefined ? welcomeMessage : config.client.welcomeMessage
