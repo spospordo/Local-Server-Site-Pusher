@@ -19,8 +19,8 @@
         }
 
         .container {
-            max-width: 600px;
-            margin: 2rem auto;
+            max-width: 800px;
+            margin: 1rem auto;
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -35,17 +35,62 @@
         }
 
         .header h1 {
-            font-size: 2rem;
+            font-size: 2.5rem;
             margin-bottom: 0.5rem;
+        }
+
+        .server-name {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            opacity: 0.9;
         }
 
         .header p {
             opacity: 0.9;
             font-size: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
         }
 
         .content {
             padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .description-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            padding: 1.5rem;
+            border-left: 4px solid #007bff;
+            margin-bottom: 2rem;
+        }
+
+        .description-section p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .description-section ul {
+            color: #555;
+            padding-left: 1.5rem;
+        }
+
+        .description-section li {
+            margin-bottom: 0.5rem;
         }
 
         .server-info {
@@ -56,17 +101,9 @@
             border-left: 4px solid #4CAF50;
         }
 
-        .server-info h3 {
-            color: #333;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
         .status-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 1rem;
             margin-top: 1rem;
         }
@@ -104,26 +141,41 @@
             box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
         }
 
-        .join-section {
+        /* Welcome Section for Unrecognized Devices */
+        .welcome-section {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .welcome-section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-section p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Visitor Registration Form */
+        .visitor-form {
+            background: white;
+            border-radius: 10px;
             padding: 1.5rem;
             margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .join-section h3 {
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .join-form {
+        .form-row {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
-            margin-top: 1rem;
+            margin-bottom: 1rem;
         }
 
         .form-group {
@@ -135,7 +187,7 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
-            opacity: 0.9;
+            color: #333;
         }
 
         .form-group input {
@@ -242,14 +294,67 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 Welcome to Local Server</h1>
-            <p id="serverName">Local Server Site Pusher</p>
+            <h1>🌐 Welcome!</h1>
+            <div class="server-name" id="serverName">Local Server Site Pusher</div>
+            <p id="serverDescription">Loading server information...</p>
         </div>
 
         <div class="content">
+            <!-- Welcome Section for New Visitors -->
+            <div id="welcomeSection" class="welcome-section hidden">
+                <h2>👋 Hello, New Visitor!</h2>
+                <p>We don't recognize your device yet. Welcome to our server! Please introduce yourself below to get started.</p>
+            </div>
+
+            <!-- Returning Visitor Section -->
+            <div id="returningSection" class="hidden">
+                <div class="alert alert-success">
+                    <strong>Welcome back, <span id="returningName"></span>!</strong> 
+                    Your device has been recognized.
+                </div>
+            </div>
+
+            <!-- Server Description Section -->
+            <div class="description-section">
+                <h3>📋 About This Server</h3>
+                <p id="fullDescription">This server provides a containerized environment for building and deploying websites.</p>
+                <p><strong>Key Features:</strong></p>
+                <ul>
+                    <li>Upload and manage web content</li>
+                    <li>Build and deploy websites automatically</li>
+                    <li>Access admin dashboard for configuration</li>
+                    <li>Monitor server status and connected devices</li>
+                </ul>
+            </div>
+
+            <!-- Visitor Registration Form -->
+            <div id="visitorForm" class="visitor-form">
+                <h3>🔑 Join This Server</h3>
+                <p>Set up your identity to unlock additional features and personalize your experience.</p>
+                
+                <div id="alertContainer"></div>
+                
+                <form id="registrationForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="visitorName">Your Name *</label>
+                            <input type="text" id="visitorName" placeholder="Enter your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="visitorPassword">Optional Password</label>
+                            <input type="password" id="visitorPassword" placeholder="Set a password (optional)">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn" id="registerBtn">Register & Join</button>
+                </form>
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                    Setting a password will unlock additional features and secure your identity on this server.
+                </p>
+            </div>
+
             <!-- Server Status Section -->
-            <div class="server-info">
-                <h3>🖥️ Server Status</h3>
+            <div class="server-info section">
+                <h3>📊 Server Status</h3>
                 <div class="status-grid">
                     <div class="status-item">
                         <div class="status-label">Status</div>
@@ -273,71 +378,184 @@
                 </div>
             </div>
 
-            <!-- Join as Client Section -->
-            <div class="join-section">
-                <h3>👋 Join as a Client</h3>
-                <p>Enter your name to connect to this server and access client features.</p>
-                
-                <div id="alertContainer"></div>
-                
-                <form class="join-form" id="joinForm">
-                    <div class="form-group">
-                        <label for="visitorName">Your Name</label>
-                        <input type="text" id="visitorName" placeholder="Enter your name (e.g., John Doe)" required>
-                    </div>
-                    <button type="submit" class="btn" id="joinBtn">Join as Client</button>
-                </form>
+            <!-- Connected Users Section -->
+            <div class="users-section section">
+                <h3>👥 Connected Users & Visitors</h3>
+                <div id="usersContainer">
+                    <p>Loading connected users...</p>
+                </div>
             </div>
 
-            <!-- Quick Links -->
-            <div class="links">
-                <a href="/client" class="link">Client Dashboard</a>
-                <a href="/api/status" class="link">Server Status API</a>
+            <!-- Useful Links Section -->
+            <div class="links-section section">
+                <h3>🔗 Useful Links</h3>
+                <div id="linksContainer" class="links-grid">
+                    <p>Loading available links...</p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        let deviceId = null;
+        let isRecognized = false;
         let serverData = null;
 
-        // Load server status
-        async function loadServerStatus() {
+        // Generate unique device ID
+        function generateDeviceId() {
+            const stored = localStorage.getItem('lssp_device_id');
+            if (stored) {
+                return stored;
+            }
+            
+            const id = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('lssp_device_id', id);
+            return id;
+        }
+
+        // Detect device information
+        function detectDevice() {
+            const userAgent = navigator.userAgent;
+            let deviceType = 'Desktop';
+            
+            if (/Mobi|Android/i.test(userAgent)) {
+                deviceType = 'Mobile';
+            } else if (/Tablet|iPad/i.test(userAgent)) {
+                deviceType = 'Tablet';
+            }
+            
+            return { deviceType, userAgent };
+        }
+
+        // Check visitor status
+        async function checkVisitorStatus() {
             try {
-                const response = await fetch('/api/status');
-                serverData = await response.json();
+                const response = await fetch(`/api/visitor/status/${deviceId}`);
+                const data = await response.json();
                 
-                document.getElementById('serverUptime').textContent = Math.floor(serverData.server.uptime / 60) + ' minutes';
-                document.getElementById('serverPort').textContent = serverData.server.port;
-                document.getElementById('serverVersion').textContent = serverData.version;
-                document.getElementById('serverStatus').textContent = 'Online';
+                isRecognized = data.isRecognized;
                 
-                // You could customize the server name here based on configuration
-                // For now, we'll keep the default
+                if (isRecognized) {
+                    document.getElementById('welcomeSection').classList.add('hidden');
+                    document.getElementById('returningSection').classList.remove('hidden');
+                    document.getElementById('returningName').textContent = data.name || 'Anonymous';
+                    document.getElementById('visitorForm').classList.add('hidden');
+                } else {
+                    document.getElementById('welcomeSection').classList.remove('hidden');
+                    document.getElementById('returningSection').classList.add('hidden');
+                    document.getElementById('visitorForm').classList.remove('hidden');
+                }
             } catch (error) {
-                console.error('Failed to load server status:', error);
-                document.getElementById('serverStatus').textContent = 'Offline';
-                document.querySelector('.status-indicator').className = 'status-indicator';
-                document.querySelector('.status-indicator').style.background = '#f44336';
+                console.error('Failed to check visitor status:', error);
+                // Show form by default if check fails
+                document.getElementById('welcomeSection').classList.remove('hidden');
+                document.getElementById('visitorForm').classList.remove('hidden');
             }
         }
 
+        // Load server information
+        async function loadServerInfo() {
+            try {
+                const response = await fetch('/api/visitor/server-info');
+                serverData = await response.json();
+                
+                // Update server name and description
+                document.getElementById('serverName').textContent = serverData.serverName;
+                document.getElementById('serverDescription').textContent = 
+                    `Version ${serverData.serverVersion} • Uptime: ${Math.floor(serverData.serverUptime / 60)} minutes`;
+                document.getElementById('fullDescription').textContent = serverData.description;
+                
+                // Update status
+                document.getElementById('serverUptime').textContent = Math.floor(serverData.serverUptime / 60) + ' minutes';
+                document.getElementById('serverVersion').textContent = serverData.serverVersion;
+                document.getElementById('serverPort').textContent = '3000'; // From config or detect
+                
+                // Load connected users
+                loadConnectedUsers(serverData.connectedUsers);
+                
+                // Load useful links
+                loadUsefulLinks(serverData.usefulLinks);
+                
+            } catch (error) {
+                console.error('Failed to load server info:', error);
+                document.getElementById('serverDescription').textContent = 'Failed to load server information';
+            }
+        }
+
+        // Load connected users
+        function loadConnectedUsers(users) {
+            const container = document.getElementById('usersContainer');
+            
+            if (!users || users.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center;">No other users currently connected</p>';
+                return;
+            }
+            
+            const usersGrid = document.createElement('div');
+            usersGrid.className = 'users-grid';
+            
+            users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <div class="user-name">
+                        <span class="user-status ${user.isOnline ? 'user-online' : 'user-offline'}"></span>
+                        ${user.name}
+                    </div>
+                    <div class="user-info">${user.deviceType}</div>
+                    <div class="user-info" style="font-size: 0.8rem;">
+                        ${user.isOnline ? 'Online' : 'Last seen: ' + new Date(user.lastSeen).toLocaleDateString()}
+                    </div>
+                `;
+                usersGrid.appendChild(userCard);
+            });
+            
+            container.innerHTML = '';
+            container.appendChild(usersGrid);
+        }
+
+        // Load useful links
+        function loadUsefulLinks(links) {
+            const container = document.getElementById('linksContainer');
+            
+            if (!links || links.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center;">No links configured</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            links.forEach(link => {
+                const linkCard = document.createElement('a');
+                linkCard.href = link.url;
+                linkCard.className = 'link-card';
+                linkCard.target = link.url.startsWith('http') ? '_blank' : '_self';
+                linkCard.innerHTML = `
+                    <div class="link-name">${link.name}</div>
+                    <div class="link-url">${link.url}</div>
+                `;
+                container.appendChild(linkCard);
+            });
+        }
+
         // Show alert message
-        function showAlert(message, type) {
+        function showAlert(message, type = 'success') {
             const container = document.getElementById('alertContainer');
-            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            container.querySelector('.alert').style.display = 'block';
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(alert);
             
             setTimeout(() => {
-                container.innerHTML = '';
+                alert.remove();
             }, 5000);
         }
 
-        // Handle visitor registration
-        async function registerVisitor(name) {
+        // Register visitor
+        async function registerVisitor(name, password) {
             try {
-                // Generate a simple device ID for the visitor
-                const deviceId = 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                
+                const deviceInfo = detectDevice();
                 const response = await fetch('/api/visitor/register', {
                     method: 'POST',
                     headers: {
@@ -346,53 +564,71 @@
                     body: JSON.stringify({
                         name: name,
                         deviceId: deviceId,
-                        deviceType: 'Visitor',
-                        userAgent: navigator.userAgent
+                        deviceType: deviceInfo.deviceType,
+                        userAgent: deviceInfo.userAgent,
+                        password: password || undefined
                     })
                 });
 
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert(`Welcome ${name}! You've been registered as a client. Redirecting to client dashboard...`, 'success');
+                    showAlert(`Welcome, ${result.name}! You have been registered successfully.`);
                     
-                    // Redirect to client page after 2 seconds
+                    // Hide form and show success
+                    document.getElementById('visitorForm').classList.add('hidden');
+                    document.getElementById('welcomeSection').classList.add('hidden');
+                    document.getElementById('returningSection').classList.remove('hidden');
+                    document.getElementById('returningName').textContent = result.name;
+                    
+                    if (result.hasPassword) {
+                        showAlert('Password set! You now have access to additional features.', 'success');
+                    }
+                    
+                    // Reload server info to update connected users
                     setTimeout(() => {
-                        window.location.href = '/client';
-                    }, 2000);
+                        loadServerInfo();
+                    }, 1000);
                 } else {
-                    showAlert('Registration failed: ' + (result.error || 'Unknown error'), 'error');
+                    showAlert(result.error || 'Registration failed', 'error');
                 }
             } catch (error) {
                 console.error('Registration failed:', error);
-                showAlert('Registration failed: ' + error.message, 'error');
+                showAlert('Registration failed. Please try again.', 'error');
             }
         }
 
-        // Handle form submission
-        document.getElementById('joinForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        // Form submission handler
+        document.addEventListener('DOMContentLoaded', function() {
+            deviceId = generateDeviceId();
             
-            const name = document.getElementById('visitorName').value.trim();
-            if (!name) {
-                showAlert('Please enter your name', 'error');
-                return;
+            // Set up form handler
+            const form = document.getElementById('registrationForm');
+            if (form) {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const name = document.getElementById('visitorName').value.trim();
+                    const password = document.getElementById('visitorPassword').value.trim();
+                    
+                    if (!name) {
+                        showAlert('Please enter your name', 'error');
+                        return;
+                    }
+                    
+                    document.getElementById('registerBtn').disabled = true;
+                    document.getElementById('registerBtn').textContent = 'Registering...';
+                    
+                    await registerVisitor(name, password);
+                    
+                    document.getElementById('registerBtn').disabled = false;
+                    document.getElementById('registerBtn').textContent = 'Register & Join';
+                });
             }
             
-            // Disable button to prevent double submission
-            const btn = document.getElementById('joinBtn');
-            btn.disabled = true;
-            btn.textContent = 'Joining...';
-            
-            registerVisitor(name).finally(() => {
-                btn.disabled = false;
-                btn.textContent = 'Join as Client';
-            });
-        });
-
-        // Load server status on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadServerStatus();
+            // Initialize page
+            checkVisitorStatus();
+            loadServerInfo();
         });
     </script>
 </body>

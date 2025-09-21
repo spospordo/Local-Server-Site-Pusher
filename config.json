@@ -4,7 +4,9 @@
     "admin": {
       "username": "admin",
       "password": "admin123"
-    }
+    },
+    "name": "Local Development Server",
+    "description": "A containerized system for building websites and managing web content. This server allows you to upload, build, and deploy web projects with ease."
   },
   "homeAssistant": {
     "enabled": true,
@@ -17,5 +19,23 @@
   "webContent": {
     "directory": "./public",
     "defaultFile": "index.html"
-  }
+  },
+  "usefulLinks": [
+    {
+      "name": "Admin Dashboard",
+      "url": "/admin"
+    },
+    {
+      "name": "Client Access",
+      "url": "/client"
+    },
+    {
+      "name": "Server Status",
+      "url": "/api/status"
+    },
+    {
+      "name": "Home Assistant",
+      "url": "http://localhost:8123"
+    }
+  ]
 }
