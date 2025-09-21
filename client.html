@@ -380,7 +380,7 @@
                         <p>No password protection is currently set up.</p>
                         <div class="form-group">
                             <label for="newPassword">Set New Password</label>
-                            <input type="password" id="newPassword" placeholder="Enter new password (min 6 characters)">
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 4 characters)">
                         </div>
                         <button type="button" class="btn" onclick="setNewPassword()">Set Password</button>
                     </div>
@@ -708,8 +708,8 @@
                 return;
             }
             
-            if (newPassword.length < 6) {
-                showPasswordManagementAlert('Password must be at least 6 characters long', 'error');
+            if (newPassword.length < 4) {
+                showPasswordManagementAlert('Password must be at least 4 characters long', 'error');
                 return;
             }
             
@@ -750,8 +750,8 @@
                 return;
             }
             
-            if (newPassword.length < 6) {
-                showPasswordManagementAlert('New password must be at least 6 characters long', 'error');
+            if (newPassword.length < 4) {
+                showPasswordManagementAlert('New password must be at least 4 characters long', 'error');
                 return;
             }
             
