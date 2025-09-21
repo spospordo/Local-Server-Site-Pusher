@@ -977,10 +977,74 @@ app.get('/api/client/ip', (req, res) => {
   });
 });
 
+// Get visitor status endpoint (no authentication required)
+app.get('/api/visitor/status/:deviceId', (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    
+    // Initialize connectedDevices if it doesn't exist
+    if (!config.connectedDevices) {
+      config.connectedDevices = [];
+    }
+    
+    const device = config.connectedDevices.find(d => d.deviceId === deviceId);
+    
+    res.json({
+      isRecognized: !!device,
+      hasPassword: device ? !!device.password : false,
+      name: device ? device.name : null,
+      firstSeen: device ? device.firstSeen : null,
+      deviceType: device ? device.deviceType : null
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get visitor status: ' + error.message });
+  }
+});
+
+// Get server info for visitors (no authentication required)
+app.get('/api/visitor/server-info', (req, res) => {
+  try {
+    // Get server name from config or use default
+    const serverName = config.server?.name || 'Local Server Site Pusher';
+    
+    // Get connected devices (without sensitive info)
+    const connectedUsers = (config.connectedDevices || []).map(device => ({
+      name: device.name || 'Anonymous',
+      deviceType: device.deviceType || 'Unknown',
+      firstSeen: device.firstSeen,
+      lastSeen: device.lastSeen,
+      isOnline: device.lastSeen && (new Date() - new Date(device.lastSeen)) < 300000 // 5 minutes
+    })).filter(user => user.name !== 'Anonymous'); // Only show named users
+    
+    // Get useful links
+    const usefulLinks = config.usefulLinks || [
+      { name: 'Admin Dashboard', url: '/admin' },
+      { name: 'Client Access', url: '/client' },
+      { name: 'Server Status', url: '/api/status' }
+    ];
+    
+    // Server description
+    const description = config.server?.description || 
+      'A containerized system for building websites and managing web content. ' +
+      'This server allows you to upload, build, and deploy web projects with ease.';
+    
+    res.json({
+      serverName,
+      description,
+      usefulLinks,
+      connectedUsers,
+      serverUptime: Math.floor(process.uptime()),
+      serverVersion: require('./package.json').version
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get server info: ' + error.message });
+  }
+});
+
 // Visitor registration endpoint (no authentication required)
 app.post('/api/visitor/register', (req, res) => {
   try {
-    const { name, deviceId, deviceType, userAgent } = req.body;
+    const { name, deviceId, deviceType, userAgent, password } = req.body;
     
     if (!name || !deviceId) {
       return res.status(400).json({ error: 'Name and device ID are required' });
@@ -1001,6 +1065,9 @@ app.post('/api/visitor/register', (req, res) => {
       device.deviceType = deviceType || device.deviceType;
       device.userAgent = userAgent || device.userAgent;
       device.ip = req.ip || req.connection.remoteAddress;
+      if (password) {
+        device.password = password; // In production, this should be hashed
+      }
     } else {
       // Create new device entry
       device = {
@@ -1009,6 +1076,7 @@ app.post('/api/visitor/register', (req, res) => {
         deviceType: deviceType || 'Visitor',
         browserInfo: 'Unknown',
         userAgent: userAgent || '',
+        password: password || null, // In production, this should be hashed
         ip: req.ip || req.connection.remoteAddress,
         firstSeen: new Date().toISOString(),
         lastSeen: new Date().toISOString()
@@ -1023,9 +1091,11 @@ app.post('/api/visitor/register', (req, res) => {
     
     res.json({ 
       success: true, 
-      message: 'Visitor registered successfully as client',
+      message: 'Visitor registered successfully',
       deviceId: deviceId,
-      name: name
+      name: name,
+      hasPassword: !!password,
+      unlockFeatures: !!password
     });
     
   } catch (error) {
