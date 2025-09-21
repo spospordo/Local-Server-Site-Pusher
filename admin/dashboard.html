@@ -795,15 +795,15 @@
         
         // Remove useful link
         async function removeLink(index) {
-            currentLinks.splice(index, 1);
+            const linkToRemove = currentLinks[index];
+            if (!linkToRemove || !linkToRemove.id) {
+                showAlert('Invalid link to remove', 'error', 'linksAlert');
+                return;
+            }
             
             try {
-                const response = await fetch('/admin/api/links', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ links: currentLinks })
+                const response = await fetch(`/admin/api/links/${linkToRemove.id}`, {
+                    method: 'DELETE'
                 });
                 
                 const result = await response.json();

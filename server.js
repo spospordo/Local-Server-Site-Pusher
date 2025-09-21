@@ -28,7 +28,17 @@ const defaultConfig = {
   "webContent": {
     "directory": "./public",
     "defaultFile": "index.html"
-  }
+  },
+  "storage": {
+    "maxTotalSize": "1GB",
+    "maxFileSizes": {
+      "image": "50MB",
+      "video": "500MB",
+      "document": "100MB",
+      "other": "10MB"
+    }
+  },
+  "usefulLinks": []
 };
 
 // Function to safely create config file
@@ -284,6 +294,127 @@ app.post('/admin/api/config', requireAuth, (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to update configuration: ' + err.message });
   }
+});
+
+// API endpoint for managing useful links
+app.get('/admin/api/links', requireAuth, (req, res) => {
+  res.json(config.usefulLinks || []);
+});
+
+app.post('/admin/api/links', requireAuth, (req, res) => {
+  try {
+    const { name, url } = req.body;
+    
+    if (!name || !url) {
+      return res.status(400).json({ error: 'Name and URL are required' });
+    }
+    
+    // Initialize usefulLinks if it doesn't exist
+    if (!config.usefulLinks) {
+      config.usefulLinks = [];
+    }
+    
+    // Add the new link
+    config.usefulLinks.push({ name, url, id: Date.now() });
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Link added successfully',
+          persistent: true,
+          links: config.usefulLinks
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Link added (in memory only - file save failed)',
+          persistent: false,
+          links: config.usefulLinks
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Link added (in memory only)',
+        persistent: false,
+        links: config.usefulLinks
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add link: ' + err.message });
+  }
+});
+
+// API endpoint for removing useful links
+app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
+  try {
+    const linkId = parseInt(req.params.id);
+    
+    if (!config.usefulLinks) {
+      return res.status(404).json({ error: 'No links found' });
+    }
+    
+    const initialLength = config.usefulLinks.length;
+    config.usefulLinks = config.usefulLinks.filter(link => link.id !== linkId);
+    
+    if (config.usefulLinks.length === initialLength) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Link removed successfully',
+          persistent: true,
+          links: config.usefulLinks
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Link removed (in memory only - file save failed)',
+          persistent: false,
+          links: config.usefulLinks
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Link removed (in memory only)',
+        persistent: false,
+        links: config.usefulLinks
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove link: ' + err.message });
+  }
+});
+
+// API endpoint for system logs
+app.get('/admin/api/logs', requireAuth, (req, res) => {
+  // Simple mock logs for demonstration
+  const logs = [
+    {
+      timestamp: new Date().toISOString(),
+      level: 'INFO',
+      message: 'Server started successfully on port ' + PORT
+    },
+    {
+      timestamp: new Date(Date.now() - 60000).toISOString(),
+      level: 'INFO',
+      message: 'Configuration loaded from config file'
+    },
+    {
+      timestamp: new Date(Date.now() - 120000).toISOString(),
+      level: 'INFO',
+      message: 'Admin session authenticated'
+    }
+  ];
+  
+  res.json(logs);
 });
 
 // Status endpoint for Home Assistant and other tools
