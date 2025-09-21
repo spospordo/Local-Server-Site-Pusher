@@ -155,6 +155,17 @@
             margin: 2rem 0;
             border-top: 1px solid #eee;
         }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -177,6 +188,47 @@
                         <div class="status-value">Please wait</div>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Default Password Warning -->
+        <div id="defaultPasswordWarning" class="card" style="display: none; border-left: 4px solid #f39c12;">
+            <div class="card-header" style="background-color: #fef9e7;">
+                <h2 style="color: #d35400;">⚠️ Security Warning</h2>
+            </div>
+            <div class="card-body" style="background-color: #fef9e7;">
+                <p><strong>You are using the default password!</strong></p>
+                <p>For security reasons, please change your password immediately. The default password "admin123" is publicly known and should not be used in production.</p>
+                <button id="showPasswordChange" class="btn" style="background: #e67e22;">Change Password Now</button>
+            </div>
+        </div>
+        
+        <!-- Password Change Card -->
+        <div id="passwordChangeCard" class="card" style="display: none;">
+            <div class="card-header">
+                <h2>Change Admin Password</h2>
+            </div>
+            <div class="card-body">
+                <form id="passwordChangeForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password:</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password:</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Minimum 6 characters. Cannot be 'admin123'.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password:</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn">Change Password</button>
+                        <button type="button" id="cancelPasswordChange" class="btn btn-secondary">Cancel</button>
+                    </div>
+                    <div id="passwordChangeAlert" class="alert"></div>
+                </form>
             </div>
         </div>
         
@@ -323,13 +375,100 @@
             }, 5000);
         }
         
+        // Check password status
+        async function checkPasswordStatus() {
+            try {
+                const response = await fetch('/admin/api/password-status');
+                const status = await response.json();
+                
+                if (status.isDefaultPassword) {
+                    document.getElementById('defaultPasswordWarning').style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Failed to check password status:', err);
+            }
+        }
+        
+        // Show password change form
+        function showPasswordChangeForm() {
+            document.getElementById('passwordChangeCard').style.display = 'block';
+            document.getElementById('defaultPasswordWarning').style.display = 'none';
+        }
+        
+        // Hide password change form
+        function hidePasswordChangeForm() {
+            document.getElementById('passwordChangeCard').style.display = 'none';
+            document.getElementById('passwordChangeForm').reset();
+            document.getElementById('passwordChangeAlert').style.display = 'none';
+        }
+        
+        // Change password
+        async function changePassword(event) {
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Validate passwords match
+            if (newPassword !== confirmPassword) {
+                showPasswordAlert('New passwords do not match', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showPasswordAlert(result.message, 'success');
+                    // Hide the form and warning after successful change
+                    setTimeout(() => {
+                        hidePasswordChangeForm();
+                        document.getElementById('defaultPasswordWarning').style.display = 'none';
+                    }, 2000);
+                } else {
+                    showPasswordAlert(result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Failed to change password:', err);
+                showPasswordAlert('Failed to change password', 'error');
+            }
+        }
+        
+        // Show password alert
+        function showPasswordAlert(message, type) {
+            const alert = document.getElementById('passwordChangeAlert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+        
         // Event listeners
         document.getElementById('saveConfig').addEventListener('click', saveConfig);
         document.getElementById('resetConfig').addEventListener('click', resetConfig);
+        document.getElementById('showPasswordChange').addEventListener('click', showPasswordChangeForm);
+        document.getElementById('cancelPasswordChange').addEventListener('click', hidePasswordChangeForm);
+        document.getElementById('passwordChangeForm').addEventListener('submit', changePassword);
         
         // Load initial data
         loadStatus();
         loadConfig();
+        checkPasswordStatus();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);

@@ -142,12 +142,23 @@ app.get('/admin/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'login.html'));
 });
 
+// API to check if default credentials are still in use (public endpoint)
+app.get('/admin/api/default-credentials-status', (req, res) => {
+  const isDefaultPassword = config.server.admin.password === 'admin123';
+  const isDefaultUsername = config.server.admin.username === 'admin';
+  res.json({
+    showDefaultCredentials: isDefaultPassword && isDefaultUsername
+  });
+});
+
 // Admin login POST
 app.post('/admin/login', (req, res) => {
   const { username, password } = req.body;
   
   if (username === config.server.admin.username && password === config.server.admin.password) {
     req.session.authenticated = true;
+    // Check if using default password
+    req.session.isDefaultPassword = (password === 'admin123');
     res.redirect('/admin');
   } else {
     res.redirect('/admin/login?error=1');
@@ -168,6 +179,71 @@ app.get('/admin', requireAuth, (req, res) => {
 // API to get current config
 app.get('/admin/api/config', requireAuth, (req, res) => {
   res.json(config);
+});
+
+// API to check if using default password
+app.get('/admin/api/password-status', requireAuth, (req, res) => {
+  res.json({
+    isDefaultPassword: req.session.isDefaultPassword || false,
+    username: config.server.admin.username
+  });
+});
+
+// API to change admin password
+app.post('/admin/api/change-password', requireAuth, (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    
+    // Verify current password
+    if (currentPassword !== config.server.admin.password) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    
+    // Validate new password
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+    
+    if (newPassword === 'admin123') {
+      return res.status(400).json({ error: 'Cannot use default password as new password' });
+    }
+    
+    // Update password in config
+    config.server.admin.password = newPassword;
+    
+    // Clear default password flag from session
+    req.session.isDefaultPassword = false;
+    
+    // Try to write to file if possible
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Password changed successfully and saved to file',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Password changed successfully in memory (file save failed - config directory not writable)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Password changed successfully in memory only (config directory not writable)',
+        persistent: false
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to change password: ' + err.message });
+  }
 });
 
 // API to update config

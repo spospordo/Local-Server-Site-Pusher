@@ -111,6 +111,19 @@
                 errorDiv.textContent = 'Invalid username or password';
                 document.querySelector('.login-container').appendChild(errorDiv);
             }
+            
+            // Check if default credentials should be shown
+            fetch('/admin/api/default-credentials-status')
+                .then(response => response.json())
+                .then(data => {
+                    const infoDiv = document.querySelector('.info');
+                    if (!data.showDefaultCredentials) {
+                        infoDiv.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.log('Could not check default credentials status');
+                });
         </script>
         
         <div class="info">
