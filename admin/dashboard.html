@@ -556,17 +556,14 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="clientRequirePassword">Password Protection</label>
-                        <select id="clientRequirePassword">
-                            <option value="false">Disabled</option>
-                            <option value="true">Enabled</option>
-                        </select>
+                        <label for="clientRequirePassword">Password Protection Status</label>
+                        <div id="passwordStatus" style="margin-top: 0.5rem;">
+                            <span id="passwordStatusText">Checking...</span>
+                            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                                <em>Note: Clients manage their own passwords. Admins cannot view or modify client passwords.</em>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="clientPassword">Client Access Password</label>
-                    <input type="password" id="clientPassword" placeholder="Leave empty to disable password protection">
                 </div>
                 
                 <div class="form-group">
@@ -1018,17 +1015,33 @@
                 // Populate client configuration
                 const config = data.config;
                 document.getElementById('clientEnabled').value = config.enabled ? 'true' : 'false';
-                document.getElementById('clientRequirePassword').value = config.requirePassword ? 'true' : 'false';
-                document.getElementById('clientPassword').value = config.password || '';
                 document.getElementById('welcomeMessage').value = config.welcomeMessage || '';
                 document.getElementById('showServerStatus').value = config.showServerStatus ? 'true' : 'false';
                 document.getElementById('showUsefulLinks').value = config.showUsefulLinks ? 'true' : 'false';
+                
+                // Update password status display
+                updatePasswordStatus(config.requirePassword, config.hasPassword);
                 
                 // Load connected devices
                 loadConnectedDevices(data.connectedDevices || []);
             } catch (err) {
                 console.error('Failed to load client config:', err);
                 showAlert('Failed to load client configuration', 'error', 'clientAlert');
+            }
+        }
+        
+        // Update password protection status display
+        function updatePasswordStatus(requirePassword, hasPassword) {
+            const statusElement = document.getElementById('passwordStatusText');
+            if (hasPassword && requirePassword) {
+                statusElement.innerHTML = '🔒 <strong>Protected</strong> - Client has set a password and protection is enabled';
+                statusElement.style.color = '#28a745';
+            } else if (hasPassword && !requirePassword) {
+                statusElement.innerHTML = '🔓 <strong>Password Set but Disabled</strong> - Client has a password but protection is disabled';
+                statusElement.style.color = '#ffc107';
+            } else {
+                statusElement.innerHTML = '🔓 <strong>No Protection</strong> - No client password is set';
+                statusElement.style.color = '#6c757d';
             }
         }
         
@@ -1074,8 +1087,6 @@
         async function saveClientConfig() {
             const clientConfig = {
                 enabled: document.getElementById('clientEnabled').value === 'true',
-                requirePassword: document.getElementById('clientRequirePassword').value === 'true',
-                password: document.getElementById('clientPassword').value.trim(),
                 welcomeMessage: document.getElementById('welcomeMessage').value.trim(),
                 showServerStatus: document.getElementById('showServerStatus').value === 'true',
                 showUsefulLinks: document.getElementById('showUsefulLinks').value === 'true'
@@ -1094,6 +1105,8 @@
                 
                 if (result.success) {
                     showAlert('Client configuration saved successfully!', 'success', 'clientAlert');
+                    // Reload to refresh password status
+                    loadClientConfig();
                 } else {
                     showAlert('Failed to save client configuration: ' + result.error, 'error', 'clientAlert');
                 }
