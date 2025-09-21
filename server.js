@@ -38,6 +38,12 @@ const defaultConfig = {
       "other": "10MB"
     }
   },
+  "client": {
+    "enabled": true,
+    "requirePassword": false,
+    "allowPortChange": true,
+    "defaultHostname": "localhost"
+  },
   "usefulLinks": []
 };
 

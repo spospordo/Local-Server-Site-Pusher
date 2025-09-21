@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Access - Local Server Site Pusher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+        
+        .optional {
+            color: #7f8c8d;
+            font-weight: normal;
+        }
+        
+        input[type="text"], input[type="password"], input[type="number"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .connect-btn {
+            background: #3498db;
+            color: white;
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .connect-btn:hover {
+            background: #2980b9;
+        }
+        
+        .connect-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            border: 1px solid #e74c3c;
+            padding: 0.8rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .status {
+            margin-top: 1rem;
+            padding: 0.8rem;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status.connecting {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Client Access</h1>
+        
+        <div class="info-box">
+            <p><strong>Welcome!</strong> Connect to access server status, links, and resources available on this network.</p>
+        </div>
+        
+        <form id="clientConnectForm">
+            <div class="form-group">
+                <label for="hostname">
+                    Server Hostname <span class="required">*</span>
+                </label>
+                <input type="text" id="hostname" name="hostname" placeholder="localhost or server IP address" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="port">
+                    Port <span class="required">*</span>
+                </label>
+                <input type="number" id="port" name="port" value="3000" min="1" max="65535" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="clientName">
+                    Your Name <span class="optional">(optional)</span>
+                </label>
+                <input type="text" id="clientName" name="clientName" placeholder="Enter your name">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    Access Password <span class="optional">(optional)</span>
+                </label>
+                <input type="password" id="password" name="password" placeholder="Enter password if required">
+            </div>
+            
+            <button type="submit" class="connect-btn" id="connectBtn">
+                Connect to Server
+            </button>
+            
+            <div class="error" id="errorMessage"></div>
+            <div class="status" id="statusMessage"></div>
+        </form>
+    </div>
+    
+    <script>
+        const form = document.getElementById('clientConnectForm');
+        const connectBtn = document.getElementById('connectBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // Set default hostname from current location
+        document.getElementById('hostname').value = window.location.hostname || 'localhost';
+        document.getElementById('port').value = window.location.port || '3000';
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            statusMessage.style.display = 'none';
+        }
+        
+        function showStatus(message, type = 'connecting') {
+            statusMessage.textContent = message;
+            statusMessage.className = `status ${type}`;
+            statusMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            if (!data.hostname.trim()) {
+                showError('Hostname is required');
+                return;
+            }
+            
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+            showStatus('Connecting to server...', 'connecting');
+            
+            try {
+                const response = await fetch('/client/api/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Connected successfully! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/client/dashboard';
+                    }, 1500);
+                } else {
+                    showError(result.error || 'Connection failed');
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect to Server';
+                }
+            } catch (error) {
+                showError('Unable to connect to server. Please check hostname and port.');
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect to Server';
+            }
+        });
+    </script>
+</body>
+</html>

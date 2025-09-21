@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Dashboard - Local Server Site Pusher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 1rem;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .client-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .disconnect-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .disconnect-btn:hover {
+            background: #c0392b;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 0.5rem;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-weight: 600;
+        }
+        
+        .status-value {
+            color: #666;
+        }
+        
+        .status-online {
+            color: #27ae60;
+            font-weight: 600;
+        }
+        
+        .status-offline {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+        
+        .links-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .links-list li {
+            margin-bottom: 0.8rem;
+        }
+        
+        .link-item {
+            display: block;
+            padding: 0.8rem;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #495057;
+            transition: background-color 0.2s;
+        }
+        
+        .link-item:hover {
+            background: #e9ecef;
+            text-decoration: none;
+        }
+        
+        .link-name {
+            font-weight: 600;
+            display: block;
+        }
+        
+        .link-url {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .no-links {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            border: 1px solid #e74c3c;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+        
+        .connection-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .auto-refresh {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>📊 Client Dashboard</h1>
+            <div class="client-info" id="clientInfo">
+                Connected as: <span id="clientName">Guest</span> | 
+                Server: <span id="serverHost">loading...</span>
+            </div>
+        </div>
+        <a href="/client" class="disconnect-btn">Disconnect</a>
+    </div>
+    
+    <div class="dashboard-grid">
+        <!-- Server Status Card -->
+        <div class="card">
+            <h2>🖥️ Server Status</h2>
+            <div class="connection-info">
+                <strong>Connection Status:</strong> <span id="connectionStatus" class="status-online">Connected</span>
+            </div>
+            <div id="serverStatus" class="loading">Loading server status...</div>
+            <button class="refresh-btn" onclick="loadServerStatus()">🔄 Refresh Status</button>
+            <div class="auto-refresh">Auto-refresh every 30 seconds</div>
+        </div>
+        
+        <!-- Available Links Card -->
+        <div class="card">
+            <h2>🔗 Available Links</h2>
+            <div id="linksList" class="loading">Loading available links...</div>
+            <button class="refresh-btn" onclick="loadLinks()">🔄 Refresh Links</button>
+        </div>
+        
+        <!-- Connection Details Card -->
+        <div class="card">
+            <h2>📡 Connection Details</h2>
+            <div class="status-item">
+                <span class="status-label">Server Address:</span>
+                <span class="status-value" id="serverAddress">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Port:</span>
+                <span class="status-value" id="serverPort">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Connected Since:</span>
+                <span class="status-value" id="connectedSince">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Session Type:</span>
+                <span class="status-value">Client Access</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let connectionStartTime = new Date();
+        
+        // Load session info from localStorage if available
+        function loadSessionInfo() {
+            const clientName = localStorage.getItem('clientName') || 'Guest';
+            const hostname = localStorage.getItem('serverHostname') || window.location.hostname;
+            const port = localStorage.getItem('serverPort') || window.location.port || '3000';
+            
+            document.getElementById('clientName').textContent = clientName;
+            document.getElementById('serverHost').textContent = hostname;
+            document.getElementById('serverAddress').textContent = hostname;
+            document.getElementById('serverPort').textContent = port;
+            document.getElementById('connectedSince').textContent = connectionStartTime.toLocaleString();
+        }
+        
+        // Load server status
+        async function loadServerStatus() {
+            const statusDiv = document.getElementById('serverStatus');
+            const connectionStatusSpan = document.getElementById('connectionStatus');
+            
+            try {
+                statusDiv.innerHTML = '<div class="loading">Loading...</div>';
+                
+                const response = await fetch('/client/api/status');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch status');
+                }
+                
+                const status = await response.json();
+                connectionStatusSpan.textContent = 'Connected';
+                connectionStatusSpan.className = 'status-online';
+                
+                statusDiv.innerHTML = `
+                    <div class="status-item">
+                        <span class="status-label">Server Status:</span>
+                        <span class="status-value status-online">${status.server.status}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Uptime:</span>
+                        <span class="status-value">${formatUptime(status.server.uptime)}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Server Port:</span>
+                        <span class="status-value">${status.server.port}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Memory Usage:</span>
+                        <span class="status-value">${formatMemory(status.memory.rss)}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Last Updated:</span>
+                        <span class="status-value">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                `;
+            } catch (error) {
+                connectionStatusSpan.textContent = 'Connection Error';
+                connectionStatusSpan.className = 'status-offline';
+                statusDiv.innerHTML = `<div class="error">Unable to connect to server: ${error.message}</div>`;
+            }
+        }
+        
+        // Load available links
+        async function loadLinks() {
+            const linksDiv = document.getElementById('linksList');
+            
+            try {
+                linksDiv.innerHTML = '<div class="loading">Loading...</div>';
+                
+                const response = await fetch('/client/api/links');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch links');
+                }
+                
+                const links = await response.json();
+                
+                if (links.length === 0) {
+                    linksDiv.innerHTML = '<div class="no-links">No links configured</div>';
+                    return;
+                }
+                
+                const linksList = document.createElement('ul');
+                linksList.className = 'links-list';
+                
+                links.forEach(link => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <a href="${link.url}" target="_blank" class="link-item">
+                            <span class="link-name">${link.name}</span>
+                            <span class="link-url">${link.url}</span>
+                        </a>
+                    `;
+                    linksList.appendChild(li);
+                });
+                
+                linksDiv.innerHTML = '';
+                linksDiv.appendChild(linksList);
+            } catch (error) {
+                linksDiv.innerHTML = `<div class="error">Unable to load links: ${error.message}</div>`;
+            }
+        }
+        
+        // Helper functions
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes}m`;
+            }
+        }
+        
+        function formatMemory(bytes) {
+            const mb = (bytes / 1024 / 1024).toFixed(1);
+            return `${mb} MB`;
+        }
+        
+        // Initialize dashboard
+        loadSessionInfo();
+        loadServerStatus();
+        loadLinks();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadServerStatus, 30000);
+    </script>
+</body>
+</html>
