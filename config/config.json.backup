@@ -1,0 +1,39 @@
+{
+  "server": {
+    "port": 3000,
+    "admin": {
+      "username": "admin",
+      "password": "admin123"
+    }
+  },
+  "homeAssistant": {
+    "enabled": true,
+    "url": "http://localhost:8123"
+  },
+  "cockpit": {
+    "enabled": true,
+    "url": "http://localhost:9090"
+  },
+  "webContent": {
+    "directory": "./public",
+    "defaultFile": "index.html"
+  },
+  "storage": {
+    "maxTotalSize": "1GB",
+    "maxFileSizes": {
+      "image": "50MB",
+      "video": "500MB",
+      "document": "100MB",
+      "other": "10MB"
+    }
+  },
+  "usefulLinks": [],
+  "client": {
+    "enabled": true,
+    "requirePassword": false,
+    "showServerStatus": true,
+    "showUsefulLinks": true,
+    "welcomeMessage": "Welcome to Local Server Site Pusher"
+  },
+  "connectedDevices": []
+}
