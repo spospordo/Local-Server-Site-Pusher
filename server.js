@@ -19,6 +19,22 @@ function hashPassword(password) {
   return `${salt}:${hash}`;
 }
 
+function validatePasswordSecurity(password) {
+  // Check for potentially dangerous characters that could cause issues
+  // Null bytes and control characters can cause security issues
+  if (password.includes('\0')) {
+    return { valid: false, reason: 'Password cannot contain null characters' };
+  }
+  
+  // Check for other control characters (ASCII 0-31 except tab, newline, carriage return)
+  const dangerousChars = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+  if (dangerousChars.test(password)) {
+    return { valid: false, reason: 'Password contains invalid control characters' };
+  }
+  
+  return { valid: true };
+}
+
 function verifyPassword(password, storedPassword) {
   if (!storedPassword) return false;
   const [salt, hash] = storedPassword.split(':');
@@ -30,10 +46,10 @@ function verifyPassword(password, storedPassword) {
 function saveClientPasswordHash(passwordHash) {
   try {
     fs.writeFileSync(clientPasswordPath, passwordHash, { mode: 0o600 });
-    return true;
+    return { success: true };
   } catch (err) {
     console.warn('Cannot write client password file:', err.message);
-    return false;
+    return { success: false, error: err.message, code: err.code };
   }
 }
 
@@ -687,15 +703,22 @@ app.post('/api/client/set-password', (req, res) => {
     return res.status(400).json({ error: 'New password is required' });
   }
   
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  if (newPassword.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters long' });
+  }
+  
+  // Check for security issues with the password
+  const securityCheck = validatePasswordSecurity(newPassword);
+  if (!securityCheck.valid) {
+    return res.status(400).json({ error: securityCheck.reason });
   }
   
   try {
     // Hash and save the new password
     const hashedPassword = hashPassword(newPassword);
     
-    if (saveClientPasswordHash(hashedPassword)) {
+    const saveResult = saveClientPasswordHash(hashedPassword);
+    if (saveResult.success) {
       // Enable password protection in config
       if (!config.client) {
         config.client = {
@@ -719,7 +742,19 @@ app.post('/api/client/set-password', (req, res) => {
         message: 'Password set successfully. Password protection is now enabled.' 
       });
     } else {
-      res.status(500).json({ error: 'Failed to save password' });
+      // Provide specific error message based on the error type
+      let errorMessage = 'Failed to save password';
+      if (saveResult.code === 'EACCES') {
+        errorMessage = 'Failed to save password: Permission denied. Check that the config directory is writable.';
+      } else if (saveResult.code === 'ENOSPC') {
+        errorMessage = 'Failed to save password: No space left on device.';
+      } else if (saveResult.code === 'ENOENT') {
+        errorMessage = 'Failed to save password: Config directory does not exist.';
+      } else if (saveResult.error) {
+        errorMessage = `Failed to save password: ${saveResult.error}`;
+      }
+      
+      res.status(500).json({ error: errorMessage });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to set password: ' + err.message });
@@ -734,8 +769,14 @@ app.post('/api/client/change-password', (req, res) => {
     return res.status(400).json({ error: 'Current password and new password are required' });
   }
   
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  if (newPassword.length < 4) {
+    return res.status(400).json({ error: 'New password must be at least 4 characters long' });
+  }
+  
+  // Check for security issues with the new password
+  const securityCheck = validatePasswordSecurity(newPassword);
+  if (!securityCheck.valid) {
+    return res.status(400).json({ error: securityCheck.reason });
   }
   
   try {
@@ -753,13 +794,26 @@ app.post('/api/client/change-password', (req, res) => {
     // Hash and save the new password
     const hashedPassword = hashPassword(newPassword);
     
-    if (saveClientPasswordHash(hashedPassword)) {
+    const saveResult = saveClientPasswordHash(hashedPassword);
+    if (saveResult.success) {
       res.json({ 
         success: true, 
         message: 'Password changed successfully' 
       });
     } else {
-      res.status(500).json({ error: 'Failed to save new password' });
+      // Provide specific error message based on the error type
+      let errorMessage = 'Failed to save new password';
+      if (saveResult.code === 'EACCES') {
+        errorMessage = 'Failed to save new password: Permission denied. Check that the config directory is writable.';
+      } else if (saveResult.code === 'ENOSPC') {
+        errorMessage = 'Failed to save new password: No space left on device.';
+      } else if (saveResult.code === 'ENOENT') {
+        errorMessage = 'Failed to save new password: Config directory does not exist.';
+      } else if (saveResult.error) {
+        errorMessage = `Failed to save new password: ${saveResult.error}`;
+      }
+      
+      res.status(500).json({ error: errorMessage });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to change password: ' + err.message });
