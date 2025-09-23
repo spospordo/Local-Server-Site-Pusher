@@ -821,6 +821,7 @@
                 
                 // Handle password protection
                 if (config.requirePassword && !clientAuthenticated) {
+                    await personalizePasswordPrompt();
                     document.getElementById('passwordSection').style.display = 'block';
                     document.getElementById('mainContent').style.display = 'none';
                 } else {
@@ -832,6 +833,27 @@
                 console.error('Failed to load client config:', error);
                 // Default to showing main content if config load fails
                 initializeClient();
+            }
+        }
+
+        // Personalize password prompt for returning users
+        async function personalizePasswordPrompt() {
+            try {
+                const response = await fetch(`/api/visitor/status/${deviceId}`);
+                const data = await response.json();
+                
+                if (data.isRecognized && data.name) {
+                    // Personalize the password prompt for recognized device
+                    const passwordSection = document.getElementById('passwordSection');
+                    const heading = passwordSection.querySelector('h2');
+                    const description = passwordSection.querySelector('p');
+                    
+                    heading.textContent = '🔒 Welcome Back!';
+                    description.innerHTML = `Welcome back, <strong>${escapeHtml(data.name)}</strong>! Please enter your password to access your files and settings.`;
+                }
+            } catch (error) {
+                console.error('Failed to personalize password prompt:', error);
+                // Keep default generic text if personalization fails
             }
         }
 
