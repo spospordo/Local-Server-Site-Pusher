@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
+const { execSync } = require('child_process');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -1719,6 +1720,48 @@ app.get('/admin/api/client/files', requireAuth, (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to list client files: ' + error.message });
+  }
+});
+
+// Get system disk space information
+app.get('/admin/api/system/disk-space', requireAuth, (req, res) => {
+  try {
+    const stats = fs.statSync(uploadsDir);
+    
+    // Use statvfs-like approach via df command as fallback
+    try {
+      const dfOutput = execSync(`df -B1 "${uploadsDir}"`, { encoding: 'utf8' });
+      const lines = dfOutput.trim().split('\n');
+      const dataLine = lines[lines.length - 1];
+      const [, totalBytes, usedBytes, availableBytes] = dataLine.split(/\s+/);
+      
+      res.json({
+        success: true,
+        diskSpace: {
+          total: parseInt(totalBytes),
+          used: parseInt(usedBytes),
+          available: parseInt(availableBytes),
+          uploadDir: uploadsDir
+        }
+      });
+    } catch (dfError) {
+      // Fallback to approximate calculation if df command fails
+      res.json({
+        success: true,
+        diskSpace: {
+          total: 50 * 1024 * 1024 * 1024, // 50GB default assumption
+          used: 25 * 1024 * 1024 * 1024, // 25GB default assumption  
+          available: 25 * 1024 * 1024 * 1024, // 25GB available
+          uploadDir: uploadsDir,
+          approximate: true
+        }
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get disk space information: ' + error.message 
+    });
   }
 });
 

@@ -484,6 +484,118 @@
             font-style: italic;
             padding: 2rem;
         }
+        
+        /* Storage Slider Styles */
+        .storage-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .storage-slider {
+            flex: 1;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .storage-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        
+        .storage-slider::-webkit-slider-thumb:hover {
+            background: #5a67d8;
+            transform: scale(1.1);
+        }
+        
+        .storage-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .storage-input-container {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            min-width: 100px;
+        }
+        
+        .storage-input {
+            width: 70px;
+            padding: 0.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        
+        .storage-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+        
+        .storage-unit {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .storage-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .storage-display {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .storage-available {
+            color: #666;
+        }
+        
+        .storage-validation-message {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .storage-validation-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .storage-validation-message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        
     </style>
 </head>
 <body>
@@ -599,7 +711,18 @@
             <div class="card-body">
                 <div class="form-group">
                     <label for="maxTotalSize">Maximum Total Storage</label>
-                    <input type="text" id="maxTotalSize" placeholder="e.g., 1GB, 500MB">
+                    <div class="storage-slider-container">
+                        <input type="range" id="maxTotalStorageSlider" class="storage-slider" min="1" max="1000" value="1000">
+                        <div class="storage-input-container">
+                            <input type="number" id="maxTotalStorageInput" class="storage-input" min="1" placeholder="1000"> 
+                            <span class="storage-unit">MB</span>
+                        </div>
+                    </div>
+                    <div class="storage-info">
+                        <span id="maxTotalStorageDisplay" class="storage-display">1000 MB</span>
+                        <span id="availableStorageInfo" class="storage-available">Loading...</span>
+                    </div>
+                    <div id="storageValidationMessage" class="storage-validation-message"></div>
                 </div>
                 
                 <h3>File Type Limits</h3>
@@ -837,6 +960,36 @@
     <script>
         let originalConfig = '';
         let currentLinks = [];
+        let systemDiskSpace = null; // Cache for system disk space information
+        
+        // Load system disk space information
+        async function loadSystemDiskSpace() {
+            try {
+                const response = await fetch('/admin/api/system/disk-space');
+                const result = await response.json();
+                if (result.success) {
+                    systemDiskSpace = result.diskSpace;
+                } else {
+                    console.error('Failed to load disk space:', result.error);
+                    // Set fallback values if API fails
+                    systemDiskSpace = {
+                        total: 50 * 1024 * 1024 * 1024, // 50GB fallback
+                        available: 25 * 1024 * 1024 * 1024, // 25GB fallback
+                        used: 25 * 1024 * 1024 * 1024,
+                        approximate: true
+                    };
+                }
+            } catch (error) {
+                console.error('Error loading disk space:', error);
+                // Set fallback values if request fails
+                systemDiskSpace = {
+                    total: 50 * 1024 * 1024 * 1024, // 50GB fallback
+                    available: 25 * 1024 * 1024 * 1024, // 25GB fallback
+                    used: 25 * 1024 * 1024 * 1024,
+                    approximate: true
+                };
+            }
+        }
         
         // Load server status
         async function loadStatus() {
@@ -894,7 +1047,13 @@
                 
                 // Populate storage config
                 if (config.storage) {
-                    document.getElementById('maxTotalSize').value = config.storage.maxTotalSize || '';
+                    const maxTotalSizeStr = config.storage.maxTotalSize || '1GB';
+                    const maxTotalSizeBytes = parseFileSize(maxTotalSizeStr);
+                    const maxTotalSizeMB = bytesToMB(maxTotalSizeBytes);
+                    
+                    // Update slider and input
+                    updateStorageSlider(maxTotalSizeMB);
+                    
                     if (config.storage.maxFileSizes) {
                         document.getElementById('maxImageSize').value = config.storage.maxFileSizes.image || '';
                         document.getElementById('maxVideoSize').value = config.storage.maxFileSizes.video || '';
@@ -970,13 +1129,23 @@
         // Save storage configuration
         async function saveStorageConfig() {
             try {
+                // Validate configuration first
+                if (!validateStorageConfiguration()) {
+                    showAlert('Please fix the storage configuration errors before saving.', 'error', 'storageAlert');
+                    return;
+                }
+                
                 // Get current config
                 const currentResponse = await fetch('/admin/api/config');
                 const config = await currentResponse.json();
                 
+                // Get values from slider/input
+                const totalMB = parseInt(document.getElementById('maxTotalStorageInput').value) || 1000;
+                const totalSizeStr = formatFileSizeFromMB(totalMB);
+                
                 // Update storage settings
                 config.storage = {
-                    maxTotalSize: document.getElementById('maxTotalSize').value,
+                    maxTotalSize: totalSizeStr,
                     maxFileSizes: {
                         image: document.getElementById('maxImageSize').value,
                         video: document.getElementById('maxVideoSize').value,
@@ -1438,6 +1607,11 @@
         document.getElementById('saveClientConfig').addEventListener('click', saveClientConfig);
         document.getElementById('passwordChangeForm').addEventListener('submit', handlePasswordChange);
         
+        // File type input validation listeners
+        ['maxImageSize', 'maxVideoSize', 'maxDocumentSize', 'maxOtherSize'].forEach(id => {
+            document.getElementById(id).addEventListener('input', validateStorageConfiguration);
+        });
+        
         // Close modal when clicking outside of it
         document.getElementById('passwordChangeModal').addEventListener('click', function(event) {
             if (event.target === this) {
@@ -1567,6 +1741,109 @@
             }
         }
         
+        // Utility functions for file size conversion
+        function parseFileSize(sizeStr) {
+            const units = { 'B': 1, 'KB': 1024, 'MB': 1024*1024, 'GB': 1024*1024*1024 };
+            const match = sizeStr.match(/^(\d+(?:\.\d+)?)\s*([A-Z]*B?)$/i);
+            if (!match) return 0;
+            const value = parseFloat(match[1]);
+            const unit = match[2].toUpperCase() || 'B';
+            return value * (units[unit] || 1);
+        }
+        
+        function bytesToMB(bytes) {
+            return Math.round(bytes / (1024 * 1024));
+        }
+        
+        function mbToBytes(mb) {
+            return mb * 1024 * 1024;
+        }
+        
+        function formatFileSizeFromMB(mb) {
+            const bytes = mbToBytes(mb);
+            return formatFileSize(bytes);
+        }
+        
+        // Storage slider management functions
+        function updateStorageSlider(mb) {
+            const slider = document.getElementById('maxTotalStorageSlider');
+            const input = document.getElementById('maxTotalStorageInput');
+            const display = document.getElementById('maxTotalStorageDisplay');
+            
+            slider.value = mb;
+            input.value = mb;
+            display.textContent = formatFileSizeFromMB(mb);
+        }
+        
+        function setupStorageSlider() {
+            const slider = document.getElementById('maxTotalStorageSlider');
+            const input = document.getElementById('maxTotalStorageInput');
+            
+            // Set maximum based on available disk space
+            if (systemDiskSpace) {
+                const availableMB = bytesToMB(systemDiskSpace.available);
+                const maxAllowedMB = Math.min(availableMB, 10000); // Cap at 10GB for UI reasons
+                slider.max = maxAllowedMB;
+                input.max = maxAllowedMB;
+                
+                // Update available storage info
+                const infoElement = document.getElementById('availableStorageInfo');
+                infoElement.textContent = `Available: ${formatFileSize(systemDiskSpace.available)}${systemDiskSpace.approximate ? ' (estimated)' : ''}`;
+            }
+            
+            // Slider change handler
+            slider.addEventListener('input', function() {
+                const mb = parseInt(this.value);
+                input.value = mb;
+                document.getElementById('maxTotalStorageDisplay').textContent = formatFileSizeFromMB(mb);
+                validateStorageConfiguration();
+            });
+            
+            // Input change handler
+            input.addEventListener('input', function() {
+                const mb = parseInt(this.value) || 1;
+                const maxMB = parseInt(slider.max);
+                const clampedMB = Math.max(1, Math.min(mb, maxMB));
+                
+                if (mb !== clampedMB) {
+                    this.value = clampedMB;
+                }
+                
+                slider.value = clampedMB;
+                document.getElementById('maxTotalStorageDisplay').textContent = formatFileSizeFromMB(clampedMB);
+                validateStorageConfiguration();
+            });
+        }
+        
+        function validateStorageConfiguration() {
+            const totalMB = parseInt(document.getElementById('maxTotalStorageInput').value) || 0;
+            const messageElement = document.getElementById('storageValidationMessage');
+            
+            // Calculate sum of file type limits
+            const imageSize = parseFileSize(document.getElementById('maxImageSize').value || '0MB');
+            const videoSize = parseFileSize(document.getElementById('maxVideoSize').value || '0MB');
+            const documentSize = parseFileSize(document.getElementById('maxDocumentSize').value || '0MB');
+            const otherSize = parseFileSize(document.getElementById('maxOtherSize').value || '0MB');
+            
+            const totalFileTypesBytes = imageSize + videoSize + documentSize + otherSize;
+            const totalFileTypesMB = bytesToMB(totalFileTypesBytes);
+            
+            messageElement.className = 'storage-validation-message';
+            
+            if (totalFileTypesMB > totalMB) {
+                messageElement.className += ' error';
+                messageElement.textContent = `Error: Total file type limits (${formatFileSize(totalFileTypesBytes)}) exceed maximum total storage (${formatFileSizeFromMB(totalMB)}).`;
+                return false;
+            } else if (totalFileTypesMB > totalMB * 0.8) {
+                messageElement.className += ' warning';
+                messageElement.textContent = `Warning: File type limits (${formatFileSize(totalFileTypesBytes)}) are close to maximum total storage (${formatFileSizeFromMB(totalMB)}).`;
+            } else {
+                messageElement.style.display = 'none';
+            }
+            
+            return true;
+        }
+
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -1595,13 +1872,25 @@
         }
         
         // Load initial data
-        loadStatus();
-        loadConfig();
-        loadLogs();
-        loadLinks();
-        loadClientConfig();
-        loadClientFiles();
-        loadClientStorageStats();
+        async function initializeAdmin() {
+            // Load system information first
+            await loadSystemDiskSpace();
+            
+            // Load configuration and setup storage slider
+            await loadConfig();
+            setupStorageSlider();
+            
+            // Load other data
+            loadStatus();
+            loadLogs();
+            loadLinks();
+            loadClientConfig();
+            loadClientFiles();
+            loadClientStorageStats();
+        }
+        
+        // Initialize the admin interface
+        initializeAdmin();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);
