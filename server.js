@@ -1026,8 +1026,13 @@ app.get('/api/client/password-status', (req, res) => {
   }
 });
 
-app.post('/api/client/register', requireClientAuth, (req, res) => {
+app.post('/api/client/register', (req, res) => {
   try {
+    // Check if client access is enabled (no device check needed for registration)
+    if (!config.client?.enabled) {
+      return res.status(403).json({ error: 'Client access disabled' });
+    }
+    
     const { deviceId, deviceType, browserInfo, userAgent } = req.body;
     
     if (!deviceId) {
@@ -1356,7 +1361,7 @@ app.delete('/admin/api/client/device/:deviceId', requireAuth, (req, res) => {
 });
 
 // Client file upload endpoints
-app.post('/api/client/files/upload', requireClientAuth, (req, res) => {
+app.post('/api/client/files/upload', (req, res) => {
   const uploadSingle = upload.single('file');
   
   uploadSingle(req, res, function (err) {
@@ -1371,9 +1376,53 @@ app.post('/api/client/files/upload', requireClientAuth, (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
+    // Perform client authentication after multer has processed the form data
+    const deviceId = req.session.deviceId || req.body.deviceId || req.query.deviceId;
+    
+    if (!deviceId) {
+      // Clean up uploaded file before returning error
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(401).json({ error: 'Device ID required' });
+    }
+    
+    // Check if device is registered
+    const device = config.connectedDevices?.find(d => d.deviceId === deviceId);
+    if (!device) {
+      // Clean up uploaded file before returning error
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(401).json({ error: 'Device not registered' });
+    }
+    
+    // Check if client access is enabled
+    if (!config.client?.enabled) {
+      // Clean up uploaded file before returning error
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(403).json({ error: 'Client access disabled' });
+    }
+    
+    // If password is required, check it
+    if (config.client?.requirePassword) {
+      const clientPassword = req.body.password || req.headers['x-client-password'];
+      const storedHash = loadClientPasswordHash();
+      
+      if (!storedHash || !clientPassword || !verifyPassword(clientPassword, storedHash)) {
+        // Clean up uploaded file before returning error
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(401).json({ error: 'Client password required' });
+      }
+    }
+    
     try {
       // Move file from temp directory to client directory
-      const clientDir = ensureClientUploadDir(req.deviceId);
+      const clientDir = ensureClientUploadDir(deviceId);
       const tempPath = req.file.path;
       const finalPath = path.join(clientDir, req.file.filename);
       
@@ -1388,7 +1437,7 @@ app.post('/api/client/files/upload', requireClientAuth, (req, res) => {
         return res.status(400).json({ error: 'Invalid sharing option' });
       }
       
-      const success = addFileMetadata(req.deviceId, req.file.filename, {
+      const success = addFileMetadata(deviceId, req.file.filename, {
         originalName: req.file.originalname,
         size: req.file.size,
         mimeType: req.file.mimetype,
