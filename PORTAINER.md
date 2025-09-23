@@ -48,6 +48,13 @@ services:
 
 ### Step 3: Verify Deployment
 
+**Option 1: Use the deployment test script (Recommended)**
+```bash
+# Download and run the test script
+curl -sSL https://raw.githubusercontent.com/spospordo/Local-Server-Site-Pusher/main/test-deployment.sh | bash
+```
+
+**Option 2: Manual verification**
 1. Check the container logs in Portainer
 2. Look for successful startup messages:
    ```
@@ -136,6 +143,30 @@ Create a custom app template in Portainer with these settings:
 
 ## Troubleshooting
 
+### Container Startup Loop
+
+If you see the container restarting repeatedly with errors like:
+```
+npm: exec: line 0: start: not found
+🚀 Local-Server-Site-Pusher Container Starting...
+🔄 Switching to user node...
+npm: exec: line 0: start: not found
+```
+
+**Solution**: This indicates an issue with the entrypoint script. Ensure you're using the latest image version:
+```bash
+docker pull spospordo/local-server-site-pusher:latest
+```
+
+If the issue persists, try rebuilding from source:
+```yaml
+services:
+  local-server:
+    build:
+      context: https://github.com/spospordo/Local-Server-Site-Pusher.git
+    # ... rest of configuration
+```
+
 ### Permission Issues
 
 If you see permission errors:
@@ -156,6 +187,14 @@ services:
   local-server:
     user: "1000:1000"  # Add this line
     # ... rest of configuration
+```
+
+**Solution 3: For SELinux systems**
+```bash
+# If using SELinux, you may need to set the context
+sudo setsebool -P container_manage_cgroup on
+sudo semanage fcontext -a -t container_file_t "/var/lib/local-server-site-pusher(/.*)?"
+sudo restorecon -R /var/lib/local-server-site-pusher/
 ```
 
 ### Configuration Not Persisting
