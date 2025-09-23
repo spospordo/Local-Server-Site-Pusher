@@ -1672,6 +1672,56 @@ app.get('/admin/api/client/files', requireAuth, (req, res) => {
   }
 });
 
+// Get client storage usage statistics by category
+app.get('/admin/api/client/storage-stats', requireAuth, (req, res) => {
+  try {
+    const clientStats = {};
+    
+    // Read all client directories
+    if (fs.existsSync(uploadsDir)) {
+      const clientDirs = fs.readdirSync(uploadsDir).filter(item => {
+        const itemPath = path.join(uploadsDir, item);
+        return fs.statSync(itemPath).isDirectory();
+      });
+      
+      clientDirs.forEach(deviceId => {
+        const metadata = getClientFilesMetadata(deviceId);
+        const device = config.connectedDevices?.find(d => d.deviceId === deviceId);
+        
+        const stats = {
+          deviceId,
+          deviceName: device?.name || 'Unknown Device',
+          categories: {
+            image: { count: 0, size: 0 },
+            video: { count: 0, size: 0 },
+            document: { count: 0, size: 0 },
+            other: { count: 0, size: 0 }
+          },
+          totalSize: 0,
+          totalFiles: 0
+        };
+        
+        Object.entries(metadata.files).forEach(([filename, info]) => {
+          const fileType = getFileTypeFromMime(info.mimeType);
+          stats.categories[fileType].count += 1;
+          stats.categories[fileType].size += info.size;
+          stats.totalSize += info.size;
+          stats.totalFiles += 1;
+        });
+        
+        clientStats[deviceId] = stats;
+      });
+    }
+    
+    res.json({
+      success: true,
+      clients: clientStats
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get storage statistics: ' + error.message });
+  }
+});
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');

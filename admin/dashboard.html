@@ -366,6 +366,124 @@
         .btn-secondary:hover {
             background: #5a6268;
         }
+        
+        /* Client Storage Usage Styles */
+        .storage-client {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .storage-client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .storage-client-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1rem;
+        }
+        
+        .storage-client-total {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        
+        .storage-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .storage-category {
+            background: white;
+            border-radius: 6px;
+            padding: 0.75rem;
+            border-left: 4px solid;
+        }
+        
+        .storage-category.image {
+            border-left-color: #28a745;
+        }
+        
+        .storage-category.video {
+            border-left-color: #dc3545;
+        }
+        
+        .storage-category.document {
+            border-left-color: #007bff;
+        }
+        
+        .storage-category.other {
+            border-left-color: #6c757d;
+        }
+        
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .category-name {
+            font-weight: 600;
+            text-transform: capitalize;
+            color: #333;
+        }
+        
+        .category-count {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .category-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .category-bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .category-bar-fill.image {
+            background: #28a745;
+        }
+        
+        .category-bar-fill.video {
+            background: #dc3545;
+        }
+        
+        .category-bar-fill.document {
+            background: #007bff;
+        }
+        
+        .category-bar-fill.other {
+            background: #6c757d;
+        }
+        
+        .category-size {
+            font-size: 0.9rem;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .storage-empty {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
     </style>
 </head>
 <body>
@@ -606,6 +724,22 @@
                 <p><a href="/client" target="_blank"><code>http://your-server:3000/client</code></a></p>
                 
                 <div id="clientAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- Client Storage Usage -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Client Storage Usage</h2>
+            </div>
+            <div class="card-body">
+                <p>Storage usage by each client, organized by file category:</p>
+                <div id="clientStorageContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        Loading storage statistics...
+                    </div>
+                </div>
+                <div id="clientStorageAlert" class="alert"></div>
             </div>
         </div>
 
@@ -1240,6 +1374,73 @@
             }
         });
         
+        // Load client storage usage statistics
+        async function loadClientStorageStats() {
+            try {
+                const response = await fetch('/admin/api/client/storage-stats');
+                const result = await response.json();
+                
+                const container = document.getElementById('clientStorageContainer');
+                
+                if (result.success && Object.keys(result.clients).length > 0) {
+                    let maxClientSize = 0;
+                    // Find the max client size for relative bar scaling
+                    Object.values(result.clients).forEach(client => {
+                        maxClientSize = Math.max(maxClientSize, client.totalSize);
+                    });
+                    
+                    container.innerHTML = Object.values(result.clients).map(client => {
+                        let maxCategorySize = 0;
+                        // Find max category size for this client for relative bar scaling
+                        Object.values(client.categories).forEach(category => {
+                            maxCategorySize = Math.max(maxCategorySize, category.size);
+                        });
+                        
+                        const categoriesHtml = Object.entries(client.categories).map(([type, data]) => {
+                            const percentage = maxCategorySize > 0 ? (data.size / maxCategorySize * 100) : 0;
+                            return `
+                                <div class="storage-category ${type}">
+                                    <div class="category-header">
+                                        <span class="category-name">${type}</span>
+                                        <span class="category-count">${data.count} files</span>
+                                    </div>
+                                    <div class="category-bar">
+                                        <div class="category-bar-fill ${type}" style="width: ${percentage}%"></div>
+                                    </div>
+                                    <div class="category-size">${formatFileSize(data.size)}</div>
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        return `
+                            <div class="storage-client">
+                                <div class="storage-client-header">
+                                    <span class="storage-client-name">${escapeHtml(client.deviceName)}</span>
+                                    <span class="storage-client-total">${client.totalFiles} files • ${formatFileSize(client.totalSize)} total</span>
+                                </div>
+                                <div class="storage-categories">
+                                    ${categoriesHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="storage-empty">
+                            No client storage data available
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                const container = document.getElementById('clientStorageContainer');
+                container.innerHTML = `
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem; color: #dc3545;">
+                        Error loading storage statistics: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
         // Load client files
         async function loadClientFiles() {
             try {
@@ -1329,12 +1530,16 @@
         loadLinks();
         loadClientConfig();
         loadClientFiles();
+        loadClientStorageStats();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);
         
         // Refresh client configuration and connected devices every 30 seconds
         setInterval(loadClientConfig, 30000);
+        
+        // Refresh client storage stats every 60 seconds
+        setInterval(loadClientStorageStats, 60000);
     </script>
 </body>
 </html>
