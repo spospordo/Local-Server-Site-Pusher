@@ -417,15 +417,57 @@ const sessionConfig = {
   }
 };
 
-// Add session store warning for production
-if (process.env.NODE_ENV === 'production') {
-  console.warn('INFO: Using in-memory session store. For production with multiple instances, consider using a persistent session store like Redis.');
+// Control session store warnings based on environment and preference
+const isProduction = process.env.NODE_ENV === 'production';
+const suppressWarnings = process.env.SUPPRESS_SESSION_WARNINGS === 'true';
+
+// Suppress express-session MemoryStore warning unless explicitly in production without suppression
+if (!isProduction || suppressWarnings) {
+  // Temporarily capture stderr to suppress the express-session warning
+  const originalStderrWrite = process.stderr.write;
+  process.stderr.write = function(chunk, encoding, callback) {
+    if (typeof chunk === 'string' && chunk.includes('Warning: connect.session() MemoryStore is not')) {
+      // Skip this warning in development or when suppressed
+      return true;
+    }
+    return originalStderrWrite.apply(process.stderr, arguments);
+  };
+  
+  // Restore stderr after a short delay to allow session middleware setup
+  setTimeout(() => {
+    process.stderr.write = originalStderrWrite;
+  }, 100);
+}
+
+if (isProduction && !suppressWarnings) {
+  console.log('INFO: Using in-memory session store. For production with multiple instances, consider using a persistent session store like Redis.');
 }
 
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session(sessionConfig));
+
+// Apply stderr suppression for session middleware if needed
+if (isProduction && !suppressWarnings) {
+  const originalStderrWrite = process.stderr.write;
+  process.stderr.write = function(chunk, encoding, callback) {
+    if (typeof chunk === 'string' && chunk.includes('Warning: connect.session() MemoryStore is not')) {
+      // In production, replace with our own more concise warning
+      console.log('INFO: Session store using memory (not recommended for production clusters)');
+      return true;
+    }
+    return originalStderrWrite.apply(process.stderr, arguments);
+  };
+  
+  app.use(session(sessionConfig));
+  
+  // Restore stderr after session setup
+  setTimeout(() => {
+    process.stderr.write = originalStderrWrite;
+  }, 50);
+} else {
+  app.use(session(sessionConfig));
+}
 
 // Static files for public web content
 app.use('/public', express.static(path.join(__dirname, 'public')));
