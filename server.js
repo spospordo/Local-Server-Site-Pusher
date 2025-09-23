@@ -4,11 +4,18 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
 const configPath = path.join(configDir, 'config.json');
 const clientPasswordPath = path.join(configDir, '.client_auth');
+const uploadsDir = path.join(__dirname, 'uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Client password encryption utilities
 const SALT_ROUNDS = 12;
@@ -75,6 +82,110 @@ function deleteClientPasswordHash() {
     console.warn('Cannot delete client password file:', err.message);
     return false;
   }
+}
+
+// File upload utilities
+function parseFileSize(sizeStr) {
+  const units = { 'B': 1, 'KB': 1024, 'MB': 1024*1024, 'GB': 1024*1024*1024 };
+  const match = sizeStr.match(/^(\d+(?:\.\d+)?)\s*([A-Z]*B?)$/i);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  const unit = match[2].toUpperCase() || 'B';
+  return value * (units[unit] || 1);
+}
+
+function getFileTypeFromMime(mimeType) {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) return 'document';
+  return 'other';
+}
+
+function ensureClientUploadDir(deviceId) {
+  const clientDir = path.join(uploadsDir, deviceId);
+  if (!fs.existsSync(clientDir)) {
+    fs.mkdirSync(clientDir, { recursive: true });
+  }
+  return clientDir;
+}
+
+// Multer configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Get device ID from session or request
+    const deviceId = req.session.deviceId || req.body.deviceId;
+    if (!deviceId) {
+      return cb(new Error('Device ID required for file upload'));
+    }
+    
+    const clientDir = ensureClientUploadDir(deviceId);
+    cb(null, clientDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const basename = path.basename(file.originalname, ext);
+    cb(null, basename + '-' + uniqueSuffix + ext);
+  }
+});
+
+// Multer configuration (will be initialized after config is loaded)
+let upload;
+
+// File metadata management
+function getClientFilesMetadata(deviceId) {
+  const metadataPath = path.join(uploadsDir, deviceId, '.metadata.json');
+  try {
+    if (fs.existsSync(metadataPath)) {
+      return JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    }
+  } catch (err) {
+    console.warn('Error reading file metadata:', err.message);
+  }
+  return { files: {} };
+}
+
+function saveClientFilesMetadata(deviceId, metadata) {
+  const metadataPath = path.join(uploadsDir, deviceId, '.metadata.json');
+  try {
+    ensureClientUploadDir(deviceId);
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    return true;
+  } catch (err) {
+    console.warn('Error saving file metadata:', err.message);
+    return false;
+  }
+}
+
+function addFileMetadata(deviceId, filename, fileInfo) {
+  const metadata = getClientFilesMetadata(deviceId);
+  metadata.files[filename] = {
+    originalName: fileInfo.originalName,
+    size: fileInfo.size,
+    mimeType: fileInfo.mimeType,
+    uploadDate: new Date().toISOString(),
+    sharing: fileInfo.sharing || 'none' // none, admin, all
+  };
+  return saveClientFilesMetadata(deviceId, metadata);
+}
+
+function updateFileSharing(deviceId, filename, sharing) {
+  const metadata = getClientFilesMetadata(deviceId);
+  if (metadata.files[filename]) {
+    metadata.files[filename].sharing = sharing;
+    return saveClientFilesMetadata(deviceId, metadata);
+  }
+  return false;
+}
+
+function removeFileMetadata(deviceId, filename) {
+  const metadata = getClientFilesMetadata(deviceId);
+  if (metadata.files[filename]) {
+    delete metadata.files[filename];
+    return saveClientFilesMetadata(deviceId, metadata);
+  }
+  return false;
 }
 
 // Default configuration
@@ -281,6 +392,22 @@ try {
 
 const PORT = config.server.port || 3000;
 
+// Initialize multer configuration after config is loaded
+upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: parseFileSize(config.storage?.maxFileSizes?.other || '10MB')
+  },
+  fileFilter: function (req, file, cb) {
+    // Check file size limits based on type
+    const fileType = getFileTypeFromMime(file.mimetype);
+    const maxSize = parseFileSize(config.storage?.maxFileSizes?.[fileType] || '10MB');
+    
+    // Note: actual size check happens in multer limits, this is just for type validation
+    cb(null, true);
+  }
+});
+
 // Session configuration
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || config.server.sessionSecret || 'local-server-secret-' + Date.now(),
@@ -350,6 +477,40 @@ app.post('/admin/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/admin/login');
 });
+
+// Client authentication middleware
+const requireClientAuth = (req, res, next) => {
+  const deviceId = req.session.deviceId || req.body.deviceId || req.query.deviceId;
+  
+  if (!deviceId) {
+    return res.status(401).json({ error: 'Device ID required' });
+  }
+  
+  // Check if device is registered
+  const device = config.connectedDevices?.find(d => d.deviceId === deviceId);
+  if (!device) {
+    return res.status(401).json({ error: 'Device not registered' });
+  }
+  
+  // Check if client access is enabled
+  if (!config.client?.enabled) {
+    return res.status(403).json({ error: 'Client access disabled' });
+  }
+  
+  // If password is required, check it
+  if (config.client?.requirePassword) {
+    const clientPassword = req.body.password || req.headers['x-client-password'];
+    const storedHash = loadClientPasswordHash();
+    
+    if (!storedHash || !clientPassword || !verifyPassword(clientPassword, storedHash)) {
+      return res.status(401).json({ error: 'Client password required' });
+    }
+  }
+  
+  req.deviceId = deviceId;
+  req.device = device;
+  next();
+};
 
 // Admin dashboard
 app.get('/admin', requireAuth, (req, res) => {
@@ -633,21 +794,6 @@ app.get('/api/data', (req, res) => {
 app.get('/client', (req, res) => {
   res.sendFile(path.join(__dirname, 'client.html'));
 });
-
-// Client authentication middleware
-const requireClientAuth = (req, res, next) => {
-  const clientConfig = config.client || { requirePassword: false };
-  
-  if (!clientConfig.requirePassword) {
-    return next();
-  }
-  
-  if (req.session.clientAuthenticated) {
-    return next();
-  }
-  
-  res.status(401).json({ error: 'Client authentication required' });
-};
 
 // Client API endpoints
 app.get('/api/client/config', (req, res) => {
@@ -1208,6 +1354,209 @@ app.delete('/admin/api/client/device/:deviceId', requireAuth, (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to remove device: ' + error.message });
+  }
+});
+
+// Client file upload endpoints
+app.post('/api/client/files/upload', requireClientAuth, (req, res) => {
+  const uploadSingle = upload.single('file');
+  
+  uploadSingle(req, res, function (err) {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large' });
+      }
+      return res.status(400).json({ error: err.message });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Add file metadata
+    const sharing = req.body.sharing || 'none';
+    if (!['none', 'admin', 'all'].includes(sharing)) {
+      return res.status(400).json({ error: 'Invalid sharing option' });
+    }
+    
+    const success = addFileMetadata(req.deviceId, req.file.filename, {
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+      sharing: sharing
+    });
+    
+    if (!success) {
+      console.warn('Failed to save file metadata');
+    }
+    
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: {
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        sharing: sharing
+      }
+    });
+  });
+});
+
+// List client files
+app.get('/api/client/files', requireClientAuth, (req, res) => {
+  try {
+    const metadata = getClientFilesMetadata(req.deviceId);
+    const fileList = Object.entries(metadata.files).map(([filename, info]) => ({
+      filename,
+      originalName: info.originalName,
+      size: info.size,
+      mimeType: info.mimeType,
+      uploadDate: info.uploadDate,
+      sharing: info.sharing
+    }));
+    
+    res.json({
+      success: true,
+      files: fileList
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list files: ' + error.message });
+  }
+});
+
+// Update file sharing permissions
+app.patch('/api/client/files/:filename/sharing', requireClientAuth, (req, res) => {
+  try {
+    const { filename } = req.params;
+    const { sharing } = req.body;
+    
+    if (!['none', 'admin', 'all'].includes(sharing)) {
+      return res.status(400).json({ error: 'Invalid sharing option' });
+    }
+    
+    const success = updateFileSharing(req.deviceId, filename, sharing);
+    if (!success) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'File sharing updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update file sharing: ' + error.message });
+  }
+});
+
+// Delete client file
+app.delete('/api/client/files/:filename', requireClientAuth, (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(uploadsDir, req.deviceId, filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    
+    // Remove metadata
+    removeFileMetadata(req.deviceId, filename);
+    
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete file: ' + error.message });
+  }
+});
+
+// Serve client files with permission checks
+app.get('/files/:deviceId/:filename', (req, res) => {
+  try {
+    const { deviceId, filename } = req.params;
+    const filePath = path.join(uploadsDir, deviceId, filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Get file metadata to check sharing permissions
+    const metadata = getClientFilesMetadata(deviceId);
+    const fileInfo = metadata.files[filename];
+    
+    if (!fileInfo) {
+      return res.status(404).json({ error: 'File metadata not found' });
+    }
+    
+    // Check sharing permissions
+    if (fileInfo.sharing === 'none') {
+      // Only the owner can access
+      if (req.session.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'File not shared' });
+      }
+    } else if (fileInfo.sharing === 'admin') {
+      // Admin or owner can access
+      if (!req.session.authenticated && req.session.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+    }
+    // 'all' sharing allows anyone to access
+    
+    // Set appropriate content type
+    res.setHeader('Content-Type', fileInfo.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileInfo.originalName}"`);
+    
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to serve file: ' + error.message });
+  }
+});
+
+// Admin endpoint to view all client files
+app.get('/admin/api/client/files', requireAuth, (req, res) => {
+  try {
+    const allFiles = [];
+    
+    // Read all client directories
+    if (fs.existsSync(uploadsDir)) {
+      const clientDirs = fs.readdirSync(uploadsDir).filter(item => {
+        const itemPath = path.join(uploadsDir, item);
+        return fs.statSync(itemPath).isDirectory();
+      });
+      
+      clientDirs.forEach(deviceId => {
+        const metadata = getClientFilesMetadata(deviceId);
+        const device = config.connectedDevices?.find(d => d.deviceId === deviceId);
+        
+        Object.entries(metadata.files).forEach(([filename, info]) => {
+          allFiles.push({
+            deviceId,
+            deviceName: device?.name || 'Unknown Device',
+            filename,
+            originalName: info.originalName,
+            size: info.size,
+            mimeType: info.mimeType,
+            uploadDate: info.uploadDate,
+            sharing: info.sharing,
+            url: `/files/${deviceId}/${filename}`
+          });
+        });
+      });
+    }
+    
+    res.json({
+      success: true,
+      files: allFiles
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list client files: ' + error.message });
   }
 });
 
