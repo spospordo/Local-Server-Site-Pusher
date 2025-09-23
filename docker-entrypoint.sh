@@ -89,12 +89,11 @@ if is_root; then
         echo "⚠️  Could not fix /app/public permissions"
     }
     
-    # Fix /app/uploads permissions if it exists
-    if [ -d "/app/uploads" ]; then
-        fix_permissions "/app/uploads" "$TARGET_UID" "$TARGET_GID" || {
-            echo "⚠️  Could not fix /app/uploads permissions"
-        }
-    fi
+    # Fix /app/uploads permissions (create if needed for client file persistence)
+    fix_permissions "/app/uploads" "$TARGET_UID" "$TARGET_GID" || {
+        echo "⚠️  Could not fix /app/uploads permissions"
+        echo "   Client file uploads may not persist across deployments"
+    }
     
     echo "🔄 Switching to user $TARGET_USER..."
     # Use the built-in su command since we can't rely on external packages
@@ -119,11 +118,11 @@ else
     echo "👤 Running as non-root user ($(id -un))"
     
     # Just check if directories are writable
-    for dir in "/app/config" "/app/public"; do
+    for dir in "/app/config" "/app/public" "/app/uploads"; do
         if [ -d "$dir" ] && [ ! -w "$dir" ]; then
             echo "⚠️  $dir is not writable by current user"
             echo "   To fix: docker run --user \"\$(id -u):\$(id -g)\" ..."
-            echo "   Or: chown -R \$(id -u):\$(id -g) ./config ./public"
+            echo "   Or: chown -R \$(id -u):\$(id -g) ./config ./public ./uploads"
         fi
     done
     

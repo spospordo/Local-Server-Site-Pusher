@@ -139,6 +139,13 @@ if [ -f "docker-compose.yml" ]; then
         echo "   ⚠ Config directory volume mount not found"
     fi
     
+    # Check for uploads volume mount (CRITICAL for client file persistence)
+    if grep -q "./uploads:/app/uploads" docker-compose.yml; then
+        echo "   ✓ Uploads directory volume mount configured"
+    else
+        echo "   ⚠ Uploads directory volume mount not found - client files won't persist!"
+    fi
+    
     # Check for public volume mount (optional)
     if grep -q "./public:/app/public" docker-compose.yml; then
         echo "   ✓ Public directory volume mount configured"
@@ -181,6 +188,18 @@ else
     exit 1
 fi
 
+# Check uploads directory permissions (for client file persistence)
+if [ -d "uploads" ]; then
+    UPLOADS_PERMS=$(stat -c "%a" uploads 2>/dev/null || stat -f "%Lp" uploads 2>/dev/null || echo "unknown")
+    if [ "$UPLOADS_PERMS" = "755" ] || [ "$UPLOADS_PERMS" = "775" ] || [ "$UPLOADS_PERMS" = "unknown" ]; then
+        echo "   ✓ Uploads directory permissions are appropriate ($UPLOADS_PERMS)"
+    else
+        echo "   ⚠ Uploads directory permissions may be too restrictive ($UPLOADS_PERMS)"
+    fi
+else
+    echo "   ℹ Uploads directory not found (will be created automatically)"
+fi
+
 # Cleanup
 rm -f /tmp/server_test.log
 
@@ -192,7 +211,7 @@ echo "   - Configuration validation and repair: Working"
 echo "   - Backup and restore functionality: Working"
 echo "   - Server startup with validation: Working"
 echo "   - Volume mount configuration: Verified"
-echo "   - File permissions: Checked"
+echo "   - File permissions: Checked (including uploads directory)"
 echo ""
 echo "🚀 Your persistent settings are properly configured!"
 echo "   - Settings will survive container updates"

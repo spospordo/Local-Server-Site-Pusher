@@ -32,6 +32,7 @@ services:
       # Use absolute paths for Portainer
       - /var/lib/local-server-site-pusher/config:/app/config
       - /var/lib/local-server-site-pusher/public:/app/public
+      - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=change-this-to-a-secure-random-string
@@ -80,6 +81,7 @@ services:
     volumes:
       - /var/lib/local-server-site-pusher/config:/app/config
       - /var/lib/local-server-site-pusher/public:/app/public
+      - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=your-secure-secret-here
@@ -102,6 +104,7 @@ Create a custom app template in Portainer with these settings:
 **Volumes:**
 - `/var/lib/local-server-site-pusher/config:/app/config`
 - `/var/lib/local-server-site-pusher/public:/app/public`
+- `/var/lib/local-server-site-pusher/uploads:/app/uploads`
 
 **Environment Variables:**
 - `NODE_ENV=production`
@@ -125,6 +128,9 @@ Create a custom app template in Portainer with these settings:
    - **Host Path Volume**: 
      - Host Path: `/mnt/pool1/apps/local-server/public`
      - Mount Path: `/app/public`
+   - **Host Path Volume**: 
+     - Host Path: `/mnt/pool1/apps/local-server/uploads`
+     - Mount Path: `/app/uploads`
 6. **Environment Variables**:
    - `NODE_ENV=production`
    - `SESSION_SECRET=your-secure-secret-here`
