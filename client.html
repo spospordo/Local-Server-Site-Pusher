@@ -587,6 +587,7 @@
         let deviceId = null;
         let connectionTime = new Date();
         let clientAuthenticated = false;
+        let clientPassword = null; // Store the client password for file uploads
 
         // Device detection
         function detectDevice() {
@@ -670,6 +671,56 @@
             }
         }
 
+        // Check device name and update UI accordingly
+        async function checkDeviceName() {
+            try {
+                const response = await fetch(`/api/visitor/status/${deviceId}`);
+                const data = await response.json();
+                
+                if (data.isRecognized && data.name) {
+                    // Device has a name, show it with edit button
+                    showDeviceNameDisplay(data.name);
+                } else {
+                    // Device doesn't have a name, show the form
+                    showDeviceNameForm();
+                }
+            } catch (error) {
+                console.error('Failed to check device name:', error);
+                // Default to showing the form
+                showDeviceNameForm();
+            }
+        }
+
+        function showDeviceNameDisplay(name) {
+            const deviceNameSection = document.querySelector('.optional-section');
+            deviceNameSection.innerHTML = `
+                <h2>📱 Device Name</h2>
+                <p>Your device is registered with the name: <strong>${name}</strong></p>
+                <div class="device-name-display">
+                    <div class="current-name">
+                        <span class="name-value">${name}</span>
+                        <button type="button" class="btn" onclick="showDeviceNameForm()" style="margin-left: 1rem;">Edit Name</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showDeviceNameForm() {
+            const deviceNameSection = document.querySelector('.optional-section');
+            deviceNameSection.innerHTML = `
+                <h2>📱 Optional: Add Device Name</h2>
+                <p>Give your device a custom name for easier identification.</p>
+                
+                <div class="device-name-form">
+                    <div class="form-group">
+                        <label for="deviceName">Device Name (Optional)</label>
+                        <input type="text" id="deviceName" placeholder="e.g., John's iPhone, Living Room Tablet">
+                    </div>
+                    <button type="button" class="btn" onclick="updateDeviceName()">Save Name</button>
+                </div>
+            `;
+        }
+
         // Update device name
         async function updateDeviceName() {
             const nameInput = document.getElementById('deviceName');
@@ -690,6 +741,12 @@
                 const result = await response.json();
                 if (result.success) {
                     showAlert('Device name updated successfully!', 'success');
+                    // Refresh the device name display
+                    if (name) {
+                        showDeviceNameDisplay(name);
+                    } else {
+                        showDeviceNameForm();
+                    }
                 } else {
                     showAlert('Failed to update device name: ' + result.error, 'error');
                 }
@@ -705,8 +762,9 @@
                 const status = await response.json();
                 
                 document.getElementById('serverUptime').textContent = Math.floor(status.server.uptime / 60) + ' minutes';
-                document.getElementById('serverPort').textContent = status.server.port;
                 document.getElementById('serverVersion').textContent = status.version;
+                document.getElementById('serverStatus').textContent = 'Online';
+                document.querySelector('.status-indicator').className = 'status-indicator status-online';
             } catch (error) {
                 console.error('Failed to load server status:', error);
                 document.getElementById('serverStatus').textContent = 'Offline';
@@ -791,6 +849,7 @@
                 const result = await response.json();
                 if (result.success) {
                     clientAuthenticated = true;
+                    clientPassword = password; // Store password for file uploads
                     document.getElementById('passwordSection').style.display = 'none';
                     document.getElementById('mainContent').style.display = 'block';
                     initializeClient();
@@ -814,6 +873,7 @@
             loadUsefulLinks();
             checkPasswordStatus(); // Load password status
             loadFileList(); // Load user files
+            checkDeviceName(); // Check if device has a name and update UI
             
             // Refresh server status every 30 seconds
             setInterval(loadServerStatus, 30000);
@@ -833,26 +893,76 @@
         }
 
         function updatePasswordStatusDisplay(status) {
-            const statusElement = document.getElementById('passwordProtectionStatus');
-            const noPasswordSection = document.getElementById('noPasswordSection');
-            const hasPasswordSection = document.getElementById('hasPasswordSection');
+            const passwordSection = document.querySelector('.optional-section:last-child');
             
-            if (status.isProtected) {
-                statusElement.innerHTML = '🔒 <strong>Protected</strong> - Password protection is active';
-                statusElement.style.color = '#28a745';
-                noPasswordSection.style.display = 'none';
-                hasPasswordSection.style.display = 'block';
-            } else if (status.hasPassword && !status.requirePassword) {
-                statusElement.innerHTML = '🔓 <strong>Password Set but Disabled</strong> - Password exists but protection is disabled';
-                statusElement.style.color = '#ffc107';
-                noPasswordSection.style.display = 'none';
-                hasPasswordSection.style.display = 'block';
+            if (status.hasPassword) {
+                // Password exists - show simplified UI
+                passwordSection.innerHTML = `
+                    <h2>🔐 Password Protection</h2>
+                    <div id="passwordManagementAlert"></div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Status</div>
+                        <div class="info-value" style="color: #28a745;">
+                            🔒 <strong>Password Set</strong> - Your account is protected
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <button type="button" class="btn" onclick="showPasswordChangeForm()" style="margin-right: 0.5rem;">Change Password</button>
+                        <button type="button" class="btn" onclick="removePassword()" style="background-color: #dc3545;">Remove Password</button>
+                    </div>
+                    
+                    <div id="passwordChangeForm" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" placeholder="Enter current password">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="changeNewPassword">New Password</label>
+                            <input type="password" id="changeNewPassword" placeholder="Enter new password (min 4 characters)">
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <button type="button" class="btn" onclick="changePassword()" style="margin-right: 0.5rem;">Update Password</button>
+                            <button type="button" class="btn" onclick="hidePasswordChangeForm()" style="background-color: #6c757d;">Cancel</button>
+                        </div>
+                    </div>
+                `;
             } else {
-                statusElement.innerHTML = '🔓 <strong>No Protection</strong> - No password is set';
-                statusElement.style.color = '#6c757d';
-                noPasswordSection.style.display = 'block';
-                hasPasswordSection.style.display = 'none';
+                // No password - show setup form
+                passwordSection.innerHTML = `
+                    <h2>🔐 Optional: Password Protection</h2>
+                    <p>Set up password protection for additional security.</p>
+                    <div id="passwordManagementAlert"></div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Password Protection Status</div>
+                        <div class="info-value" style="color: #6c757d;">
+                            🔓 <strong>No Protection</strong> - No password is set
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1rem;">
+                        <div class="form-group">
+                            <label for="newPassword">Set New Password</label>
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 4 characters)">
+                        </div>
+                        <button type="button" class="btn" onclick="setNewPassword()">Set Password</button>
+                    </div>
+                `;
             }
+        }
+
+        function showPasswordChangeForm() {
+            document.getElementById('passwordChangeForm').style.display = 'block';
+        }
+
+        function hidePasswordChangeForm() {
+            document.getElementById('passwordChangeForm').style.display = 'none';
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('changeNewPassword').value = '';
         }
 
         async function setNewPassword() {
@@ -881,6 +991,7 @@
                 
                 if (result.success) {
                     showPasswordManagementAlert(result.message, 'success');
+                    clientPassword = newPassword; // Store the password for file uploads
                     document.getElementById('newPassword').value = '';
                     checkPasswordStatus(); // Refresh status
                 } else {
@@ -999,11 +1110,10 @@
         // File Upload and Management Functions
         async function uploadFile() {
             // Check if device has a name
-            const deviceNameInput = document.getElementById('deviceName');
-            const deviceName = deviceNameInput.value.trim();
+            const deviceName = getDeviceNameFromDOM();
             
             if (!deviceName) {
-                showFileManagementAlert('Please set a device name before uploading files. Scroll up to the "Optional: Add Device Name" section.', 'error');
+                showFileManagementAlert('Please set a device name before uploading files. Scroll up to the "Device Name" section.', 'error');
                 return;
             }
             
@@ -1011,6 +1121,11 @@
             const formData = new FormData(form);
             formData.append('deviceId', deviceId);
             formData.append('deviceName', deviceName);
+            
+            // Add password to form data if we have one (for authentication)
+            if (clientPassword) {
+                formData.append('password', clientPassword);
+            }
             
             try {
                 const response = await fetch('/api/client/files/upload', {
@@ -1030,6 +1145,23 @@
             } catch (error) {
                 showFileManagementAlert('Error uploading file: ' + error.message, 'error');
             }
+        }
+
+        // Helper function to get device name from DOM
+        function getDeviceNameFromDOM() {
+            // Try to get name from display mode first
+            const nameDisplay = document.querySelector('.name-value');
+            if (nameDisplay) {
+                return nameDisplay.textContent.trim();
+            }
+            
+            // Fall back to input field
+            const deviceNameInput = document.getElementById('deviceName');
+            if (deviceNameInput) {
+                return deviceNameInput.value.trim();
+            }
+            
+            return '';
         }
 
         async function loadFileList() {

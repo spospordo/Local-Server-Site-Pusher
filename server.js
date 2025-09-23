@@ -1158,7 +1158,7 @@ app.post('/api/client/update-name', requireClientAuth, (req, res) => {
   }
 });
 
-app.get('/api/client/links', requireClientAuth, (req, res) => {
+app.get('/api/client/links', (req, res) => {
   res.json(config.usefulLinks || []);
 });
 
