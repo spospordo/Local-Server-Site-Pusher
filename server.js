@@ -1422,6 +1422,25 @@ app.delete('/admin/api/client/:deviceId', requireAuth, (req, res) => {
     const initialLength = config.connectedDevices.length;
     config.connectedDevices = config.connectedDevices.filter(device => device.deviceId !== deviceId);
     
+    // Check if this was the last client - if so, clear global password data
+    const wasLastClient = config.connectedDevices.length === 0;
+    let passwordCleared = false;
+    
+    if (wasLastClient) {
+      // Clear global client password since no clients remain
+      if (deleteClientPasswordHash()) {
+        passwordCleared = true;
+        console.log('Cleared global client password - no clients remaining');
+        
+        // Disable password protection in config
+        if (config.client) {
+          config.client.requirePassword = false;
+        }
+      } else {
+        console.warn('Failed to clear global client password on last client deletion');
+      }
+    }
+    
     // Delete all client files and directory
     const clientDir = path.join(uploadsDir, deviceId);
     if (fs.existsSync(clientDir)) {
@@ -1438,15 +1457,21 @@ app.delete('/admin/api/client/:deviceId', requireAuth, (req, res) => {
       createConfigFile(configPath, config);
     }
     
+    let message = `Client "${device.name || 'Unnamed Device'}" and all associated data deleted successfully`;
+    if (passwordCleared) {
+      message += '. Global password protection has been cleared since no clients remain.';
+    }
+    
     res.json({ 
       success: true, 
-      message: `Client "${device.name || 'Unnamed Device'}" and all associated data deleted successfully`,
+      message: message,
       deletedDevice: {
         deviceId: device.deviceId,
         name: device.name,
         deviceType: device.deviceType
       },
-      remainingDevices: config.connectedDevices
+      remainingDevices: config.connectedDevices,
+      passwordCleared: passwordCleared
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete client: ' + error.message });
