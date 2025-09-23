@@ -86,11 +86,15 @@ services:
       # CRITICAL: Mount config directory for persistence
       - ./config:/app/config
       
+      # CRITICAL: Mount uploads directory for client file persistence
+      - ./uploads:/app/uploads
+      
       # OPTIONAL: Mount public directory for web content
       - ./public:/app/public
       
       # For production, use absolute paths:
       # - /var/lib/local-server/config:/app/config
+      # - /var/lib/local-server/uploads:/app/uploads
       # - /var/lib/local-server/public:/app/public
 ```
 
@@ -100,11 +104,11 @@ services:
 
 ```bash
 # Check current permissions
-ls -la config/
+ls -la config/ uploads/
 
 # Fix permissions if needed (Linux/macOS)
-sudo chown -R $(id -u):$(id -g) config/
-chmod 755 config/
+sudo chown -R $(id -u):$(id -g) config/ uploads/
+chmod 755 config/ uploads/
 chmod 600 config/.client_auth  # Secure client auth file
 ```
 
@@ -190,7 +194,7 @@ curl -I http://localhost:3000/admin
 **Solutions**:
 1. Fix host directory ownership:
    ```bash
-   sudo chown -R $(id -u):$(id -g) config/
+   sudo chown -R $(id -u):$(id -g) config/ uploads/
    ```
 
 2. Or run container with user mapping:

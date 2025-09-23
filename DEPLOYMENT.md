@@ -21,6 +21,7 @@ docker build -t local-server-site-pusher .
 docker run -d -p 3000:3000 \
   -v ./public:/app/public \
   -v ./config:/app/config \
+  -v ./uploads:/app/uploads \
   --name local-server \
   local-server-site-pusher
 ```
@@ -32,11 +33,11 @@ If you see permission denied errors when the container tries to create config fi
 ### Option 1: Set correct ownership (Linux/macOS)
 ```bash
 # Create directories with correct ownership
-mkdir -p config public
-sudo chown $(id -u):$(id -g) config public
+mkdir -p config public uploads
+sudo chown $(id -u):$(id -g) config public uploads
 
 # Or fix existing directories
-sudo chown -R $(id -u):$(id -g) config public
+sudo chown -R $(id -u):$(id -g) config public uploads
 ```
 
 ### Option 2: Use user mapping in docker-compose.yml
@@ -58,6 +59,7 @@ docker run -d --user "$(id -u):$(id -g)" \
   -p 3000:3000 \
   -v ./public:/app/public \
   -v ./config:/app/config \
+  -v ./uploads:/app/uploads \
   local-server-site-pusher
 ```
 
@@ -142,6 +144,7 @@ services:
     volumes:
       - ./public:/app/public
       - ./config:/app/config
+      - ./uploads:/app/uploads
     user: "1000:1000"  # Your user:group ID
 ```
 
@@ -155,6 +158,7 @@ services:
     volumes:
       - /path/to/persistent/public:/app/public
       - /path/to/persistent/config:/app/config
+      - /path/to/persistent/uploads:/app/uploads
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=your-secure-random-string

@@ -42,6 +42,7 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/public:/app/public \
   -v $(pwd)/config:/app/config \
+  -v $(pwd)/uploads:/app/uploads \
   --name local-server \
   local-server-site-pusher
 ```
@@ -64,6 +65,7 @@ services:
     volumes:
       - /var/lib/local-server/config:/app/config
       - /var/lib/local-server/public:/app/public
+      - /var/lib/local-server/uploads:/app/uploads
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=your-secure-secret-here
@@ -83,7 +85,7 @@ The container automatically handles permission fixes for volume mounts - no manu
 
 **Problem**: Permission errors with volume mounts
 **Solution**: 
-1. Fix host directory ownership: `sudo chown -R 1000:1000 ./config ./public`
+1. Fix host directory ownership: `sudo chown -R 1000:1000 ./config ./public ./uploads`
 2. Or let the container auto-fix permissions (default behavior)
 
 For detailed troubleshooting, see [PORTAINER.md](PORTAINER.md).
