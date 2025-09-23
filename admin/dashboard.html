@@ -710,11 +710,11 @@
                 
                 <div class="section-divider"></div>
                 
-                <h3>Connected Devices</h3>
-                <p>Devices that have accessed the client page:</p>
+                <h3>Client Management</h3>
+                <p>Manage all clients that have connected to this server. Delete a client to remove their account and all associated data.</p>
                 <div id="devicesContainer">
                     <div style="text-align: center; opacity: 0.7; padding: 2rem;">
-                        Loading devices...
+                        Loading clients...
                     </div>
                 </div>
                 
@@ -1202,7 +1202,7 @@
             if (devices.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; opacity: 0.7; padding: 2rem;">
-                        No devices have connected yet
+                        No clients have connected yet
                     </div>
                 `;
                 return;
@@ -1210,23 +1210,44 @@
             
             container.innerHTML = devices.map(device => {
                 const lastSeen = new Date(device.lastSeen);
+                const firstSeen = new Date(device.firstSeen);
                 const timeDiff = Math.floor((Date.now() - lastSeen.getTime()) / 1000 / 60); // minutes
                 const timeAgo = timeDiff < 1 ? 'Just now' : timeDiff < 60 ? `${timeDiff}m ago` : `${Math.floor(timeDiff/60)}h ago`;
                 
                 return `
-                    <div class="link-item" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
-                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <div class="client-item" style="background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
                             <div>
-                                <strong>${device.name || 'Unnamed Device'}</strong>
-                                <span style="opacity: 0.7; margin-left: 0.5rem;">(${device.deviceType})</span>
+                                <h4 style="margin: 0; color: #333; font-size: 1.1rem;">
+                                    ${escapeHtml(device.name || 'Unnamed Client')}
+                                    <span style="opacity: 0.7; font-weight: normal; font-size: 0.9rem; margin-left: 0.5rem;">(${escapeHtml(device.deviceType)})</span>
+                                </h4>
+                                <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">
+                                    Client ID: <code style="background: #f1f1f1; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.8rem;">${escapeHtml(device.deviceId)}</code>
+                                </div>
                             </div>
-                            <button class="btn btn-danger" onclick="removeDevice('${device.deviceId}')">Remove</button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-secondary" onclick="removeDevice('${device.deviceId}')" title="Remove client from device list only">Remove Device</button>
+                                <button class="btn btn-danger" onclick="deleteClient('${device.deviceId}')" title="Delete client and all their data permanently">Delete Client</button>
+                            </div>
                         </div>
-                        <div style="font-size: 0.9rem; opacity: 0.8;">
-                            <div><strong>Browser:</strong> ${device.browserInfo}</div>
-                            <div><strong>IP:</strong> ${device.ip}</div>
-                            <div><strong>Last Seen:</strong> ${timeAgo}</div>
-                            <div><strong>Device ID:</strong> ${device.deviceId}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.9rem; color: #555;">
+                            <div>
+                                <strong>Browser:</strong><br>
+                                <span style="opacity: 0.8;">${escapeHtml(device.browserInfo || 'Unknown')}</span>
+                            </div>
+                            <div>
+                                <strong>IP Address:</strong><br>
+                                <span style="opacity: 0.8;">${escapeHtml(device.ip || 'Unknown')}</span>
+                            </div>
+                            <div>
+                                <strong>Last Seen:</strong><br>
+                                <span style="opacity: 0.8;">${timeAgo}</span>
+                            </div>
+                            <div>
+                                <strong>First Connected:</strong><br>
+                                <span style="opacity: 0.8;">${formatDate(device.firstSeen)}</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1267,7 +1288,7 @@
         
         // Remove device
         async function removeDevice(deviceId) {
-            if (!confirm('Are you sure you want to remove this device?')) {
+            if (!confirm('Are you sure you want to remove this device from the list? This will NOT delete any files uploaded by the client.')) {
                 return;
             }
             
@@ -1287,6 +1308,56 @@
             } catch (err) {
                 showAlert('Error removing device: ' + err.message, 'error', 'clientAlert');
             }
+        }
+        
+        // Delete client and all their data
+        async function deleteClient(deviceId) {
+            const deviceName = getDeviceName(deviceId);
+            const confirmMessage = `⚠️ WARNING: This will permanently delete the client "${deviceName}" and ALL their data including:\n\n• Device record from the system\n• All uploaded files\n• All file metadata\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // Second confirmation for safety
+            if (!confirm('This is your final warning. Type "DELETE" and press OK to confirm:')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/client/${deviceId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Client "${result.deletedDevice.name || 'Unnamed Device'}" and all associated data deleted successfully!`, 'success', 'clientAlert');
+                    // Reload multiple sections that might be affected
+                    loadClientConfig();
+                    loadClientFiles();
+                    loadClientStorageStats();
+                } else {
+                    showAlert('Failed to delete client: ' + result.error, 'error', 'clientAlert');
+                }
+            } catch (err) {
+                showAlert('Error deleting client: ' + err.message, 'error', 'clientAlert');
+            }
+        }
+        
+        // Helper function to get device name from the current devices list
+        function getDeviceName(deviceId) {
+            const container = document.getElementById('devicesContainer');
+            const deviceElements = container.querySelectorAll('.client-item');
+            for (let element of deviceElements) {
+                if (element.innerHTML.includes(deviceId)) {
+                    const nameElement = element.querySelector('h4');
+                    if (nameElement) {
+                        return nameElement.textContent.split('(')[0].trim();
+                    }
+                }
+            }
+            return 'Unknown Device';
         }
         
         // Password Change Modal Functions

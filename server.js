@@ -1402,6 +1402,56 @@ app.delete('/admin/api/client/device/:deviceId', requireAuth, (req, res) => {
   }
 });
 
+// Delete client and all their data (device record + files)
+app.delete('/admin/api/client/:deviceId', requireAuth, (req, res) => {
+  try {
+    const deviceId = req.params.deviceId;
+    
+    if (!config.connectedDevices) {
+      return res.status(404).json({ error: 'No devices found' });
+    }
+    
+    // Find the device to get its name for the response
+    const device = config.connectedDevices.find(d => d.deviceId === deviceId);
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    
+    // Remove device from connected devices list
+    const initialLength = config.connectedDevices.length;
+    config.connectedDevices = config.connectedDevices.filter(device => device.deviceId !== deviceId);
+    
+    // Delete all client files and directory
+    const clientDir = path.join(uploadsDir, deviceId);
+    if (fs.existsSync(clientDir)) {
+      try {
+        fs.rmSync(clientDir, { recursive: true, force: true });
+      } catch (err) {
+        console.warn(`Error deleting client directory ${clientDir}:`, err.message);
+        // Continue with device removal even if file deletion fails
+      }
+    }
+    
+    // Try to persist config changes to file
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Client "${device.name || 'Unnamed Device'}" and all associated data deleted successfully`,
+      deletedDevice: {
+        deviceId: device.deviceId,
+        name: device.name,
+        deviceType: device.deviceType
+      },
+      remainingDevices: config.connectedDevices
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete client: ' + error.message });
+  }
+});
+
 // Client file upload endpoints
 app.post('/api/client/files/upload', (req, res) => {
   const uploadSingle = upload.single('file');
