@@ -112,14 +112,12 @@ function ensureClientUploadDir(deviceId) {
 // Multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Get device ID from session or request
-    const deviceId = req.session.deviceId || req.body.deviceId;
-    if (!deviceId) {
-      return cb(new Error('Device ID required for file upload'));
+    // Use a temporary directory first, we'll move it later
+    const tempDir = path.join(uploadsDir, 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
-    
-    const clientDir = ensureClientUploadDir(deviceId);
-    cb(null, clientDir);
+    cb(null, tempDir);
   },
   filename: function (req, file, cb) {
     // Generate unique filename with timestamp
@@ -1373,33 +1371,56 @@ app.post('/api/client/files/upload', requireClientAuth, (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    // Add file metadata
-    const sharing = req.body.sharing || 'none';
-    if (!['none', 'admin', 'all'].includes(sharing)) {
-      return res.status(400).json({ error: 'Invalid sharing option' });
-    }
-    
-    const success = addFileMetadata(req.deviceId, req.file.filename, {
-      originalName: req.file.originalname,
-      size: req.file.size,
-      mimeType: req.file.mimetype,
-      sharing: sharing
-    });
-    
-    if (!success) {
-      console.warn('Failed to save file metadata');
-    }
-    
-    res.json({
-      success: true,
-      message: 'File uploaded successfully',
-      file: {
-        filename: req.file.filename,
+    try {
+      // Move file from temp directory to client directory
+      const clientDir = ensureClientUploadDir(req.deviceId);
+      const tempPath = req.file.path;
+      const finalPath = path.join(clientDir, req.file.filename);
+      
+      // Move the file
+      fs.renameSync(tempPath, finalPath);
+      
+      // Add file metadata
+      const sharing = req.body.sharing || 'none';
+      if (!['none', 'admin', 'all'].includes(sharing)) {
+        // Clean up file if sharing is invalid
+        fs.unlinkSync(finalPath);
+        return res.status(400).json({ error: 'Invalid sharing option' });
+      }
+      
+      const success = addFileMetadata(req.deviceId, req.file.filename, {
         originalName: req.file.originalname,
         size: req.file.size,
+        mimeType: req.file.mimetype,
         sharing: sharing
+      });
+      
+      if (!success) {
+        console.warn('Failed to save file metadata');
       }
-    });
+      
+      res.json({
+        success: true,
+        message: 'File uploaded successfully',
+        file: {
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          size: req.file.size,
+          sharing: sharing
+        }
+      });
+    } catch (error) {
+      // Clean up file if something went wrong
+      try {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      } catch (cleanupErr) {
+        console.warn('Failed to clean up temporary file:', cleanupErr.message);
+      }
+      
+      res.status(500).json({ error: 'Failed to process upload: ' + error.message });
+    }
   });
 });
 
