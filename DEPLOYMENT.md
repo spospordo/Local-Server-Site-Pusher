@@ -103,6 +103,7 @@ Status endpoint: http://localhost:3000/api/status
 ### Environment Variables
 - `NODE_ENV=production` - Enables production mode
 - `SESSION_SECRET` - Custom session secret for security
+- `SUPPRESS_SESSION_WARNINGS=true` - Suppresses session store warnings in logs
 
 ## Troubleshooting
 
@@ -119,7 +120,12 @@ If you see `EACCES: permission denied, open '/app/config/config.json'`:
 - Configuration changes via admin interface require write access
 
 ### Session Store Warnings
-The warning about MemoryStore is informational only. For production with multiple instances, consider:
+Session store warnings are now controlled based on environment:
+- **Development mode**: Warnings are suppressed for cleaner logs
+- **Production mode**: Informational warnings are shown to remind about scaling considerations
+- **Suppressed mode**: Set `SUPPRESS_SESSION_WARNINGS=true` to disable all session warnings
+
+For production with multiple instances, consider:
 - Redis session store
 - External load balancer with session affinity
 - Database-backed session storage
@@ -152,5 +158,6 @@ services:
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=your-secure-random-string
+      # - SUPPRESS_SESSION_WARNINGS=true  # Uncomment to suppress session warnings
     restart: unless-stopped
 ```
