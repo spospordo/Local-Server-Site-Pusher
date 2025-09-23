@@ -26,6 +26,8 @@ docker-compose up -d
 # Admin panel: http://localhost:3000/admin
 ```
 
+**✨ New**: The container now automatically fixes permission issues with volume mounts - perfect for Portainer deployments!
+
 ### Using Docker
 
 ```bash
@@ -43,8 +45,13 @@ docker run -d \
 
 ### TrueNAS Scale / Portainer Deployment
 
-For TrueNAS Scale or Portainer environments, use this docker-compose configuration:
+🎯 **For Portainer and TrueNAS Scale users**: See the comprehensive [**PORTAINER.md**](PORTAINER.md) deployment guide which includes:
+- Quick deployment steps
+- Permission troubleshooting  
+- TrueNAS Scale specific instructions
+- Security best practices
 
+**Quick Example for Portainer Stack:**
 ```yaml
 services:
   local-server:
@@ -52,18 +59,15 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /path/to/your/public:/app/public
-      - /path/to/your/config:/app/config
+      - /var/lib/local-server/config:/app/config
+      - /var/lib/local-server/public:/app/public
     environment:
       - NODE_ENV=production
+      - SESSION_SECRET=your-secure-secret-here
     restart: unless-stopped
 ```
 
-**Important Notes for TrueNAS/Portainer:**
-- The container automatically creates configuration files if they don't exist
-- Mount directories (not files) to avoid mount type errors
-- The config directory will be created automatically if it doesn't exist
-- Default admin credentials: `admin` / `admin123` (change these immediately!)
+The container automatically handles permission fixes for volume mounts - no manual setup required!
 
 ### Local Development
 

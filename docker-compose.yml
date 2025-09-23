@@ -13,12 +13,20 @@ services:
       - SESSION_SECRET=your-secret-key-here-change-this
     restart: unless-stopped
     
-    # Option 1: Run as current user (recommended for development)
+    # PORTAINER DEPLOYMENT OPTIONS:
+    # Choose ONE of the options below based on your environment:
+    
+    # Option 1: Let the container auto-fix permissions (RECOMMENDED for Portainer)
+    # This requires no host-side setup but container must start as root initially
+    # The entrypoint script will fix permissions and switch to the node user
+    # (This is the default - no additional configuration needed)
+    
+    # Option 2: Run as current user (for development or when you control host permissions)
     # Uncomment the next line and run: id to get your user:group IDs
     # user: "1000:1000"  # Replace with your actual user:group ID
     
-    # Option 2: For systems where you need to fix permissions
-    # If you get permission errors, ensure the host directories have correct ownership:
+    # Option 3: For systems where you need to fix permissions manually
+    # If you get permission errors with Option 1, ensure the host directories have correct ownership:
     # sudo chown -R $(id -u):$(id -g) ./config ./public
     # or create them first: mkdir -p config public && chown $(id -u):$(id -g) config public
     
@@ -28,3 +36,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+# PORTAINER STACK EXAMPLE:
+# For Portainer, copy the service definition above and use absolute paths:
+#
+# services:
+#   local-server:
+#     image: local-server-site-pusher:latest  # or your built image
+#     ports:
+#       - "3000:3000"
+#     volumes:
+#       - /var/lib/local-server/public:/app/public
+#       - /var/lib/local-server/config:/app/config
+#     environment:
+#       - NODE_ENV=production
+#       - SESSION_SECRET=your-secure-random-secret-here
+#     restart: unless-stopped
