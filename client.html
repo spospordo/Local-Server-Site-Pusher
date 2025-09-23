@@ -356,6 +356,62 @@
             color: white;
         }
 
+        /* New Welcome Message */
+        .welcome-message {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+        }
+
+        .welcome-message h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-message p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        /* Compact Server Status */
+        .server-status-compact {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status-compact {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        /* Optional Section */
+        .optional-section {
+            background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #ffc107;
+        }
+
+        .optional-section h2 {
+            color: #795548;
+            margin-bottom: 0.5rem;
+        }
+
+        .optional-section p {
+            color: #6d4c41;
+            margin-bottom: 1rem;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 0;
@@ -407,61 +463,10 @@
 
             <!-- Main Content (shown after authentication if required) -->
             <div id="mainContent">
-                <!-- Device Information -->
-                <div class="section device-info">
-                    <h2>📱 Your Device</h2>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <div class="info-label">Device Type</div>
-                            <div class="info-value" id="deviceType">Unknown</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Browser</div>
-                            <div class="info-value" id="browserInfo">Unknown</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Connection Time</div>
-                            <div class="info-value" id="connectionTime">Just now</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Your IP</div>
-                            <div class="info-value" id="clientIP">Loading...</div>
-                        </div>
-                    </div>
-                    
-                    <div class="device-name-form">
-                        <div class="form-group">
-                            <label for="deviceName">Custom Device Name (Optional)</label>
-                            <input type="text" id="deviceName" placeholder="e.g., John's iPhone, Living Room Tablet">
-                        </div>
-                        <button type="button" class="btn" onclick="updateDeviceName()">Save Name</button>
-                    </div>
-                </div>
-
-                <!-- Server Status -->
-                <div class="section" id="serverStatusSection">
-                    <h2>🖥️ Server Status</h2>
-                    <div class="info-grid">
-                        <div class="info-item regular">
-                            <div class="info-label">Status</div>
-                            <div class="info-value">
-                                <span class="status-indicator status-online"></span>
-                                <span id="serverStatus">Online</span>
-                            </div>
-                        </div>
-                        <div class="info-item regular">
-                            <div class="info-label">Uptime</div>
-                            <div class="info-value" id="serverUptime">Loading...</div>
-                        </div>
-                        <div class="info-item regular">
-                            <div class="info-label">Server Port</div>
-                            <div class="info-value" id="serverPort">3000</div>
-                        </div>
-                        <div class="info-item regular">
-                            <div class="info-label">Version</div>
-                            <div class="info-value" id="serverVersion">Loading...</div>
-                        </div>
-                    </div>
+                <!-- Brief Welcome Message -->
+                <div class="welcome-message">
+                    <h2>👋 Welcome to Client Access</h2>
+                    <p>Upload files, manage content, and configure your settings.</p>
                 </div>
 
                 <!-- Useful Links -->
@@ -474,50 +479,35 @@
                     </div>
                 </div>
 
-                <!-- Password Management -->
-                <div class="section">
-                    <h2>🔐 Password Management</h2>
-                    <div id="passwordManagementAlert"></div>
-                    
-                    <div id="passwordStatusSection">
-                        <div class="info-item">
-                            <div class="info-label">Password Protection Status</div>
-                            <div class="info-value" id="passwordProtectionStatus">Checking...</div>
-                        </div>
-                    </div>
-
-                    <div id="noPasswordSection" style="display: none;">
-                        <p>No password protection is currently set up.</p>
-                        <div class="form-group">
-                            <label for="newPassword">Set New Password</label>
-                            <input type="password" id="newPassword" placeholder="Enter new password (min 4 characters)">
-                        </div>
-                        <button type="button" class="btn" onclick="setNewPassword()">Set Password</button>
-                    </div>
-
-                    <div id="hasPasswordSection" style="display: none;">
-                        <p>Password protection is active. You can change or remove your password below.</p>
-                        
-                        <div class="form-group">
-                            <label for="currentPassword">Current Password</label>
-                            <input type="password" id="currentPassword" placeholder="Enter current password">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="changeNewPassword">New Password (optional)</label>
-                            <input type="password" id="changeNewPassword" placeholder="Enter new password to change">
-                        </div>
-                        
-                        <div style="margin-top: 1rem;">
-                            <button type="button" class="btn" onclick="changePassword()" style="margin-right: 0.5rem;">Change Password</button>
-                            <button type="button" class="btn" onclick="removePassword()" style="background-color: #dc3545;">Remove Password</button>
-                        </div>
+                <!-- Simplified Server Status -->
+                <div class="server-status-compact section">
+                    <h2>📊 Server Status</h2>
+                    <div class="status-compact">
+                        <span class="status-indicator status-online"></span>
+                        <span id="serverStatus">Online</span> • 
+                        <span id="serverVersion">Loading...</span> • 
+                        Uptime: <span id="serverUptime">Loading...</span>
                     </div>
                 </div>
 
-                <!-- File Upload and Management -->
+                <!-- Optional: Device Name Setup -->
+                <div class="optional-section">
+                    <h2>📱 Optional: Add Device Name</h2>
+                    <p>Give your device a custom name for easier identification.</p>
+                    
+                    <div class="device-name-form">
+                        <div class="form-group">
+                            <label for="deviceName">Device Name (Optional)</label>
+                            <input type="text" id="deviceName" placeholder="e.g., John's iPhone, Living Room Tablet">
+                        </div>
+                        <button type="button" class="btn" onclick="updateDeviceName()">Save Name</button>
+                    </div>
+                </div>
+
+                <!-- File Management (requires name) -->
                 <div class="section">
                     <h2>📁 File Management</h2>
+                    <p style="color: #666; margin-bottom: 1rem;"><strong>Note:</strong> A device name is required for file uploads.</p>
                     <div id="fileManagementAlert"></div>
                     
                     <!-- File Upload -->
@@ -536,7 +526,7 @@
                                     <option value="all">Public (Everyone)</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn">Upload File</button>
+                            <button type="submit" class="btn" id="uploadBtn">Upload File</button>
                         </form>
                     </div>
 
@@ -547,6 +537,45 @@
                             <div class="info-item regular" style="text-align: center; opacity: 0.7;">
                                 <div class="info-value">Loading files...</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password Management -->
+                <div class="optional-section">
+                    <h2>🔐 Optional: Password Management</h2>
+                    <p>Set up password protection for additional security.</p>
+                    <div id="passwordManagementAlert"></div>
+                    
+                    <div id="passwordStatusSection">
+                        <div class="info-item">
+                            <div class="info-label">Password Protection Status</div>
+                            <div class="info-value" id="passwordProtectionStatus">Checking...</div>
+                        </div>
+                    </div>
+
+                    <div id="noPasswordSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="newPassword">Set New Password</label>
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 4 characters)">
+                        </div>
+                        <button type="button" class="btn" onclick="setNewPassword()">Set Password</button>
+                    </div>
+
+                    <div id="hasPasswordSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" placeholder="Enter current password">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="changeNewPassword">New Password (optional)</label>
+                            <input type="password" id="changeNewPassword" placeholder="Enter new password to change">
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <button type="button" class="btn" onclick="changePassword()" style="margin-right: 0.5rem;">Change Password</button>
+                            <button type="button" class="btn" onclick="removePassword()" style="background-color: #dc3545;">Remove Password</button>
                         </div>
                     </div>
                 </div>
@@ -611,22 +640,6 @@
         }
 
         // Update connection time display
-        function updateConnectionTime() {
-            const now = new Date();
-            const diff = Math.floor((now - connectionTime) / 1000);
-            
-            let timeText;
-            if (diff < 60) {
-                timeText = 'Just now';
-            } else if (diff < 3600) {
-                timeText = Math.floor(diff / 60) + ' minutes ago';
-            } else {
-                timeText = Math.floor(diff / 3600) + ' hours ago';
-            }
-            
-            document.getElementById('connectionTime').textContent = timeText;
-        }
-
         // Register device with server
         async function registerDevice() {
             try {
@@ -795,17 +808,12 @@
         // Initialize client functionality
         function initializeClient() {
             const deviceInfo = detectDevice();
-            document.getElementById('deviceType').textContent = deviceInfo.deviceType;
-            document.getElementById('browserInfo').textContent = deviceInfo.browserInfo;
             
             registerDevice();
             loadServerStatus();
             loadUsefulLinks();
             checkPasswordStatus(); // Load password status
             loadFileList(); // Load user files
-            
-            // Update connection time every minute
-            setInterval(updateConnectionTime, 60000);
             
             // Refresh server status every 30 seconds
             setInterval(loadServerStatus, 30000);
@@ -973,17 +981,6 @@
             }, 5000);
         }
 
-        // Get client IP
-        async function getClientIP() {
-            try {
-                const response = await fetch('/api/client/ip');
-                const data = await response.json();
-                document.getElementById('clientIP').textContent = data.ip || 'Unknown';
-            } catch (error) {
-                document.getElementById('clientIP').textContent = 'Unknown';
-            }
-        }
-
         // Show alert
         function showAlert(message, type) {
             // You can implement this to show alerts in the main content
@@ -1001,9 +998,19 @@
 
         // File Upload and Management Functions
         async function uploadFile() {
+            // Check if device has a name
+            const deviceNameInput = document.getElementById('deviceName');
+            const deviceName = deviceNameInput.value.trim();
+            
+            if (!deviceName) {
+                showFileManagementAlert('Please set a device name before uploading files. Scroll up to the "Optional: Add Device Name" section.', 'error');
+                return;
+            }
+            
             const form = document.getElementById('fileUploadForm');
             const formData = new FormData(form);
             formData.append('deviceId', deviceId);
+            formData.append('deviceName', deviceName);
             
             try {
                 const response = await fetch('/api/client/files/upload', {
@@ -1176,7 +1183,6 @@
             
             // Load configuration and initialize
             loadClientConfig();
-            getClientIP();
         });
     </script>
 </body>
