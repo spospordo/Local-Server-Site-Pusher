@@ -98,7 +98,23 @@ if is_root; then
     
     echo "🔄 Switching to user $TARGET_USER..."
     # Use the built-in su command since we can't rely on external packages
-    exec su -s /bin/sh "$TARGET_USER" -c 'exec "$@"' -- "$@"
+    # Convert arguments to a single command string for su -c
+    if [ $# -eq 0 ]; then
+        exec su -s /bin/sh "$TARGET_USER"
+    else
+        # Build the command string properly
+        cmd=""
+        for arg in "$@"; do
+            # Escape quotes and build command string
+            escaped_arg=$(printf '%s\n' "$arg" | sed 's/[\\"]/\\&/g')
+            if [ -z "$cmd" ]; then
+                cmd="\"$escaped_arg\""
+            else
+                cmd="$cmd \"$escaped_arg\""
+            fi
+        done
+        exec su -s /bin/sh "$TARGET_USER" -c "exec $cmd"
+    fi
 else
     echo "👤 Running as non-root user ($(id -un))"
     

@@ -21,6 +21,9 @@ cd Local-Server-Site-Pusher
 # Start the container
 docker-compose up -d
 
+# Test deployment (optional)
+./test-deployment.sh
+
 # Access the application
 # Main site: http://localhost:3000
 # Admin panel: http://localhost:3000/admin
@@ -68,6 +71,22 @@ services:
 ```
 
 The container automatically handles permission fixes for volume mounts - no manual setup required!
+
+## Troubleshooting
+
+### Container Startup Issues
+
+**Problem**: Container restarts in a loop with "npm: exec: line 0: start: not found"
+**Solution**: 
+1. Pull the latest image: `docker pull spospordo/local-server-site-pusher:latest`
+2. Or rebuild from source: `docker-compose up --build`
+
+**Problem**: Permission errors with volume mounts
+**Solution**: 
+1. Fix host directory ownership: `sudo chown -R 1000:1000 ./config ./public`
+2. Or let the container auto-fix permissions (default behavior)
+
+For detailed troubleshooting, see [PORTAINER.md](PORTAINER.md).
 
 ### Local Development
 
