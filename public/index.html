@@ -162,6 +162,62 @@
             margin-bottom: 1.5rem;
         }
 
+        /* New Welcome Message */
+        .welcome-message {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+        }
+
+        .welcome-message h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-message p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        /* Compact Server Status */
+        .server-status-compact {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status-compact {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        /* Optional Section */
+        .optional-section {
+            background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border-left: 4px solid #ffc107;
+        }
+
+        .optional-section h3 {
+            color: #795548;
+            margin-bottom: 0.5rem;
+        }
+
+        .optional-section p {
+            color: #6d4c41;
+            margin-bottom: 1rem;
+        }
+
         /* Visitor Registration Form */
         .visitor-form {
             background: white;
@@ -300,10 +356,29 @@
         </div>
 
         <div class="content">
-            <!-- Welcome Section for New Visitors -->
-            <div id="welcomeSection" class="welcome-section hidden">
-                <h2>👋 Hello, New Visitor!</h2>
-                <p>We don't recognize your device yet. Welcome to our server! Please introduce yourself below to get started.</p>
+            <!-- Brief Welcome Message -->
+            <div class="welcome-message">
+                <h2>👋 Welcome to Local Server Site Pusher</h2>
+                <p>A simple containerized system for building and deploying websites.</p>
+            </div>
+
+            <!-- Useful Links Section -->
+            <div class="links-section section">
+                <h3>🔗 Useful Links</h3>
+                <div id="linksContainer" class="links-grid">
+                    <p>Loading available links...</p>
+                </div>
+            </div>
+
+            <!-- Simplified Server Status -->
+            <div class="server-status-compact section">
+                <h3>📊 Server Status</h3>
+                <div class="status-compact">
+                    <span class="status-indicator status-online"></span>
+                    <span id="serverStatus">Online</span> • 
+                    <span id="serverVersion">Loading...</span> • 
+                    Uptime: <span id="serverUptime">Loading...</span>
+                </div>
             </div>
 
             <!-- Returning Visitor Section -->
@@ -314,23 +389,10 @@
                 </div>
             </div>
 
-            <!-- Server Description Section -->
-            <div class="description-section">
-                <h3>📋 About This Server</h3>
-                <p id="fullDescription">This server provides a containerized environment for building and deploying websites.</p>
-                <p><strong>Key Features:</strong></p>
-                <ul>
-                    <li>Upload and manage web content</li>
-                    <li>Build and deploy websites automatically</li>
-                    <li>Access admin dashboard for configuration</li>
-                    <li>Monitor server status and connected devices</li>
-                </ul>
-            </div>
-
-            <!-- Visitor Registration Form -->
-            <div id="visitorForm" class="visitor-form">
-                <h3>🔑 Join This Server</h3>
-                <p>Set up your identity to unlock additional features and personalize your experience.</p>
+            <!-- Optional Identity Setup (moved to bottom) -->
+            <div class="optional-section">
+                <h3>🔑 Optional: Add Your Name for Additional Features</h3>
+                <p>Set up your identity to unlock file uploads and other features.</p>
                 
                 <div id="alertContainer"></div>
                 
@@ -345,53 +407,11 @@
                             <input type="password" id="visitorPassword" placeholder="Set a password (optional)">
                         </div>
                     </div>
-                    <button type="submit" class="btn" id="registerBtn">Register & Join</button>
+                    <button type="submit" class="btn" id="registerBtn">Register</button>
                 </form>
                 <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
-                    Setting a password will unlock additional features and secure your identity on this server.
+                    Adding a password will unlock additional features and secure your identity.
                 </p>
-            </div>
-
-            <!-- Server Status Section -->
-            <div class="server-info section">
-                <h3>📊 Server Status</h3>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">Status</div>
-                        <div class="status-value">
-                            <span class="status-indicator status-online"></span>
-                            <span id="serverStatus">Online</span>
-                        </div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Uptime</div>
-                        <div class="status-value" id="serverUptime">Loading...</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Version</div>
-                        <div class="status-value" id="serverVersion">Loading...</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Port</div>
-                        <div class="status-value" id="serverPort">Loading...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Connected Users Section -->
-            <div class="users-section section">
-                <h3>👥 Connected Users & Visitors</h3>
-                <div id="usersContainer">
-                    <p>Loading connected users...</p>
-                </div>
-            </div>
-
-            <!-- Useful Links Section -->
-            <div class="links-section section">
-                <h3>🔗 Useful Links</h3>
-                <div id="linksContainer" class="links-grid">
-                    <p>Loading available links...</p>
-                </div>
             </div>
         </div>
     </div>
@@ -436,20 +456,14 @@
                 isRecognized = data.isRecognized;
                 
                 if (isRecognized) {
-                    document.getElementById('welcomeSection').classList.add('hidden');
                     document.getElementById('returningSection').classList.remove('hidden');
                     document.getElementById('returningName').textContent = data.name || 'Anonymous';
-                    document.getElementById('visitorForm').classList.add('hidden');
                 } else {
-                    document.getElementById('welcomeSection').classList.remove('hidden');
                     document.getElementById('returningSection').classList.add('hidden');
-                    document.getElementById('visitorForm').classList.remove('hidden');
                 }
             } catch (error) {
                 console.error('Failed to check visitor status:', error);
-                // Show form by default if check fails
-                document.getElementById('welcomeSection').classList.remove('hidden');
-                document.getElementById('visitorForm').classList.remove('hidden');
+                document.getElementById('returningSection').classList.add('hidden');
             }
         }
 
@@ -463,15 +477,10 @@
                 document.getElementById('serverName').textContent = serverData.serverName;
                 document.getElementById('serverDescription').textContent = 
                     `Version ${serverData.serverVersion} • Uptime: ${Math.floor(serverData.serverUptime / 60)} minutes`;
-                document.getElementById('fullDescription').textContent = serverData.description;
                 
-                // Update status
+                // Update compact status
                 document.getElementById('serverUptime').textContent = Math.floor(serverData.serverUptime / 60) + ' minutes';
                 document.getElementById('serverVersion').textContent = serverData.serverVersion;
-                document.getElementById('serverPort').textContent = '3000'; // From config or detect
-                
-                // Load connected users
-                loadConnectedUsers(serverData.connectedUsers);
                 
                 // Load useful links
                 loadUsefulLinks(serverData.usefulLinks);
@@ -480,38 +489,6 @@
                 console.error('Failed to load server info:', error);
                 document.getElementById('serverDescription').textContent = 'Failed to load server information';
             }
-        }
-
-        // Load connected users
-        function loadConnectedUsers(users) {
-            const container = document.getElementById('usersContainer');
-            
-            if (!users || users.length === 0) {
-                container.innerHTML = '<p style="color: #666; text-align: center;">No other users currently connected</p>';
-                return;
-            }
-            
-            const usersGrid = document.createElement('div');
-            usersGrid.className = 'users-grid';
-            
-            users.forEach(user => {
-                const userCard = document.createElement('div');
-                userCard.className = 'user-card';
-                userCard.innerHTML = `
-                    <div class="user-name">
-                        <span class="user-status ${user.isOnline ? 'user-online' : 'user-offline'}"></span>
-                        ${user.name}
-                    </div>
-                    <div class="user-info">${user.deviceType}</div>
-                    <div class="user-info" style="font-size: 0.8rem;">
-                        ${user.isOnline ? 'Online' : 'Last seen: ' + new Date(user.lastSeen).toLocaleDateString()}
-                    </div>
-                `;
-                usersGrid.appendChild(userCard);
-            });
-            
-            container.innerHTML = '';
-            container.appendChild(usersGrid);
         }
 
         // Load useful links
