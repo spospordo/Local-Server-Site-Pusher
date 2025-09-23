@@ -1,0 +1,12 @@
+
+services:
+  local-server:
+    image: local-server-test-v2
+    ports:
+      - '3002:3000'
+    volumes:
+      - /tmp/test-volumes/config:/app/config
+      - /tmp/test-volumes/public:/app/public
+    environment:
+      - NODE_ENV=production
+

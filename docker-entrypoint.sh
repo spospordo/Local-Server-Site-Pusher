@@ -98,7 +98,7 @@ if is_root; then
     
     echo "🔄 Switching to user $TARGET_USER..."
     # Use the built-in su command since we can't rely on external packages
-    exec su -s /bin/sh "$TARGET_USER" -c "exec \"\$@\"" -- "$@"
+    exec su -s /bin/sh "$TARGET_USER" -c 'exec "$@"' -- "$@"
 else
     echo "👤 Running as non-root user ($(id -un))"
     
