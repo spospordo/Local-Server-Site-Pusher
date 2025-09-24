@@ -792,12 +792,50 @@
             align-items: center;
         }
         
-        .ingredient-row input {
-            flex: 1;
+        .ingredient-field {
+            flex: 2;
+            position: relative;
         }
         
-        .ingredient-row .ingredient-ounces {
+        .ingredient-name-dropdown,
+        .ingredient-name-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .ingredient-amount {
+            flex: 1;
             max-width: 120px;
+            padding: 0.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .ingredient-unit {
+            flex: 1;
+            max-width: 100px;
+            padding: 0.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .ingredient-row input {
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .ingredient-row input:focus,
+        .ingredient-row select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
         }
         
         .recipe-item {
@@ -842,6 +880,20 @@
         
         .recipe-ingredient-amount {
             color: #666;
+        }
+        
+        .recipe-directions {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .recipe-directions p {
+            margin: 0.5rem 0 0 0;
+            color: #555;
+            line-height: 1.4;
         }
         
         .available-drink-item {
@@ -1140,12 +1192,28 @@
                     <h4>Ingredients</h4>
                     <div id="recipeIngredients">
                         <div class="ingredient-row">
-                            <input type="text" class="ingredient-name" placeholder="Ingredient name">
-                            <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
+                            <div class="ingredient-field">
+                                <select class="ingredient-name-dropdown" onchange="handleIngredientChange(this)">
+                                    <option value="">Select ingredient...</option>
+                                    <option value="__ADD_NEW__">+ Add New Ingredient</option>
+                                </select>
+                                <input type="text" class="ingredient-name-input" placeholder="Enter new ingredient name" style="display: none;">
+                            </div>
+                            <input type="number" class="ingredient-amount" placeholder="Amount" step="0.1" min="0.1">
+                            <select class="ingredient-unit">
+                                <option value="oz">Ounces</option>
+                                <option value="dash">Dashes</option>
+                                <option value="unit">Units</option>
+                            </select>
                             <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
                         </div>
                     </div>
                     <button type="button" onclick="addIngredientRow()" class="btn btn-secondary">Add Ingredient</button>
+                    
+                    <h4>Directions</h4>
+                    <div class="form-group">
+                        <textarea id="recipeDirections" placeholder="Enter step-by-step instructions for making this drink..." rows="4" style="width: 100%; padding: 0.5rem; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 0.9rem; resize: vertical;"></textarea>
+                    </div>
                     
                     <div style="margin-top: 1rem;">
                         <button onclick="addRecipe()" class="btn btn-success">Save Recipe</button>
@@ -2349,6 +2417,7 @@
         let currentAlcohols = [];
         let currentMixers = [];
         let currentRecipes = [];
+        let availableIngredients = [];
         
         // Tab management
         function showTab(tabName) {
@@ -2371,6 +2440,13 @@
                 loadMixers();
             } else if (tabName === 'recipes') {
                 loadRecipes();
+                loadAvailableIngredients().then(() => {
+                    // Populate initial dropdown after ingredients are loaded
+                    const initialDropdown = document.querySelector('#recipeIngredients .ingredient-name-dropdown');
+                    if (initialDropdown) {
+                        populateIngredientDropdown(initialDropdown);
+                    }
+                });
             } else if (tabName === 'available') {
                 loadAvailableDrinks();
             }
@@ -2596,17 +2672,70 @@
             }
         }
         
+        // Load available ingredients for dropdown
+        async function loadAvailableIngredients() {
+            try {
+                const response = await fetch('/admin/api/drink-mixer/available-ingredients');
+                availableIngredients = await response.json();
+            } catch (err) {
+                console.error('Error loading available ingredients:', err);
+                availableIngredients = [];
+            }
+        }
+        
         // Recipe management
+        function populateIngredientDropdown(selectElement) {
+            // Clear existing options except the default ones
+            selectElement.innerHTML = '<option value="">Select ingredient...</option><option value="__ADD_NEW__">+ Add New Ingredient</option>';
+            
+            // Add available ingredients
+            availableIngredients.forEach(ingredient => {
+                const option = document.createElement('option');
+                option.value = ingredient.name;
+                option.textContent = `${ingredient.name} (${ingredient.type})`;
+                selectElement.appendChild(option);
+            });
+        }
+        
+        function handleIngredientChange(selectElement) {
+            const row = selectElement.closest('.ingredient-row');
+            const textInput = row.querySelector('.ingredient-name-input');
+            
+            if (selectElement.value === '__ADD_NEW__') {
+                selectElement.style.display = 'none';
+                textInput.style.display = 'block';
+                textInput.focus();
+            } else {
+                textInput.style.display = 'none';
+                selectElement.style.display = 'block';
+            }
+        }
+        
         function addIngredientRow() {
             const container = document.getElementById('recipeIngredients');
             const newRow = document.createElement('div');
             newRow.className = 'ingredient-row';
             newRow.innerHTML = `
-                <input type="text" class="ingredient-name" placeholder="Ingredient name">
-                <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
+                <div class="ingredient-field">
+                    <select class="ingredient-name-dropdown" onchange="handleIngredientChange(this)">
+                        <option value="">Select ingredient...</option>
+                        <option value="__ADD_NEW__">+ Add New Ingredient</option>
+                    </select>
+                    <input type="text" class="ingredient-name-input" placeholder="Enter new ingredient name" style="display: none;">
+                </div>
+                <input type="number" class="ingredient-amount" placeholder="Amount" step="0.1" min="0.1">
+                <select class="ingredient-unit">
+                    <option value="oz">Ounces</option>
+                    <option value="dash">Dashes</option>
+                    <option value="unit">Units</option>
+                </select>
                 <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
             `;
             container.appendChild(newRow);
+            
+            // Populate the dropdown
+            const dropdown = newRow.querySelector('.ingredient-name-dropdown');
+            populateIngredientDropdown(dropdown);
         }
         
         function removeIngredientRow(button) {
@@ -2619,6 +2748,7 @@
         // Add recipe
         async function addRecipe() {
             const name = document.getElementById('recipeName').value.trim();
+            const directions = document.getElementById('recipeDirections').value.trim();
             const ingredientRows = document.querySelectorAll('#recipeIngredients .ingredient-row');
             
             if (!name) {
@@ -2628,11 +2758,20 @@
             
             const ingredients = [];
             for (const row of ingredientRows) {
-                const ingredientName = row.querySelector('.ingredient-name').value.trim();
-                const ounces = parseFloat(row.querySelector('.ingredient-ounces').value);
+                const dropdown = row.querySelector('.ingredient-name-dropdown');
+                const textInput = row.querySelector('.ingredient-name-input');
+                const amount = parseFloat(row.querySelector('.ingredient-amount').value);
+                const unit = row.querySelector('.ingredient-unit').value;
                 
-                if (ingredientName && ounces > 0) {
-                    ingredients.push({ name: ingredientName, ounces });
+                let ingredientName = '';
+                if (dropdown.value && dropdown.value !== '__ADD_NEW__') {
+                    ingredientName = dropdown.value;
+                } else if (textInput.style.display !== 'none' && textInput.value.trim()) {
+                    ingredientName = textInput.value.trim();
+                }
+                
+                if (ingredientName && amount > 0 && unit) {
+                    ingredients.push({ name: ingredientName, amount, unit });
                 }
             }
             
@@ -2645,20 +2784,15 @@
                 const response = await fetch('/admin/api/drink-mixer/recipes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, ingredients })
+                    body: JSON.stringify({ name, ingredients, directions })
                 });
                 
                 const result = await response.json();
                 if (result.success) {
                     document.getElementById('recipeName').value = '';
+                    document.getElementById('recipeDirections').value = '';
                     // Reset to single ingredient row
-                    document.getElementById('recipeIngredients').innerHTML = `
-                        <div class="ingredient-row">
-                            <input type="text" class="ingredient-name" placeholder="Ingredient name">
-                            <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
-                            <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
-                        </div>
-                    `;
+                    resetIngredientRows();
                     showAlertInTab('recipes', result.message, 'success');
                     loadRecipes();
                 } else {
@@ -2667,6 +2801,30 @@
             } catch (err) {
                 showAlertInTab('recipes', 'Error adding recipe: ' + err.message, 'error');
             }
+        }
+        
+        function resetIngredientRows() {
+            document.getElementById('recipeIngredients').innerHTML = `
+                <div class="ingredient-row">
+                    <div class="ingredient-field">
+                        <select class="ingredient-name-dropdown" onchange="handleIngredientChange(this)">
+                            <option value="">Select ingredient...</option>
+                            <option value="__ADD_NEW__">+ Add New Ingredient</option>
+                        </select>
+                        <input type="text" class="ingredient-name-input" placeholder="Enter new ingredient name" style="display: none;">
+                    </div>
+                    <input type="number" class="ingredient-amount" placeholder="Amount" step="0.1" min="0.1">
+                    <select class="ingredient-unit">
+                        <option value="oz">Ounces</option>
+                        <option value="dash">Dashes</option>
+                        <option value="unit">Units</option>
+                    </select>
+                    <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
+                </div>
+            `;
+            // Populate the dropdown
+            const dropdown = document.querySelector('#recipeIngredients .ingredient-name-dropdown');
+            populateIngredientDropdown(dropdown);
         }
         
         // Load recipes
@@ -2691,15 +2849,30 @@
                             ${recipe.ingredients.map(ing => `
                                 <div class="recipe-ingredient">
                                     <span class="recipe-ingredient-name">${ing.name}</span>
-                                    <span class="recipe-ingredient-amount">${ing.ounces} oz</span>
+                                    <span class="recipe-ingredient-amount">${ing.amount || ing.ounces} ${getUnitDisplay(ing.unit || 'oz')}</span>
                                 </div>
                             `).join('')}
                         </div>
+                        ${recipe.directions ? `
+                            <div class="recipe-directions">
+                                <strong>Directions:</strong>
+                                <p>${recipe.directions}</p>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
             } catch (err) {
                 console.error('Failed to load recipes:', err);
                 showAlertInTab('recipes', 'Failed to load recipes: ' + err.message, 'error');
+            }
+        }
+        
+        function getUnitDisplay(unit) {
+            switch(unit) {
+                case 'oz': return 'oz';
+                case 'dash': return 'dash(es)';
+                case 'unit': return 'unit(s)';
+                default: return 'oz';
             }
         }
         
@@ -2752,10 +2925,15 @@
                                 ${drink.ingredients.map(ing => `
                                     <div class="recipe-ingredient">
                                         <span class="recipe-ingredient-name">${ing.name}</span>
-                                        <span class="recipe-ingredient-amount">${ing.ounces} oz</span>
+                                        <span class="recipe-ingredient-amount">${ing.amount || ing.ounces} ${getUnitDisplay(ing.unit || 'oz')}</span>
                                     </div>
                                 `).join('')}
                             </div>
+                            ${drink.directions ? `
+                                <div class="recipe-directions" style="margin-top: 0.5rem; font-size: 0.9rem;">
+                                    <strong>Directions:</strong> ${drink.directions}
+                                </div>
+                            ` : ''}
                         </div>
                     `).join('')}
                 `;
