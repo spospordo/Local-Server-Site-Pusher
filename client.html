@@ -439,6 +439,88 @@
                 min-width: auto;
             }
         }
+
+        /* Available Drinks Styles */
+        .drink-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .drink-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .drink-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .drink-name::before {
+            content: "🍸";
+            margin-right: 0.5rem;
+        }
+
+        .drink-ingredients {
+            background: white;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .drink-ingredient {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .drink-ingredient:last-child {
+            border-bottom: none;
+        }
+
+        .ingredient-name {
+            font-weight: 500;
+            color: #34495e;
+        }
+
+        .ingredient-amount {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            background: #ecf0f1;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .drinks-summary {
+            text-align: center;
+            padding: 1rem;
+            background: #e8f5e8;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            color: #2d5a2d;
+            font-weight: 500;
+        }
+
+        .no-drinks {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+
     </style>
 </head>
 <body>
@@ -475,6 +557,16 @@
                     <div id="linksContainer">
                         <div class="info-item regular" style="text-align: center; opacity: 0.7;">
                             <div class="info-value">Loading links...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Available Drinks -->
+                <div class="section" id="availableDrinksSection">
+                    <h2>🍹 Available Drinks</h2>
+                    <div id="drinksContainer">
+                        <div class="info-item regular" style="text-align: center; opacity: 0.7;">
+                            <div class="info-value">Loading available drinks...</div>
                         </div>
                     </div>
                 </div>
@@ -799,6 +891,50 @@
             }
         }
 
+        // Load available drinks
+        async function loadAvailableDrinks() {
+            try {
+                const response = await fetch('/api/drink-mixer/available-drinks');
+                const data = await response.json();
+                const container = document.getElementById('drinksContainer');
+                
+                if (data.availableDrinks.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-drinks">
+                            No drinks can be made with current ingredients.<br>
+                            <small>Check back later or ask the admin to stock up! 🍹</small>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="drinks-summary">
+                            🎉 ${data.availableCount} delicious drink${data.availableCount !== 1 ? 's' : ''} available right now!
+                        </div>
+                        ${data.availableDrinks.map(drink => `
+                            <div class="drink-item">
+                                <div class="drink-name">${drink.name}</div>
+                                <div class="drink-ingredients">
+                                    ${drink.ingredients.map(ingredient => `
+                                        <div class="drink-ingredient">
+                                            <span class="ingredient-name">${ingredient.name}</span>
+                                            <span class="ingredient-amount">${ingredient.ounces} oz</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load available drinks:', error);
+                document.getElementById('drinksContainer').innerHTML = `
+                    <div class="no-drinks">
+                        Unable to load drinks menu. Please try again later.
+                    </div>
+                `;
+            }
+        }
+
         // Load client configuration
         async function loadClientConfig() {
             try {
@@ -893,6 +1029,7 @@
             registerDevice();
             loadServerStatus();
             loadUsefulLinks();
+            loadAvailableDrinks();
             checkPasswordStatus(); // Load password status
             loadFileList(); // Load user files
             checkDeviceName(); // Check if device has a name and update UI

@@ -47,7 +47,12 @@ const defaultConfig = {
     "showUsefulLinks": true,
     "welcomeMessage": "Welcome to Local Server Site Pusher"
   },
-  "connectedDevices": []
+  "connectedDevices": [],
+  "drinkMixer": {
+    "alcohols": [],
+    "mixers": [],
+    "recipes": []
+  }
 };
 
 console.log('🔍 Local-Server-Site-Pusher Configuration Validator');

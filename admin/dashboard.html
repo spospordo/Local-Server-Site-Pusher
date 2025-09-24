@@ -596,6 +596,183 @@
             display: block;
         }
         
+        /* Drink Mixer Styles */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #6c757d;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button:hover {
+            color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+        }
+        
+        .tab-button.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .ingredients-list, .recipes-list, .available-drinks-list {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .ingredient-item, .recipe-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .ingredient-item.unavailable {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        
+        .ingredient-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .ingredient-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .ingredient-status.available {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .ingredient-status.unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .ingredient-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .ingredient-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        
+        .ingredient-row input {
+            flex: 1;
+        }
+        
+        .ingredient-row .ingredient-ounces {
+            max-width: 120px;
+        }
+        
+        .recipe-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .recipe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .recipe-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .recipe-ingredients {
+            background: white;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .recipe-ingredient {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .recipe-ingredient:last-child {
+            border-bottom: none;
+        }
+        
+        .recipe-ingredient-name {
+            font-weight: 500;
+        }
+        
+        .recipe-ingredient-amount {
+            color: #666;
+        }
+        
+        .available-drink-item {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .available-drink-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 0.5rem;
+        }
+        
+        .available-drink-ingredients {
+            background: white;
+            border-radius: 4px;
+            padding: 0.75rem;
+        }
+        
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .no-items {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 2rem;
+        }
+        
     </style>
 </head>
 <body>
@@ -778,6 +955,116 @@
                 </ul>
                 
                 <div id="linksAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- Drink Mixer Management -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Drink Mixer Management</h2>
+            </div>
+            <div class="card-body">
+                <div class="tabs">
+                    <button class="tab-button active" onclick="showTab('alcohols')">Alcohols</button>
+                    <button class="tab-button" onclick="showTab('mixers')">Mixers</button>
+                    <button class="tab-button" onclick="showTab('recipes')">Recipes</button>
+                    <button class="tab-button" onclick="showTab('available')">Available Drinks</button>
+                </div>
+
+                <!-- Alcohols Tab -->
+                <div id="alcohols-tab" class="tab-content active">
+                    <h3>Manage Alcohols</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="alcoholName">Alcohol Name</label>
+                            <input type="text" id="alcoholName" placeholder="e.g., Tequila, Vodka">
+                        </div>
+                        <div class="form-group">
+                            <label for="alcoholAvailable">Available</label>
+                            <select id="alcoholAvailable">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="addAlcohol()" class="btn btn-success">Add Alcohol</button>
+                    
+                    <div class="section-divider"></div>
+                    
+                    <h3>Alcohol List</h3>
+                    <div id="alcoholsList" class="ingredients-list">
+                        <!-- Alcohols will be loaded here -->
+                    </div>
+                    <div id="alcoholsAlert" class="alert"></div>
+                </div>
+
+                <!-- Mixers Tab -->
+                <div id="mixers-tab" class="tab-content">
+                    <h3>Manage Mixers</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mixerName">Mixer Name</label>
+                            <input type="text" id="mixerName" placeholder="e.g., Lemon Juice, Sugar">
+                        </div>
+                        <div class="form-group">
+                            <label for="mixerAvailable">Available</label>
+                            <select id="mixerAvailable">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="addMixer()" class="btn btn-success">Add Mixer</button>
+                    
+                    <div class="section-divider"></div>
+                    
+                    <h3>Mixer List</h3>
+                    <div id="mixersList" class="ingredients-list">
+                        <!-- Mixers will be loaded here -->
+                    </div>
+                    <div id="mixersAlert" class="alert"></div>
+                </div>
+
+                <!-- Recipes Tab -->
+                <div id="recipes-tab" class="tab-content">
+                    <h3>Manage Recipes</h3>
+                    <div class="form-group">
+                        <label for="recipeName">Recipe Name</label>
+                        <input type="text" id="recipeName" placeholder="e.g., Margarita">
+                    </div>
+                    
+                    <h4>Ingredients</h4>
+                    <div id="recipeIngredients">
+                        <div class="ingredient-row">
+                            <input type="text" class="ingredient-name" placeholder="Ingredient name">
+                            <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
+                            <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addIngredientRow()" class="btn btn-secondary">Add Ingredient</button>
+                    
+                    <div style="margin-top: 1rem;">
+                        <button onclick="addRecipe()" class="btn btn-success">Save Recipe</button>
+                    </div>
+                    
+                    <div class="section-divider"></div>
+                    
+                    <h3>Recipe List</h3>
+                    <div id="recipesList" class="recipes-list">
+                        <!-- Recipes will be loaded here -->
+                    </div>
+                    <div id="recipesAlert" class="alert"></div>
+                </div>
+
+                <!-- Available Drinks Tab -->
+                <div id="available-tab" class="tab-content">
+                    <h3>Available Drinks</h3>
+                    <p>These are the drinks that can be made based on currently available ingredients:</p>
+                    <div id="availableDrinksList" class="available-drinks-list">
+                        <!-- Available drinks will be loaded here -->
+                    </div>
+                    <button onclick="loadAvailableDrinks()" class="btn">Refresh Available Drinks</button>
+                </div>
             </div>
         </div>
 
@@ -1887,7 +2174,449 @@
             loadClientConfig();
             loadClientFiles();
             loadClientStorageStats();
+            initializeDrinkMixer();
         }
+        
+        // Drink Mixer Functions
+        let currentAlcohols = [];
+        let currentMixers = [];
+        let currentRecipes = [];
+        
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for the selected tab
+            if (tabName === 'alcohols') {
+                loadAlcohols();
+            } else if (tabName === 'mixers') {
+                loadMixers();
+            } else if (tabName === 'recipes') {
+                loadRecipes();
+            } else if (tabName === 'available') {
+                loadAvailableDrinks();
+            }
+        }
+        
+        // Load alcohols
+        async function loadAlcohols() {
+            try {
+                const response = await fetch('/admin/api/drink-mixer/alcohols');
+                currentAlcohols = await response.json();
+                
+                const container = document.getElementById('alcoholsList');
+                if (currentAlcohols.length === 0) {
+                    container.innerHTML = '<div class="no-items">No alcohols added yet</div>';
+                    return;
+                }
+                
+                container.innerHTML = currentAlcohols.map(alcohol => `
+                    <div class="ingredient-item ${!alcohol.available ? 'unavailable' : ''}">
+                        <div>
+                            <div class="ingredient-name">${alcohol.name}</div>
+                            <span class="ingredient-status ${alcohol.available ? 'available' : 'unavailable'}">
+                                ${alcohol.available ? 'Available' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <div class="ingredient-actions">
+                            <button onclick="toggleAlcoholAvailability(${alcohol.id})" class="btn btn-secondary btn-small">
+                                ${alcohol.available ? 'Mark Unavailable' : 'Mark Available'}
+                            </button>
+                            <button onclick="removeAlcohol(${alcohol.id})" class="btn btn-danger btn-small">Remove</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load alcohols:', err);
+                showAlertInTab('alcohols', 'Failed to load alcohols: ' + err.message, 'error');
+            }
+        }
+        
+        // Add alcohol
+        async function addAlcohol() {
+            const name = document.getElementById('alcoholName').value.trim();
+            const available = document.getElementById('alcoholAvailable').value === 'true';
+            
+            if (!name) {
+                showAlertInTab('alcohols', 'Please enter an alcohol name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/drink-mixer/alcohols', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, available })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('alcoholName').value = '';
+                    document.getElementById('alcoholAvailable').value = 'true';
+                    showAlertInTab('alcohols', result.message, 'success');
+                    loadAlcohols();
+                } else {
+                    showAlertInTab('alcohols', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('alcohols', 'Error adding alcohol: ' + err.message, 'error');
+            }
+        }
+        
+        // Toggle alcohol availability
+        async function toggleAlcoholAvailability(id) {
+            const alcohol = currentAlcohols.find(a => a.id === id);
+            if (!alcohol) return;
+            
+            try {
+                const response = await fetch('/admin/api/drink-mixer/alcohols', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: alcohol.name, available: !alcohol.available })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlertInTab('alcohols', result.message, 'success');
+                    loadAlcohols();
+                } else {
+                    showAlertInTab('alcohols', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('alcohols', 'Error updating alcohol: ' + err.message, 'error');
+            }
+        }
+        
+        // Remove alcohol
+        async function removeAlcohol(id) {
+            if (!confirm('Are you sure you want to remove this alcohol?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/drink-mixer/alcohols/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlertInTab('alcohols', result.message, 'success');
+                    loadAlcohols();
+                } else {
+                    showAlertInTab('alcohols', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('alcohols', 'Error removing alcohol: ' + err.message, 'error');
+            }
+        }
+        
+        // Load mixers
+        async function loadMixers() {
+            try {
+                const response = await fetch('/admin/api/drink-mixer/mixers');
+                currentMixers = await response.json();
+                
+                const container = document.getElementById('mixersList');
+                if (currentMixers.length === 0) {
+                    container.innerHTML = '<div class="no-items">No mixers added yet</div>';
+                    return;
+                }
+                
+                container.innerHTML = currentMixers.map(mixer => `
+                    <div class="ingredient-item ${!mixer.available ? 'unavailable' : ''}">
+                        <div>
+                            <div class="ingredient-name">${mixer.name}</div>
+                            <span class="ingredient-status ${mixer.available ? 'available' : 'unavailable'}">
+                                ${mixer.available ? 'Available' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <div class="ingredient-actions">
+                            <button onclick="toggleMixerAvailability(${mixer.id})" class="btn btn-secondary btn-small">
+                                ${mixer.available ? 'Mark Unavailable' : 'Mark Available'}
+                            </button>
+                            <button onclick="removeMixer(${mixer.id})" class="btn btn-danger btn-small">Remove</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load mixers:', err);
+                showAlertInTab('mixers', 'Failed to load mixers: ' + err.message, 'error');
+            }
+        }
+        
+        // Add mixer
+        async function addMixer() {
+            const name = document.getElementById('mixerName').value.trim();
+            const available = document.getElementById('mixerAvailable').value === 'true';
+            
+            if (!name) {
+                showAlertInTab('mixers', 'Please enter a mixer name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/drink-mixer/mixers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, available })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('mixerName').value = '';
+                    document.getElementById('mixerAvailable').value = 'true';
+                    showAlertInTab('mixers', result.message, 'success');
+                    loadMixers();
+                } else {
+                    showAlertInTab('mixers', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('mixers', 'Error adding mixer: ' + err.message, 'error');
+            }
+        }
+        
+        // Toggle mixer availability
+        async function toggleMixerAvailability(id) {
+            const mixer = currentMixers.find(m => m.id === id);
+            if (!mixer) return;
+            
+            try {
+                const response = await fetch('/admin/api/drink-mixer/mixers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: mixer.name, available: !mixer.available })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlertInTab('mixers', result.message, 'success');
+                    loadMixers();
+                } else {
+                    showAlertInTab('mixers', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('mixers', 'Error updating mixer: ' + err.message, 'error');
+            }
+        }
+        
+        // Remove mixer
+        async function removeMixer(id) {
+            if (!confirm('Are you sure you want to remove this mixer?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/drink-mixer/mixers/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlertInTab('mixers', result.message, 'success');
+                    loadMixers();
+                } else {
+                    showAlertInTab('mixers', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('mixers', 'Error removing mixer: ' + err.message, 'error');
+            }
+        }
+        
+        // Recipe management
+        function addIngredientRow() {
+            const container = document.getElementById('recipeIngredients');
+            const newRow = document.createElement('div');
+            newRow.className = 'ingredient-row';
+            newRow.innerHTML = `
+                <input type="text" class="ingredient-name" placeholder="Ingredient name">
+                <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
+                <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
+            `;
+            container.appendChild(newRow);
+        }
+        
+        function removeIngredientRow(button) {
+            const container = document.getElementById('recipeIngredients');
+            if (container.children.length > 1) {
+                button.parentElement.remove();
+            }
+        }
+        
+        // Add recipe
+        async function addRecipe() {
+            const name = document.getElementById('recipeName').value.trim();
+            const ingredientRows = document.querySelectorAll('#recipeIngredients .ingredient-row');
+            
+            if (!name) {
+                showAlertInTab('recipes', 'Please enter a recipe name', 'error');
+                return;
+            }
+            
+            const ingredients = [];
+            for (const row of ingredientRows) {
+                const ingredientName = row.querySelector('.ingredient-name').value.trim();
+                const ounces = parseFloat(row.querySelector('.ingredient-ounces').value);
+                
+                if (ingredientName && ounces > 0) {
+                    ingredients.push({ name: ingredientName, ounces });
+                }
+            }
+            
+            if (ingredients.length === 0) {
+                showAlertInTab('recipes', 'Please add at least one valid ingredient', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/drink-mixer/recipes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, ingredients })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('recipeName').value = '';
+                    // Reset to single ingredient row
+                    document.getElementById('recipeIngredients').innerHTML = `
+                        <div class="ingredient-row">
+                            <input type="text" class="ingredient-name" placeholder="Ingredient name">
+                            <input type="number" class="ingredient-ounces" placeholder="Ounces" step="0.1" min="0.1">
+                            <button type="button" onclick="removeIngredientRow(this)" class="btn btn-danger btn-small">Remove</button>
+                        </div>
+                    `;
+                    showAlertInTab('recipes', result.message, 'success');
+                    loadRecipes();
+                } else {
+                    showAlertInTab('recipes', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('recipes', 'Error adding recipe: ' + err.message, 'error');
+            }
+        }
+        
+        // Load recipes
+        async function loadRecipes() {
+            try {
+                const response = await fetch('/admin/api/drink-mixer/recipes');
+                currentRecipes = await response.json();
+                
+                const container = document.getElementById('recipesList');
+                if (currentRecipes.length === 0) {
+                    container.innerHTML = '<div class="no-items">No recipes added yet</div>';
+                    return;
+                }
+                
+                container.innerHTML = currentRecipes.map(recipe => `
+                    <div class="recipe-item">
+                        <div class="recipe-header">
+                            <div class="recipe-name">${recipe.name}</div>
+                            <button onclick="removeRecipe(${recipe.id})" class="btn btn-danger btn-small">Remove</button>
+                        </div>
+                        <div class="recipe-ingredients">
+                            ${recipe.ingredients.map(ing => `
+                                <div class="recipe-ingredient">
+                                    <span class="recipe-ingredient-name">${ing.name}</span>
+                                    <span class="recipe-ingredient-amount">${ing.ounces} oz</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load recipes:', err);
+                showAlertInTab('recipes', 'Failed to load recipes: ' + err.message, 'error');
+            }
+        }
+        
+        // Remove recipe
+        async function removeRecipe(id) {
+            if (!confirm('Are you sure you want to remove this recipe?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/drink-mixer/recipes/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlertInTab('recipes', result.message, 'success');
+                    loadRecipes();
+                } else {
+                    showAlertInTab('recipes', result.error, 'error');
+                }
+            } catch (err) {
+                showAlertInTab('recipes', 'Error removing recipe: ' + err.message, 'error');
+            }
+        }
+        
+        // Load available drinks
+        async function loadAvailableDrinks() {
+            try {
+                const response = await fetch('/api/drink-mixer/available-drinks');
+                const data = await response.json();
+                
+                const container = document.getElementById('availableDrinksList');
+                if (data.availableDrinks.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-items">
+                            No drinks can be made with current available ingredients.<br>
+                            <small>Total recipes: ${data.totalRecipes}</small>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #d4edda; border-radius: 6px; color: #155724;">
+                        <strong>${data.availableCount}</strong> of <strong>${data.totalRecipes}</strong> drinks can be made
+                    </div>
+                    ${data.availableDrinks.map(drink => `
+                        <div class="available-drink-item">
+                            <div class="available-drink-name">${drink.name}</div>
+                            <div class="available-drink-ingredients">
+                                ${drink.ingredients.map(ing => `
+                                    <div class="recipe-ingredient">
+                                        <span class="recipe-ingredient-name">${ing.name}</span>
+                                        <span class="recipe-ingredient-amount">${ing.ounces} oz</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (err) {
+                console.error('Failed to load available drinks:', err);
+                showAlertInTab('available', 'Failed to load available drinks: ' + err.message, 'error');
+            }
+        }
+        
+        // Helper function to show alerts in tabs
+        function showAlertInTab(tabName, message, type) {
+            const alertId = `${tabName}Alert`;
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.textContent = message;
+                alert.className = `alert alert-${type}`;
+                alert.style.display = 'block';
+                
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Initialize drink mixer data on page load
+        function initializeDrinkMixer() {
+            loadAlcohols(); // Load the default active tab
+        }
+        
         
         // Initialize the admin interface
         initializeAdmin();
