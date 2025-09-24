@@ -2403,7 +2403,7 @@ app.get('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
 // Add or update recipe
 app.post('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
   try {
-    const { name, ingredients } = req.body;
+    const { name, ingredients, directions } = req.body;
     
     if (!name || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return res.status(400).json({ error: 'Name and ingredients array are required' });
@@ -2411,8 +2411,13 @@ app.post('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
     
     // Validate ingredients
     for (const ingredient of ingredients) {
-      if (!ingredient.name || typeof ingredient.ounces !== 'number' || ingredient.ounces <= 0) {
-        return res.status(400).json({ error: 'Each ingredient must have a name and positive ounces amount' });
+      if (!ingredient.name || typeof ingredient.amount !== 'number' || ingredient.amount <= 0) {
+        return res.status(400).json({ error: 'Each ingredient must have a name and positive amount' });
+      }
+      // Validate unit
+      const validUnits = ['oz', 'dash', 'unit'];
+      if (!ingredient.unit || !validUnits.includes(ingredient.unit)) {
+        return res.status(400).json({ error: 'Each ingredient must have a valid unit (oz, dash, or unit)' });
       }
     }
     
@@ -2429,8 +2434,10 @@ app.post('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
       name: name.trim(),
       ingredients: ingredients.map(ing => ({
         name: ing.name.trim(),
-        ounces: parseFloat(ing.ounces)
-      }))
+        amount: parseFloat(ing.amount),
+        unit: ing.unit
+      })),
+      directions: directions ? directions.trim() : ''
     };
     
     if (existingIndex >= 0) {
@@ -2491,6 +2498,82 @@ app.delete('/admin/api/drink-mixer/recipes/:id', requireAuth, (req, res) => {
   }
 });
 
+// Fuzzy matching utility for ingredient names
+function calculateLevenshteinDistance(str1, str2) {
+  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+  
+  for (let i = 0; i <= str1.length; i++) {
+    matrix[0][i] = i;
+  }
+  
+  for (let j = 0; j <= str2.length; j++) {
+    matrix[j][0] = j;
+  }
+  
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+function normalizeIngredientName(name) {
+  return name.toLowerCase()
+    .trim()
+    .replace(/s$/, '') // Remove trailing 's' (plural)
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, ' '); // Normalize spaces
+}
+
+function fuzzyMatchIngredient(ingredientName, availableIngredients) {
+  const normalized = normalizeIngredientName(ingredientName);
+  
+  // First try exact match (normalized)
+  for (const available of availableIngredients) {
+    if (normalizeIngredientName(available) === normalized) {
+      return true;
+    }
+  }
+  
+  // Then try fuzzy match with threshold
+  const threshold = Math.max(2, Math.floor(normalized.length * 0.2)); // 20% of length or min 2 chars
+  
+  for (const available of availableIngredients) {
+    const availableNormalized = normalizeIngredientName(available);
+    const distance = calculateLevenshteinDistance(normalized, availableNormalized);
+    
+    if (distance <= threshold) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Get available ingredients for dropdown (admin endpoint)
+app.get('/admin/api/drink-mixer/available-ingredients', requireAuth, (req, res) => {
+  try {
+    const alcohols = config.drinkMixer?.alcohols || [];
+    const mixers = config.drinkMixer?.mixers || [];
+    
+    const ingredients = [
+      ...alcohols.map(a => ({ name: a.name, type: 'alcohol' })),
+      ...mixers.map(m => ({ name: m.name, type: 'mixer' }))
+    ];
+    
+    res.json(ingredients);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get available ingredients: ' + err.message });
+  }
+});
+
 // Get available drinks (public endpoint for clients)
 app.get('/api/drink-mixer/available-drinks', (req, res) => {
   try {
@@ -2498,15 +2581,15 @@ app.get('/api/drink-mixer/available-drinks', (req, res) => {
     const alcohols = config.drinkMixer?.alcohols || [];
     const mixers = config.drinkMixer?.mixers || [];
     
-    // Create maps for quick lookup of available ingredients
-    const availableAlcohols = new Set(alcohols.filter(a => a.available).map(a => a.name.toLowerCase()));
-    const availableMixers = new Set(mixers.filter(m => m.available).map(m => m.name.toLowerCase()));
+    // Get list of available ingredient names for fuzzy matching
+    const availableAlcoholNames = alcohols.filter(a => a.available).map(a => a.name);
+    const availableMixerNames = mixers.filter(m => m.available).map(m => m.name);
+    const allAvailableIngredients = [...availableAlcoholNames, ...availableMixerNames];
     
-    // Filter recipes to only include those where all ingredients are available
+    // Filter recipes to only include those where all ingredients are available (with fuzzy matching)
     const availableDrinks = recipes.filter(recipe => {
       return recipe.ingredients.every(ingredient => {
-        const ingredientName = ingredient.name.toLowerCase();
-        return availableAlcohols.has(ingredientName) || availableMixers.has(ingredientName);
+        return fuzzyMatchIngredient(ingredient.name, allAvailableIngredients);
       });
     });
     
