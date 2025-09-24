@@ -225,7 +225,12 @@ const defaultConfig = {
     "showUsefulLinks": true,
     "welcomeMessage": "Welcome to Local Server Site Pusher"
   },
-  "connectedDevices": []
+  "connectedDevices": [],
+  "drinkMixer": {
+    "alcohols": [],
+    "mixers": [],
+    "recipes": []
+  }
 };
 
 // Function to safely create config file
@@ -1837,6 +1842,307 @@ app.get('/admin/api/client/storage-stats', requireAuth, (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get storage statistics: ' + error.message });
+  }
+});
+
+// Drink Mixer API endpoints
+// Get all alcohols
+app.get('/admin/api/drink-mixer/alcohols', requireAuth, (req, res) => {
+  const alcohols = config.drinkMixer?.alcohols || [];
+  res.json(alcohols);
+});
+
+// Add or update alcohol
+app.post('/admin/api/drink-mixer/alcohols', requireAuth, (req, res) => {
+  try {
+    const { name, available } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    
+    // Initialize drinkMixer if it doesn't exist
+    if (!config.drinkMixer) {
+      config.drinkMixer = { alcohols: [], mixers: [], recipes: [] };
+    }
+    
+    // Check if alcohol already exists
+    const existingIndex = config.drinkMixer.alcohols.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
+    
+    const alcoholData = {
+      id: existingIndex >= 0 ? config.drinkMixer.alcohols[existingIndex].id : Date.now(),
+      name: name.trim(),
+      available: available !== false // default to true if not specified
+    };
+    
+    if (existingIndex >= 0) {
+      config.drinkMixer.alcohols[existingIndex] = alcoholData;
+    } else {
+      config.drinkMixer.alcohols.push(alcoholData);
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Alcohol saved successfully',
+        alcohol: alcoholData
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Alcohol saved in memory (file save failed)',
+        alcohol: alcoholData
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save alcohol: ' + err.message });
+  }
+});
+
+// Delete alcohol
+app.delete('/admin/api/drink-mixer/alcohols/:id', requireAuth, (req, res) => {
+  try {
+    const alcoholId = parseInt(req.params.id);
+    
+    if (!config.drinkMixer?.alcohols) {
+      return res.status(404).json({ error: 'No alcohols found' });
+    }
+    
+    const initialLength = config.drinkMixer.alcohols.length;
+    config.drinkMixer.alcohols = config.drinkMixer.alcohols.filter(a => a.id !== alcoholId);
+    
+    if (config.drinkMixer.alcohols.length === initialLength) {
+      return res.status(404).json({ error: 'Alcohol not found' });
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Alcohol removed successfully'
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Alcohol removed (in memory only)'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove alcohol: ' + err.message });
+  }
+});
+
+// Get all mixers
+app.get('/admin/api/drink-mixer/mixers', requireAuth, (req, res) => {
+  const mixers = config.drinkMixer?.mixers || [];
+  res.json(mixers);
+});
+
+// Add or update mixer
+app.post('/admin/api/drink-mixer/mixers', requireAuth, (req, res) => {
+  try {
+    const { name, available } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    
+    // Initialize drinkMixer if it doesn't exist
+    if (!config.drinkMixer) {
+      config.drinkMixer = { alcohols: [], mixers: [], recipes: [] };
+    }
+    
+    // Check if mixer already exists
+    const existingIndex = config.drinkMixer.mixers.findIndex(m => m.name.toLowerCase() === name.toLowerCase());
+    
+    const mixerData = {
+      id: existingIndex >= 0 ? config.drinkMixer.mixers[existingIndex].id : Date.now(),
+      name: name.trim(),
+      available: available !== false // default to true if not specified
+    };
+    
+    if (existingIndex >= 0) {
+      config.drinkMixer.mixers[existingIndex] = mixerData;
+    } else {
+      config.drinkMixer.mixers.push(mixerData);
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Mixer saved successfully',
+        mixer: mixerData
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Mixer saved in memory (file save failed)',
+        mixer: mixerData
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save mixer: ' + err.message });
+  }
+});
+
+// Delete mixer
+app.delete('/admin/api/drink-mixer/mixers/:id', requireAuth, (req, res) => {
+  try {
+    const mixerId = parseInt(req.params.id);
+    
+    if (!config.drinkMixer?.mixers) {
+      return res.status(404).json({ error: 'No mixers found' });
+    }
+    
+    const initialLength = config.drinkMixer.mixers.length;
+    config.drinkMixer.mixers = config.drinkMixer.mixers.filter(m => m.id !== mixerId);
+    
+    if (config.drinkMixer.mixers.length === initialLength) {
+      return res.status(404).json({ error: 'Mixer not found' });
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Mixer removed successfully'
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Mixer removed (in memory only)'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove mixer: ' + err.message });
+  }
+});
+
+// Get all recipes
+app.get('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
+  const recipes = config.drinkMixer?.recipes || [];
+  res.json(recipes);
+});
+
+// Add or update recipe
+app.post('/admin/api/drink-mixer/recipes', requireAuth, (req, res) => {
+  try {
+    const { name, ingredients } = req.body;
+    
+    if (!name || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+      return res.status(400).json({ error: 'Name and ingredients array are required' });
+    }
+    
+    // Validate ingredients
+    for (const ingredient of ingredients) {
+      if (!ingredient.name || typeof ingredient.ounces !== 'number' || ingredient.ounces <= 0) {
+        return res.status(400).json({ error: 'Each ingredient must have a name and positive ounces amount' });
+      }
+    }
+    
+    // Initialize drinkMixer if it doesn't exist
+    if (!config.drinkMixer) {
+      config.drinkMixer = { alcohols: [], mixers: [], recipes: [] };
+    }
+    
+    // Check if recipe already exists
+    const existingIndex = config.drinkMixer.recipes.findIndex(r => r.name.toLowerCase() === name.toLowerCase());
+    
+    const recipeData = {
+      id: existingIndex >= 0 ? config.drinkMixer.recipes[existingIndex].id : Date.now(),
+      name: name.trim(),
+      ingredients: ingredients.map(ing => ({
+        name: ing.name.trim(),
+        ounces: parseFloat(ing.ounces)
+      }))
+    };
+    
+    if (existingIndex >= 0) {
+      config.drinkMixer.recipes[existingIndex] = recipeData;
+    } else {
+      config.drinkMixer.recipes.push(recipeData);
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Recipe saved successfully',
+        recipe: recipeData
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Recipe saved in memory (file save failed)',
+        recipe: recipeData
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save recipe: ' + err.message });
+  }
+});
+
+// Delete recipe
+app.delete('/admin/api/drink-mixer/recipes/:id', requireAuth, (req, res) => {
+  try {
+    const recipeId = parseInt(req.params.id);
+    
+    if (!config.drinkMixer?.recipes) {
+      return res.status(404).json({ error: 'No recipes found' });
+    }
+    
+    const initialLength = config.drinkMixer.recipes.length;
+    config.drinkMixer.recipes = config.drinkMixer.recipes.filter(r => r.id !== recipeId);
+    
+    if (config.drinkMixer.recipes.length === initialLength) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Recipe removed successfully'
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Recipe removed (in memory only)'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove recipe: ' + err.message });
+  }
+});
+
+// Get available drinks (public endpoint for clients)
+app.get('/api/drink-mixer/available-drinks', (req, res) => {
+  try {
+    const recipes = config.drinkMixer?.recipes || [];
+    const alcohols = config.drinkMixer?.alcohols || [];
+    const mixers = config.drinkMixer?.mixers || [];
+    
+    // Create maps for quick lookup of available ingredients
+    const availableAlcohols = new Set(alcohols.filter(a => a.available).map(a => a.name.toLowerCase()));
+    const availableMixers = new Set(mixers.filter(m => m.available).map(m => m.name.toLowerCase()));
+    
+    // Filter recipes to only include those where all ingredients are available
+    const availableDrinks = recipes.filter(recipe => {
+      return recipe.ingredients.every(ingredient => {
+        const ingredientName = ingredient.name.toLowerCase();
+        return availableAlcohols.has(ingredientName) || availableMixers.has(ingredientName);
+      });
+    });
+    
+    res.json({
+      availableDrinks,
+      totalRecipes: recipes.length,
+      availableCount: availableDrinks.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get available drinks: ' + err.message });
   }
 });
 
