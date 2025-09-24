@@ -252,7 +252,7 @@ async function getHomeAssistantMediaPlayers() {
     console.error('Error fetching Home Assistant media players:', error.message);
     return { 
       success: false, 
-      error: formatHomeAssistantError(error, haConfig.url)
+      error: formatHomeAssistantError(error, config.homeAssistant.url)
     };
   }
 }
@@ -315,6 +315,11 @@ function formatHomeAssistantError(error, url) {
   }
   
   if (error.code === 'ETIMEDOUT' || error.code === 'ETIMEOUT') {
+    return `Connection timeout to ${hostname}. Please verify the address is correct and Home Assistant is accessible from this server`;
+  }
+  
+  // Handle axios timeout errors
+  if (error.message && error.message.includes('timeout') && error.message.includes('exceeded')) {
     return `Connection timeout to ${hostname}. Please verify the address is correct and Home Assistant is accessible from this server`;
   }
   
