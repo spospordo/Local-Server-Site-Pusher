@@ -20,7 +20,14 @@ const defaultConfig = {
   },
   "homeAssistant": {
     "enabled": true,
-    "url": "http://localhost:8123"
+    "url": "http://localhost:8123",
+    "token": "",
+    "mediaPlayers": {
+      "enabled": true,
+      "refreshInterval": 5000,
+      "includeDevices": [],
+      "excludeDevices": []
+    }
   },
   "cockpit": {
     "enabled": true,

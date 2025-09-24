@@ -6,6 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const { execSync } = require('child_process');
+const axios = require('axios');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -187,6 +188,107 @@ function removeFileMetadata(deviceId, filename) {
   return false;
 }
 
+// Home Assistant Media Streaming Integration
+async function getHomeAssistantMediaPlayers() {
+  try {
+    const haConfig = config.homeAssistant;
+    
+    if (!haConfig.enabled || !haConfig.url || !haConfig.token) {
+      return { success: false, error: 'Home Assistant not properly configured' };
+    }
+
+    const response = await axios.get(`${haConfig.url}/api/states`, {
+      headers: {
+        'Authorization': `Bearer ${haConfig.token}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 5000
+    });
+
+    const mediaPlayers = response.data
+      .filter(entity => entity.entity_id.startsWith('media_player.'))
+      .filter(entity => {
+        // Filter based on include/exclude configuration
+        const deviceConfig = haConfig.mediaPlayers;
+        const entityId = entity.entity_id;
+        
+        if (deviceConfig.excludeDevices.length > 0 && deviceConfig.excludeDevices.includes(entityId)) {
+          return false;
+        }
+        
+        if (deviceConfig.includeDevices.length > 0 && !deviceConfig.includeDevices.includes(entityId)) {
+          return false;
+        }
+        
+        return true;
+      })
+      .map(entity => ({
+        entity_id: entity.entity_id,
+        state: entity.state,
+        friendly_name: entity.attributes.friendly_name || entity.entity_id.replace('media_player.', ''),
+        media_title: entity.attributes.media_title || null,
+        media_artist: entity.attributes.media_artist || null,
+        media_album_name: entity.attributes.media_album_name || null,
+        media_content_type: entity.attributes.media_content_type || null,
+        media_duration: entity.attributes.media_duration || null,
+        media_position: entity.attributes.media_position || null,
+        media_position_updated_at: entity.attributes.media_position_updated_at || null,
+        volume_level: entity.attributes.volume_level || null,
+        entity_picture: entity.attributes.entity_picture || null,
+        source: entity.attributes.source || null,
+        supported_features: entity.attributes.supported_features || 0,
+        last_updated: entity.last_updated
+      }))
+      .filter(player => player.state !== 'unavailable' && player.state !== 'unknown');
+
+    return { success: true, players: mediaPlayers };
+  } catch (error) {
+    console.error('Error fetching Home Assistant media players:', error.message);
+    return { 
+      success: false, 
+      error: error.code === 'ECONNREFUSED' ? 'Cannot connect to Home Assistant' : error.message 
+    };
+  }
+}
+
+function formatMediaStreamingData(players) {
+  if (!players || players.length === 0) {
+    return {
+      hasActiveMedia: false,
+      totalDevices: 0,
+      activeDevices: 0,
+      players: []
+    };
+  }
+
+  const activeStates = ['playing', 'paused'];
+  const activePlayers = players.filter(player => activeStates.includes(player.state));
+  
+  return {
+    hasActiveMedia: activePlayers.length > 0,
+    totalDevices: players.length,
+    activeDevices: activePlayers.length,
+    players: players.map(player => ({
+      ...player,
+      isActive: activeStates.includes(player.state),
+      displayText: player.media_title ? 
+        `${player.media_title}${player.media_artist ? ` - ${player.media_artist}` : ''}` : 
+        player.friendly_name,
+      deviceType: getDeviceTypeFromEntityId(player.entity_id)
+    }))
+  };
+}
+
+function getDeviceTypeFromEntityId(entityId) {
+  const id = entityId.toLowerCase();
+  if (id.includes('apple_tv') || id.includes('appletv')) return 'Apple TV';
+  if (id.includes('apple') || id.includes('iphone') || id.includes('ipad')) return 'Apple Device';
+  if (id.includes('speaker') || id.includes('sonos') || id.includes('echo')) return 'Wireless Speaker';
+  if (id.includes('spotify')) return 'Spotify';
+  if (id.includes('cast') || id.includes('chromecast')) return 'Chromecast';
+  return 'Media Player';
+}
+
 // Default configuration
 const defaultConfig = {
   "server": {
@@ -198,7 +300,14 @@ const defaultConfig = {
   },
   "homeAssistant": {
     "enabled": true,
-    "url": "http://localhost:8123"
+    "url": "http://localhost:8123",
+    "token": "",
+    "mediaPlayers": {
+      "enabled": true,
+      "refreshInterval": 5000,
+      "includeDevices": [],
+      "excludeDevices": []
+    }
   },
   "cockpit": {
     "enabled": true,
@@ -834,6 +943,55 @@ app.get('/api/data', (req, res) => {
     timestamp: new Date().toISOString(),
     parameters: req.query
   });
+});
+
+// Home Assistant Media Streaming API endpoint
+app.get('/api/media-streaming', async (req, res) => {
+  try {
+    const haConfig = config.homeAssistant || {};
+    const mediaConfig = haConfig.mediaPlayers || {};
+
+    if (!haConfig.enabled) {
+      return res.json({
+        success: false,
+        error: 'Home Assistant integration is disabled',
+        data: formatMediaStreamingData([])
+      });
+    }
+
+    if (!mediaConfig.enabled) {
+      return res.json({
+        success: false,
+        error: 'Media player integration is disabled',
+        data: formatMediaStreamingData([])
+      });
+    }
+
+    const result = await getHomeAssistantMediaPlayers();
+    
+    if (!result.success) {
+      return res.json({
+        success: false,
+        error: result.error,
+        data: formatMediaStreamingData([])
+      });
+    }
+
+    const formattedData = formatMediaStreamingData(result.players);
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: formattedData
+    });
+  } catch (error) {
+    console.error('Error in media streaming API:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      data: formatMediaStreamingData([])
+    });
+  }
 });
 
 // Client access routes and APIs
@@ -1842,6 +2000,121 @@ app.get('/admin/api/client/storage-stats', requireAuth, (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get storage statistics: ' + error.message });
+  }
+});
+
+// Home Assistant Media Streaming Admin API endpoints
+app.get('/admin/api/media-streaming/config', requireAuth, (req, res) => {
+  try {
+    const haConfig = config.homeAssistant || {};
+    const mediaConfig = haConfig.mediaPlayers || {};
+    
+    res.json({
+      homeAssistant: {
+        enabled: haConfig.enabled || false,
+        url: haConfig.url || 'http://localhost:8123',
+        hasToken: !!(haConfig.token && haConfig.token.length > 0),
+        mediaPlayers: {
+          enabled: mediaConfig.enabled || false,
+          refreshInterval: mediaConfig.refreshInterval || 5000,
+          includeDevices: mediaConfig.includeDevices || [],
+          excludeDevices: mediaConfig.excludeDevices || []
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get media streaming configuration: ' + error.message });
+  }
+});
+
+app.post('/admin/api/media-streaming/config', requireAuth, (req, res) => {
+  try {
+    const { homeAssistant } = req.body;
+    
+    // Ensure homeAssistant config exists
+    if (!config.homeAssistant) {
+      config.homeAssistant = {
+        enabled: true,
+        url: 'http://localhost:8123',
+        token: '',
+        mediaPlayers: {
+          enabled: true,
+          refreshInterval: 5000,
+          includeDevices: [],
+          excludeDevices: []
+        }
+      };
+    }
+    
+    // Update configuration
+    if (homeAssistant.enabled !== undefined) config.homeAssistant.enabled = homeAssistant.enabled;
+    if (homeAssistant.url !== undefined) config.homeAssistant.url = homeAssistant.url;
+    if (homeAssistant.token !== undefined) config.homeAssistant.token = homeAssistant.token;
+    
+    if (homeAssistant.mediaPlayers) {
+      if (!config.homeAssistant.mediaPlayers) {
+        config.homeAssistant.mediaPlayers = {};
+      }
+      
+      const mp = homeAssistant.mediaPlayers;
+      if (mp.enabled !== undefined) config.homeAssistant.mediaPlayers.enabled = mp.enabled;
+      if (mp.refreshInterval !== undefined) config.homeAssistant.mediaPlayers.refreshInterval = mp.refreshInterval;
+      if (mp.includeDevices !== undefined) config.homeAssistant.mediaPlayers.includeDevices = mp.includeDevices;
+      if (mp.excludeDevices !== undefined) config.homeAssistant.mediaPlayers.excludeDevices = mp.excludeDevices;
+    }
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Media streaming configuration updated successfully',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Media streaming configuration updated in memory (file save failed)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Media streaming configuration updated in memory only',
+        persistent: false
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update media streaming configuration: ' + error.message });
+  }
+});
+
+app.get('/admin/api/media-streaming/test', requireAuth, async (req, res) => {
+  try {
+    const result = await getHomeAssistantMediaPlayers();
+    
+    if (!result.success) {
+      return res.json({
+        success: false,
+        error: result.error,
+        players: []
+      });
+    }
+    
+    const formattedData = formatMediaStreamingData(result.players);
+    
+    res.json({
+      success: true,
+      message: `Found ${formattedData.totalDevices} media players (${formattedData.activeDevices} active)`,
+      data: formattedData
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test Home Assistant connection: ' + error.message,
+      players: []
+    });
   }
 });
 

@@ -485,6 +485,110 @@
             padding: 2rem;
         }
         
+        .media-player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .media-player-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid #ddd;
+            transition: all 0.2s ease;
+        }
+        
+        .media-player-card.active {
+            border-left-color: #28a745;
+            background: #f8fff8;
+        }
+        
+        .media-player-card.playing {
+            border-left-color: #007bff;
+            background: #f0f8ff;
+        }
+        
+        .media-player-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .media-player-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .media-player-type {
+            font-size: 0.8rem;
+            color: #666;
+            background: #e9ecef;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+        }
+        
+        .media-player-status {
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+        
+        .media-player-status.playing {
+            color: #007bff;
+        }
+        
+        .media-player-status.paused {
+            color: #ffc107;
+        }
+        
+        .media-player-status.idle {
+            color: #6c757d;
+        }
+        
+        .media-info {
+            margin-top: 0.5rem;
+        }
+        
+        .media-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.2rem;
+        }
+        
+        .media-artist {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .media-source {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.3rem;
+        }
+        
+        .media-streaming-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .media-streaming-summary h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.2rem;
+        }
+        
+        .media-streaming-summary p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
         /* Storage Slider Styles */
         .storage-slider-container {
             display: flex;
@@ -1166,6 +1270,69 @@
                     </div>
                 </div>
                 <div id="clientFilesAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- Home Assistant Media Streaming -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Home Assistant Media Streaming</h2>
+            </div>
+            <div class="card-body">
+                <p>Monitor and display media currently streaming on your Home Assistant devices:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="haEnabled">Home Assistant Integration</label>
+                        <select id="haEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mediaPlayersEnabled">Media Players</label>
+                        <select id="mediaPlayersEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="haUrl">Home Assistant URL</label>
+                    <input type="url" id="haUrl" placeholder="http://localhost:8123">
+                </div>
+                
+                <div class="form-group">
+                    <label for="haToken">Home Assistant Long-Lived Access Token</label>
+                    <input type="password" id="haToken" placeholder="Enter your Home Assistant token">
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        Create a long-lived access token in Home Assistant: Profile → Security → Create Token
+                    </small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="refreshInterval">Refresh Interval (ms)</label>
+                        <input type="number" id="refreshInterval" min="1000" max="60000" step="1000" value="5000">
+                    </div>
+                    <div class="form-group">
+                        <button id="testHAConnection" class="btn btn-secondary" onclick="testHomeAssistantConnection()">Test Connection</button>
+                    </div>
+                </div>
+                
+                <button onclick="saveMediaStreamingConfig()" class="btn btn-primary">Save Media Streaming Settings</button>
+                
+                <div class="section-divider"></div>
+                
+                <h3>Current Media Status</h3>
+                <div id="mediaStreamingStatus">
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        Loading media streaming status...
+                    </div>
+                </div>
+                
+                <div id="mediaStreamingAlert" class="alert"></div>
             </div>
         </div>
 
@@ -2174,6 +2341,7 @@
             loadClientConfig();
             loadClientFiles();
             loadClientStorageStats();
+            loadMediaStreamingConfig(); // Load media streaming configuration
             initializeDrinkMixer();
         }
         
@@ -2617,6 +2785,187 @@
             loadAlcohols(); // Load the default active tab
         }
         
+        // Home Assistant Media Streaming Functions
+        async function loadMediaStreamingConfig() {
+            try {
+                const response = await fetch('/admin/api/media-streaming/config');
+                const config = await response.json();
+                
+                if (config.homeAssistant) {
+                    const ha = config.homeAssistant;
+                    document.getElementById('haEnabled').value = ha.enabled.toString();
+                    document.getElementById('haUrl').value = ha.url || 'http://localhost:8123';
+                    document.getElementById('haToken').value = ha.hasToken ? '••••••••••••' : '';
+                    document.getElementById('haToken').dataset.hasToken = ha.hasToken.toString();
+                    
+                    if (ha.mediaPlayers) {
+                        document.getElementById('mediaPlayersEnabled').value = ha.mediaPlayers.enabled.toString();
+                        document.getElementById('refreshInterval').value = ha.mediaPlayers.refreshInterval || 5000;
+                    }
+                }
+                
+                // Load media status if enabled
+                if (config.homeAssistant?.enabled && config.homeAssistant?.mediaPlayers?.enabled) {
+                    loadMediaStreamingStatus();
+                }
+            } catch (error) {
+                console.error('Error loading media streaming config:', error);
+                showAlert('Failed to load media streaming configuration', 'error', 'mediaStreamingAlert');
+            }
+        }
+        
+        async function saveMediaStreamingConfig() {
+            try {
+                const tokenField = document.getElementById('haToken');
+                let token = tokenField.value;
+                
+                // If showing masked token and user didn't change it, don't send it
+                if (token === '••••••••••••' && tokenField.dataset.hasToken === 'true') {
+                    token = undefined; // Don't update the token
+                }
+                
+                const configData = {
+                    homeAssistant: {
+                        enabled: document.getElementById('haEnabled').value === 'true',
+                        url: document.getElementById('haUrl').value,
+                        mediaPlayers: {
+                            enabled: document.getElementById('mediaPlayersEnabled').value === 'true',
+                            refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 5000
+                        }
+                    }
+                };
+                
+                // Only include token if it was changed
+                if (token !== undefined && token !== '••••••••••••') {
+                    configData.homeAssistant.token = token;
+                }
+                
+                const response = await fetch('/admin/api/media-streaming/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(configData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Media streaming configuration saved successfully!', 'success', 'mediaStreamingAlert');
+                    loadMediaStreamingConfig(); // Reload to refresh display
+                } else {
+                    showAlert('Failed to save configuration: ' + result.error, 'error', 'mediaStreamingAlert');
+                }
+            } catch (error) {
+                showAlert('Error saving configuration: ' + error.message, 'error', 'mediaStreamingAlert');
+            }
+        }
+        
+        async function testHomeAssistantConnection() {
+            const testButton = document.getElementById('testHAConnection');
+            const originalText = testButton.textContent;
+            
+            try {
+                testButton.textContent = 'Testing...';
+                testButton.disabled = true;
+                
+                const response = await fetch('/admin/api/media-streaming/test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`✅ Connection successful! ${result.message}`, 'success', 'mediaStreamingAlert');
+                    loadMediaStreamingStatus(); // Refresh status display
+                } else {
+                    showAlert('❌ Connection failed: ' + result.error, 'error', 'mediaStreamingAlert');
+                }
+            } catch (error) {
+                showAlert('❌ Test failed: ' + error.message, 'error', 'mediaStreamingAlert');
+            } finally {
+                testButton.textContent = originalText;
+                testButton.disabled = false;
+            }
+        }
+        
+        async function loadMediaStreamingStatus() {
+            try {
+                const response = await fetch('/api/media-streaming');
+                const result = await response.json();
+                
+                const container = document.getElementById('mediaStreamingStatus');
+                
+                if (!result.success) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #dc3545;">
+                            <strong>Error:</strong> ${result.error}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const data = result.data;
+                
+                if (!data.hasActiveMedia && data.totalDevices === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            No media players found. Check your Home Assistant connection and configuration.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div class="media-streaming-summary">
+                        <h4>${data.hasActiveMedia ? '🎵 Media Currently Playing' : '⏸️ No Active Media'}</h4>
+                        <p>${data.totalDevices} devices found • ${data.activeDevices} currently active</p>
+                    </div>
+                `;
+                
+                if (data.players.length > 0) {
+                    html += `<div class="media-player-grid">`;
+                    
+                    data.players.forEach(player => {
+                        const cardClass = player.isActive ? (player.state === 'playing' ? 'playing' : 'active') : '';
+                        
+                        html += `
+                            <div class="media-player-card ${cardClass}">
+                                <div class="media-player-header">
+                                    <span class="media-player-name">${player.friendly_name}</span>
+                                    <span class="media-player-type">${player.deviceType}</span>
+                                </div>
+                                <div class="media-player-status ${player.state}">${player.state}</div>
+                        `;
+                        
+                        if (player.media_title || player.media_artist) {
+                            html += `
+                                <div class="media-info">
+                                    ${player.media_title ? `<div class="media-title">${player.media_title}</div>` : ''}
+                                    ${player.media_artist ? `<div class="media-artist">by ${player.media_artist}</div>` : ''}
+                                    ${player.source ? `<div class="media-source">Source: ${player.source}</div>` : ''}
+                                </div>
+                            `;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                } else {
+                    html += `
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            All media players are currently idle.
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                const container = document.getElementById('mediaStreamingStatus');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #dc3545;">
+                        Error loading media status: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
         
         // Initialize the admin interface
         initializeAdmin();
@@ -2629,6 +2978,9 @@
         
         // Refresh client storage stats every 60 seconds
         setInterval(loadClientStorageStats, 60000);
+        
+        // Refresh media streaming status every 10 seconds (configurable)
+        setInterval(loadMediaStreamingStatus, 10000);
     </script>
 </body>
 </html>
