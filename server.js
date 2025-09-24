@@ -218,11 +218,15 @@ async function getHomeAssistantMediaPlayers() {
         const deviceConfig = haConfig.mediaPlayers;
         const entityId = entity.entity_id;
         
-        if (deviceConfig.excludeDevices.length > 0 && deviceConfig.excludeDevices.includes(entityId)) {
+        // Check exclude devices list (skip if excludeDevices is undefined or empty)
+        const excludeDevices = deviceConfig.excludeDevices || [];
+        if (excludeDevices.length > 0 && excludeDevices.includes(entityId)) {
           return false;
         }
         
-        if (deviceConfig.includeDevices.length > 0 && !deviceConfig.includeDevices.includes(entityId)) {
+        // Check include devices list (skip if includeDevices is undefined or empty)
+        const includeDevices = deviceConfig.includeDevices || [];
+        if (includeDevices.length > 0 && !includeDevices.includes(entityId)) {
           return false;
         }
         
