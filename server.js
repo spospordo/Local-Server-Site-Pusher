@@ -1094,6 +1094,11 @@ app.get('/client', (req, res) => {
   res.sendFile(path.join(__dirname, 'client.html'));
 });
 
+// Kiosk dashboard route for large TV displays
+app.get('/kiosk', (req, res) => {
+  res.sendFile(path.join(__dirname, 'kiosk.html'));
+});
+
 // Client API endpoints
 app.get('/api/client/config', (req, res) => {
   // Ensure client config exists with defaults

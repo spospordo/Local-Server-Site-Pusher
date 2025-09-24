@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk Dashboard - Party Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .kiosk-header {
+            background: rgba(0,0,0,0.3);
+            padding: 2rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .kiosk-header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .kiosk-header .subtitle {
+            font-size: 1.5rem;
+            opacity: 0.9;
+        }
+
+        .last-updated {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+
+        /* Main Content Grid */
+        .kiosk-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Section Cards */
+        .kiosk-section {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .kiosk-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+        }
+
+        .kiosk-section.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .kiosk-section.hidden {
+            display: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            font-weight: 600;
+            gap: 1rem;
+        }
+
+        .section-icon {
+            font-size: 2.5rem;
+        }
+
+        /* Client List Styles */
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .client-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .client-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .client-info {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .client-status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+
+        .client-status.online {
+            background: rgba(76, 175, 80, 0.8);
+            color: white;
+        }
+
+        .client-status.offline {
+            background: rgba(158, 158, 158, 0.8);
+            color: white;
+        }
+
+        /* Tournament Styles */
+        .tournament-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .tournament-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .tournament-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .tournament-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .tournament-status.active {
+            background: rgba(76, 175, 80, 0.8);
+        }
+
+        .tournament-status.setup {
+            background: rgba(255, 193, 7, 0.8);
+        }
+
+        .tournament-status.completed {
+            background: rgba(33, 150, 243, 0.8);
+        }
+
+        .tournament-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .tournament-stat {
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .tournament-stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .tournament-stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        /* Media Streaming Styles */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .media-player {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .media-player.playing {
+            border-color: rgba(76, 175, 80, 0.8);
+            background: rgba(76, 175, 80, 0.15);
+        }
+
+        .media-player-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .media-title {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .media-artist {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+        }
+
+        .media-state {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .media-state.playing {
+            background: rgba(76, 175, 80, 0.8);
+        }
+
+        .media-state.paused {
+            background: rgba(255, 193, 7, 0.8);
+        }
+
+        /* Drinks Styles */
+        .drinks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .drink-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .drink-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .drink-ingredients {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+
+        .drink-ingredient {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .drink-ingredient:last-child {
+            border-bottom: none;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            opacity: 0.7;
+            font-size: 1.2rem;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Loading Animation */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design for Very Large Screens */
+        @media (min-width: 1920px) {
+            .kiosk-header h1 {
+                font-size: 4.5rem;
+            }
+            
+            .kiosk-header .subtitle {
+                font-size: 2rem;
+            }
+            
+            .kiosk-content {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .section-header {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (min-width: 3840px) {
+            .kiosk-content {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="kiosk-header">
+        <h1>🎉 Party Dashboard</h1>
+        <p class="subtitle">Welcome to the celebration!</p>
+        <div class="last-updated" id="lastUpdated">Loading...</div>
+    </div>
+
+    <div class="kiosk-content">
+        <!-- Connected Clients Section -->
+        <div class="kiosk-section" id="clientsSection">
+            <div class="section-header">
+                <span class="section-icon">👥</span>
+                <span>Connected Guests</span>
+            </div>
+            <div id="clientsContent" class="loading">
+                <div class="spinner"></div>
+                <div>Loading guests...</div>
+            </div>
+        </div>
+
+        <!-- Tournament Section -->
+        <div class="kiosk-section hidden" id="tournamentsSection">
+            <div class="section-header">
+                <span class="section-icon">🏆</span>
+                <span>Tournaments</span>
+            </div>
+            <div id="tournamentsContent"></div>
+        </div>
+
+        <!-- Media Streaming Section -->
+        <div class="kiosk-section hidden" id="mediaSection">
+            <div class="section-header">
+                <span class="section-icon">🎵</span>
+                <span>Now Playing</span>
+            </div>
+            <div id="mediaContent"></div>
+        </div>
+
+        <!-- Available Drinks Section -->
+        <div class="kiosk-section hidden" id="drinksSection">
+            <div class="section-header">
+                <span class="section-icon">🍹</span>
+                <span>Available Drinks</span>
+            </div>
+            <div id="drinksContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const REFRESH_INTERVALS = {
+            clients: 10000,    // 10 seconds
+            tournaments: 15000, // 15 seconds
+            media: 5000,       // 5 seconds
+            drinks: 30000      // 30 seconds
+        };
+
+        let refreshTimers = {};
+
+        // Utility function to format time
+        function formatTime(date) {
+            return date.toLocaleTimeString();
+        }
+
+        // Update last updated timestamp
+        function updateLastUpdated() {
+            document.getElementById('lastUpdated').textContent = `Last updated: ${formatTime(new Date())}`;
+        }
+
+        // Show/hide sections based on content
+        function toggleSection(sectionId, hasContent) {
+            const section = document.getElementById(sectionId);
+            if (hasContent) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        // Load connected clients
+        async function loadClients() {
+            try {
+                const response = await fetch('/api/visitor/server-info');
+                const data = await response.json();
+                
+                const clientsContent = document.getElementById('clientsContent');
+                
+                if (!data.connectedUsers || data.connectedUsers.length === 0) {
+                    clientsContent.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👤</div>
+                            <div>No guests connected yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const clientsHtml = data.connectedUsers.map(client => {
+                    return `
+                        <div class="client-card">
+                            <div class="client-name">${escapeHtml(client.name)}</div>
+                            <div class="client-info">
+                                ${client.deviceType || 'Unknown device'}
+                            </div>
+                            <div class="client-status ${client.isOnline ? 'online' : 'offline'}">
+                                ${client.isOnline ? 'Online' : 'Offline'}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                clientsContent.innerHTML = `<div class="clients-grid">${clientsHtml}</div>`;
+                
+                updateLastUpdated();
+            } catch (error) {
+                console.error('Error loading clients:', error);
+                document.getElementById('clientsContent').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <div>Error loading guests</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Load tournaments
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/api/tournaments');
+                const tournaments = await response.json();
+                
+                const hasActiveTournaments = tournaments && tournaments.length > 0;
+                toggleSection('tournamentsSection', hasActiveTournaments);
+                
+                if (!hasActiveTournaments) return;
+
+                const tournamentsHtml = tournaments.map(tournament => `
+                    <div class="tournament-card">
+                        <div class="tournament-header">
+                            <div class="tournament-name">${escapeHtml(tournament.name)}</div>
+                            <div class="tournament-status ${tournament.status}">${tournament.status}</div>
+                        </div>
+                        <div class="tournament-stats">
+                            <div class="tournament-stat">
+                                <div class="tournament-stat-value">${tournament.participantCount || tournament.participants?.length || 0}</div>
+                                <div class="tournament-stat-label">Players</div>
+                            </div>
+                            <div class="tournament-stat">
+                                <div class="tournament-stat-value">${tournament.currentRound || 1}</div>
+                                <div class="tournament-stat-label">Round</div>
+                            </div>
+                            <div class="tournament-stat">
+                                <div class="tournament-stat-value">${tournament.maxParticipants || 'N/A'}</div>
+                                <div class="tournament-stat-label">Max Players</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('tournamentsContent').innerHTML = tournamentsHtml;
+            } catch (error) {
+                console.error('Error loading tournaments:', error);
+                toggleSection('tournamentsSection', false);
+            }
+        }
+
+        // Load media streaming
+        async function loadMedia() {
+            try {
+                const response = await fetch('/api/media-streaming');
+                const result = await response.json();
+                
+                const hasActiveMedia = result.success && result.data && result.data.hasActiveMedia;
+                toggleSection('mediaSection', hasActiveMedia);
+                
+                if (!hasActiveMedia) return;
+
+                const mediaHtml = result.data.players
+                    .filter(player => ['playing', 'paused'].includes(player.state))
+                    .map(player => `
+                        <div class="media-player ${player.state}">
+                            <div class="media-player-name">${escapeHtml(player.friendlyName)}</div>
+                            <div class="media-title">${escapeHtml(player.title || 'Unknown')}</div>
+                            <div class="media-artist">${escapeHtml(player.artist || 'Unknown Artist')}</div>
+                            <div class="media-state ${player.state}">${player.state}</div>
+                        </div>
+                    `).join('');
+
+                document.getElementById('mediaContent').innerHTML = `<div class="media-grid">${mediaHtml}</div>`;
+            } catch (error) {
+                console.error('Error loading media:', error);
+                toggleSection('mediaSection', false);
+            }
+        }
+
+        // Load available drinks
+        async function loadDrinks() {
+            try {
+                const response = await fetch('/api/drink-mixer/available-drinks');
+                const result = await response.json();
+                
+                const hasAvailableDrinks = result.availableDrinks && result.availableDrinks.length > 0;
+                toggleSection('drinksSection', hasAvailableDrinks);
+                
+                if (!hasAvailableDrinks) return;
+
+                const drinksHtml = result.availableDrinks.map(drink => `
+                    <div class="drink-card">
+                        <div class="drink-name">${escapeHtml(drink.name)}</div>
+                        <div class="drink-ingredients">
+                            ${drink.ingredients.map(ing => `
+                                <div class="drink-ingredient">
+                                    <span>${escapeHtml(ing.name)}</span>
+                                    <span>${ing.amount} ${ing.unit}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('drinksContent').innerHTML = `<div class="drinks-grid">${drinksHtml}</div>`;
+            } catch (error) {
+                console.error('Error loading drinks:', error);
+                toggleSection('drinksSection', false);
+            }
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Initialize and set up refresh timers
+        function init() {
+            // Load all data initially
+            loadClients();
+            loadTournaments();
+            loadMedia();
+            loadDrinks();
+
+            // Set up refresh intervals
+            refreshTimers.clients = setInterval(loadClients, REFRESH_INTERVALS.clients);
+            refreshTimers.tournaments = setInterval(loadTournaments, REFRESH_INTERVALS.tournaments);
+            refreshTimers.media = setInterval(loadMedia, REFRESH_INTERVALS.media);
+            refreshTimers.drinks = setInterval(loadDrinks, REFRESH_INTERVALS.drinks);
+
+            updateLastUpdated();
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            Object.values(refreshTimers).forEach(timer => clearInterval(timer));
+        });
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Handle visibility change to pause/resume updates when tab is not visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                Object.values(refreshTimers).forEach(timer => clearInterval(timer));
+            } else {
+                init(); // Restart timers and reload data
+            }
+        });
+    </script>
+</body>
+</html>
