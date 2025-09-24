@@ -197,12 +197,18 @@ async function getHomeAssistantMediaPlayers() {
       return { success: false, error: 'Home Assistant not properly configured' };
     }
 
+    // Validate and normalize URL
+    const urlValidation = validateHomeAssistantUrl(haConfig.url);
+    if (!urlValidation.valid) {
+      return { success: false, error: urlValidation.error };
+    }
+
     const response = await axios.get(`${haConfig.url}/api/states`, {
       headers: {
         'Authorization': `Bearer ${haConfig.token}`,
         'Content-Type': 'application/json'
       },
-      timeout: 5000
+      timeout: 10000
     });
 
     const mediaPlayers = response.data
@@ -246,9 +252,94 @@ async function getHomeAssistantMediaPlayers() {
     console.error('Error fetching Home Assistant media players:', error.message);
     return { 
       success: false, 
-      error: error.code === 'ECONNREFUSED' ? 'Cannot connect to Home Assistant' : error.message 
+      error: formatHomeAssistantError(error, config.homeAssistant.url)
     };
   }
+}
+
+// URL validation helper
+function validateHomeAssistantUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'Home Assistant URL is required' };
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    
+    // Check for .local domains which often cause DNS issues
+    if (parsedUrl.hostname.endsWith('.local')) {
+      return { 
+        valid: false, 
+        error: 'Cannot resolve .local domains (mDNS). Please use the IP address instead (e.g., http://192.168.1.100:8123). You can find your Home Assistant IP in your router settings or Home Assistant network configuration.' 
+      };
+    }
+
+    // Validate protocol
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return { 
+        valid: false, 
+        error: 'URL must use http:// or https:// protocol' 
+      };
+    }
+
+    // Check for localhost in server environments
+    if (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1') {
+      return {
+        valid: false,
+        error: 'localhost/127.0.0.1 may not work in containerized environments. Please use your device\'s network IP address instead (e.g., http://192.168.1.100:8123)'
+      };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: `Invalid URL format: ${error.message}` 
+    };
+  }
+}
+
+// Error formatting helper
+function formatHomeAssistantError(error, url) {
+  const hostname = url ? new URL(url).hostname : 'unknown';
+  
+  if (error.code === 'ENOTFOUND' || error.code === 'EAI_NONAME') {
+    if (hostname.endsWith('.local')) {
+      return `Cannot resolve ${hostname} (.local domains use mDNS which may not work here). Please use your Home Assistant IP address instead (e.g., http://192.168.1.100:8123)`;
+    }
+    return `Cannot resolve hostname ${hostname}. Please verify the address is correct and accessible from this server`;
+  }
+  
+  if (error.code === 'ECONNREFUSED') {
+    return `Connection refused to ${hostname}. Please verify Home Assistant is running and accessible on the specified port`;
+  }
+  
+  if (error.code === 'ETIMEDOUT' || error.code === 'ETIMEOUT') {
+    return `Connection timeout to ${hostname}. Please verify the address is correct and Home Assistant is accessible from this server`;
+  }
+  
+  // Handle axios timeout errors
+  if (error.message && error.message.includes('timeout') && error.message.includes('exceeded')) {
+    return `Connection timeout to ${hostname}. Please verify the address is correct and Home Assistant is accessible from this server`;
+  }
+  
+  if (error.code === 'ECONNRESET') {
+    return `Connection reset by ${hostname}. Please verify the URL is correct and Home Assistant is running`;
+  }
+
+  if (error.response && error.response.status === 401) {
+    return 'Authentication failed. Please verify your Home Assistant access token is correct and has not expired';
+  }
+
+  if (error.response && error.response.status === 403) {
+    return 'Access forbidden. Please verify your Home Assistant access token has the required permissions';
+  }
+
+  if (error.response && error.response.status === 404) {
+    return 'Home Assistant API endpoint not found. Please verify the URL is correct and includes the port number (e.g., :8123)';
+  }
+
+  return error.message || 'Unknown connection error';
 }
 
 function formatMediaStreamingData(players) {
@@ -2048,7 +2139,17 @@ app.post('/admin/api/media-streaming/config', requireAuth, (req, res) => {
     
     // Update configuration
     if (homeAssistant.enabled !== undefined) config.homeAssistant.enabled = homeAssistant.enabled;
-    if (homeAssistant.url !== undefined) config.homeAssistant.url = homeAssistant.url;
+    if (homeAssistant.url !== undefined) {
+      // Validate URL before saving
+      const urlValidation = validateHomeAssistantUrl(homeAssistant.url);
+      if (!urlValidation.valid) {
+        return res.status(400).json({ 
+          success: false, 
+          error: urlValidation.error 
+        });
+      }
+      config.homeAssistant.url = homeAssistant.url;
+    }
     if (homeAssistant.token !== undefined) config.homeAssistant.token = homeAssistant.token;
     
     if (homeAssistant.mediaPlayers) {

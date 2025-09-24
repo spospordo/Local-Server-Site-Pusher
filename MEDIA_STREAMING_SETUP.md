@@ -25,7 +25,9 @@ This guide explains how to configure the Local Server Site Pusher to display med
 4. Configure the following settings:
    - **Home Assistant Integration**: Set to "Enabled"
    - **Media Players**: Set to "Enabled"
-   - **Home Assistant URL**: Enter your Home Assistant URL (e.g., `http://192.168.1.100:8123`)
+   - **Home Assistant URL**: Enter your Home Assistant URL using its IP address (e.g., `http://192.168.1.100:8123`)
+     - ⚠️ **Important**: Do not use `.local` hostnames (like `homeassistant.local`) as they may not resolve properly
+     - Use your Home Assistant's network IP address instead
    - **Home Assistant Long-Lived Access Token**: Paste the token you created in Step 1
    - **Refresh Interval**: Set how often to check for media updates (default: 5000ms)
 
@@ -85,10 +87,35 @@ Adjust how often the system checks for media updates:
 
 ## Troubleshooting
 
+### "Connection failed: getaddrinfo ENOTFOUND homeassistant.local" or "Cannot resolve .local domains"
+This error occurs when using `.local` hostnames (like `homeassistant.local`) which rely on mDNS (Multicast DNS) resolution:
+
+**Solution**: Use your Home Assistant's IP address instead:
+1. Find your Home Assistant IP address:
+   - Check your router's admin panel for connected devices
+   - In Home Assistant, go to Settings → System → Network
+   - Use a network scanner app on your phone
+2. Replace `http://homeassistant.local:8123` with `http://192.168.1.XXX:8123` (using your actual IP)
+3. Example: `http://192.168.1.100:8123`
+
+**Why this happens**: `.local` domains use mDNS which may not work properly in containerized environments or server applications.
+
 ### "Cannot connect to Home Assistant"
 - Verify your Home Assistant URL is correct and accessible from the server
 - Check that your Home Assistant instance is running
 - Ensure the access token is valid and has the correct permissions
+- If using `localhost` or `127.0.0.1`, try using your network IP address instead
+
+### "Connection timeout" or "Connection refused"
+- Verify the IP address and port number are correct (default is 8123)
+- Ensure Home Assistant is accessible from the server running Local Server Site Pusher
+- Check firewall settings on both devices
+- Test connectivity: `ping [your-home-assistant-ip]` from the server
+
+### "Authentication failed" or "Access forbidden"
+- Verify your Home Assistant access token is correct and has not expired
+- Ensure the token has the required permissions to read device states
+- Try creating a new long-lived access token
 
 ### "Media player integration is disabled"
 - Check that both "Home Assistant Integration" and "Media Players" are set to "Enabled"
