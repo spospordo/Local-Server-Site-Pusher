@@ -651,6 +651,165 @@
             margin: 1rem 0;
         }
 
+        /* Tournament Bracket Client Styles */
+        .tournament-client-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .tournament-client-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .tournament-client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .tournament-client-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .tournament-client-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .tournament-client-status.setup {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .tournament-client-status.active {
+            background: #d1eddb;
+            color: #155724;
+        }
+
+        .tournament-client-status.completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .tournament-client-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tournament-client-stat {
+            text-align: center;
+        }
+
+        .tournament-client-stat-value {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .tournament-client-stat-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .tournament-winner {
+            text-align: center;
+            padding: 1rem;
+            background: #d1eddb;
+            color: #155724;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .tournament-client-bracket {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            overflow-x: auto;
+        }
+
+        .bracket-client-rounds {
+            display: flex;
+            gap: 2rem;
+            min-width: fit-content;
+            justify-content: flex-start;
+        }
+
+        .bracket-client-round {
+            min-width: 150px;
+        }
+
+        .bracket-client-round-title {
+            text-align: center;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .bracket-client-match {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+            font-size: 0.85rem;
+        }
+
+        .bracket-client-match.completed {
+            border-color: #28a745;
+        }
+
+        .bracket-client-participant {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .bracket-client-participant:last-child {
+            border-bottom: none;
+        }
+
+        .bracket-client-participant.winner {
+            background: #28a745;
+            color: white;
+            font-weight: 600;
+        }
+
+        .bracket-client-participant.loser {
+            color: #6c757d;
+        }
+
+        .bracket-client-participant.bye {
+            background: #ffc107;
+            color: #856404;
+            font-style: italic;
+        }
+
+        .no-tournaments {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+
     </style>
 </head>
 <body>
@@ -697,6 +856,16 @@
                     <div id="drinksContainer">
                         <div class="info-item regular" style="text-align: center; opacity: 0.7;">
                             <div class="info-value">Loading available drinks...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tournament Brackets -->
+                <div class="section" id="tournamentsSection">
+                    <h2>🏆 Tournament Brackets</h2>
+                    <div id="tournamentsContainer">
+                        <div class="info-item regular" style="text-align: center; opacity: 0.7;">
+                            <div class="info-value">Loading tournaments...</div>
                         </div>
                     </div>
                 </div>
@@ -1190,6 +1359,144 @@
             }
         }
 
+        // Load tournaments for client view
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/api/tournaments');
+                const tournaments = await response.json();
+                
+                const container = document.getElementById('tournamentsContainer');
+                
+                if (!tournaments || tournaments.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-tournaments">
+                            No tournaments available at the moment.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                for (const tournament of tournaments) {
+                    html += `
+                        <div class="tournament-client-card">
+                            <div class="tournament-client-header">
+                                <div class="tournament-client-title">${escapeHtml(tournament.name)}</div>
+                                <div class="tournament-client-status ${tournament.status}">${tournament.status}</div>
+                            </div>
+                            
+                            <div class="tournament-client-info">
+                                <div class="tournament-client-stat">
+                                    <div class="tournament-client-stat-value">${tournament.participantCount}</div>
+                                    <div class="tournament-client-stat-label">Players</div>
+                                </div>
+                                <div class="tournament-client-stat">
+                                    <div class="tournament-client-stat-value">${tournament.currentRound || 0}</div>
+                                    <div class="tournament-client-stat-label">Round</div>
+                                </div>
+                                <div class="tournament-client-stat">
+                                    <div class="tournament-client-stat-value">${tournament.maxParticipants}</div>
+                                    <div class="tournament-client-stat-label">Max</div>
+                                </div>
+                            </div>
+                            
+                            ${tournament.winner ? `
+                                <div class="tournament-winner">
+                                    🏆 Champion: ${escapeHtml(tournament.winner.name)}
+                                </div>
+                            ` : ''}
+                            
+                            <div id="bracket-${tournament.id}" class="tournament-client-bracket">
+                                Loading bracket...
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = html;
+                
+                // Load detailed bracket information for each tournament
+                for (const tournament of tournaments) {
+                    loadTournamentBracket(tournament.id);
+                }
+                
+            } catch (error) {
+                console.error('Failed to load tournaments:', error);
+                document.getElementById('tournamentsContainer').innerHTML = `
+                    <div class="no-tournaments">
+                        Unable to load tournaments. Please try again later.
+                    </div>
+                `;
+            }
+        }
+
+        // Load detailed bracket for a tournament
+        async function loadTournamentBracket(tournamentId) {
+            try {
+                const response = await fetch(`/api/tournaments/${tournamentId}/bracket`);
+                const tournament = await response.json();
+                
+                const container = document.getElementById(`bracket-${tournamentId}`);
+                
+                if (!tournament.bracket || tournament.bracket.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #666; padding: 1rem;">
+                            ${tournament.status === 'setup' ? 'Bracket not generated yet' : 'No bracket data available'}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '<div class="bracket-client-rounds">';
+                
+                tournament.bracket.forEach(round => {
+                    html += `
+                        <div class="bracket-client-round">
+                            <div class="bracket-client-round-title">${round.name}</div>
+                    `;
+                    
+                    round.matches.forEach(match => {
+                        const isCompleted = match.completed;
+                        
+                        html += `
+                            <div class="bracket-client-match ${isCompleted ? 'completed' : ''}">
+                                <div class="bracket-client-participant ${isCompleted && match.winnerId === match.participant1?.id ? 'winner' : isCompleted ? 'loser' : ''}">
+                                    ${match.participant1 ? escapeHtml(match.participant1.name) : 'TBD'}
+                                </div>
+                                <div class="bracket-client-participant ${isCompleted && match.winnerId === match.participant2?.id ? 'winner' : isCompleted ? 'loser' : match.score === 'BYE' ? 'bye' : ''}">
+                                    ${match.participant2 ? escapeHtml(match.participant2.name) : match.score === 'BYE' ? 'BYE' : 'TBD'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error(`Failed to load bracket for tournament ${tournamentId}:`, error);
+                document.getElementById(`bracket-${tournamentId}`).innerHTML = `
+                    <div style="text-align: center; color: #dc3545; padding: 1rem;">
+                        Error loading bracket
+                    </div>
+                `;
+            }
+        }
+
+        // Utility function for HTML escaping
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Load client configuration
         async function loadClientConfig() {
             try {
@@ -1285,6 +1592,7 @@
             loadServerStatus();
             loadUsefulLinks();
             loadAvailableDrinks();
+            loadTournaments();
             loadMediaStreamingStatus(); // Load media streaming status
             checkPasswordStatus(); // Load password status
             loadFileList(); // Load user files
@@ -1292,6 +1600,9 @@
             
             // Refresh server status every 30 seconds
             setInterval(loadServerStatus, 30000);
+            
+            // Refresh tournaments every 60 seconds
+            setInterval(loadTournaments, 60000);
             
             // Refresh media streaming status every 15 seconds
             setInterval(loadMediaStreamingStatus, 15000);

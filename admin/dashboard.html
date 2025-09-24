@@ -929,6 +929,241 @@
             padding: 2rem;
         }
         
+        /* Tournament Styles */
+        .tournament-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+            transition: all 0.2s ease;
+        }
+        
+        .tournament-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .tournament-card.setup {
+            border-left-color: #ffc107;
+        }
+        
+        .tournament-card.active {
+            border-left-color: #28a745;
+        }
+        
+        .tournament-card.completed {
+            border-left-color: #6c757d;
+        }
+        
+        .tournament-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .tournament-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+            font-size: 1.1rem;
+        }
+        
+        .tournament-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tournament-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            min-width: fit-content;
+        }
+        
+        .tournament-status.setup {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .tournament-status.active {
+            background: #d1eddb;
+            color: #155724;
+        }
+        
+        .tournament-status.completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .tournament-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .tournament-stat {
+            text-align: center;
+        }
+        
+        .tournament-stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .tournament-stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .tournament-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .participants-list {
+            background: white;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        
+        .participant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .participant-item:last-child {
+            border-bottom: none;
+        }
+        
+        .participant-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .participant-stats {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .bracket-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        
+        .bracket-rounds {
+            display: flex;
+            gap: 3rem;
+            min-width: fit-content;
+        }
+        
+        .bracket-round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            min-height: 300px;
+        }
+        
+        .bracket-round-title {
+            text-align: center;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .bracket-match {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            min-width: 200px;
+            position: relative;
+        }
+        
+        .bracket-match.completed {
+            border-color: #28a745;
+            background: #d1eddb;
+        }
+        
+        .bracket-participant {
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .bracket-participant:last-child {
+            border-bottom: none;
+        }
+        
+        .bracket-participant.winner {
+            background: #28a745;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .bracket-participant.loser {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+        
+        .bracket-participant.bye {
+            background: #ffc107;
+            color: #856404;
+            font-style: italic;
+        }
+        
+        .match-score {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .match-actions {
+            padding: 0.5rem 1rem;
+            background: white;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .winner-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            border: 1px solid #28a745;
+            background: white;
+            color: #28a745;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .winner-btn:hover {
+            background: #28a745;
+            color: white;
+        }
+        
+        .tournament-empty {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 3rem;
+        }
+        
     </style>
 </head>
 <body>
@@ -1404,6 +1639,31 @@
             </div>
         </div>
 
+        <!-- Tournament Management -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Tournament Bracket Tracker</h2>
+            </div>
+            <div class="card-body">
+                <p>Manage tournaments and track brackets for competitive events.</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <button id="createTournamentBtn" class="btn btn-primary">Create New Tournament</button>
+                        <button id="refreshTournaments" class="btn btn-secondary">Refresh</button>
+                    </div>
+                </div>
+                
+                <div id="tournamentsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        Loading tournaments...
+                    </div>
+                </div>
+                
+                <div id="tournamentAlert" class="alert"></div>
+            </div>
+        </div>
+
         <!-- System Logs -->
         <div class="card">
             <div class="card-header">
@@ -1443,6 +1703,107 @@
                     <li><strong>Home Assistant:</strong> Use <code>http://your-server:3000/api/status</code> as a RESTful sensor</li>
                     <li><strong>Cockpit:</strong> Monitor via <code>http://your-server:3000/api/status</code></li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tournament Creation Modal -->
+    <div id="tournamentModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Tournament</h3>
+                <span class="close" onclick="closeTournamentModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="tournamentModalAlert" class="alert"></div>
+                <form id="tournamentForm">
+                    <div class="form-group">
+                        <label for="tournamentName">Tournament Name</label>
+                        <input type="text" id="tournamentName" required placeholder="Spring Championship 2024">
+                    </div>
+                    <div class="form-group">
+                        <label for="tournamentDescription">Description (Optional)</label>
+                        <textarea id="tournamentDescription" rows="3" placeholder="Tournament description..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tournamentType">Tournament Type</label>
+                            <select id="tournamentType">
+                                <option value="single-elimination">Single Elimination</option>
+                                <option value="double-elimination" disabled>Double Elimination (Coming Soon)</option>
+                                <option value="round-robin" disabled>Round Robin (Coming Soon)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="maxParticipants">Max Participants</label>
+                            <select id="maxParticipants">
+                                <option value="4">4</option>
+                                <option value="8" selected>8</option>
+                                <option value="16">16</option>
+                                <option value="32">32</option>
+                                <option value="64">64</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeTournamentModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Create Tournament</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tournament Details Modal -->
+    <div id="tournamentDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="tournamentDetailsTitle">Tournament Details</h3>
+                <span class="close" onclick="closeTournamentDetailsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="tournamentDetailsAlert" class="alert"></div>
+                
+                <!-- Tournament Info -->
+                <div id="tournamentInfo" class="tournament-info">
+                    <!-- Tournament info will be loaded here -->
+                </div>
+                
+                <!-- Participants Section -->
+                <div id="participantsSection" style="margin-top: 2rem;">
+                    <h4>Participants</h4>
+                    <div id="addParticipantForm" class="form-row" style="margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <input type="text" id="participantName" placeholder="Participant name">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="teamMembers" placeholder="Team members (comma separated, optional)">
+                        </div>
+                        <div class="form-group">
+                            <button type="button" id="addParticipantBtn" class="btn">Add Participant</button>
+                        </div>
+                    </div>
+                    <div id="participantsList">
+                        <!-- Participants will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Bracket Section -->
+                <div id="bracketSection" style="margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4>Tournament Bracket</h4>
+                        <div id="tournamentActions">
+                            <!-- Actions will be loaded here -->
+                        </div>
+                    </div>
+                    <div id="bracketContainer">
+                        <!-- Bracket will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 2rem;">
+                    <button type="button" onclick="closeTournamentDetailsModal()" class="btn btn-secondary">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3145,8 +3506,414 @@
         }
         
         
+        // Tournament management functions
+        let currentTournament = null;
+        
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/admin/api/tournaments');
+                const tournaments = await response.json();
+                
+                const container = document.getElementById('tournamentsContainer');
+                if (tournaments.length === 0) {
+                    container.innerHTML = `
+                        <div class="tournament-empty">
+                            No tournaments created yet. Click "Create New Tournament" to get started.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                tournaments.forEach(tournament => {
+                    const statusClass = tournament.status;
+                    const createdDate = new Date(tournament.createdAt).toLocaleDateString();
+                    const winnerText = tournament.winner ? `Winner: ${tournament.winner.name}` : '';
+                    
+                    html += `
+                        <div class="tournament-card ${statusClass}">
+                            <div class="tournament-header">
+                                <div>
+                                    <div class="tournament-title">${escapeHtml(tournament.name)}</div>
+                                    ${tournament.description ? `<div class="tournament-description">${escapeHtml(tournament.description)}</div>` : ''}
+                                    <small style="color: #666;">Created: ${createdDate}</small>
+                                </div>
+                                <div class="tournament-status ${statusClass}">
+                                    ${tournament.status}
+                                </div>
+                            </div>
+                            
+                            <div class="tournament-info">
+                                <div class="tournament-stat">
+                                    <div class="tournament-stat-value">${tournament.participants.length}</div>
+                                    <div class="tournament-stat-label">Participants</div>
+                                </div>
+                                <div class="tournament-stat">
+                                    <div class="tournament-stat-value">${tournament.maxParticipants}</div>
+                                    <div class="tournament-stat-label">Max</div>
+                                </div>
+                                <div class="tournament-stat">
+                                    <div class="tournament-stat-value">${tournament.currentRound || 0}</div>
+                                    <div class="tournament-stat-label">Round</div>
+                                </div>
+                            </div>
+                            
+                            ${winnerText ? `<div style="text-align: center; color: #28a745; font-weight: 600; margin-bottom: 1rem;">${winnerText}</div>` : ''}
+                            
+                            <div class="tournament-actions">
+                                <button class="btn btn-small" onclick="viewTournament(${tournament.id})">View Details</button>
+                                ${tournament.status === 'setup' ? `<button class="btn btn-small btn-danger" onclick="deleteTournament(${tournament.id})">Delete</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                showTournamentAlert('Error loading tournaments: ' + error.message, 'error');
+            }
+        }
+        
+        function showTournamentAlert(message, type = 'info') {
+            const alert = document.getElementById('tournamentAlert');
+            alert.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alert.innerHTML = '';
+            }, 5000);
+        }
+        
+        function showTournamentModalAlert(message, type = 'info') {
+            const alert = document.getElementById('tournamentModalAlert');
+            alert.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+        
+        // Tournament modal functions
+        function openTournamentModal() {
+            document.getElementById('tournamentModal').style.display = 'block';
+            document.getElementById('tournamentForm').reset();
+            showTournamentModalAlert('');
+        }
+        
+        function closeTournamentModal() {
+            document.getElementById('tournamentModal').style.display = 'none';
+        }
+        
+        function openTournamentDetailsModal() {
+            document.getElementById('tournamentDetailsModal').style.display = 'block';
+        }
+        
+        function closeTournamentDetailsModal() {
+            document.getElementById('tournamentDetailsModal').style.display = 'none';
+            currentTournament = null;
+        }
+        
+        async function createTournament(event) {
+            event.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('tournamentName').value,
+                description: document.getElementById('tournamentDescription').value,
+                tournamentType: document.getElementById('tournamentType').value,
+                maxParticipants: parseInt(document.getElementById('maxParticipants').value)
+            };
+            
+            try {
+                const response = await fetch('/admin/api/tournaments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showTournamentModalAlert('Tournament created successfully!', 'success');
+                    setTimeout(() => {
+                        closeTournamentModal();
+                        loadTournaments();
+                    }, 1500);
+                } else {
+                    showTournamentModalAlert(result.error || 'Failed to create tournament', 'error');
+                }
+            } catch (error) {
+                showTournamentModalAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function viewTournament(tournamentId) {
+            try {
+                const response = await fetch(`/admin/api/tournaments/${tournamentId}`);
+                currentTournament = await response.json();
+                
+                document.getElementById('tournamentDetailsTitle').textContent = currentTournament.name;
+                
+                // Update tournament info
+                const infoHtml = `
+                    <div class="tournament-info">
+                        <div class="tournament-stat">
+                            <div class="tournament-stat-value">${currentTournament.status}</div>
+                            <div class="tournament-stat-label">Status</div>
+                        </div>
+                        <div class="tournament-stat">
+                            <div class="tournament-stat-value">${currentTournament.participants.length}</div>
+                            <div class="tournament-stat-label">Participants</div>
+                        </div>
+                        <div class="tournament-stat">
+                            <div class="tournament-stat-value">${currentTournament.maxParticipants}</div>
+                            <div class="tournament-stat-label">Max</div>
+                        </div>
+                        <div class="tournament-stat">
+                            <div class="tournament-stat-value">${currentTournament.currentRound || 0}</div>
+                            <div class="tournament-stat-label">Round</div>
+                        </div>
+                    </div>
+                    ${currentTournament.description ? `<p style="margin-top: 1rem;"><strong>Description:</strong> ${escapeHtml(currentTournament.description)}</p>` : ''}
+                `;
+                document.getElementById('tournamentInfo').innerHTML = infoHtml;
+                
+                // Update participants
+                updateParticipantsList();
+                
+                // Update bracket
+                updateBracket();
+                
+                // Update tournament actions
+                updateTournamentActions();
+                
+                openTournamentDetailsModal();
+                
+            } catch (error) {
+                showTournamentAlert('Error loading tournament: ' + error.message, 'error');
+            }
+        }
+        
+        function updateParticipantsList() {
+            const container = document.getElementById('participantsList');
+            
+            if (currentTournament.participants.length === 0) {
+                container.innerHTML = '<div class="tournament-empty">No participants added yet.</div>';
+                return;
+            }
+            
+            let html = '<div class="participants-list">';
+            currentTournament.participants.forEach(participant => {
+                html += `
+                    <div class="participant-item">
+                        <div>
+                            <div class="participant-name">${escapeHtml(participant.name)}</div>
+                            ${participant.teamMembers && participant.teamMembers.length > 0 ? 
+                                `<small style="color: #666;">Team: ${participant.teamMembers.join(', ')}</small>` : ''}
+                        </div>
+                        <div class="participant-stats">
+                            W: ${participant.wins} | L: ${participant.losses}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+        
+        function updateBracket() {
+            const container = document.getElementById('bracketContainer');
+            
+            if (!currentTournament.bracket || currentTournament.bracket.length === 0) {
+                container.innerHTML = '<div class="tournament-empty">Bracket not generated yet.</div>';
+                return;
+            }
+            
+            let html = '<div class="bracket-rounds">';
+            
+            currentTournament.bracket.forEach(round => {
+                html += `
+                    <div class="bracket-round">
+                        <div class="bracket-round-title">${round.name}</div>
+                `;
+                
+                round.matches.forEach(match => {
+                    const isCompleted = match.completed;
+                    const canSetResult = currentTournament.status === 'active' && 
+                                       match.participant1 && match.participant2 && !isCompleted;
+                    
+                    html += `
+                        <div class="bracket-match ${isCompleted ? 'completed' : ''}">
+                            <div class="bracket-participant ${isCompleted && match.winnerId === match.participant1?.id ? 'winner' : isCompleted ? 'loser' : ''}">
+                                <span>${match.participant1 ? escapeHtml(match.participant1.name) : 'TBD'}</span>
+                                ${isCompleted && match.score && match.winnerId === match.participant1?.id ? `<span class="match-score">${match.score}</span>` : ''}
+                            </div>
+                            <div class="bracket-participant ${isCompleted && match.winnerId === match.participant2?.id ? 'winner' : isCompleted ? 'loser' : match.score === 'BYE' ? 'bye' : ''}">
+                                <span>${match.participant2 ? escapeHtml(match.participant2.name) : match.score === 'BYE' ? 'BYE' : 'TBD'}</span>
+                                ${isCompleted && match.score && match.winnerId === match.participant2?.id ? `<span class="match-score">${match.score}</span>` : ''}
+                            </div>
+                            ${canSetResult ? `
+                                <div class="match-actions">
+                                    <button class="winner-btn" onclick="setMatchWinner(${match.id}, ${match.participant1.id})">
+                                        ${escapeHtml(match.participant1.name)} Wins
+                                    </button>
+                                    <button class="winner-btn" onclick="setMatchWinner(${match.id}, ${match.participant2.id})">
+                                        ${escapeHtml(match.participant2.name)} Wins
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        function updateTournamentActions() {
+            const container = document.getElementById('tournamentActions');
+            let html = '';
+            
+            if (currentTournament.status === 'setup') {
+                const canGenerate = currentTournament.participants.length >= 2;
+                html += `
+                    <button class="btn ${canGenerate ? '' : 'btn-secondary'}" 
+                            onclick="generateBracket()" 
+                            ${canGenerate ? '' : 'disabled'}>
+                        Generate Bracket
+                    </button>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        async function addParticipant() {
+            const name = document.getElementById('participantName').value.trim();
+            const teamMembersText = document.getElementById('teamMembers').value.trim();
+            
+            if (!name) {
+                showTournamentAlert('Participant name is required', 'error');
+                return;
+            }
+            
+            if (currentTournament.participants.length >= currentTournament.maxParticipants) {
+                showTournamentAlert('Tournament is full', 'error');
+                return;
+            }
+            
+            const teamMembers = teamMembersText ? teamMembersText.split(',').map(m => m.trim()).filter(m => m) : [];
+            
+            try {
+                const response = await fetch(`/admin/api/tournaments/${currentTournament.id}/participants`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, teamMembers })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentTournament = result.tournament;
+                    updateParticipantsList();
+                    updateTournamentActions();
+                    
+                    // Clear form
+                    document.getElementById('participantName').value = '';
+                    document.getElementById('teamMembers').value = '';
+                    
+                    showTournamentAlert('Participant added successfully!', 'success');
+                } else {
+                    showTournamentAlert(result.error || 'Failed to add participant', 'error');
+                }
+            } catch (error) {
+                showTournamentAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function generateBracket() {
+            try {
+                const response = await fetch(`/admin/api/tournaments/${currentTournament.id}/generate-bracket`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentTournament = result.tournament;
+                    updateBracket();
+                    updateTournamentActions();
+                    showTournamentAlert('Tournament bracket generated successfully!', 'success');
+                    loadTournaments(); // Refresh the main list
+                } else {
+                    showTournamentAlert(result.error || 'Failed to generate bracket', 'error');
+                }
+            } catch (error) {
+                showTournamentAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function setMatchWinner(matchId, winnerId) {
+            const score = prompt('Enter score (optional):');
+            
+            try {
+                const response = await fetch(`/admin/api/tournaments/${currentTournament.id}/matches/${matchId}/result`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ winnerId, score: score || null })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentTournament = result.tournament;
+                    updateBracket();
+                    updateParticipantsList();
+                    
+                    if (result.roundComplete) {
+                        if (currentTournament.status === 'completed' && currentTournament.winner) {
+                            showTournamentAlert(`Tournament completed! Winner: ${currentTournament.winner.name}`, 'success');
+                        } else {
+                            showTournamentAlert('Round completed! Tournament advanced to next round.', 'success');
+                        }
+                    } else {
+                        showTournamentAlert('Match result updated successfully!', 'success');
+                    }
+                    
+                    loadTournaments(); // Refresh the main list
+                } else {
+                    showTournamentAlert(result.error || 'Failed to update match result', 'error');
+                }
+            } catch (error) {
+                showTournamentAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteTournament(tournamentId) {
+            if (!confirm('Are you sure you want to delete this tournament? This action cannot be undone.')) {
+                return;
+            }
+            
+            // Since we don't have a delete endpoint yet, we'll implement it
+            showTournamentAlert('Delete functionality not implemented yet', 'warning');
+        }
+        
+        // Initialize tournament functionality
+        function initializeTournaments() {
+            // Add event listeners
+            document.getElementById('createTournamentBtn').addEventListener('click', openTournamentModal);
+            document.getElementById('refreshTournaments').addEventListener('click', loadTournaments);
+            document.getElementById('tournamentForm').addEventListener('submit', createTournament);
+            document.getElementById('addParticipantBtn').addEventListener('click', addParticipant);
+            
+            // Load tournaments on init
+            loadTournaments();
+        }
+        
         // Initialize the admin interface
         initializeAdmin();
+        
+        // Initialize tournaments
+        initializeTournaments();
         
         // Refresh status every 30 seconds
         setInterval(loadStatus, 30000);

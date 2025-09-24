@@ -2607,6 +2607,453 @@ app.get('/api/drink-mixer/available-drinks', (req, res) => {
   }
 });
 
+// Tournament Bracket API Endpoints
+
+// Get all tournaments
+app.get('/admin/api/tournaments', requireAuth, (req, res) => {
+  const tournaments = config.tournaments || [];
+  res.json(tournaments);
+});
+
+// Create a new tournament
+app.post('/admin/api/tournaments', requireAuth, (req, res) => {
+  try {
+    const { name, description, tournamentType = 'single-elimination', maxParticipants = 8 } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Tournament name is required' });
+    }
+    
+    // Initialize tournaments if it doesn't exist
+    if (!config.tournaments) {
+      config.tournaments = [];
+    }
+    
+    const tournamentData = {
+      id: Date.now(),
+      name: name.trim(),
+      description: description ? description.trim() : '',
+      tournamentType,
+      maxParticipants,
+      participants: [],
+      bracket: [],
+      currentRound: 0,
+      status: 'setup', // setup, active, completed
+      winner: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    config.tournaments.push(tournamentData);
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Tournament created successfully',
+        tournament: tournamentData
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Tournament created in memory (file save failed)',
+        tournament: tournamentData
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create tournament: ' + err.message });
+  }
+});
+
+// Get a specific tournament
+app.get('/admin/api/tournaments/:id', requireAuth, (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    const tournament = config.tournaments?.find(t => t.id === tournamentId);
+    
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    
+    res.json(tournament);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get tournament: ' + err.message });
+  }
+});
+
+// Add participant to tournament
+app.post('/admin/api/tournaments/:id/participants', requireAuth, (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    const { name, linkedClientId = null, teamMembers = [] } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Participant name is required' });
+    }
+    
+    const tournament = config.tournaments?.find(t => t.id === tournamentId);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    
+    if (tournament.status !== 'setup') {
+      return res.status(400).json({ error: 'Cannot add participants to active tournament' });
+    }
+    
+    if (tournament.participants.length >= tournament.maxParticipants) {
+      return res.status(400).json({ error: 'Tournament is full' });
+    }
+    
+    const participant = {
+      id: Date.now(),
+      name: name.trim(),
+      linkedClientId,
+      teamMembers: teamMembers.map(member => member.trim()).filter(member => member),
+      wins: 0,
+      losses: 0,
+      addedAt: new Date().toISOString()
+    };
+    
+    tournament.participants.push(participant);
+    tournament.updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Participant added successfully',
+        participant,
+        tournament
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Participant added in memory (file save failed)',
+        participant,
+        tournament
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add participant: ' + err.message });
+  }
+});
+
+// Generate tournament bracket
+app.post('/admin/api/tournaments/:id/generate-bracket', requireAuth, (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    const tournament = config.tournaments?.find(t => t.id === tournamentId);
+    
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    
+    if (tournament.status !== 'setup') {
+      return res.status(400).json({ error: 'Bracket already generated' });
+    }
+    
+    if (tournament.participants.length < 2) {
+      return res.status(400).json({ error: 'Need at least 2 participants' });
+    }
+    
+    // Generate single-elimination bracket
+    const bracket = generateSingleEliminationBracket(tournament.participants);
+    tournament.bracket = bracket;
+    tournament.status = 'active';
+    tournament.currentRound = 1;
+    tournament.updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Tournament bracket generated successfully',
+        tournament
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Tournament bracket generated in memory (file save failed)',
+        tournament
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate bracket: ' + err.message });
+  }
+});
+
+// Update match result
+app.post('/admin/api/tournaments/:id/matches/:matchId/result', requireAuth, (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    const matchId = parseInt(req.params.matchId);
+    const { winnerId, score = null } = req.body;
+    
+    const tournament = config.tournaments?.find(t => t.id === tournamentId);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Tournament is not active' });
+    }
+    
+    // Find the match in the bracket
+    let match = null;
+    let matchFound = false;
+    
+    for (let round of tournament.bracket) {
+      match = round.matches.find(m => m.id === matchId);
+      if (match) {
+        matchFound = true;
+        break;
+      }
+    }
+    
+    if (!matchFound || !match) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+    
+    if (match.completed) {
+      return res.status(400).json({ error: 'Match already completed' });
+    }
+    
+    // Validate winner
+    if (winnerId !== match.participant1?.id && winnerId !== match.participant2?.id) {
+      return res.status(400).json({ error: 'Invalid winner ID' });
+    }
+    
+    // Update match result
+    match.winnerId = winnerId;
+    match.score = score;
+    match.completed = true;
+    match.completedAt = new Date().toISOString();
+    
+    // Update participant stats
+    const winner = tournament.participants.find(p => p.id === winnerId);
+    const loser = tournament.participants.find(p => 
+      p.id === (winnerId === match.participant1?.id ? match.participant2?.id : match.participant1?.id)
+    );
+    
+    if (winner) winner.wins++;
+    if (loser) loser.losses++;
+    
+    // Check if round is complete and advance tournament
+    const currentRound = tournament.bracket.find(r => r.round === tournament.currentRound);
+    const roundComplete = currentRound && currentRound.matches.every(m => m.completed);
+    
+    if (roundComplete) {
+      advanceTournament(tournament);
+    }
+    
+    tournament.updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable && createConfigFile(configPath, config)) {
+      res.json({ 
+        success: true, 
+        message: 'Match result updated successfully',
+        tournament,
+        roundComplete
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Match result updated in memory (file save failed)',
+        tournament,
+        roundComplete
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update match result: ' + err.message });
+  }
+});
+
+// Client endpoints for viewing tournaments
+app.get('/api/tournaments', (req, res) => {
+  try {
+    const tournaments = (config.tournaments || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      status: t.status,
+      participantCount: t.participants.length,
+      maxParticipants: t.maxParticipants,
+      currentRound: t.currentRound,
+      winner: t.winner,
+      createdAt: t.createdAt
+    }));
+    
+    res.json(tournaments);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get tournaments: ' + err.message });
+  }
+});
+
+// Get tournament bracket for client view
+app.get('/api/tournaments/:id/bracket', (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    const tournament = config.tournaments?.find(t => t.id === tournamentId);
+    
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    
+    res.json({
+      id: tournament.id,
+      name: tournament.name,
+      description: tournament.description,
+      status: tournament.status,
+      bracket: tournament.bracket,
+      participants: tournament.participants.map(p => ({
+        id: p.id,
+        name: p.name,
+        teamMembers: p.teamMembers,
+        wins: p.wins,
+        losses: p.losses
+      })),
+      currentRound: tournament.currentRound,
+      winner: tournament.winner
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get tournament bracket: ' + err.message });
+  }
+});
+
+// Tournament utility functions
+function generateSingleEliminationBracket(participants) {
+  const bracket = [];
+  let currentParticipants = [...participants];
+  
+  // Shuffle participants for fair random seeding
+  for (let i = currentParticipants.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [currentParticipants[i], currentParticipants[j]] = [currentParticipants[j], currentParticipants[i]];
+  }
+  
+  let round = 1;
+  
+  // Generate first round
+  const firstRoundMatches = [];
+  for (let i = 0; i < currentParticipants.length; i += 2) {
+    const match = {
+      id: Date.now() + i,
+      round: round,
+      participant1: currentParticipants[i],
+      participant2: currentParticipants[i + 1] || null, // Handle odd number of participants
+      winnerId: null,
+      score: null,
+      completed: false
+    };
+    
+    // Auto-advance if no opponent (bye)
+    if (!match.participant2) {
+      match.winnerId = match.participant1.id;
+      match.completed = true;
+      match.score = 'BYE';
+      match.completedAt = new Date().toISOString();
+    }
+    
+    firstRoundMatches.push(match);
+  }
+  
+  bracket.push({
+    round: round,
+    matches: firstRoundMatches,
+    name: `Round ${round}`
+  });
+  
+  // Generate subsequent rounds until we have a winner
+  let nextRoundParticipants = firstRoundMatches.map(match => 
+    match.completed ? participants.find(p => p.id === match.winnerId) : null
+  ).filter(p => p);
+  
+  while (nextRoundParticipants.length > 1) {
+    round++;
+    const roundMatches = [];
+    
+    for (let i = 0; i < nextRoundParticipants.length; i += 2) {
+      const match = {
+        id: Date.now() + round * 1000 + i,
+        round: round,
+        participant1: nextRoundParticipants[i],
+        participant2: nextRoundParticipants[i + 1] || null,
+        winnerId: null,
+        score: null,
+        completed: false
+      };
+      
+      if (!match.participant2) {
+        match.winnerId = match.participant1.id;
+        match.completed = true;
+        match.score = 'BYE';
+        match.completedAt = new Date().toISOString();
+      }
+      
+      roundMatches.push(match);
+    }
+    
+    const roundName = nextRoundParticipants.length === 2 ? 'Final' : 
+                     nextRoundParticipants.length === 4 ? 'Semi-Final' : 
+                     `Round ${round}`;
+    
+    bracket.push({
+      round: round,
+      matches: roundMatches,
+      name: roundName
+    });
+    
+    nextRoundParticipants = roundMatches.map(match => 
+      match.completed ? participants.find(p => p.id === match.winnerId) : null
+    ).filter(p => p);
+  }
+  
+  return bracket;
+}
+
+function advanceTournament(tournament) {
+  const currentRound = tournament.bracket.find(r => r.round === tournament.currentRound);
+  if (!currentRound) return;
+  
+  // Check if tournament is complete
+  if (currentRound.name === 'Final' && currentRound.matches.every(m => m.completed)) {
+    const finalMatch = currentRound.matches[0];
+    tournament.winner = tournament.participants.find(p => p.id === finalMatch.winnerId);
+    tournament.status = 'completed';
+    return;
+  }
+  
+  // Advance to next round
+  const nextRound = tournament.bracket.find(r => r.round === tournament.currentRound + 1);
+  if (nextRound) {
+    // Populate next round matches with winners
+    const winners = currentRound.matches.map(match => 
+      tournament.participants.find(p => p.id === match.winnerId)
+    ).filter(w => w);
+    
+    let winnerIndex = 0;
+    for (let match of nextRound.matches) {
+      if (!match.participant1 && winners[winnerIndex]) {
+        match.participant1 = winners[winnerIndex++];
+      }
+      if (!match.participant2 && winners[winnerIndex]) {
+        match.participant2 = winners[winnerIndex++];
+      }
+      
+      // Auto-advance if only one participant
+      if (match.participant1 && !match.participant2) {
+        match.winnerId = match.participant1.id;
+        match.completed = true;
+        match.score = 'BYE';
+        match.completedAt = new Date().toISOString();
+      }
+    }
+    
+    tournament.currentRound++;
+  }
+}
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');
