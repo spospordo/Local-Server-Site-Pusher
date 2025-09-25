@@ -2348,19 +2348,60 @@ app.post('/admin/api/vidiots/trigger', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/admin/api/vidiots/github/test', requireAuth, async (req, res) => {
+  try {
+    console.log('🧪 [GitHub] Testing GitHub connection from admin interface');
+    const result = await vidiots.githubUpload.testConnection();
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 'GitHub connection test successful' : 'GitHub connection test failed',
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test GitHub connection: ' + error.message 
+    });
+  }
+});
+
+app.post('/admin/api/vidiots/github/upload', requireAuth, async (req, res) => {
+  try {
+    console.log('📤 [GitHub] Manual GitHub Pages upload triggered from admin interface');
+    const result = await vidiots.githubUpload.uploadVidiots();
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 'Upload to GitHub Pages successful' : 'Upload to GitHub Pages failed',
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload to GitHub Pages: ' + error.message 
+    });
+  }
+});
+
 // Public vidiots content endpoint
 app.get('/vidiots', (req, res) => {
   try {
     const vidiotsConfig = config.vidiots || {};
     const outputFile = vidiotsConfig.outputFile || './public/vidiots/index.html';
     
-    if (fs.existsSync(outputFile)) {
-      res.sendFile(path.resolve(outputFile));
+    // Validate the output file path to prevent path traversal
+    const normalizedPath = path.resolve(outputFile);
+    
+    if (fs.existsSync(normalizedPath)) {
+      res.sendFile(normalizedPath);
     } else {
       res.status(404).send('Vidiots content not yet generated. Please check back later.');
     }
   } catch (error) {
-    res.status(500).send('Error serving vidiots content: ' + error.message);
+    // Sanitize error message to prevent XSS
+    const sanitizedError = error.message.replace(/[<>"']/g, '');
+    res.status(500).send('Error serving vidiots content: ' + sanitizedError);
   }
 });
 

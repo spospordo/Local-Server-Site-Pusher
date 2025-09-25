@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 const cron = require('node-cron');
+const githubUpload = require('./github-upload');
 
 const BASE_URL = 'https://vidiotsfoundation.org';
 const url = `${BASE_URL}/coming-soon/`;
@@ -19,6 +20,9 @@ let cronJob = null;
 // Initialize the vidiots module with config
 function init(serverConfig) {
   config = serverConfig;
+  
+  // Initialize GitHub upload module
+  githubUpload.init(serverConfig);
   
   // Start the cron job if enabled
   if (config.vidiots?.enabled) {
@@ -189,25 +193,32 @@ function cleanupOldPosterImages() {
     const vidiots = config.vidiots || {};
     const posterDir = vidiots.posterDirectory || './public/vidiots/posters';
     
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(posterDir)) {
-      fs.mkdirSync(posterDir, { recursive: true });
-      console.log(`📁 [Vidiots] Created poster directory: ${posterDir}`);
+    // Validate and normalize the poster directory path
+    const normalizedPath = path.resolve(posterDir);
+    if (normalizedPath.includes('..')) {
+      console.error('❌ [Vidiots] Invalid poster directory path');
       return;
     }
     
-    const files = fs.readdirSync(posterDir);
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(normalizedPath)) {
+      fs.mkdirSync(normalizedPath, { recursive: true });
+      console.log(`📁 [Vidiots] Created poster directory: ${normalizedPath}`);
+      return;
+    }
+    
+    const files = fs.readdirSync(normalizedPath);
     const posterFiles = files.filter(file => file.match(/^vidiotsPoster\d+\.jpg$/));
     
     if (posterFiles.length > 0) {
-      console.log(`🧹 [Vidiots] Cleaning up ${posterFiles.length} old poster image(s) from ${posterDir}...`);
+      console.log(`🧹 [Vidiots] Cleaning up ${posterFiles.length} old poster image(s) from ${normalizedPath}...`);
       posterFiles.forEach(file => {
-        const filePath = path.join(posterDir, file);
+        const filePath = path.join(normalizedPath, file);
         fs.unlinkSync(filePath);
         console.log(`🗑️ [Vidiots] Removed: ${file}`);
       });
     } else {
-      console.log(`🧹 [Vidiots] No old poster images to clean up in ${posterDir}`);
+      console.log(`🧹 [Vidiots] No old poster images to clean up in ${normalizedPath}`);
     }
   } catch (err) {
     console.error(`❌ [Vidiots] Error during cleanup: ${err.message}`);
@@ -416,18 +427,39 @@ async function scrapeComingSoon() {
       
       if (shouldUpdate) {
         // Ensure output directory exists
-        const outputDir = path.dirname(outputFile);
+        const normalizedOutputFile = path.resolve(outputFile);
+        if (normalizedOutputFile.includes('..')) {
+          throw new Error('Invalid output file path');
+        }
+        
+        const outputDir = path.dirname(normalizedOutputFile);
         if (!fs.existsSync(outputDir)) {
           fs.mkdirSync(outputDir, { recursive: true });
         }
         
-        fs.writeFileSync(outputFile, htmlContent.trim());
-        console.log(`📝 [Vidiots] HTML updated: ${outputFile} (${movies.length} movies, ${htmlContent.length} characters)`);
+        fs.writeFileSync(normalizedOutputFile, htmlContent.trim());
+        console.log(`📝 [Vidiots] HTML updated: ${normalizedOutputFile} (${movies.length} movies, ${htmlContent.length} characters)`);
         
         console.log('🎬 [Vidiots] Updated movies:');
         movies.forEach((movie, index) => {
           console.log(`   ${index + 1}. ${movie.title} - ${movie.schedule || 'No schedule'}`);
         });
+        
+        // Trigger GitHub upload if enabled and content was updated
+        const githubConfig = config.vidiots?.githubPages;
+        if (githubConfig?.enabled) {
+          console.log('📤 [Vidiots] Content updated, triggering GitHub Pages upload...');
+          try {
+            const uploadResult = await githubUpload.uploadVidiots();
+            if (uploadResult.success) {
+              console.log('✅ [Vidiots] Successfully uploaded to GitHub Pages');
+            } else {
+              console.error('❌ [Vidiots] Failed to upload to GitHub Pages:', uploadResult.error);
+            }
+          } catch (error) {
+            console.error('❌ [Vidiots] Error uploading to GitHub Pages:', error.message);
+          }
+        }
         
         return { success: true, updated: true, movies, outputFile };
       } else {
@@ -529,7 +561,13 @@ function getStatus() {
     fileExists,
     lastModified: fileStats ? fileStats.mtime : null,
     fileSize: fileStats ? fileStats.size : 0,
-    isRunning: cronJob !== null
+    isRunning: cronJob !== null,
+    githubPages: {
+      enabled: vidiots.githubPages?.enabled || false,
+      repoOwner: vidiots.githubPages?.repoOwner || '',
+      repoName: vidiots.githubPages?.repoName || '',
+      repoLocalPath: vidiots.githubPages?.repoLocalPath || ''
+    }
   };
 }
 
@@ -539,5 +577,6 @@ module.exports = {
   triggerScrape,
   startCronJob,
   stopCronJob,
-  getStatus
+  getStatus,
+  githubUpload
 };
