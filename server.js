@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
+const vidiots = require('./modules/vidiots');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -434,6 +435,23 @@ const defaultConfig = {
     "alcohols": [],
     "mixers": [],
     "recipes": []
+  },
+  "vidiots": {
+    "enabled": false,
+    "outputFile": "./public/vidiots/index.html",
+    "posterDirectory": "./public/vidiots/posters",
+    "posterBaseUrl": "/vidiots/posters/",
+    "cronSchedule": "0 6,12 * * *",
+    "forceUpdate": false,
+    "maxAgeHours": 24,
+    "githubPages": {
+      "enabled": false,
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "accessToken": "",
+      "commitMessage": "Automated vidiots update"
+    }
   }
 };
 
@@ -599,6 +617,9 @@ try {
 }
 
 const PORT = config.server.port || 3000;
+
+// Initialize vidiots module
+vidiots.init(config);
 
 // Initialize multer configuration after config is loaded
 upload = multer({
@@ -2225,6 +2246,121 @@ app.get('/admin/api/media-streaming/test', requireAuth, async (req, res) => {
       error: 'Failed to test Home Assistant connection: ' + error.message,
       players: []
     });
+  }
+});
+
+// Vidiots API endpoints
+app.get('/admin/api/vidiots/status', requireAuth, (req, res) => {
+  try {
+    const status = vidiots.getStatus();
+    res.json({
+      success: true,
+      status
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get vidiots status: ' + error.message 
+    });
+  }
+});
+
+app.get('/admin/api/vidiots/config', requireAuth, (req, res) => {
+  try {
+    const vidiotsConfig = config.vidiots || {};
+    res.json({
+      success: true,
+      config: vidiotsConfig
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get vidiots configuration: ' + error.message 
+    });
+  }
+});
+
+app.post('/admin/api/vidiots/config', requireAuth, (req, res) => {
+  try {
+    const { vidiots: newVidiotsConfig } = req.body;
+    
+    // Validate required fields
+    if (!newVidiotsConfig || typeof newVidiotsConfig !== 'object') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid vidiots configuration' 
+      });
+    }
+    
+    // Update config
+    config.vidiots = {
+      ...config.vidiots,
+      ...newVidiotsConfig
+    };
+    
+    // Reinitialize vidiots module with new config
+    vidiots.init(config);
+    
+    // Try to write to file if possible
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({
+          success: true,
+          message: 'Vidiots configuration updated and saved to file'
+        });
+      } else {
+        res.json({
+          success: true,
+          message: 'Vidiots configuration updated (in memory only - file not writable)'
+        });
+      }
+    } else {
+      res.json({
+        success: true,
+        message: 'Vidiots configuration updated (in memory only - config directory not writable)'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update vidiots configuration: ' + error.message 
+    });
+  }
+});
+
+app.post('/admin/api/vidiots/trigger', requireAuth, async (req, res) => {
+  try {
+    console.log('🚀 Manual vidiots scrape triggered from admin interface');
+    const result = await vidiots.triggerScrape();
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 
+        (result.updated ? 'Scrape completed successfully - content updated' : 'Scrape completed successfully - no changes detected') :
+        'Scrape failed',
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to trigger vidiots scrape: ' + error.message 
+    });
+  }
+});
+
+// Public vidiots content endpoint
+app.get('/vidiots', (req, res) => {
+  try {
+    const vidiotsConfig = config.vidiots || {};
+    const outputFile = vidiotsConfig.outputFile || './public/vidiots/index.html';
+    
+    if (fs.existsSync(outputFile)) {
+      res.sendFile(path.resolve(outputFile));
+    } else {
+      res.status(404).send('Vidiots content not yet generated. Please check back later.');
+    }
+  } catch (error) {
+    res.status(500).send('Error serving vidiots content: ' + error.message);
   }
 });
 
