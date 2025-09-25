@@ -1163,91 +1163,6 @@
             font-style: italic;
             padding: 3rem;
         }
-
-        /* Tab Navigation Styles */
-        .tab-navigation {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-            overflow: hidden;
-        }
-
-        .main-tabs {
-            display: flex;
-            border-bottom: 1px solid #eee;
-        }
-
-        .main-tab {
-            flex: 1;
-            padding: 1rem;
-            background: #f8f9fa;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 500;
-            color: #666;
-            transition: all 0.3s ease;
-            border-right: 1px solid #eee;
-        }
-
-        .main-tab:last-child {
-            border-right: none;
-        }
-
-        .main-tab:hover {
-            background: #e9ecef;
-            color: #495057;
-        }
-
-        .main-tab.active {
-            background: white;
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-        }
-
-        .sub-tabs {
-            display: none;
-            padding: 1rem;
-            background: white;
-            border-bottom: 1px solid #eee;
-        }
-
-        .sub-tabs.active {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .sub-tab {
-            padding: 0.5rem 1rem;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            color: #666;
-            transition: all 0.3s ease;
-        }
-
-        .sub-tab:hover {
-            background: #e9ecef;
-            color: #495057;
-        }
-
-        .sub-tab.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* Section visibility management */
-        .admin-section {
-            display: block;
-        }
-
-        .admin-section.hidden {
-            display: none;
-        }
         
     </style>
 </head>
@@ -1260,24 +1175,8 @@
     </div>
     
     <div class="container">
-        <!-- Tab Navigation -->
-        <div class="tab-navigation">
-            <div class="main-tabs">
-                <button class="main-tab active" onclick="showMainTab('dashboard')">Dashboard</button>
-                <button class="main-tab" onclick="showMainTab('clients')">Clients</button>
-                <button class="main-tab" onclick="showMainTab('party')">Party</button>
-                <button class="main-tab" onclick="showMainTab('settings')">Settings</button>
-            </div>
-            
-            <!-- Sub-tabs for Party -->
-            <div class="sub-tabs" id="party-subtabs">
-                <button class="sub-tab active" onclick="showSubTab('party-links')">Useful Links</button>
-                <button class="sub-tab" onclick="showSubTab('party-drinks')">Drinks</button>
-                <button class="sub-tab" onclick="showSubTab('party-tournament')">Tournament</button>
-            </div>
-        </div>
         <!-- Server Status -->
-        <div class="card admin-section dashboard-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Server Status</h2>
             </div>
@@ -1292,7 +1191,7 @@
         </div>
 
         <!-- Configuration Management -->
-        <div class="card admin-section settings-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Configuration Management</h2>
             </div>
@@ -1373,7 +1272,7 @@
         </div>
 
         <!-- Storage Management -->
-        <div class="card admin-section settings-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Storage Management</h2>
             </div>
@@ -1422,7 +1321,7 @@
         </div>
 
         <!-- Useful Links Management -->
-        <div class="card admin-section party-section party-links-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Useful Links</h2>
             </div>
@@ -1451,7 +1350,7 @@
         </div>
 
         <!-- Drink Mixer Management -->
-        <div class="card admin-section party-section party-drinks-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Drink Mixer Management</h2>
             </div>
@@ -1577,7 +1476,7 @@
         </div>
 
         <!-- Client Access Management -->
-        <div class="card admin-section clients-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Client Access Management</h2>
             </div>
@@ -1646,7 +1545,7 @@
         </div>
 
         <!-- Client Storage Usage -->
-        <div class="card admin-section clients-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Client Storage Usage</h2>
             </div>
@@ -1662,7 +1561,7 @@
         </div>
 
         <!-- Client Files Management -->
-        <div class="card admin-section clients-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Client Files</h2>
             </div>
@@ -1678,7 +1577,7 @@
         </div>
 
         <!-- Home Assistant Media Streaming -->
-        <div class="card admin-section settings-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Home Assistant Media Streaming</h2>
             </div>
@@ -1741,7 +1640,7 @@
         </div>
 
         <!-- Tournament Management -->
-        <div class="card admin-section party-section party-tournament-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Tournament Bracket Tracker</h2>
             </div>
@@ -1766,7 +1665,7 @@
         </div>
 
         <!-- System Logs -->
-        <div class="card admin-section dashboard-section">
+        <div class="card">
             <div class="card-header">
                 <h2>System Logs</h2>
             </div>
@@ -1779,7 +1678,7 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="card admin-section dashboard-section">
+        <div class="card">
             <div class="card-header">
                 <h2>Quick Actions</h2>
             </div>
@@ -4027,115 +3926,6 @@
         
         // Refresh media streaming status every 10 seconds (configurable)
         setInterval(loadMediaStreamingStatus, 10000);
-
-        // Tab Management Functions
-        function showMainTab(tabName) {
-            // Remove active class from all main tabs
-            const mainTabs = document.querySelectorAll('.main-tab');
-            mainTabs.forEach(tab => tab.classList.remove('active'));
-            
-            // Add active class to clicked tab
-            event.target.classList.add('active');
-            
-            // Hide all sections
-            const allSections = document.querySelectorAll('.admin-section');
-            allSections.forEach(section => section.classList.add('hidden'));
-            
-            // Hide all sub-tabs
-            const subTabs = document.querySelectorAll('.sub-tabs');
-            subTabs.forEach(subTab => subTab.classList.remove('active'));
-            
-            // Show sections for the selected tab
-            if (tabName === 'dashboard') {
-                const dashboardSections = document.querySelectorAll('.dashboard-section');
-                dashboardSections.forEach(section => section.classList.remove('hidden'));
-                
-                // Load dashboard data
-                loadStatus();
-                loadLogs();
-            } else if (tabName === 'clients') {
-                const clientsSections = document.querySelectorAll('.clients-section');
-                clientsSections.forEach(section => section.classList.remove('hidden'));
-                
-                // Load clients data
-                loadClientConfig();
-                loadClientFiles();
-                loadClientStorageStats();
-            } else if (tabName === 'party') {
-                // Show sub-tabs for party
-                const partySubTabs = document.getElementById('party-subtabs');
-                if (partySubTabs) {
-                    partySubTabs.classList.add('active');
-                }
-                
-                // Show default sub-tab (useful links)
-                showSubTab('party-links', false);
-            } else if (tabName === 'settings') {
-                const settingsSections = document.querySelectorAll('.settings-section');
-                settingsSections.forEach(section => section.classList.remove('hidden'));
-                
-                // Load settings data
-                loadConfig();
-                setupStorageSlider();
-                loadMediaStreamingConfig();
-            }
-        }
-
-        function showSubTab(subTabName, shouldLoadData = true) {
-            // Remove active class from all sub-tabs
-            const subTabs = document.querySelectorAll('.sub-tab');
-            subTabs.forEach(tab => tab.classList.remove('active'));
-            
-            // Add active class to clicked sub-tab (if event exists)
-            if (shouldLoadData && event) {
-                event.target.classList.add('active');
-            } else if (!shouldLoadData) {
-                // When called programmatically, find and activate the first tab
-                const firstSubTab = document.querySelector('.sub-tab');
-                if (firstSubTab) {
-                    firstSubTab.classList.add('active');
-                }
-            }
-            
-            // Hide all party sections
-            const partySections = document.querySelectorAll('.party-section');
-            partySections.forEach(section => section.classList.add('hidden'));
-            
-            // Show the selected sub-tab sections
-            if (subTabName === 'party-links') {
-                const linksSections = document.querySelectorAll('.party-links-section');
-                linksSections.forEach(section => section.classList.remove('hidden'));
-                
-                if (shouldLoadData) {
-                    loadLinks();
-                }
-            } else if (subTabName === 'party-drinks') {
-                const drinksSections = document.querySelectorAll('.party-drinks-section');
-                drinksSections.forEach(section => section.classList.remove('hidden'));
-                
-                if (shouldLoadData) {
-                    initializeDrinkMixer();
-                }
-            } else if (subTabName === 'party-tournament') {
-                const tournamentSections = document.querySelectorAll('.party-tournament-section');
-                tournamentSections.forEach(section => section.classList.remove('hidden'));
-                
-                if (shouldLoadData) {
-                    loadTournaments();
-                }
-            }
-        }
-
-        // Initialize dashboard on load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Hide non-dashboard sections initially
-            const allSections = document.querySelectorAll('.admin-section');
-            allSections.forEach(section => {
-                if (!section.classList.contains('dashboard-section')) {
-                    section.classList.add('hidden');
-                }
-            });
-        });
     </script>
 </body>
 </html>
