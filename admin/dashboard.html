@@ -1782,6 +1782,8 @@
                     <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
                     <button class="btn btn-secondary" onclick="testVidiotsScrape()">Test Scrape</button>
                     <button class="btn btn-secondary" onclick="testGitHubConnection()">Test GitHub</button>
+                    <button class="btn btn-secondary" onclick="cloneGitHubRepo()">Clone/Pull Repository</button>
+                    <button class="btn btn-secondary" onclick="browseGitHubRepo()">Browse Repository</button>
                     <button class="btn btn-secondary" onclick="uploadToGitHub()">Upload to GitHub</button>
                     <button class="btn btn-secondary" onclick="loadVidiotsStatus()">Refresh Status</button>
                 </div>
@@ -1803,6 +1805,37 @@
                 <!-- Preview Link -->
                 <div style="margin-top: 15px;">
                     <a href="/vidiots" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- GitHub.io Repository Browser -->
+        <div class="card admin-section vidiots-section" id="githubRepositoryBrowser" style="display: none;">
+            <div class="card-header">
+                <h2>GitHub.io Repository Browser</h2>
+            </div>
+            <div class="card-body">
+                <p>Browse and download files from your GitHub.io repository:</p>
+                
+                <div id="repositoryBrowserAlert" class="alert"></div>
+                
+                <!-- Breadcrumb Navigation -->
+                <div id="breadcrumbNav" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    <span style="font-weight: bold;">📁 Path: </span>
+                    <span id="currentPath">/</span>
+                </div>
+                
+                <!-- File Browser -->
+                <div id="fileBrowser" style="border: 1px solid #ddd; border-radius: 5px; max-height: 400px; overflow-y: auto;">
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        Click "Browse Repository" to explore your GitHub.io files
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-secondary" onclick="refreshRepositoryBrowser()">Refresh</button>
+                    <button class="btn btn-secondary" onclick="goToParentDirectory()">📁 Up One Level</button>
                 </div>
             </div>
         </div>
@@ -4463,6 +4496,176 @@
             } catch (error) {
                 showAlert('Error uploading to GitHub Pages: ' + error.message, 'error', 'vidiotsAlert');
             }
+        }
+
+        // Repository management functions
+        let currentBrowsePath = '';
+
+        async function cloneGitHubRepo() {
+            try {
+                showAlert('Cloning/pulling GitHub repository...', 'success', 'vidiotsAlert');
+                
+                const response = await fetch('/admin/api/vidiots/github/clone', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Repository ${result.action} successfully`, 'success', 'vidiotsAlert');
+                    // Automatically browse the repository after successful clone/pull
+                    setTimeout(() => {
+                        browseGitHubRepo();
+                    }, 1000);
+                } else {
+                    showAlert('Failed to clone/pull repository: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+            } catch (error) {
+                showAlert('Error cloning/pulling repository: ' + error.message, 'error', 'vidiotsAlert');
+            }
+        }
+
+        async function browseGitHubRepo(path = '') {
+            try {
+                currentBrowsePath = path;
+                
+                const response = await fetch(`/admin/api/vidiots/github/browse?path=${encodeURIComponent(path)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayRepositoryContents(result, path);
+                    document.getElementById('githubRepositoryBrowser').style.display = 'block';
+                    showAlert('Repository contents loaded', 'success', 'repositoryBrowserAlert');
+                } else {
+                    showAlert('Failed to browse repository: ' + (result.error || 'Unknown error'), 'error', 'repositoryBrowserAlert');
+                }
+            } catch (error) {
+                showAlert('Error browsing repository: ' + error.message, 'error', 'repositoryBrowserAlert');
+            }
+        }
+
+        function displayRepositoryContents(result, path) {
+            const fileBrowser = document.getElementById('fileBrowser');
+            const currentPathEl = document.getElementById('currentPath');
+            
+            currentPathEl.textContent = path || '/';
+            
+            if (result.type === 'directory') {
+                let html = '<div style="border-bottom: 1px solid #eee; padding: 10px; font-weight: bold; background: #f8f9fa;">📁 Directory Contents</div>';
+                
+                if (result.items && result.items.length > 0) {
+                    result.items.forEach(item => {
+                        const icon = item.type === 'directory' ? '📁' : '📄';
+                        const itemPath = item.path;
+                        const sizeText = item.size ? ` (${formatFileSize(item.size)})` : '';
+                        const modifiedText = item.modified ? new Date(item.modified).toLocaleDateString() : '';
+                        
+                        html += `
+                        <div style="border-bottom: 1px solid #eee; padding: 10px; display: flex; justify-content: space-between; align-items: center; hover: background-color: #f8f9fa;" 
+                             onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                             onmouseout="this.style.backgroundColor='white'">
+                            <div style="flex: 1; cursor: pointer;" onclick="handleItemClick('${itemPath}', '${item.type}')">
+                                <span style="font-size: 1.2em; margin-right: 8px;">${icon}</span>
+                                <span style="font-weight: ${item.type === 'directory' ? 'bold' : 'normal'};">${escapeHtml(item.name)}</span>
+                                <span style="color: #666; font-size: 0.9em;">${sizeText}</span>
+                            </div>
+                            <div style="color: #666; font-size: 0.9em; margin-right: 10px;">${modifiedText}</div>
+                            <div>
+                                ${item.isDownloadable ? `<button class="btn btn-sm" onclick="downloadFile('${itemPath}')" style="padding: 4px 8px; font-size: 0.8em;">⬇️ Download</button>` : ''}
+                            </div>
+                        </div>`;
+                    });
+                } else {
+                    html += '<div style="padding: 20px; text-align: center; color: #666;">Directory is empty</div>';
+                }
+                
+                fileBrowser.innerHTML = html;
+            } else if (result.type === 'file') {
+                fileBrowser.innerHTML = `
+                <div style="padding: 20px;">
+                    <h4>📄 ${escapeHtml(result.name)}</h4>
+                    <p>Size: ${formatFileSize(result.size)}</p>
+                    <p>Modified: ${new Date(result.modified).toLocaleString()}</p>
+                    <button class="btn" onclick="downloadFile('${result.path}')">⬇️ Download File</button>
+                </div>`;
+            }
+        }
+
+        function handleItemClick(itemPath, itemType) {
+            if (itemType === 'directory') {
+                browseGitHubRepo(itemPath);
+            } else {
+                // For files, we could show file info or download
+                downloadFile(itemPath);
+            }
+        }
+
+        async function downloadFile(filePath) {
+            try {
+                showAlert('Downloading file...', 'success', 'repositoryBrowserAlert');
+                
+                const url = `/admin/api/vidiots/github/download?path=${encodeURIComponent(filePath)}`;
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    const filename = contentDisposition
+                        ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+                        : filePath.split('/').pop();
+                    
+                    // Create download link and trigger download
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = window.URL.createObjectURL(blob);
+                    downloadLink.download = filename;
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                    
+                    showAlert(`File "${filename}" downloaded successfully`, 'success', 'repositoryBrowserAlert');
+                } else {
+                    const errorData = await response.json();
+                    showAlert('Download failed: ' + (errorData.error || 'Unknown error'), 'error', 'repositoryBrowserAlert');
+                }
+            } catch (error) {
+                showAlert('Error downloading file: ' + error.message, 'error', 'repositoryBrowserAlert');
+            }
+        }
+
+        function refreshRepositoryBrowser() {
+            browseGitHubRepo(currentBrowsePath);
+        }
+
+        function goToParentDirectory() {
+            if (currentBrowsePath && currentBrowsePath !== '') {
+                const pathParts = currentBrowsePath.split('/');
+                pathParts.pop();
+                const parentPath = pathParts.join('/');
+                browseGitHubRepo(parentPath);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Initialize dashboard on load

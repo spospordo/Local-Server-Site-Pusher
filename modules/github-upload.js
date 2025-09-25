@@ -281,9 +281,288 @@ async function testConnection() {
   }
 }
 
+// Function to clone or pull GitHub repository
+async function cloneOrPullRepository() {
+  try {
+    if (!config?.vidiots?.githubPages?.enabled) {
+      return { success: false, error: 'GitHub Pages integration not enabled' };
+    }
+    
+    const githubConfig = config.vidiots.githubPages;
+    const { repoOwner, repoName, branch = 'main', repoLocalPath } = githubConfig;
+    
+    if (!repoOwner || !repoName || !repoLocalPath) {
+      return { success: false, error: 'Repository configuration incomplete. Need owner, name, and local path.' };
+    }
+    
+    // Validate and sanitize the repository path
+    const normalizedPath = path.resolve(repoLocalPath);
+    if (!normalizedPath.startsWith('/') || normalizedPath.includes('..')) {
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    const repoUrl = `https://github.com/${repoOwner}/${repoName}.git`;
+    console.log(`🔗 [GitHub] Repository URL: ${repoUrl}`);
+    console.log(`📁 [GitHub] Local path: ${normalizedPath}`);
+    
+    // Check if directory exists and has .git folder
+    const gitDir = path.join(normalizedPath, '.git');
+    
+    if (fs.existsSync(gitDir)) {
+      // Repository exists, pull latest changes
+      console.log('📥 [GitHub] Repository exists, pulling latest changes...');
+      
+      try {
+        // Fetch and pull latest changes
+        execSync('git fetch origin', { cwd: normalizedPath });
+        
+        // Check current branch
+        const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+          cwd: normalizedPath,
+          encoding: 'utf8'
+        }).trim();
+        
+        if (currentBranch !== safeBranch) {
+          console.log(`🌿 [GitHub] Switching from ${currentBranch} to ${safeBranch}`);
+          execSync('git checkout ' + safeBranch, { cwd: normalizedPath });
+        }
+        
+        const pullOutput = execSync('git pull origin ' + safeBranch, {
+          cwd: normalizedPath,
+          encoding: 'utf8'
+        });
+        
+        console.log('✅ [GitHub] Repository updated successfully');
+        return { 
+          success: true, 
+          action: 'pulled',
+          message: 'Repository updated with latest changes',
+          output: pullOutput.trim()
+        };
+        
+      } catch (pullError) {
+        console.error('❌ [GitHub] Pull failed:', pullError.message);
+        return { success: false, error: `Failed to pull repository: ${pullError.message}` };
+      }
+      
+    } else {
+      // Repository doesn't exist, clone it
+      console.log('📋 [GitHub] Repository not found locally, cloning...');
+      
+      try {
+        // Ensure parent directory exists
+        const parentDir = path.dirname(normalizedPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+        
+        // Remove the target directory if it exists but is not a git repo
+        if (fs.existsSync(normalizedPath)) {
+          console.log('🗑️ [GitHub] Removing existing non-git directory');
+          fs.rmSync(normalizedPath, { recursive: true, force: true });
+        }
+        
+        // Sanitize branch name to prevent command injection
+        const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
+        const cloneOutput = execSync('git clone --branch ' + safeBranch + ' ' + repoUrl + ' ' + JSON.stringify(normalizedPath), {
+          encoding: 'utf8'
+        });
+        
+        console.log('✅ [GitHub] Repository cloned successfully');
+        return { 
+          success: true, 
+          action: 'cloned',
+          message: 'Repository cloned successfully',
+          output: cloneOutput.trim()
+        };
+        
+      } catch (cloneError) {
+        console.error('❌ [GitHub] Clone failed:', cloneError.message);
+        return { success: false, error: `Failed to clone repository: ${cloneError.message}` };
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ [GitHub] Error in cloneOrPullRepository:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to browse repository file structure
+function browseRepository(relativePath = '') {
+  try {
+    if (!config?.vidiots?.githubPages?.enabled) {
+      return { success: false, error: 'GitHub Pages integration not enabled' };
+    }
+    
+    const githubConfig = config.vidiots.githubPages;
+    const repoPath = githubConfig.repoLocalPath;
+    
+    if (!repoPath) {
+      return { success: false, error: 'No repository path configured' };
+    }
+    
+    // Validate and sanitize paths
+    const normalizedRepoPath = path.resolve(repoPath);
+    if (!normalizedRepoPath.startsWith('/') || normalizedRepoPath.includes('..')) {
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    // Validate relative path to prevent directory traversal
+    if (relativePath.includes('..') || relativePath.includes('\0')) {
+      return { success: false, error: 'Invalid browse path' };
+    }
+    
+    const browsePath = path.join(normalizedRepoPath, relativePath);
+    
+    // Ensure browse path is within repository bounds
+    if (!browsePath.startsWith(normalizedRepoPath)) {
+      return { success: false, error: 'Path outside repository bounds' };
+    }
+    
+    if (!fs.existsSync(browsePath)) {
+      return { success: false, error: 'Path does not exist' };
+    }
+    
+    const stat = fs.statSync(browsePath);
+    
+    if (stat.isFile()) {
+      // Return file info
+      return {
+        success: true,
+        type: 'file',
+        name: path.basename(browsePath),
+        path: relativePath,
+        size: stat.size,
+        modified: stat.mtime,
+        isDownloadable: true
+      };
+    } else if (stat.isDirectory()) {
+      // Return directory contents
+      const items = fs.readdirSync(browsePath).map(item => {
+        const itemPath = path.join(browsePath, item);
+        const itemStat = fs.statSync(itemPath);
+        const itemRelativePath = path.join(relativePath, item);
+        
+        return {
+          name: item,
+          path: itemRelativePath,
+          type: itemStat.isDirectory() ? 'directory' : 'file',
+          size: itemStat.isFile() ? itemStat.size : null,
+          modified: itemStat.mtime,
+          isDownloadable: itemStat.isFile()
+        };
+      });
+      
+      // Sort directories first, then files
+      items.sort((a, b) => {
+        if (a.type !== b.type) {
+          return a.type === 'directory' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      
+      return {
+        success: true,
+        type: 'directory',
+        path: relativePath,
+        items: items
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ [GitHub] Error browsing repository:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to get file content for download
+function getFileContent(relativePath) {
+  try {
+    if (!config?.vidiots?.githubPages?.enabled) {
+      return { success: false, error: 'GitHub Pages integration not enabled' };
+    }
+    
+    const githubConfig = config.vidiots.githubPages;
+    const repoPath = githubConfig.repoLocalPath;
+    
+    if (!repoPath) {
+      return { success: false, error: 'No repository path configured' };
+    }
+    
+    // Validate and sanitize paths
+    const normalizedRepoPath = path.resolve(repoPath);
+    if (!normalizedRepoPath.startsWith('/') || normalizedRepoPath.includes('..')) {
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    // Validate relative path
+    if (relativePath.includes('..') || relativePath.includes('\0')) {
+      return { success: false, error: 'Invalid file path' };
+    }
+    
+    const filePath = path.join(normalizedRepoPath, relativePath);
+    
+    // Ensure file path is within repository bounds
+    if (!filePath.startsWith(normalizedRepoPath)) {
+      return { success: false, error: 'Path outside repository bounds' };
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File does not exist' };
+    }
+    
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) {
+      return { success: false, error: 'Path is not a file' };
+    }
+    
+    // Read file content
+    const content = fs.readFileSync(filePath);
+    const filename = path.basename(filePath);
+    
+    return {
+      success: true,
+      filename: filename,
+      content: content,
+      size: stat.size,
+      mimeType: getMimeType(filename)
+    };
+    
+  } catch (error) {
+    console.error('❌ [GitHub] Error reading file:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Simple MIME type detection
+function getMimeType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.xml': 'application/xml',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.pdf': 'application/pdf'
+  };
+  
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
 module.exports = {
   init,
   uploadVidiots,
   testConnection,
-  pushToGitHub
+  pushToGitHub,
+  cloneOrPullRepository,
+  browseRepository,
+  getFileContent
 };
