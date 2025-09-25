@@ -2384,6 +2384,91 @@ app.post('/admin/api/vidiots/github/upload', requireAuth, async (req, res) => {
   }
 });
 
+// Clone or pull GitHub.io repository
+app.post('/admin/api/vidiots/github/clone', requireAuth, async (req, res) => {
+  try {
+    console.log('📥 [GitHub] Clone/pull repository triggered from admin interface');
+    const result = await vidiots.githubUpload.cloneOrPullRepository();
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 
+        `Repository ${result.action} successfully` : 
+        'Repository operation failed',
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to clone/pull repository: ' + error.message 
+    });
+  }
+});
+
+// Browse GitHub.io repository files
+app.get('/admin/api/vidiots/github/browse', requireAuth, (req, res) => {
+  try {
+    const { path: browsePath = '' } = req.query;
+    
+    // Validate path parameter type and content
+    if (typeof browsePath !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Path parameter must be a string' 
+      });
+    }
+    
+    console.log(`📁 [GitHub] Browsing repository path: "${browsePath}"`);
+    
+    const result = vidiots.githubUpload.browseRepository(browsePath);
+    
+    res.json({
+      success: result.success,
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to browse repository: ' + error.message 
+    });
+  }
+});
+
+// Download file from GitHub.io repository
+app.get('/admin/api/vidiots/github/download', requireAuth, (req, res) => {
+  try {
+    const { path: filePath } = req.query;
+    
+    if (!filePath || typeof filePath !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'File path is required and must be a string' 
+      });
+    }
+    
+    console.log(`⬇️ [GitHub] Downloading file: "${filePath}"`);
+    
+    const result = vidiots.githubUpload.getFileContent(filePath);
+    
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    
+    // Set appropriate headers for download
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader('Content-Length', result.size);
+    
+    res.send(result.content);
+    
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to download file: ' + error.message 
+    });
+  }
+});
+
 // Public vidiots content endpoint
 app.get('/vidiots', (req, res) => {
   try {
