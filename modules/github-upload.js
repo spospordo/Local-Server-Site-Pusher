@@ -301,6 +301,9 @@ async function cloneOrPullRepository() {
       return { success: false, error: 'Invalid repository path' };
     }
     
+    // Sanitize branch name to prevent command injection
+    const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
+    
     const repoUrl = `https://github.com/${repoOwner}/${repoName}.git`;
     console.log(`🔗 [GitHub] Repository URL: ${repoUrl}`);
     console.log(`📁 [GitHub] Local path: ${normalizedPath}`);
@@ -359,11 +362,15 @@ async function cloneOrPullRepository() {
         // Remove the target directory if it exists but is not a git repo
         if (fs.existsSync(normalizedPath)) {
           console.log('🗑️ [GitHub] Removing existing non-git directory');
-          fs.rmSync(normalizedPath, { recursive: true, force: true });
+          try {
+            fs.rmSync(normalizedPath, { recursive: true, force: true });
+          } catch (rmError) {
+            // Handle EBUSY or other filesystem errors more gracefully
+            console.warn('⚠️ [GitHub] Warning: Could not remove existing directory:', rmError.message);
+            return { success: false, error: `Cannot clean up directory ${normalizedPath}: ${rmError.message}. The directory may be in use. Please ensure no applications are accessing the directory and try again.` };
+          }
         }
         
-        // Sanitize branch name to prevent command injection
-        const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
         const cloneOutput = execSync('git clone --branch ' + safeBranch + ' ' + repoUrl + ' ' + JSON.stringify(normalizedPath), {
           encoding: 'utf8'
         });

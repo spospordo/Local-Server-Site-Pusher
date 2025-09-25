@@ -513,7 +513,7 @@ async function triggerScrape() {
 // Start/stop cron job
 function startCronJob() {
   if (cronJob) {
-    cronJob.destroy();
+    cronJob.stop();
   }
   
   const vidiots = config.vidiots || {};
@@ -536,7 +536,7 @@ function startCronJob() {
 
 function stopCronJob() {
   if (cronJob) {
-    cronJob.destroy();
+    cronJob.stop();
     cronJob = null;
     console.log('⏹️ [Vidiots] Cron job stopped');
   }
