@@ -1266,6 +1266,7 @@
                 <button class="main-tab active" onclick="showMainTab('dashboard')">Dashboard</button>
                 <button class="main-tab" onclick="showMainTab('clients')">Clients</button>
                 <button class="main-tab" onclick="showMainTab('party')">Party</button>
+                <button class="main-tab" onclick="showMainTab('server')">Server</button>
                 <button class="main-tab" onclick="showMainTab('settings')">Settings</button>
             </div>
             
@@ -1274,6 +1275,11 @@
                 <button class="sub-tab active" onclick="showSubTab('party-links')">Useful Links</button>
                 <button class="sub-tab" onclick="showSubTab('party-drinks')">Drinks</button>
                 <button class="sub-tab" onclick="showSubTab('party-tournament')">Tournament</button>
+            </div>
+            
+            <!-- Sub-tabs for Server -->
+            <div class="sub-tabs" id="server-subtabs">
+                <button class="sub-tab active" onclick="showSubTab('server-vidiots')">Vidiots</button>
             </div>
         </div>
         <!-- Server Status -->
@@ -1674,6 +1680,130 @@
                     </div>
                 </div>
                 <div id="clientFilesAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- Vidiots Configuration -->
+        <div class="card admin-section server-section server-vidiots-section">
+            <div class="card-header">
+                <h2>Vidiots Movie Scraper</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure the Vidiots Foundation website scraper for e-ink displays:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vidiotsEnabled">Vidiots Scraper</label>
+                        <select id="vidiotsEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="vidiotsCronSchedule">Schedule (Cron)</label>
+                        <input type="text" id="vidiotsCronSchedule" placeholder="0 6,12 * * *" title="Cron expression (default: 6 AM and 12 PM daily)">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vidiotsOutputFile">Output HTML File</label>
+                        <input type="text" id="vidiotsOutputFile" placeholder="./public/vidiots/index.html">
+                    </div>
+                    <div class="form-group">
+                        <label for="vidiotsPosterDirectory">Poster Directory</label>
+                        <input type="text" id="vidiotsPosterDirectory" placeholder="./public/vidiots/posters">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vidiotsPosterBaseUrl">Poster Base URL</label>
+                        <input type="text" id="vidiotsPosterBaseUrl" placeholder="/vidiots/posters/">
+                    </div>
+                    <div class="form-group">
+                        <label for="vidiotsMaxAgeHours">Max File Age (Hours)</label>
+                        <input type="number" id="vidiotsMaxAgeHours" placeholder="24" min="1" max="168">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vidiotsForceUpdate">Force Update</label>
+                        <select id="vidiotsForceUpdate">
+                            <option value="false">Disabled</option>
+                            <option value="true">Always Update</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="vidiotsGithubEnabled">GitHub Pages Upload</label>
+                        <select id="vidiotsGithubEnabled">
+                            <option value="false">Disabled</option>
+                            <option value="true">Enabled</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- GitHub Pages Configuration -->
+                <div id="githubPagesConfig" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                    <h4>GitHub Pages Configuration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vidiotsRepoOwner">Repository Owner</label>
+                            <input type="text" id="vidiotsRepoOwner" placeholder="github-username">
+                        </div>
+                        <div class="form-group">
+                            <label for="vidiotsRepoName">Repository Name</label>
+                            <input type="text" id="vidiotsRepoName" placeholder="username.github.io">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vidiotsRepoBranch">Branch</label>
+                            <input type="text" id="vidiotsRepoBranch" placeholder="main">
+                        </div>
+                        <div class="form-group">
+                            <label for="vidiotsRepoLocalPath">Local Repository Path</label>
+                            <input type="text" id="vidiotsRepoLocalPath" placeholder="/path/to/local/repo">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vidiotsCommitMessage">Commit Message</label>
+                            <input type="text" id="vidiotsCommitMessage" placeholder="Automated vidiots update">
+                        </div>
+                        <div class="form-group">
+                            <!-- Space for future expansion -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="testVidiotsScrape()">Test Scrape</button>
+                    <button class="btn btn-secondary" onclick="testGitHubConnection()">Test GitHub</button>
+                    <button class="btn btn-secondary" onclick="uploadToGitHub()">Upload to GitHub</button>
+                    <button class="btn btn-secondary" onclick="loadVidiotsStatus()">Refresh Status</button>
+                </div>
+                
+                <div id="vidiotsAlert" class="alert"></div>
+                
+                <!-- Status Display -->
+                <div class="card" style="margin-top: 20px; background: #f8f9fa;">
+                    <div class="card-header">
+                        <h3>Scraper Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="vidiotsStatus" style="font-family: monospace; font-size: 0.9em; white-space: pre-wrap; color: #666;">
+                            Loading status...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Preview Link -->
+                <div style="margin-top: 15px;">
+                    <a href="/vidiots" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
+                </div>
             </div>
         </div>
 
@@ -4070,6 +4200,15 @@
                 
                 // Show default sub-tab (useful links)
                 showSubTab('party-links', false);
+            } else if (tabName === 'server') {
+                // Show sub-tabs for server
+                const serverSubTabs = document.getElementById('server-subtabs');
+                if (serverSubTabs) {
+                    serverSubTabs.classList.add('active');
+                }
+                
+                // Show default sub-tab (vidiots)
+                showSubTab('server-vidiots', false);
             } else if (tabName === 'settings') {
                 const settingsSections = document.querySelectorAll('.settings-section');
                 settingsSections.forEach(section => section.classList.remove('hidden'));
@@ -4097,9 +4236,11 @@
                 }
             }
             
-            // Hide all party sections
+            // Hide all party and server sections
             const partySections = document.querySelectorAll('.party-section');
             partySections.forEach(section => section.classList.add('hidden'));
+            const serverSections = document.querySelectorAll('.server-section');
+            serverSections.forEach(section => section.classList.add('hidden'));
             
             // Show the selected sub-tab sections
             if (subTabName === 'party-links') {
@@ -4123,6 +4264,204 @@
                 if (shouldLoadData) {
                     loadTournaments();
                 }
+            } else if (subTabName === 'server-vidiots') {
+                const vidiotsSections = document.querySelectorAll('.server-vidiots-section');
+                vidiotsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadVidiotsConfig();
+                    loadVidiotsStatus();
+                }
+            }
+        }
+
+        // Vidiots Functions
+        async function loadVidiotsConfig() {
+            try {
+                const response = await fetch('/admin/api/vidiots/config');
+                const result = await response.json();
+                
+                if (result.success && result.config) {
+                    const config = result.config;
+                    document.getElementById('vidiotsEnabled').value = config.enabled ? 'true' : 'false';
+                    document.getElementById('vidiotsCronSchedule').value = config.cronSchedule || '0 6,12 * * *';
+                    document.getElementById('vidiotsOutputFile').value = config.outputFile || './public/vidiots/index.html';
+                    document.getElementById('vidiotsPosterDirectory').value = config.posterDirectory || './public/vidiots/posters';
+                    document.getElementById('vidiotsPosterBaseUrl').value = config.posterBaseUrl || '/vidiots/posters/';
+                    document.getElementById('vidiotsMaxAgeHours').value = config.maxAgeHours || 24;
+                    document.getElementById('vidiotsForceUpdate').value = config.forceUpdate ? 'true' : 'false';
+                    
+                    // GitHub Pages configuration
+                    const githubConfig = config.githubPages || {};
+                    document.getElementById('vidiotsGithubEnabled').value = githubConfig.enabled ? 'true' : 'false';
+                    document.getElementById('vidiotsRepoOwner').value = githubConfig.repoOwner || '';
+                    document.getElementById('vidiotsRepoName').value = githubConfig.repoName || '';
+                    document.getElementById('vidiotsRepoBranch').value = githubConfig.branch || 'main';
+                    document.getElementById('vidiotsRepoLocalPath').value = githubConfig.repoLocalPath || '';
+                    document.getElementById('vidiotsCommitMessage').value = githubConfig.commitMessage || 'Automated vidiots update';
+                    
+                    // Show/hide GitHub config based on enabled status
+                    toggleGitHubConfig();
+                } else {
+                    showAlert('Failed to load vidiots configuration: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+            } catch (error) {
+                showAlert('Error loading vidiots configuration: ' + error.message, 'error', 'vidiotsAlert');
+            }
+        }
+
+        async function saveVidiotsConfig() {
+            try {
+                const config = {
+                    enabled: document.getElementById('vidiotsEnabled').value === 'true',
+                    cronSchedule: document.getElementById('vidiotsCronSchedule').value.trim() || '0 6,12 * * *',
+                    outputFile: document.getElementById('vidiotsOutputFile').value.trim() || './public/vidiots/index.html',
+                    posterDirectory: document.getElementById('vidiotsPosterDirectory').value.trim() || './public/vidiots/posters',
+                    posterBaseUrl: document.getElementById('vidiotsPosterBaseUrl').value.trim() || '/vidiots/posters/',
+                    maxAgeHours: parseInt(document.getElementById('vidiotsMaxAgeHours').value) || 24,
+                    forceUpdate: document.getElementById('vidiotsForceUpdate').value === 'true',
+                    githubPages: {
+                        enabled: document.getElementById('vidiotsGithubEnabled').value === 'true',
+                        repoOwner: document.getElementById('vidiotsRepoOwner').value.trim(),
+                        repoName: document.getElementById('vidiotsRepoName').value.trim(),
+                        branch: document.getElementById('vidiotsRepoBranch').value.trim() || 'main',
+                        repoLocalPath: document.getElementById('vidiotsRepoLocalPath').value.trim(),
+                        commitMessage: document.getElementById('vidiotsCommitMessage').value.trim() || 'Automated vidiots update'
+                    }
+                };
+
+                const response = await fetch('/admin/api/vidiots/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ vidiots: config })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(result.message || 'Vidiots configuration saved successfully', 'success', 'vidiotsAlert');
+                    loadVidiotsStatus(); // Refresh status after config change
+                } else {
+                    showAlert('Failed to save vidiots configuration: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+            } catch (error) {
+                showAlert('Error saving vidiots configuration: ' + error.message, 'error', 'vidiotsAlert');
+            }
+        }
+
+        async function loadVidiotsStatus() {
+            try {
+                const response = await fetch('/admin/api/vidiots/status');
+                const result = await response.json();
+                
+                if (result.success && result.status) {
+                    const status = result.status;
+                    let statusText = `Enabled: ${status.enabled ? 'Yes' : 'No'}\n`;
+                    statusText += `Schedule: ${status.cronSchedule}\n`;
+                    statusText += `Cron Job Running: ${status.isRunning ? 'Yes' : 'No'}\n`;
+                    statusText += `Output File: ${status.outputFile}\n`;
+                    statusText += `File Exists: ${status.fileExists ? 'Yes' : 'No'}\n`;
+                    if (status.fileExists) {
+                        statusText += `File Size: ${(status.fileSize / 1024).toFixed(1)} KB\n`;
+                        statusText += `Last Modified: ${status.lastModified ? new Date(status.lastModified).toLocaleString() : 'Unknown'}\n`;
+                    }
+                    statusText += `\n--- GitHub Pages ---\n`;
+                    statusText += `GitHub Pages: ${status.githubPages.enabled ? 'Enabled' : 'Disabled'}\n`;
+                    if (status.githubPages.enabled) {
+                        statusText += `Repository: ${status.githubPages.repoOwner}/${status.githubPages.repoName}\n`;
+                        statusText += `Local Path: ${status.githubPages.repoLocalPath || 'Not configured'}\n`;
+                    }
+                    
+                    document.getElementById('vidiotsStatus').textContent = statusText;
+                } else {
+                    document.getElementById('vidiotsStatus').textContent = 'Error loading status: ' + (result.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.getElementById('vidiotsStatus').textContent = 'Error loading status: ' + error.message;
+            }
+        }
+
+        async function testVidiotsScrape() {
+            try {
+                showAlert('Starting vidiots scrape test...', 'success', 'vidiotsAlert');
+                document.getElementById('vidiotsStatus').textContent = 'Running scrape test... This may take up to 60 seconds.';
+                
+                const response = await fetch('/admin/api/vidiots/trigger', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(result.message || 'Scrape test completed successfully', 'success', 'vidiotsAlert');
+                } else {
+                    showAlert('Scrape test failed: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+                
+                // Refresh status after test
+                setTimeout(loadVidiotsStatus, 2000);
+            } catch (error) {
+                showAlert('Error running scrape test: ' + error.message, 'error', 'vidiotsAlert');
+                setTimeout(loadVidiotsStatus, 2000);
+            }
+        }
+
+        function toggleGitHubConfig() {
+            const githubEnabled = document.getElementById('vidiotsGithubEnabled').value === 'true';
+            const githubConfig = document.getElementById('githubPagesConfig');
+            if (githubConfig) {
+                githubConfig.style.display = githubEnabled ? 'block' : 'none';
+            }
+        }
+
+        async function testGitHubConnection() {
+            try {
+                showAlert('Testing GitHub connection...', 'success', 'vidiotsAlert');
+                
+                const response = await fetch('/admin/api/vidiots/github/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('GitHub connection test successful', 'success', 'vidiotsAlert');
+                } else {
+                    showAlert('GitHub connection test failed: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+            } catch (error) {
+                showAlert('Error testing GitHub connection: ' + error.message, 'error', 'vidiotsAlert');
+            }
+        }
+
+        async function uploadToGitHub() {
+            try {
+                showAlert('Uploading to GitHub Pages...', 'success', 'vidiotsAlert');
+                
+                const response = await fetch('/admin/api/vidiots/github/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Successfully uploaded to GitHub Pages', 'success', 'vidiotsAlert');
+                } else {
+                    showAlert('Failed to upload to GitHub Pages: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
+                }
+            } catch (error) {
+                showAlert('Error uploading to GitHub Pages: ' + error.message, 'error', 'vidiotsAlert');
             }
         }
 
@@ -4135,6 +4474,12 @@
                     section.classList.add('hidden');
                 }
             });
+
+            // Add event listener for GitHub Pages toggle
+            const githubEnabledSelect = document.getElementById('vidiotsGithubEnabled');
+            if (githubEnabledSelect) {
+                githubEnabledSelect.addEventListener('change', toggleGitHubConfig);
+            }
         });
     </script>
 </body>
