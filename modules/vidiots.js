@@ -145,6 +145,14 @@ async function shouldUpdateFile(filePath, newContent) {
       return true;
     }
     
+    // Check if the path is actually a file before trying to read it
+    const stats = fs.statSync(filePath);
+    
+    if (!stats.isFile()) {
+      console.log('📄 [Vidiots] Path exists but is not a file (may be directory), will create new one');
+      return true;
+    }
+    
     const vidiots = config.vidiots || {};
     
     if (vidiots.forceUpdate) {
@@ -153,7 +161,6 @@ async function shouldUpdateFile(filePath, newContent) {
     }
     
     // Check file age
-    const stats = fs.statSync(filePath);
     const fileAgeHours = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60);
     const maxAgeHours = vidiots.maxAgeHours || 24;
     
@@ -162,6 +169,7 @@ async function shouldUpdateFile(filePath, newContent) {
       return true;
     }
     
+    // Now safe to read the file since we've confirmed it's a file
     const existingContent = fs.readFileSync(filePath, 'utf8');
     
     // Basic content comparison
