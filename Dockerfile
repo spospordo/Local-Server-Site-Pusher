@@ -1,10 +1,4 @@
-FROM node:20-alpine
-
-# Install git for GitHub repository operations
-# Use the official Alpine repositories with a simpler approach
-RUN apk add --no-cache git || \
-    (apk update && apk add --no-cache git) || \
-    (echo "Fallback: installing git with openssh" && apk add --no-cache git openssh)
+FROM node:20
 
 # Set working directory
 WORKDIR /app
