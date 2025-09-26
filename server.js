@@ -449,6 +449,7 @@ const defaultConfig = {
       "repoOwner": "",
       "repoName": "",
       "branch": "main",
+      "repoLocalPath": "",
       "accessToken": "",
       "commitMessage": "Automated vidiots update"
     }
