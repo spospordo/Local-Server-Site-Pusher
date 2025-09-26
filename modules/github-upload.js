@@ -308,8 +308,24 @@ function hasChanges(repoPath) {
 // Function to push changes to GitHub
 async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update') {
   try {
-    console.log(`🚀 [GitHub] Starting git upload process with message: "${commitMessage}"`);
-    console.log(`📁 [GitHub] Repository path: ${repoPath}`);
+    // Validate and sanitize the repository path to prevent path injection
+    if (!repoPath || typeof repoPath !== 'string') {
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    const normalizedRepoPath = path.resolve(repoPath);
+    if (!normalizedRepoPath.startsWith('/') || normalizedRepoPath.includes('..')) {
+      return { success: false, error: 'Invalid repository path - path traversal not allowed' };
+    }
+    
+    // Sanitize commit message to prevent command injection
+    if (typeof commitMessage !== 'string') {
+      commitMessage = 'Automated vidiots update';
+    }
+    const sanitizedCommitMessage = commitMessage.replace(/["\\`$]/g, ''); // Remove dangerous characters
+    
+    console.log(`🚀 [GitHub] Starting git upload process with message: "${sanitizedCommitMessage}"`);
+    console.log(`📁 [GitHub] Repository path: ${normalizedRepoPath}`);
     
     // Ensure git identity is configured before any git operations
     try {
@@ -321,16 +337,40 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
       loadGitConfig(); // Reload git config to ensure identity is set
     }
     
-    if (!hasChanges(repoPath)) {
+    if (!hasChanges(normalizedRepoPath)) {
       console.log('📋 [GitHub] No changes to commit or push.');
       return { success: true, message: 'No changes to push' };
     }
 
     console.log('📝 [GitHub] Changes detected, proceeding with git operations...');
 
+    // Ensure remote origin is configured with the authenticated URL
+    try {
+      const githubConfig = config.vidiots.githubPages;
+      const { repoOwner, repoName, accessToken } = githubConfig;
+      
+      if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
+        console.error('❌ [GitHub] GitHub Personal Access Token not configured');
+        return { success: false, error: 'GitHub Personal Access Token is required. Please configure it in the admin interface.' };
+      }
+      
+      const authenticatedUrl = `https://${accessToken}@github.com/${repoOwner}/${repoName}.git`;
+      console.log(`🔧 [GitHub] Updating remote origin URL with authentication`);
+      
+      // Sanitize parameters to prevent command injection
+      const sanitizedUrl = JSON.stringify(authenticatedUrl);
+      
+      execSync(`git remote set-url origin ${sanitizedUrl}`, { cwd: normalizedRepoPath });
+      console.log('✅ [GitHub] Remote origin URL updated with authentication');
+      
+    } catch (remoteError) {
+      console.error('❌ [GitHub] Failed to update remote URL:', remoteError.message);
+      return { success: false, error: `Failed to configure remote URL: ${remoteError.message}` };
+    }
+
     // Check if there are uncommitted changes that need to be added and committed
     const statusOutput = execSync('git status --porcelain', {
-      cwd: repoPath,
+      cwd: normalizedRepoPath,
       encoding: 'utf8'
     });
 
@@ -339,14 +379,13 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
     if (hasUncommittedChanges) {
       // git add -A
       console.log('📤 [GitHub] Adding files to git...');
-      execSync('git add -A', { cwd: repoPath });
+      execSync('git add -A', { cwd: normalizedRepoPath });
       console.log('✅ [GitHub] Files added successfully');
 
       // git commit -m "message"
       console.log('💾 [GitHub] Committing changes...');
-      const sanitizedMessage = commitMessage.replace(/["\\]/g, ''); // Remove quotes and backslashes
-      const commitOutput = execSync('git commit -m "' + sanitizedMessage + '"', {
-        cwd: repoPath,
+      const commitOutput = execSync('git commit -m "' + sanitizedCommitMessage + '"', {
+        cwd: normalizedRepoPath,
         encoding: 'utf8'
       });
       console.log('✅ [GitHub] Commit successful:', commitOutput.trim());
@@ -357,7 +396,7 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
     // git push
     console.log('⬆️ [GitHub] Pushing to GitHub...');
     const pushOutput = execSync('git push', {
-      cwd: repoPath,
+      cwd: normalizedRepoPath,
       encoding: 'utf8'
     });
     
@@ -377,7 +416,7 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
       
       try {
         const pullOutput = execSync('git pull', {
-          cwd: repoPath,
+          cwd: normalizedRepoPath,
           encoding: 'utf8'
         });
         console.log('✅ [GitHub] Pull successful:', pullOutput.trim());
@@ -385,7 +424,7 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
         // Retry push after pull
         console.log('🔄 [GitHub] Retrying push after pull...');
         const retryPushOutput = execSync('git push', {
-          cwd: repoPath,
+          cwd: normalizedRepoPath,
           encoding: 'utf8'
         });
         
@@ -412,10 +451,16 @@ async function uploadVidiots() {
     
     const githubConfig = config.vidiots.githubPages;
     const repoPath = githubConfig.repoLocalPath;
+    const accessToken = githubConfig.accessToken;
     
     if (!repoPath) {
       console.error('❌ [GitHub] No repository path configured');
       return { success: false, error: 'No repository path configured' };
+    }
+    
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
+      console.error('❌ [GitHub] GitHub Personal Access Token not configured');
+      return { success: false, error: 'GitHub Personal Access Token is required. Please configure it in the admin interface.' };
     }
     
     // Validate and sanitize the repository path
@@ -466,9 +511,14 @@ async function testConnection() {
     
     const githubConfig = config.vidiots.githubPages;
     const repoPath = githubConfig.repoLocalPath;
+    const accessToken = githubConfig.accessToken;
     
     if (!repoPath) {
       return { success: false, error: 'No repository path configured' };
+    }
+    
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
+      return { success: false, error: 'GitHub Personal Access Token not configured. Please add it in the admin interface.' };
     }
     
     // Validate and sanitize the repository path
@@ -518,10 +568,14 @@ async function cloneOrPullRepository() {
     }
     
     const githubConfig = config.vidiots.githubPages;
-    const { repoOwner, repoName, branch = 'main', repoLocalPath } = githubConfig;
+    const { repoOwner, repoName, branch = 'main', repoLocalPath, accessToken } = githubConfig;
     
     if (!repoOwner || !repoName || !repoLocalPath) {
       return { success: false, error: 'Repository configuration incomplete. Need owner, name, and local path.' };
+    }
+    
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
+      return { success: false, error: 'GitHub Personal Access Token is required for authentication. Please configure it in the admin interface.' };
     }
     
     // Validate and sanitize the repository path
@@ -533,8 +587,9 @@ async function cloneOrPullRepository() {
     // Sanitize branch name to prevent command injection
     const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
     
-    const repoUrl = `https://github.com/${repoOwner}/${repoName}.git`;
-    console.log(`🔗 [GitHub] Repository URL: ${repoUrl}`);
+    // Construct authenticated GitHub URL
+    const repoUrl = `https://${accessToken}@github.com/${repoOwner}/${repoName}.git`;
+    console.log(`🔗 [GitHub] Repository URL: https://****@github.com/${repoOwner}/${repoName}.git`); // Don't log the token
     console.log(`📁 [GitHub] Local path: ${normalizedPath}`);
     
     // Check if directory exists and has .git folder
