@@ -469,6 +469,57 @@ function getUploadedTemplateFiles() {
   }
 }
 
+// Get available images for configuration UI
+function getAvailableImages() {
+  const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const images = [];
+  
+  try {
+    if (!fs.existsSync(templatesDir)) {
+      return [];
+    }
+    
+    const files = fs.readdirSync(templatesDir);
+    files.forEach(file => {
+      const filePath = path.join(templatesDir, file);
+      const fileExt = path.extname(file).toLowerCase();
+      
+      // Check if it's an image file
+      if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+        const stats = fs.statSync(filePath);
+        const basename = path.basename(file, fileExt).toLowerCase();
+        
+        images.push({
+          filename: file,
+          basename: basename,
+          size: stats.size,
+          uploadDate: stats.mtime.toISOString(),
+          localPath: `/uploads/espresso/templates/${file}`,
+          absoluteUrl: '' // Will be filled by UI
+        });
+      }
+    });
+    
+    return images;
+  } catch (error) {
+    console.error(`❌ [Espresso] Error getting available images: ${error.message}`);
+    return [];
+  }
+}
+
+// Get current template path for display
+function getCurrentTemplatePath() {
+  const templatePath = getTemplatePath();
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const uploadedTemplatePath = path.join(uploadsDir, 'index.html');
+  
+  return {
+    currentPath: templatePath,
+    isUploaded: templatePath === uploadedTemplatePath,
+    uploadedExists: fs.existsSync(uploadedTemplatePath)
+  };
+}
+
 // Delete uploaded template file
 function deleteUploadedTemplateFile(filename) {
   const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
@@ -496,5 +547,7 @@ module.exports = {
   getEspressoData,
   getStatus,
   getUploadedTemplateFiles,
-  deleteUploadedTemplateFile
+  deleteUploadedTemplateFile,
+  getAvailableImages,
+  getCurrentTemplatePath
 };

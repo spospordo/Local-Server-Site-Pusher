@@ -2961,6 +2961,40 @@ app.delete('/admin/api/espresso/template-files/:filename', requireAuth, (req, re
   }
 });
 
+// Get available images for configuration UI
+app.get('/admin/api/espresso/available-images', requireAuth, (req, res) => {
+  try {
+    const images = espresso.getAvailableImages();
+    res.json({
+      success: true,
+      images
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error getting available images:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get available images: ' + error.message
+    });
+  }
+});
+
+// Get current template path information
+app.get('/admin/api/espresso/template-path', requireAuth, (req, res) => {
+  try {
+    const templatePathInfo = espresso.getCurrentTemplatePath();
+    res.json({
+      success: true,
+      templatePath: templatePathInfo
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error getting template path:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get template path: ' + error.message
+    });
+  }
+});
+
 // Serve uploaded espresso template assets
 app.get('/uploads/espresso/templates/:filename', (req, res) => {
   try {
