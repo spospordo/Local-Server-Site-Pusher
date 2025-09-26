@@ -1280,6 +1280,7 @@
             <!-- Sub-tabs for Server -->
             <div class="sub-tabs" id="server-subtabs">
                 <button class="sub-tab active" onclick="showSubTab('server-vidiots')">Vidiots</button>
+                <button class="sub-tab" onclick="showSubTab('server-github')">GitHub</button>
             </div>
         </div>
         <!-- Server Status -->
@@ -1744,9 +1745,54 @@
                     </div>
                 </div>
                 
+                <div class="form-group" style="margin-top: 20px;">
+                    <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="testVidiotsScrape()">Test Scrape</button>
+                    <button class="btn btn-secondary" onclick="loadVidiotsStatus()">Refresh Status</button>
+                </div>
+                
+                <div id="vidiotsAlert" class="alert"></div>
+                
+                <!-- Status Display -->
+                <div class="card" style="margin-top: 20px; background: #f8f9fa;">
+                    <div class="card-header">
+                        <h3>Scraper Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="vidiotsStatus" style="font-family: monospace; font-size: 0.9em; white-space: pre-wrap; color: #666;">
+                            Loading status...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Preview Link -->
+                <div style="margin-top: 15px;">
+                    <a href="/vidiots" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- GitHub Configuration -->
+        <div class="card admin-section server-section server-github-section">
+            <div class="card-header">
+                <h2>GitHub Pages Configuration</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure GitHub Pages integration for automated website deployment:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vidiotsGithubEnabled">GitHub Pages Upload</label>
+                        <select id="vidiotsGithubEnabled">
+                            <option value="false">Disabled</option>
+                            <option value="true">Enabled</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <!-- GitHub Pages Configuration -->
                 <div id="githubPagesConfig" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <h4>GitHub Pages Configuration</h4>
+                    <h4>Repository Settings</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="vidiotsRepoOwner">Repository Owner</label>
@@ -1807,37 +1853,18 @@
                 
                 <div class="form-group" style="margin-top: 20px;">
                     <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
-                    <button class="btn btn-secondary" onclick="testVidiotsScrape()">Test Scrape</button>
                     <button class="btn btn-secondary" onclick="testGitHubConnection()">Test GitHub</button>
                     <button class="btn btn-secondary" onclick="cloneGitHubRepo()">Clone/Pull Repository</button>
                     <button class="btn btn-secondary" onclick="browseGitHubRepo()">Browse Repository</button>
                     <button class="btn btn-secondary" onclick="uploadToGitHub()">Upload to GitHub</button>
-                    <button class="btn btn-secondary" onclick="loadVidiotsStatus()">Refresh Status</button>
                 </div>
                 
                 <div id="vidiotsAlert" class="alert"></div>
-                
-                <!-- Status Display -->
-                <div class="card" style="margin-top: 20px; background: #f8f9fa;">
-                    <div class="card-header">
-                        <h3>Scraper Status</h3>
-                    </div>
-                    <div class="card-body">
-                        <div id="vidiotsStatus" style="font-family: monospace; font-size: 0.9em; white-space: pre-wrap; color: #666;">
-                            Loading status...
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Preview Link -->
-                <div style="margin-top: 15px;">
-                    <a href="/vidiots" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
-                </div>
             </div>
         </div>
 
         <!-- GitHub.io Repository Browser -->
-        <div class="card admin-section vidiots-section" id="githubRepositoryBrowser" style="display: none;">
+        <div class="card admin-section server-section server-github-section" id="githubRepositoryBrowser" style="display: none;">
             <div class="card-header">
                 <h2>GitHub.io Repository Browser</h2>
             </div>
@@ -1866,6 +1893,7 @@
                 </div>
             </div>
         </div>
+
 
         <!-- Home Assistant Media Streaming -->
         <div class="card admin-section settings-section">
@@ -4331,6 +4359,14 @@
                 if (shouldLoadData) {
                     loadVidiotsConfig();
                     loadVidiotsStatus();
+                }
+            } else if (subTabName === 'server-github') {
+                const githubSections = document.querySelectorAll('.server-github-section');
+                githubSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadVidiotsConfig(); // Still need to load config for GitHub settings
+                    loadGitIdentity();
                 }
             }
         }
