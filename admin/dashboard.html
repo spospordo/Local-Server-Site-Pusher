@@ -1818,72 +1818,40 @@
                     </div>
                 </div>
                 
-                <!-- GitHub Pages Configuration -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="espressoGithubEnabled">GitHub Pages Upload</label>
-                        <select id="espressoGithubEnabled">
-                            <option value="false">Disabled</option>
-                            <option value="true">Enabled</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="espressoGithubRemotePath">GitHub Remote Path</label>
-                        <input type="text" id="espressoGithubRemotePath" placeholder="espresso/index.html">
-                    </div>
-                    <div class="form-group">
-                        <label for="espressoGithubImagePath">GitHub Image Path</label>
-                        <input type="text" id="espressoGithubImagePath" placeholder="espresso/images">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="espressoGithubCommitMessage">Commit Message</label>
-                        <input type="text" id="espressoGithubCommitMessage" placeholder="Automated espresso update">
-                        <small>Commit message for espresso-related updates</small>
-                    </div>
-                </div>
-                
-                <!-- GitHub Pages Deployment Settings -->
-                <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 5px; border-left: 4px solid #007bff;">
-                    <h4>🚀 GitHub Pages Deployment Settings</h4>
+                <!-- Local Repository File Location -->
+                <div style="margin-top: 20px; padding: 15px; background: #f0f8e7; border-radius: 5px; border-left: 4px solid #28a745;">
+                    <h4>📂 Local Repository Output Settings</h4>
                     <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
-                        Configure the existing GitHub.io repository where your generated espresso website will be deployed. All fields are required for GitHub Pages upload to work.
+                        Configure where the generated espresso HTML and images should be saved within the local repository managed by the GitHub tab.
+                        The GitHub tab handles all upload operations - this section only controls local file placement.
                     </p>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="espressoRepoOwner">Repository Owner <span style="color: red;">*</span></label>
-                            <input type="text" id="espressoRepoOwner" placeholder="your-username" title="The GitHub username or organization that owns the repository. Example: 'johnsmith' or 'myorganization'">
-                            <small>GitHub username or organization name. Example: <code>johnsmith</code></small>
+                            <label for="espressoLocalOutputPath">HTML Output Path within Repository</label>
+                            <input type="text" id="espressoLocalOutputPath" placeholder="espresso/index.html" title="Path within the local repository where the HTML file will be saved">
+                            <small>Relative path within repository. Example: <code>espresso/index.html</code> or <code>coffee/espresso.html</code></small>
                         </div>
                         <div class="form-group">
-                            <label for="espressoRepoName">Repository Name <span style="color: red;">*</span></label>
-                            <input type="text" id="espressoRepoName" placeholder="my-espresso-site" title="The name of your GitHub repository. Example: 'my-espresso-site' or 'username.github.io'">
-                            <small>Repository name. Example: <code>my-espresso-site</code> or <code>username.github.io</code></small>
+                            <label for="espressoLocalImagePath">Images Path within Repository</label>
+                            <input type="text" id="espressoLocalImagePath" placeholder="espresso/images" title="Directory within the local repository where images will be saved">
+                            <small>Relative path within repository. Example: <code>espresso/images</code> or <code>assets/coffee-images</code></small>
                         </div>
                     </div>
+                    
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="espressoRepoBranch">Branch <span style="color: red;">*</span></label>
-                            <input type="text" id="espressoRepoBranch" placeholder="main" title="The git branch to upload to. Usually 'main' or 'gh-pages' for GitHub Pages">
-                            <small>Git branch to push to. Example: <code>main</code> or <code>gh-pages</code></small>
-                        </div>
-                        <div class="form-group">
-                            <label for="espressoRepoLocalPath">Local Repository Path <span style="color: red;">*</span></label>
-                            <input type="text" id="espressoRepoLocalPath" placeholder="/tmp/my-espresso-repo" title="Absolute path where the repository will be cloned locally. Example: '/tmp/my-espresso-repo'">
-                            <small>Local directory for git operations. Example: <code>/tmp/my-espresso-repo</code></small>
+                            <label for="espressoSaveToRepo">Save to Local Repository</label>
+                            <select id="espressoSaveToRepo">
+                                <option value="false">Save to public directory (default)</option>
+                                <option value="true">Save to local repository (managed by GitHub tab)</option>
+                            </select>
+                            <small>When enabled, files are saved to the local repository configured in the GitHub tab instead of the public directory</small>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="espressoAccessToken">GitHub Personal Access Token <span style="color: red;">*</span></label>
-                            <input type="password" id="espressoAccessToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" title="GitHub Personal Access Token for authentication. Create at: Settings → Developer settings → Personal access tokens">
-                            <small>Required for authentication. Create at: <strong>GitHub Settings → Developer settings → Personal access tokens</strong></small>
-                        </div>
+                    
+                    <div id="espressoRepoStatus" style="margin-top: 15px; padding: 10px; background: white; border-radius: 3px; border: 1px solid #dee2e6; font-size: 0.9em; color: #6c757d;">
+                        <strong>Repository Status:</strong> <span id="espressoRepoStatusText">Checking GitHub tab configuration...</span>
                     </div>
                 </div>
                 
@@ -1961,7 +1929,8 @@
                 <div style="margin-top: 20px;">
                     <button onclick="saveEspressoConfig()" class="btn btn-primary">Save Configuration</button>
                     <button onclick="testEspressoGeneration()" class="btn btn-secondary">Test HTML Generation</button>
-                    <button onclick="uploadEspressoToGitHub()" class="btn btn-secondary" id="uploadEspressoBtn">Upload to GitHub</button>
+                    <button onclick="uploadEspressoToGitHub()" class="btn btn-secondary" id="uploadEspressoBtn" style="display: none;">Upload to GitHub</button>
+                    <button onclick="refreshEspressoRepoStatus()" class="btn btn-secondary" id="refreshRepoStatusBtn">Refresh Repository Status</button>
                 </div>
                 
                 <!-- Status and Preview -->
@@ -4907,16 +4876,13 @@
                     document.getElementById('espressoEnabled').value = config.enabled ? 'true' : 'false';
                     document.getElementById('espressoDataFilePath').value = config.dataFilePath || '';
                     document.getElementById('espressoOutputPath').value = config.outputPath || '';
-                    document.getElementById('espressoGithubEnabled').value = config.githubPages?.enabled ? 'true' : 'false';
-                    document.getElementById('espressoGithubRemotePath').value = config.githubPages?.remotePath || '';
-                    document.getElementById('espressoGithubImagePath').value = config.githubPages?.imageRemotePath || '';
-                    document.getElementById('espressoGithubCommitMessage').value = config.githubPages?.commitMessage || '';
-                    // Load repository connection settings
-                    document.getElementById('espressoRepoOwner').value = config.githubPages?.repoOwner || '';
-                    document.getElementById('espressoRepoName').value = config.githubPages?.repoName || '';
-                    document.getElementById('espressoRepoBranch').value = config.githubPages?.branch || 'main';
-                    document.getElementById('espressoRepoLocalPath').value = config.githubPages?.repoLocalPath || '';
-                    document.getElementById('espressoAccessToken').value = config.githubPages?.accessToken || '';
+                    // Load local repository settings
+                    document.getElementById('espressoSaveToRepo').value = config.localRepo?.enabled ? 'true' : 'false';
+                    document.getElementById('espressoLocalOutputPath').value = config.localRepo?.outputPath || 'espresso/index.html';
+                    document.getElementById('espressoLocalImagePath').value = config.localRepo?.imagePath || 'espresso/images';
+                    
+                    // Update repository status
+                    updateEspressoRepoStatus();
                     
                     // Load template path info
                     await loadEspressoTemplatePath();
@@ -4943,16 +4909,10 @@
                     templatePath: document.getElementById('espressoTemplatePath').value.trim(),
                     outputPath: document.getElementById('espressoOutputPath').value.trim() || './public/espresso/index.html',
                     imagePaths: imagePaths,
-                    githubPages: {
-                        enabled: document.getElementById('espressoGithubEnabled').value === 'true',
-                        repoOwner: document.getElementById('espressoRepoOwner').value.trim(),
-                        repoName: document.getElementById('espressoRepoName').value.trim(),
-                        branch: document.getElementById('espressoRepoBranch').value.trim() || 'main',
-                        repoLocalPath: document.getElementById('espressoRepoLocalPath').value.trim(),
-                        accessToken: document.getElementById('espressoAccessToken').value.trim(),
-                        remotePath: document.getElementById('espressoGithubRemotePath').value.trim() || 'espresso/index.html',
-                        imageRemotePath: document.getElementById('espressoGithubImagePath').value.trim() || 'espresso/images',
-                        commitMessage: document.getElementById('espressoGithubCommitMessage').value.trim() || 'Automated espresso update'
+                    localRepo: {
+                        enabled: document.getElementById('espressoSaveToRepo').value === 'true',
+                        outputPath: document.getElementById('espressoLocalOutputPath').value.trim() || 'espresso/index.html',
+                        imagePath: document.getElementById('espressoLocalImagePath').value.trim() || 'espresso/images'
                     }
                 };
 
@@ -5056,6 +5016,47 @@
                 // Reset button loading state
                 setButtonLoading('uploadEspressoBtn', false);
             }
+        }
+
+        // Function to update repository status in espresso tab
+        async function updateEspressoRepoStatus() {
+            try {
+                // Get GitHub configuration from the main config
+                const response = await fetch('/admin/api/vidiots/config');
+                const result = await response.json();
+                
+                if (result.success && result.config.githubPages) {
+                    const github = result.config.githubPages;
+                    const statusElement = document.getElementById('espressoRepoStatusText');
+                    
+                    if (github.repoOwner && github.repoName && github.repoLocalPath) {
+                        statusElement.innerHTML = `✅ Connected to <strong>${github.repoOwner}/${github.repoName}</strong> (${github.branch || 'main'}) at <code>${github.repoLocalPath}</code>`;
+                        statusElement.style.color = '#28a745';
+                        
+                        // Enable save to repo option if repository is configured
+                        document.getElementById('espressoSaveToRepo').disabled = false;
+                    } else {
+                        statusElement.innerHTML = '⚠️ Repository not configured in GitHub tab. Please configure repository settings in the GitHub tab first.';
+                        statusElement.style.color = '#ffc107';
+                        
+                        // Disable save to repo option if repository is not configured
+                        document.getElementById('espressoSaveToRepo').value = 'false';
+                        document.getElementById('espressoSaveToRepo').disabled = true;
+                    }
+                } else {
+                    document.getElementById('espressoRepoStatusText').innerHTML = '❌ Unable to connect to GitHub configuration.';
+                    document.getElementById('espressoRepoStatusText').style.color = '#dc3545';
+                }
+            } catch (error) {
+                document.getElementById('espressoRepoStatusText').innerHTML = `❌ Error: ${error.message}`;
+                document.getElementById('espressoRepoStatusText').style.color = '#dc3545';
+            }
+        }
+
+        // Function to refresh repository status
+        async function refreshEspressoRepoStatus() {
+            await updateEspressoRepoStatus();
+            showAlert('Repository status refreshed', 'info', 'espressoAlert');
         }
 
         // Helper function to get current config

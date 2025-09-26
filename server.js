@@ -462,16 +462,10 @@ const defaultConfig = {
     "templatePath": "",
     "outputPath": "./public/espresso/index.html",
     "imagePaths": {},
-    "githubPages": {
+    "localRepo": {
       "enabled": false,
-      "repoOwner": "",
-      "repoName": "",
-      "branch": "main",
-      "repoLocalPath": "",
-      "accessToken": "",
-      "remotePath": "espresso/index.html",
-      "imageRemotePath": "espresso/images",
-      "commitMessage": "Automated espresso update"
+      "outputPath": "espresso/index.html",
+      "imagePath": "espresso/images"
     }
   }
 };

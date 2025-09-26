@@ -139,6 +139,7 @@ function getTemplatePath() {
 // Get image paths - prioritize uploaded images over configured paths
 function getImagePaths(useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
+  const vidiotsConfig = config.vidiots || {};
   const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
   const configuredImagePaths = espressoConfig.imagePaths || {};
   const imagePaths = { ...configuredImagePaths };
@@ -156,19 +157,18 @@ function getImagePaths(useGithubUrls = false) {
         const basename = path.basename(file, fileExt).toLowerCase();
         
         let imagePath;
-        if (useGithubUrls && espressoConfig.githubPages?.enabled) {
+        if (useGithubUrls && vidiotsConfig.githubPages?.repoOwner && vidiotsConfig.githubPages?.repoName) {
           // Generate absolute GitHub.io URL for the final deployment
-          const githubConfig = espressoConfig.githubPages;
+          const githubConfig = vidiotsConfig.githubPages;
           const repoOwner = githubConfig.repoOwner;
           const repoName = githubConfig.repoName;
-          const imageRemotePath = githubConfig.imageRemotePath || 'espresso/images';
+          const imageRemotePath = espressoConfig.localRepo?.imagePath || 'espresso/images';
           
-          if (repoOwner && repoName) {
-            imagePath = `https://${repoOwner}.github.io/${repoName}/${imageRemotePath}/${file}`;
-          } else {
-            // Fallback to relative path if GitHub config is incomplete
-            imagePath = `/uploads/espresso/templates/${file}`;
-          }
+          imagePath = `https://${repoOwner}.github.io/${repoName}/${imageRemotePath}/${file}`;
+        } else if (espressoConfig.localRepo?.enabled && vidiotsConfig.githubPages?.repoLocalPath) {
+          // Use relative path for local repository
+          const repoImagePath = espressoConfig.localRepo.imagePath || 'espresso/images';
+          imagePath = `./${repoImagePath}/${file}`;
         } else {
           // Use relative path from public directory for local serving
           imagePath = `/uploads/espresso/templates/${file}`;
@@ -183,7 +183,46 @@ function getImagePaths(useGithubUrls = false) {
   return imagePaths;
 }
 
-// Get list of uploaded image files for GitHub upload
+// Copy images to local repository if enabled
+async function copyImagesToRepository() {
+  const espressoConfig = config.espresso || {};
+  const vidiotsConfig = config.vidiots || {};
+  
+  if (!espressoConfig.localRepo?.enabled || !vidiotsConfig.githubPages?.repoLocalPath) {
+    return; // Not using local repository
+  }
+  
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const repoPath = vidiotsConfig.githubPages.repoLocalPath;
+  const repoImagePath = path.join(repoPath, espressoConfig.localRepo.imagePath || 'espresso/images');
+  
+  // Ensure repository image directory exists
+  if (!fs.existsSync(repoImagePath)) {
+    fs.mkdirSync(repoImagePath, { recursive: true });
+    console.log(`📁 [Espresso] Created repository image directory: ${repoImagePath}`);
+  }
+  
+  // Copy uploaded images to repository
+  if (fs.existsSync(uploadsDir)) {
+    const files = fs.readdirSync(uploadsDir);
+    
+    files.forEach(file => {
+      const filePath = path.join(uploadsDir, file);
+      const fileExt = path.extname(file).toLowerCase();
+      
+      // Check if it's an image file
+      if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+        const destPath = path.join(repoImagePath, file);
+        try {
+          fs.copyFileSync(filePath, destPath);
+          console.log(`🖼️ [Espresso] Copied image to repository: ${file}`);
+        } catch (error) {
+          console.error(`❌ [Espresso] Error copying image ${file}: ${error.message}`);
+        }
+      }
+    });
+  }
+}
 function getUploadedImageFiles() {
   const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
   const imageFiles = [];
@@ -211,7 +250,21 @@ function getUploadedImageFiles() {
 // Generate HTML from espresso data and template
 async function generateHTML(espressoData, useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
-  const outputPath = espressoConfig.outputPath || './public/espresso/index.html';
+  const vidiotsConfig = config.vidiots || {};
+  
+  // Determine output path - use local repository if enabled, otherwise use configured output path
+  let outputPath;
+  if (espressoConfig.localRepo?.enabled && vidiotsConfig.githubPages?.repoLocalPath) {
+    // Save to local repository
+    const repoPath = vidiotsConfig.githubPages.repoLocalPath;
+    const relativeOutputPath = espressoConfig.localRepo.outputPath || 'espresso/index.html';
+    outputPath = path.join(repoPath, relativeOutputPath);
+    console.log(`📁 [Espresso] Using local repository path: ${outputPath}`);
+  } else {
+    // Save to default public directory
+    outputPath = espressoConfig.outputPath || './public/espresso/index.html';
+    console.log(`📁 [Espresso] Using public directory path: ${outputPath}`);
+  }
   
   // Get template path (uploaded template takes priority over configured path)
   const templatePath = getTemplatePath();
@@ -260,6 +313,9 @@ async function generateHTML(espressoData, useGithubUrls = false) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
+    
+    // Copy images to local repository if enabled
+    await copyImagesToRepository();
     
     // Save the generated HTML
     fs.writeFileSync(outputPath, generatedHTML);
