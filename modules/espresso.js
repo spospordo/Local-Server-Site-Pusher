@@ -280,27 +280,79 @@ async function updateEspressoData(newData) {
       throw new Error('Invalid espresso data provided');
     }
     
-    // Load existing data
-    const currentData = loadEspressoData();
+    let updatedData;
     
-    // Merge new data with existing data
-    const updatedData = { ...currentData, ...newData };
+    // Check if this is a reset request
+    if (newData.reset === true) {
+      console.log(`🔄 [Espresso] Resetting data to defaults`);
+      
+      // Create default data (same as in ensureEspressoDataFile)
+      updatedData = {
+        weight1: "15g",
+        grind1: ".5", 
+        tempIn1: "90",
+        soak1: "yes",
+        notes1: "None",
+        time1: "32s",
+        weightOut1: "40g",
+        weight2: "15g",
+        grind2: ".9",
+        tempIn2: "88", 
+        soak2: "Yes",
+        notes2: "Mild, rich, balanced, citrus",
+        time2: "25s",
+        weightOut2: "40g",
+        weight3: "14g",
+        grind3: "2.75",
+        tempIn3: "90",
+        soak3: "Yes", 
+        notes3: "Balanced, rich, bitter",
+        time3: "32s",
+        weightOut3: "40g",
+        beanName1: "Sample Bean 1",
+        roastDate1: "Jan 2025",
+        beanName2: "Sample Bean 2", 
+        roastDate2: "Jan 2025",
+        beanName3: "Sample Bean 3",
+        roastDate3: "Jan 2025"
+      };
+    } else {
+      // Load existing data
+      const currentData = loadEspressoData();
+      
+      // Merge new data with existing data
+      updatedData = { ...currentData, ...newData };
+    }
     
     // Save updated data
     const saveResult = saveEspressoData(updatedData);
     if (!saveResult) {
       throw new Error('Failed to save espresso data');
     }
+
+    // Try to generate HTML from updated data (local version first) - only if enabled and template exists
+    let htmlResult = null;
+    let htmlGenerated = false;
     
-    // Generate HTML from updated data (local version first)
-    const htmlResult = await generateHTML(updatedData, false);
-    if (!htmlResult.success) {
-      throw new Error(`HTML generation failed: ${htmlResult.error}`);
+    const espressoConfig = config.espresso || {};
+    if (espressoConfig.enabled) {
+      try {
+        htmlResult = await generateHTML(updatedData, false);
+        if (htmlResult.success) {
+          htmlGenerated = true;
+          console.log(`✅ [Espresso] HTML generation successful`);
+        } else {
+          console.log(`⚠️ [Espresso] HTML generation failed (but data saved): ${htmlResult.error}`);
+        }
+      } catch (htmlError) {
+        console.log(`⚠️ [Espresso] HTML generation failed (but data saved): ${htmlError.message}`);
+      }
+    } else {
+      console.log(`ℹ️ [Espresso] HTML generation skipped (module disabled)`);
     }
     
-    // Upload to GitHub Pages if enabled
-    const espressoConfig = config.espresso || {};
-    if (espressoConfig.githubPages?.enabled) {
+    // Upload to GitHub Pages if enabled and HTML was generated
+    if (htmlGenerated && espressoConfig.githubPages?.enabled) {
       try {
         console.log(`🔄 [Espresso] Uploading to GitHub Pages...`);
         
@@ -348,8 +400,8 @@ async function updateEspressoData(newData) {
     return {
       success: true,
       data: updatedData,
-      htmlGenerated: true,
-      outputPath: htmlResult.outputPath
+      htmlGenerated: htmlGenerated,
+      outputPath: htmlResult?.outputPath || null
     };
     
   } catch (error) {
