@@ -1871,6 +1871,7 @@
                 <div style="margin-top: 20px;">
                     <button onclick="saveEspressoConfig()" class="btn btn-primary">Save Configuration</button>
                     <button onclick="testEspressoGeneration()" class="btn btn-secondary">Test HTML Generation</button>
+                    <button onclick="uploadEspressoToGitHub()" class="btn btn-secondary" id="uploadEspressoBtn">Upload to GitHub</button>
                 </div>
                 
                 <!-- Status and Preview -->
@@ -4828,6 +4829,34 @@
             } catch (error) {
                 showAlert('Error running HTML generation test: ' + error.message, 'error', 'espressoAlert');
                 setTimeout(loadEspressoStatus, 2000);
+            }
+        }
+
+        async function uploadEspressoToGitHub() {
+            try {
+                // Set loading state
+                setButtonLoading('uploadEspressoBtn', true);
+                showAlert('Uploading espresso content to GitHub Pages...', 'success', 'espressoAlert');
+                
+                const response = await fetch('/admin/api/espresso/github/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Successfully uploaded to GitHub Pages! (${result.filesUploaded || 0} files, ${result.imagesUploaded || 0} images)`, 'success', 'espressoAlert');
+                } else {
+                    showAlert('Failed to upload to GitHub Pages: ' + (result.error || 'Unknown error'), 'error', 'espressoAlert');
+                }
+            } catch (error) {
+                showAlert('Error uploading to GitHub Pages: ' + error.message, 'error', 'espressoAlert');
+            } finally {
+                // Reset button loading state
+                setButtonLoading('uploadEspressoBtn', false);
             }
         }
 

@@ -2995,6 +2995,93 @@ app.get('/admin/api/espresso/template-path', requireAuth, (req, res) => {
   }
 });
 
+// Manual GitHub Pages upload for espresso
+app.post('/admin/api/espresso/github/upload', requireAuth, async (req, res) => {
+  try {
+    console.log('📤 [Espresso] Manual GitHub Pages upload triggered from admin interface');
+    
+    const espressoConfig = config.espresso || {};
+    if (!espressoConfig.githubPages?.enabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'GitHub Pages integration is not enabled for Espresso. Please enable it in the configuration.'
+      });
+    }
+    
+    // Get current espresso data
+    const currentData = espresso.getEspressoData();
+    
+    // Generate GitHub version of HTML with absolute URLs
+    const githubHtmlResult = await espresso.generateHTML(currentData, true);
+    if (!githubHtmlResult.success) {
+      throw new Error(`GitHub HTML generation failed: ${githubHtmlResult.error}`);
+    }
+    
+    // Get uploaded image files
+    const imageFiles = [];
+    const uploadsDir = path.join(__dirname, 'uploads', 'espresso', 'templates');
+    
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      
+      files.forEach(file => {
+        const filePath = path.join(uploadsDir, file);
+        const fileExt = path.extname(file).toLowerCase();
+        
+        // Check if it's an image file
+        if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+          imageFiles.push({
+            filename: file,
+            localPath: filePath
+          });
+        }
+      });
+    }
+    
+    // Prepare files for upload
+    const filesToUpload = [];
+    
+    // Add HTML file
+    filesToUpload.push({
+      localPath: githubHtmlResult.outputPath,
+      remotePath: espressoConfig.githubPages.remotePath || 'espresso/index.html'
+    });
+    
+    // Add image files
+    const imageRemotePath = espressoConfig.githubPages.imageRemotePath || 'espresso/images';
+    imageFiles.forEach(imageFile => {
+      filesToUpload.push({
+        localPath: imageFile.localPath,
+        remotePath: `${imageRemotePath}/${imageFile.filename}`
+      });
+    });
+    
+    console.log(`📋 [Espresso] Uploading ${filesToUpload.length} files (1 HTML + ${imageFiles.length} images)`);
+    
+    // Upload files using the espresso-specific GitHub configuration
+    const result = await vidiots.githubUpload.uploadFiles(
+      filesToUpload,
+      espressoConfig.githubPages.commitMessage || 'Manual espresso upload',
+      espressoConfig.githubPages
+    );
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 'Upload to GitHub Pages successful' : 'Upload to GitHub Pages failed',
+      filesUploaded: filesToUpload.length,
+      imagesUploaded: imageFiles.length,
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('❌ [Espresso] Manual GitHub upload failed:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload to GitHub Pages: ' + error.message
+    });
+  }
+});
+
 // Serve uploaded espresso template assets
 app.get('/uploads/espresso/templates/:filename', (req, res) => {
   try {
