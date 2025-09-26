@@ -77,6 +77,18 @@ const defaultConfig = {
       "accessToken": "",
       "commitMessage": "Automated vidiots update"
     }
+  },
+  "espresso": {
+    "enabled": false,
+    "dataFilePath": "./config/espresso-data.json",
+    "templatePath": "",
+    "outputPath": "./public/espresso/index.html",
+    "imagePaths": {},
+    "githubPages": {
+      "enabled": false,
+      "remotePath": "espresso/index.html",
+      "commitMessage": "Automated espresso update"
+    }
   }
 };
 
