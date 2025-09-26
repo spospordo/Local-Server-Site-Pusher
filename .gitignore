@@ -18,3 +18,6 @@ backups/
 
 # Client uploaded files
 uploads/cookies.jar
+
+# Uploaded template files from testing (these are test artifacts)
+uploads/espresso/templates/
