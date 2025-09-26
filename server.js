@@ -8,6 +8,7 @@ const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
 const vidiots = require('./modules/vidiots');
+const espresso = require('./modules/espresso');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -453,6 +454,18 @@ const defaultConfig = {
       "accessToken": "",
       "commitMessage": "Automated vidiots update"
     }
+  },
+  "espresso": {
+    "enabled": false,
+    "dataFilePath": "./config/espresso-data.json",
+    "templatePath": "",
+    "outputPath": "./public/espresso/index.html",
+    "imagePaths": {},
+    "githubPages": {
+      "enabled": false,
+      "remotePath": "espresso/index.html",
+      "commitMessage": "Automated espresso update"
+    }
   }
 };
 
@@ -494,7 +507,8 @@ function validateAndRepairConfig(config) {
     'storage': defaultConfig.storage,
     'client': defaultConfig.client,
     'drinkMixer': defaultConfig.drinkMixer,
-    'vidiots': defaultConfig.vidiots
+    'vidiots': defaultConfig.vidiots,
+    'espresso': defaultConfig.espresso
   };
   
   for (const [sectionPath, defaultValue] of Object.entries(requiredSections)) {
@@ -527,6 +541,22 @@ function validateAndRepairConfig(config) {
       }
       target[lastPart] = defaultValue;
       needsRepair = true;
+    } else if (typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+      // Merge default with existing object to ensure all required fields exist
+      // But preserve existing values over defaults
+      const existingValue = current[lastPart];
+      const mergedValue = { ...defaultValue, ...existingValue };
+      
+      // Check if merge is needed (if any default keys are missing)
+      const defaultKeys = Object.keys(defaultValue);
+      const existingKeys = Object.keys(existingValue);
+      const needsMerge = defaultKeys.some(key => !(key in existingValue));
+      
+      if (needsMerge) {
+        console.log(`Merging config section: ${sectionPath}`);
+        current[lastPart] = mergedValue;
+        needsRepair = true;
+      }
     }
   }
   
@@ -623,6 +653,9 @@ const PORT = config.server.port || 3000;
 
 // Initialize vidiots module
 vidiots.init(config);
+
+// Initialize espresso module  
+espresso.init(config);
 
 // Initialize multer configuration after config is loaded
 upload = multer({
@@ -2554,6 +2587,187 @@ app.get('/vidiots', (req, res) => {
     // Sanitize error message to prevent XSS
     const sanitizedError = error.message.replace(/[<>"']/g, '');
     res.status(500).send('Error serving vidiots content: ' + sanitizedError);
+  }
+});
+
+// ================================================================
+// ESPRESSO API ENDPOINTS
+// ================================================================
+
+// Get espresso data
+app.get('/get-text', (req, res) => {
+  try {
+    console.log('📊 [Espresso] GET /get-text - Fetching espresso data');
+    const espressoData = espresso.getEspressoData();
+    res.json(espressoData);
+  } catch (error) {
+    console.error('❌ [Espresso] Error fetching data:', error.message);
+    res.status(500).json({ error: 'Failed to fetch espresso data' });
+  }
+});
+
+// Update espresso data
+app.post('/update-texts', express.json(), async (req, res) => {
+  try {
+    console.log('📝 [Espresso] POST /update-texts - Updating espresso data');
+    const updatedData = req.body;
+    
+    if (!updatedData || typeof updatedData !== 'object') {
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+    
+    const result = await espresso.updateEspressoData(updatedData);
+    
+    if (result.success) {
+      console.log('✅ [Espresso] Data updated successfully');
+      res.status(200).json({ 
+        message: 'Text values updated successfully',
+        htmlGenerated: result.htmlGenerated,
+        outputPath: result.outputPath
+      });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error updating data:', error.message);
+    res.status(500).json({ error: 'Failed to update espresso data' });
+  }
+});
+
+// Admin espresso status endpoint
+app.get('/admin/api/espresso/status', requireAuth, (req, res) => {
+  try {
+    const status = espresso.getStatus();
+    res.json({
+      success: true,
+      status
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error getting status:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get espresso status: ' + error.message
+    });
+  }
+});
+
+// Admin espresso config endpoint  
+app.get('/admin/api/espresso/config', requireAuth, (req, res) => {
+  try {
+    const espressoConfig = config.espresso || {};
+    res.json({
+      success: true,
+      config: espressoConfig
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error getting config:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get espresso config: ' + error.message
+    });
+  }
+});
+
+// Update espresso config
+app.post('/admin/api/espresso/config', requireAuth, (req, res) => {
+  try {
+    const { espresso: newEspressoConfig } = req.body;
+    
+    if (!newEspressoConfig) {
+      return res.status(400).json({
+        success: false,
+        error: 'No espresso configuration provided'
+      });
+    }
+    
+    // Update the config
+    config.espresso = {
+      ...config.espresso,
+      ...newEspressoConfig
+    };
+    
+    // Reinitialize espresso module with new config
+    espresso.init(config);
+    
+    // Try to write to file if possible
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({
+          success: true,
+          message: 'Espresso configuration saved successfully',
+          config: config.espresso
+        });
+      } else {
+        res.json({
+          success: true, 
+          message: 'Espresso configuration updated (file save failed but config active)',
+          config: config.espresso,
+          warning: 'Configuration file could not be written'
+        });
+      }
+    } else {
+      res.json({
+        success: true,
+        message: 'Espresso configuration updated (temporary - file not writable)',
+        config: config.espresso,
+        warning: 'Changes will be lost on server restart'
+      });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error updating config:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update espresso configuration: ' + error.message
+    });
+  }
+});
+
+// Trigger HTML generation
+app.post('/admin/api/espresso/generate', requireAuth, async (req, res) => {
+  try {
+    console.log('🚀 [Espresso] Manual HTML generation triggered from admin interface');
+    const espressoData = espresso.getEspressoData();
+    const result = await espresso.generateHTML(espressoData);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'HTML generated successfully',
+        outputPath: result.outputPath
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error generating HTML:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate HTML: ' + error.message
+    });
+  }
+});
+
+// Public espresso content endpoint
+app.get('/espresso', (req, res) => {
+  try {
+    const espressoConfig = config.espresso || {};
+    const outputFile = espressoConfig.outputPath || './public/espresso/index.html';
+    
+    // Validate the output file path to prevent path traversal
+    const normalizedPath = path.resolve(outputFile);
+    
+    if (fs.existsSync(normalizedPath)) {
+      res.sendFile(normalizedPath);
+    } else {
+      res.status(404).send('Espresso content not yet generated. Please check back later.');
+    }
+  } catch (error) {
+    // Sanitize error message to prevent XSS
+    const sanitizedError = error.message.replace(/[<>"']/g, '');
+    res.status(500).send('Error serving espresso content: ' + sanitizedError);
   }
 });
 

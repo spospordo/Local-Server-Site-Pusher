@@ -33,7 +33,7 @@
       "url": "/admin"
     },
     {
-      "name": "Client Access",
+      "name": "Client Access", 
       "url": "/client"
     },
     {
@@ -44,5 +44,21 @@
       "name": "Home Assistant",
       "url": "http://localhost:8123"
     }
-  ]
+  ],
+  "espresso": {
+    "enabled": true,
+    "dataFilePath": "./config/espresso-data.json",
+    "templatePath": "./public/espresso-template.html",
+    "outputPath": "./public/espresso/index.html",
+    "imagePaths": {
+      "smallcontainer": "https://example.github.io/small.png",
+      "mediumcontainer": "https://example.github.io/medium.png", 
+      "largecontainer": "https://example.github.io/large.png"
+    },
+    "githubPages": {
+      "enabled": false,
+      "remotePath": "espresso/index.html",
+      "commitMessage": "Automated espresso update"
+    }
+  }
 }

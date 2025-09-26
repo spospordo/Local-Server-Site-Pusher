@@ -1280,6 +1280,7 @@
             <!-- Sub-tabs for Server -->
             <div class="sub-tabs" id="server-subtabs">
                 <button class="sub-tab active" onclick="showSubTab('server-vidiots')">Vidiots</button>
+                <button class="sub-tab" onclick="showSubTab('server-espresso')">Espresso</button>
                 <button class="sub-tab" onclick="showSubTab('server-github')">GitHub</button>
             </div>
         </div>
@@ -1769,6 +1770,84 @@
                 <div style="margin-top: 15px;">
                     <a href="/vidiots" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
                 </div>
+            </div>
+        </div>
+
+        <!-- Espresso HTML Generator -->
+        <div class="card admin-section server-section server-espresso-section">
+            <div class="card-header">
+                <h2>Espresso HTML Generator</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure the espresso data management and HTML generation system:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoEnabled">Espresso Module</label>
+                        <select id="espressoEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoDataFilePath">Data File Path</label>
+                        <input type="text" id="espressoDataFilePath" placeholder="./config/espresso-data.json">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoTemplatePath">HTML Template Path</label>
+                        <input type="text" id="espressoTemplatePath" placeholder="/path/to/template.html">
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoOutputPath">Output HTML Path</label>
+                        <input type="text" id="espressoOutputPath" placeholder="./public/espresso/index.html">
+                    </div>
+                </div>
+                
+                <!-- Image Paths Configuration -->
+                <div class="form-group">
+                    <label for="espressoImagePaths">Image Paths (JSON)</label>
+                    <textarea id="espressoImagePaths" rows="3" placeholder='{"smallcontainer": "https://example.com/small.png", "mediumcontainer": "https://example.com/medium.png"}'></textarea>
+                    <small>Map image alt text to absolute URLs (JSON format)</small>
+                </div>
+                
+                <!-- GitHub Pages Configuration -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoGithubEnabled">GitHub Pages Upload</label>
+                        <select id="espressoGithubEnabled">
+                            <option value="false">Disabled</option>
+                            <option value="true">Enabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoGithubRemotePath">GitHub Remote Path</label>
+                        <input type="text" id="espressoGithubRemotePath" placeholder="espresso/index.html">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoGithubCommitMessage">Commit Message</label>
+                        <input type="text" id="espressoGithubCommitMessage" placeholder="Automated espresso update">
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="margin-top: 20px;">
+                    <button onclick="saveEspressoConfig()" class="btn btn-primary">Save Configuration</button>
+                    <button onclick="testEspressoGeneration()" class="btn btn-secondary">Test HTML Generation</button>
+                </div>
+                
+                <!-- Status and Preview -->
+                <div style="margin-top: 15px;">
+                    <div id="espressoStatus" class="status-info"></div>
+                    <a href="/espresso" target="_blank" class="btn btn-secondary">Preview Generated Content</a>
+                </div>
+                
+                <div id="espressoAlert" class="alert"></div>
             </div>
         </div>
 
@@ -4360,6 +4439,14 @@
                     loadVidiotsConfig();
                     loadVidiotsStatus();
                 }
+            } else if (subTabName === 'server-espresso') {
+                const espressoSections = document.querySelectorAll('.server-espresso-section');
+                espressoSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadEspressoConfig();
+                    loadEspressoStatus();
+                }
             } else if (subTabName === 'server-github') {
                 const githubSections = document.querySelectorAll('.server-github-section');
                 githubSections.forEach(section => section.classList.remove('hidden'));
@@ -4520,6 +4607,135 @@
             } catch (error) {
                 showAlert('Error running scrape test: ' + error.message, 'error', 'vidiotsAlert');
                 setTimeout(loadVidiotsStatus, 2000);
+            }
+        }
+
+        // ================================================================
+        // ESPRESSO CONFIGURATION FUNCTIONS
+        // ================================================================
+
+        async function loadEspressoConfig() {
+            try {
+                const response = await fetch('/admin/api/espresso/config');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const config = result.config;
+                    document.getElementById('espressoEnabled').value = config.enabled ? 'true' : 'false';
+                    document.getElementById('espressoDataFilePath').value = config.dataFilePath || '';
+                    document.getElementById('espressoTemplatePath').value = config.templatePath || '';
+                    document.getElementById('espressoOutputPath').value = config.outputPath || '';
+                    document.getElementById('espressoImagePaths').value = JSON.stringify(config.imagePaths || {}, null, 2);
+                    document.getElementById('espressoGithubEnabled').value = config.githubPages?.enabled ? 'true' : 'false';
+                    document.getElementById('espressoGithubRemotePath').value = config.githubPages?.remotePath || '';
+                    document.getElementById('espressoGithubCommitMessage').value = config.githubPages?.commitMessage || '';
+                    
+                    // Load status as well
+                    loadEspressoStatus();
+                }
+            } catch (error) {
+                showAlert('Error loading espresso configuration: ' + error.message, 'error', 'espressoAlert');
+            }
+        }
+
+        async function saveEspressoConfig() {
+            try {
+                // Parse image paths JSON
+                let imagePaths = {};
+                const imagePathsText = document.getElementById('espressoImagePaths').value.trim();
+                if (imagePathsText) {
+                    try {
+                        imagePaths = JSON.parse(imagePathsText);
+                    } catch (parseError) {
+                        showAlert('Invalid JSON format in Image Paths field', 'error', 'espressoAlert');
+                        return;
+                    }
+                }
+
+                const config = {
+                    enabled: document.getElementById('espressoEnabled').value === 'true',
+                    dataFilePath: document.getElementById('espressoDataFilePath').value.trim() || './config/espresso-data.json',
+                    templatePath: document.getElementById('espressoTemplatePath').value.trim(),
+                    outputPath: document.getElementById('espressoOutputPath').value.trim() || './public/espresso/index.html',
+                    imagePaths: imagePaths,
+                    githubPages: {
+                        enabled: document.getElementById('espressoGithubEnabled').value === 'true',
+                        remotePath: document.getElementById('espressoGithubRemotePath').value.trim() || 'espresso/index.html',
+                        commitMessage: document.getElementById('espressoGithubCommitMessage').value.trim() || 'Automated espresso update'
+                    }
+                };
+
+                const response = await fetch('/admin/api/espresso/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ espresso: config })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(result.message || 'Espresso configuration saved successfully', 'success', 'espressoAlert');
+                    loadEspressoStatus(); // Refresh status after config change
+                } else {
+                    showAlert('Failed to save espresso configuration: ' + (result.error || 'Unknown error'), 'error', 'espressoAlert');
+                }
+            } catch (error) {
+                showAlert('Error saving espresso configuration: ' + error.message, 'error', 'espressoAlert');
+            }
+        }
+
+        async function loadEspressoStatus() {
+            try {
+                const response = await fetch('/admin/api/espresso/status');
+                const result = await response.json();
+                
+                if (result.success && result.status) {
+                    const status = result.status;
+                    let statusText = `Enabled: ${status.enabled ? 'Yes' : 'No'}\n`;
+                    statusText += `Data File: ${status.dataFile ? 'Exists' : 'Missing'}\n`;
+                    statusText += `Template File: ${status.templateFile ? 'Exists' : 'Missing'}\n`;
+                    statusText += `Output File: ${status.outputFile ? 'Exists' : 'Missing'}\n`;
+                    statusText += `GitHub Enabled: ${status.githubEnabled ? 'Yes' : 'No'}\n`;
+                    if (status.lastUpdated) {
+                        statusText += `Last Updated: ${new Date(status.lastUpdated).toLocaleString()}\n`;
+                    }
+                    
+                    document.getElementById('espressoStatus').textContent = statusText;
+                } else {
+                    document.getElementById('espressoStatus').textContent = 'Status unavailable';
+                }
+            } catch (error) {
+                document.getElementById('espressoStatus').textContent = 'Error loading status: ' + error.message;
+            }
+        }
+
+        async function testEspressoGeneration() {
+            try {
+                showAlert('Starting espresso HTML generation test...', 'success', 'espressoAlert');
+                document.getElementById('espressoStatus').textContent = 'Running HTML generation test...';
+                
+                const response = await fetch('/admin/api/espresso/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(result.message || 'HTML generation test completed successfully', 'success', 'espressoAlert');
+                } else {
+                    showAlert('HTML generation test failed: ' + (result.error || 'Unknown error'), 'error', 'espressoAlert');
+                }
+                
+                // Refresh status after test
+                setTimeout(loadEspressoStatus, 2000);
+            } catch (error) {
+                showAlert('Error running HTML generation test: ' + error.message, 'error', 'espressoAlert');
+                setTimeout(loadEspressoStatus, 2000);
             }
         }
 
