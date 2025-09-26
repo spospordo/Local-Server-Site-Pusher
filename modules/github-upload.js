@@ -895,6 +895,39 @@ function getMimeType(filename) {
   return mimeTypes[ext] || 'application/octet-stream';
 }
 
+// Get current Git Identity configuration
+function getCurrentGitIdentity() {
+  try {
+    if (gitConfigPath && fs.existsSync(gitConfigPath)) {
+      const gitConfig = JSON.parse(fs.readFileSync(gitConfigPath, 'utf8'));
+      
+      if (gitConfig.user && gitConfig.user.name && gitConfig.user.email) {
+        return {
+          success: true,
+          userName: gitConfig.user.name,
+          userEmail: gitConfig.user.email,
+          updatedAt: gitConfig.updatedAt
+        };
+      }
+    }
+    
+    // Return default values if no config found
+    return {
+      success: true,
+      userName: 'Local-Server-Site-Pusher',
+      userEmail: 'noreply@local-server.container',
+      updatedAt: null,
+      isDefault: true
+    };
+  } catch (error) {
+    console.warn('⚠️ [GitHub] Error reading git config:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 module.exports = {
   init,
   uploadVidiots,
@@ -904,5 +937,6 @@ module.exports = {
   browseRepository,
   getFileContent,
   updateGitIdentity,
-  setGitIdentity
+  setGitIdentity,
+  getCurrentGitIdentity
 };
