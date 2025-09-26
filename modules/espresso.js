@@ -120,35 +120,36 @@ async function generateHTML(espressoData) {
   
   try {
     // Read the template HTML file
-    const htmlContent = fs.readFileSync(templatePath, 'utf8');
+    let generatedHTML = fs.readFileSync(templatePath, 'utf8');
     
-    // Create DOM from HTML
-    const dom = new JSDOM(htmlContent, {
+    // Use JSDOM only to identify elements and get their updated values
+    const dom = new JSDOM(generatedHTML, {
       contentType: 'text/html',
       includeNodeLocations: true,
     });
     
-    // Remove all <script> tags for static output
-    const scripts = dom.window.document.querySelectorAll('script');
-    scripts.forEach(script => script.remove());
+    // Remove all <script> tags while preserving formatting
+    generatedHTML = generatedHTML.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, '');
     
     // Update text values by matching element IDs with data keys
     Object.keys(espressoData).forEach(key => {
-      const element = dom.window.document.getElementById(key);
-      if (element) {
-        element.textContent = espressoData[key];
-      }
+      // Find the element with this ID and replace its content
+      const regex = new RegExp(`(<[^>]*id="${key}"[^>]*>)([^<]*?)(<\\/[^>]*>)`, 'gi');
+      generatedHTML = generatedHTML.replace(regex, `$1${espressoData[key]}$3`);
     });
     
     // Update images based on alt text
-    const imageElements = dom.window.document.querySelectorAll('img');
-    imageElements.forEach((imgElement) => {
-      const altText = imgElement.alt?.toLowerCase() || '';
-      const imageKey = altText.replace(/\s+/g, '').toLowerCase();
-      if (imagePaths && imagePaths[imageKey]) {
-        imgElement.src = imagePaths[imageKey];
-      }
-    });
+    if (imagePaths && Object.keys(imagePaths).length > 0) {
+      // Find all img tags and update their src attributes
+      const imgRegex = /<img([^>]*?)src="([^"]*)"([^>]*?)alt="([^"]*)"([^>]*?)>/gi;
+      generatedHTML = generatedHTML.replace(imgRegex, (match, before, currentSrc, middle, altText, after) => {
+        const imageKey = altText.toLowerCase().replace(/\s+/g, '').toLowerCase();
+        if (imagePaths[imageKey]) {
+          return `<img${before}src="${imagePaths[imageKey]}"${middle}alt="${altText}"${after}>`;
+        }
+        return match;
+      });
+    }
     
     // Ensure output directory exists
     const outputDir = path.dirname(outputPath);
@@ -157,7 +158,6 @@ async function generateHTML(espressoData) {
     }
     
     // Save the generated HTML
-    const generatedHTML = dom.serialize();
     fs.writeFileSync(outputPath, generatedHTML);
     
     console.log(`✅ [Espresso] HTML generated successfully: ${outputPath}`);
