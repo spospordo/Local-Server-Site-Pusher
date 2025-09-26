@@ -224,6 +224,37 @@ async function copyImagesToRepository() {
     });
   }
 }
+
+// Copy images to output directory (same directory as generated HTML)
+async function copyImagesToOutputDirectory(outputPath) {
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  
+  if (!fs.existsSync(uploadsDir)) {
+    return; // No uploads directory
+  }
+  
+  // Get the directory where the HTML file is being saved
+  const outputDir = path.dirname(outputPath);
+  
+  // Copy uploaded images to the same directory as the HTML output
+  const files = fs.readdirSync(uploadsDir);
+  
+  files.forEach(file => {
+    const filePath = path.join(uploadsDir, file);
+    const fileExt = path.extname(file).toLowerCase();
+    
+    // Check if it's an image file
+    if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+      const destPath = path.join(outputDir, file);
+      try {
+        fs.copyFileSync(filePath, destPath);
+        console.log(`🖼️ [Espresso] Copied image to output directory: ${file}`);
+      } catch (error) {
+        console.error(`❌ [Espresso] Error copying image ${file} to output directory: ${error.message}`);
+      }
+    }
+  });
+}
 function getUploadedImageFiles() {
   const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
   const imageFiles = [];
@@ -349,6 +380,9 @@ async function generateHTML(espressoData, useGithubUrls = false) {
     
     // Copy images to local repository if enabled
     await copyImagesToRepository();
+    
+    // Copy images to output directory (same directory as HTML file)
+    await copyImagesToOutputDirectory(outputPath);
     
     // Save the generated HTML
     fs.writeFileSync(outputPath, generatedHTML);
