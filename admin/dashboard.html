@@ -1835,6 +1835,26 @@
                     </div>
                 </div>
                 
+                <!-- Template Upload Section -->
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                    <h4>📁 Template Upload</h4>
+                    <p><small>Upload HTML template and image files. Uploaded templates take priority over configured paths.</small></p>
+                    
+                    <div class="form-group">
+                        <label for="espressoTemplateFile">Upload Template/Images</label>
+                        <input type="file" id="espressoTemplateFile" accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg" multiple>
+                        <small>Supported: HTML templates (.html, .htm) and images (.png, .jpg, .jpeg, .gif, .svg)</small>
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <button onclick="uploadEspressoTemplate()" class="btn btn-primary">Upload Files</button>
+                        <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
+                    </div>
+                    
+                    <div id="espressoTemplateFiles" style="margin-top: 15px;"></div>
+                    <div id="espressoTemplateAlert" class="alert" style="margin-top: 10px;"></div>
+                </div>
+                
                 <!-- Action Buttons -->
                 <div style="margin-top: 20px;">
                     <button onclick="saveEspressoConfig()" class="btn btn-primary">Save Configuration</button>
@@ -4446,6 +4466,7 @@
                 if (shouldLoadData) {
                     loadEspressoConfig();
                     loadEspressoStatus();
+                    loadEspressoTemplateFiles();
                 }
             } else if (subTabName === 'server-github') {
                 const githubSections = document.querySelectorAll('.server-github-section');
@@ -4736,6 +4757,110 @@
             } catch (error) {
                 showAlert('Error running HTML generation test: ' + error.message, 'error', 'espressoAlert');
                 setTimeout(loadEspressoStatus, 2000);
+            }
+        }
+
+        // Espresso Template Upload Functions
+        async function uploadEspressoTemplate() {
+            const fileInput = document.getElementById('espressoTemplateFile');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showAlert('Please select at least one file to upload', 'error', 'espressoTemplateAlert');
+                return;
+            }
+            
+            try {
+                // Upload files one by one
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const formData = new FormData();
+                    formData.append('templateFile', file);
+                    
+                    showAlert(`Uploading ${file.name}...`, 'success', 'espressoTemplateAlert');
+                    
+                    const response = await fetch('/admin/api/espresso/upload-template', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        showAlert(`Failed to upload ${file.name}: ${result.error}`, 'error', 'espressoTemplateAlert');
+                        return;
+                    }
+                }
+                
+                showAlert('All files uploaded successfully!', 'success', 'espressoTemplateAlert');
+                
+                // Clear file input and refresh file list
+                fileInput.value = '';
+                await loadEspressoTemplateFiles();
+                await loadEspressoStatus(); // Refresh status to show template is available
+                
+            } catch (error) {
+                showAlert('Error uploading files: ' + error.message, 'error', 'espressoTemplateAlert');
+            }
+        }
+        
+        async function loadEspressoTemplateFiles() {
+            try {
+                const response = await fetch('/admin/api/espresso/template-files');
+                const result = await response.json();
+                
+                const filesContainer = document.getElementById('espressoTemplateFiles');
+                
+                if (result.success && result.files && result.files.length > 0) {
+                    let filesHtml = '<h5>📁 Uploaded Template Files:</h5><div class="template-files-list">';
+                    
+                    result.files.forEach(file => {
+                        const fileIcon = file.type === 'image' ? '🖼️' : '📄';
+                        const uploadDate = new Date(file.uploadDate).toLocaleString();
+                        const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+                        
+                        filesHtml += `
+                            <div class="template-file-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 5px 0; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                                <div>
+                                    <strong>${fileIcon} ${file.name}</strong>
+                                    <small style="color: #666; margin-left: 10px;">${fileSize} • ${uploadDate}</small>
+                                </div>
+                                <button onclick="deleteEspressoTemplateFile('${file.name}')" class="btn btn-sm btn-danger">Delete</button>
+                            </div>
+                        `;
+                    });
+                    
+                    filesHtml += '</div>';
+                    filesContainer.innerHTML = filesHtml;
+                } else {
+                    filesContainer.innerHTML = '<p style="color: #666;"><em>No template files uploaded yet</em></p>';
+                }
+            } catch (error) {
+                console.error('Error loading template files:', error);
+                document.getElementById('espressoTemplateFiles').innerHTML = '<p style="color: red;">Error loading template files</p>';
+            }
+        }
+        
+        async function deleteEspressoTemplateFile(filename) {
+            if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/espresso/template-files/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`File deleted: ${filename}`, 'success', 'espressoTemplateAlert');
+                    await loadEspressoTemplateFiles();
+                    await loadEspressoStatus(); // Refresh status
+                } else {
+                    showAlert(`Failed to delete file: ${result.error}`, 'error', 'espressoTemplateAlert');
+                }
+            } catch (error) {
+                showAlert('Error deleting file: ' + error.message, 'error', 'espressoTemplateAlert');
             }
         }
 

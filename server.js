@@ -2771,6 +2771,145 @@ app.get('/espresso', (req, res) => {
   }
 });
 
+// Espresso template upload endpoint
+app.post('/admin/api/espresso/upload-template', requireAuth, (req, res) => {
+  const uploadSingle = upload.single('templateFile');
+  
+  uploadSingle(req, res, function (err) {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Template file too large' });
+      }
+      return res.status(400).json({ error: err.message });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No template file uploaded' });
+    }
+    
+    try {
+      // Ensure espresso templates directory exists
+      const templatesDir = path.join(uploadsDir, 'espresso', 'templates');
+      if (!fs.existsSync(templatesDir)) {
+        fs.mkdirSync(templatesDir, { recursive: true });
+      }
+      
+      // Validate file type
+      const fileExt = path.extname(req.file.originalname).toLowerCase();
+      const allowedExtensions = ['.html', '.htm', '.png', '.jpg', '.jpeg', '.gif', '.svg'];
+      
+      if (!allowedExtensions.includes(fileExt)) {
+        // Clean up uploaded file
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({ error: 'Invalid file type. Only HTML templates and images are allowed.' });
+      }
+      
+      // Determine target filename
+      let targetFilename = req.file.originalname;
+      
+      // If it's an HTML file, always name it index.html to be the main template
+      if (['.html', '.htm'].includes(fileExt)) {
+        targetFilename = 'index.html';
+      }
+      
+      const targetPath = path.join(templatesDir, targetFilename);
+      
+      // Move file from temp location to templates directory
+      fs.renameSync(req.file.path, targetPath);
+      
+      console.log(`📁 [Espresso] Template file uploaded: ${targetFilename}`);
+      
+      res.json({
+        success: true,
+        message: `Template file uploaded successfully: ${targetFilename}`,
+        filename: targetFilename,
+        originalName: req.file.originalname,
+        size: req.file.size
+      });
+      
+    } catch (error) {
+      // Clean up uploaded file on error
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      console.error('❌ [Espresso] Template upload error:', error.message);
+      res.status(500).json({ error: 'Failed to upload template: ' + error.message });
+    }
+  });
+});
+
+// Get uploaded template files list
+app.get('/admin/api/espresso/template-files', requireAuth, (req, res) => {
+  try {
+    const files = espresso.getUploadedTemplateFiles();
+    res.json({
+      success: true,
+      files
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error getting template files:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get template files: ' + error.message
+    });
+  }
+});
+
+// Delete uploaded template file
+app.delete('/admin/api/espresso/template-files/:filename', requireAuth, (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    // Validate filename to prevent path traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    
+    const success = espresso.deleteUploadedTemplateFile(filename);
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: `Template file deleted: ${filename}`
+      });
+    } else {
+      res.status(404).json({ error: 'Template file not found' });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error deleting template file:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete template file: ' + error.message
+    });
+  }
+});
+
+// Serve uploaded espresso template assets
+app.get('/uploads/espresso/templates/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    // Validate filename to prevent path traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).send('Invalid filename');
+    }
+    
+    const filePath = path.join(uploadsDir, 'espresso', 'templates', filename);
+    
+    if (fs.existsSync(filePath)) {
+      res.sendFile(path.resolve(filePath));
+    } else {
+      res.status(404).send('File not found');
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error serving template file:', error.message);
+    res.status(500).send('Error serving template file');
+  }
+});
+
 // Drink Mixer API endpoints
 // Get all alcohols
 app.get('/admin/api/drink-mixer/alcohols', requireAuth, (req, res) => {
