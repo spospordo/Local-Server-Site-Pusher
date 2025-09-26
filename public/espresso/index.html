@@ -1,30 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Espresso Test Template</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .espresso { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        img { max-width: 200px; margin: 10px 0; }
+    </style>
 </head>
 <body>
-    <h1>Espresso Brewing Data</h1>
+    <h1>Espresso Brewing Results</h1>
     
-    <div class="espresso-data">
-        <h2>Espresso 1</h2>
-        <p>Bean: <span id="beanName1">Sample Bean 1</span></p>
-        <p>Roast Date: <span id="roastDate1">Jan 2025</span></p>
-        <p>Weight In: <span id="weight1">15g</span></p>
-        <p>Grind Size: <span id="grind1">.5</span></p>
-        <p>Temperature: <span id="tempIn1">90</span></p>
-        <p>Time: <span id="time1">32s</span></p>
-        <p>Weight Out: <span id="weightOut1">40g</span></p>
-        <p>Notes: <span id="notes1">None</span></p>
+    <div class="container">
+        <div class="espresso">
+            <h2>Test Espresso 1</h2>
+            <p><strong>Weight In:</strong> <span id="weight1">20g</span></p>
+            <p><strong>Grind Size:</strong> <span id="grind1">.8</span></p>
+            <p><strong>Temperature:</strong> <span id="tempIn1">90</span></p>
+            <img src="/uploads/espresso/templates/small-container.png" alt="smallcontainer" title="Small Container">
+            <p>Small container image test</p>
+        </div>
+        
+        <div class="espresso">
+            <h2>Test Espresso 2</h2>
+            <p><strong>Weight In:</strong> <span id="weight2">17g</span></p>
+            <p><strong>Grind Size:</strong> <span id="grind2">.9</span></p>
+            <p><strong>Temperature:</strong> <span id="tempIn2">88</span></p>
+            <img src="/uploads/espresso/templates/large-container.jpg" alt="largecontainer" title="Large Container">
+            <p>Large container image test</p>
+        </div>
     </div>
     
-    <div class="images">
-        <h2>Container Images</h2>
-        <img src="placeholder-small.jpg" alt="smallcontainer" />
-        <img src="https://example.com/small-container.jpg" alt="mediumcontainer" />  
-        <img src="https://example.com/medium-container.jpghttps://example.com/large-container.jpg" alt="largecontainer" />
-    </div>
+    <footer>
+        <p>Generated on: </p>
+    </footer>
 </body>
 </html>
