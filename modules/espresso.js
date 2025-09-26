@@ -11,17 +11,6 @@ let htmlGenerationTimer = null;
 function init(serverConfig) {
   config = serverConfig;
   
-  // Debug: Log the espresso configuration
-  console.log('🔧 [Espresso] Module initialization:');
-  console.log('  - Full config object keys:', Object.keys(serverConfig));
-  console.log('  - Espresso section exists:', !!serverConfig?.espresso);
-  console.log('  - Espresso enabled:', serverConfig?.espresso?.enabled || false);
-  console.log('  - Local repo enabled:', serverConfig?.espresso?.localRepo?.enabled || false);
-  console.log('  - Data file path:', serverConfig?.espresso?.dataFilePath || 'default');
-  if (serverConfig?.espresso) {
-    console.log('  - Full espresso config:', JSON.stringify(serverConfig.espresso, null, 2));
-  }
-  
   // Initialize GitHub upload module
   githubUpload.init(serverConfig);
   
