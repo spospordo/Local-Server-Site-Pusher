@@ -1778,6 +1778,31 @@
                     </div>
                 </div>
                 
+                <!-- Git Identity Configuration -->
+                <div id="gitIdentityConfig" style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 5px; border-left: 4px solid #007bff;">
+                    <h4>Git Identity Configuration</h4>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                        Configure the git author identity for commits. This is required for GitHub upload operations and will persist across container restarts.
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gitUserName">Git User Name <span style="color: red;">*</span></label>
+                            <input type="text" id="gitUserName" placeholder="Your Name" required>
+                            <small style="color: #666;">This will be used as the author name for git commits</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gitUserEmail">Git User Email <span style="color: red;">*</span></label>
+                            <input type="email" id="gitUserEmail" placeholder="your.email@example.com" required>
+                            <small style="color: #666;">This will be used as the author email for git commits</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" onclick="saveGitIdentity()">Save Git Identity</button>
+                        <button class="btn btn-secondary" onclick="loadGitIdentity()">Refresh</button>
+                    </div>
+                    <div id="gitIdentityAlert" class="alert" style="margin-top: 10px;"></div>
+                </div>
+                
                 <div class="form-group" style="margin-top: 20px;">
                     <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
                     <button class="btn btn-secondary" onclick="testVidiotsScrape()">Test Scrape</button>
@@ -4666,6 +4691,62 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Git Identity Configuration Functions
+        async function saveGitIdentity() {
+            try {
+                const userName = document.getElementById('gitUserName').value.trim();
+                const userEmail = document.getElementById('gitUserEmail').value.trim();
+                
+                if (!userName || !userEmail) {
+                    showAlert('Both user name and email are required', 'error', 'gitIdentityAlert');
+                    return;
+                }
+                
+                // Basic email validation
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(userEmail)) {
+                    showAlert('Please enter a valid email address', 'error', 'gitIdentityAlert');
+                    return;
+                }
+                
+                showAlert('Saving git identity...', 'success', 'gitIdentityAlert');
+                
+                const response = await fetch('/admin/api/vidiots/github/git-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userName: userName,
+                        userEmail: userEmail
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ Git identity saved successfully! This will be used for all GitHub commit operations and persists across container restarts.', 'success', 'gitIdentityAlert');
+                } else {
+                    showAlert('❌ Failed to save git identity: ' + (result.error || 'Unknown error'), 'error', 'gitIdentityAlert');
+                }
+            } catch (error) {
+                showAlert('Error saving git identity: ' + error.message, 'error', 'gitIdentityAlert');
+            }
+        }
+
+        async function loadGitIdentity() {
+            try {
+                // Load current git configuration by checking if there's a stored config
+                // For now, we'll clear the form and let the user enter new values
+                // In a more advanced implementation, we could add an API to retrieve current config
+                document.getElementById('gitUserName').value = '';
+                document.getElementById('gitUserEmail').value = '';
+                showAlert('Please enter your git identity information. This is required for GitHub operations.', 'info', 'gitIdentityAlert');
+            } catch (error) {
+                console.error('Error loading git identity:', error);
+            }
         }
 
         // Initialize dashboard on load

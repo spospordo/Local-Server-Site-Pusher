@@ -6,6 +6,21 @@ set -e
 
 echo "🚀 Local-Server-Site-Pusher Container Starting..."
 
+# Ensure git is available and properly configured
+if command -v git >/dev/null 2>&1; then
+    echo "📧 Git is available for GitHub operations"
+    
+    # Check if persistent git config exists and load it
+    if [ -f "/app/config/.gitconfig" ]; then
+        echo "📧 Loading persistent git configuration..."
+        # The application will handle loading the git config on startup
+    else
+        echo "📧 No persistent git config found - will use defaults"
+    fi
+else
+    echo "⚠️ Git not available - GitHub upload functionality will be limited"
+fi
+
 # Function to check if running as root
 is_root() {
     [ "$(id -u)" = "0" ]

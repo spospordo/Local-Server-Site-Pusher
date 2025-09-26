@@ -3,13 +3,124 @@ const path = require('path');
 const fs = require('fs');
 
 let config = null;
+let gitConfigPath = null;
 
 // Initialize with config
 function init(serverConfig) {
   config = serverConfig;
+  
+  // Set up persistent git config path
+  const configDir = path.dirname(path.dirname(__filename));
+  gitConfigPath = path.join(configDir, 'config', '.gitconfig');
+  
+  // Load persistent git configuration
+  loadGitConfig();
 }
 
-// Robust directory cleanup with retry mechanism for EBUSY errors
+// Load persistent git configuration
+function loadGitConfig() {
+  try {
+    if (gitConfigPath && fs.existsSync(gitConfigPath)) {
+      const gitConfig = JSON.parse(fs.readFileSync(gitConfigPath, 'utf8'));
+      
+      // Set global git config for the application
+      if (gitConfig.user && gitConfig.user.name && gitConfig.user.email) {
+        console.log('📧 [GitHub] Loading persistent git identity configuration');
+        setGitIdentity(gitConfig.user.name, gitConfig.user.email);
+      }
+    } else {
+      // Set default git identity if none exists
+      console.log('📧 [GitHub] No persistent git identity found, setting default');
+      setGitIdentity('Local-Server-Site-Pusher', 'noreply@local-server.container');
+      saveGitConfig('Local-Server-Site-Pusher', 'noreply@local-server.container');
+    }
+  } catch (error) {
+    console.warn('⚠️ [GitHub] Error loading git config:', error.message);
+    // Fallback to default identity
+    setGitIdentity('Local-Server-Site-Pusher', 'noreply@local-server.container');
+  }
+}
+
+// Save git configuration persistently
+function saveGitConfig(userName, userEmail) {
+  try {
+    if (!gitConfigPath) return;
+    
+    const configDir = path.dirname(gitConfigPath);
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    
+    const gitConfig = {
+      user: {
+        name: userName,
+        email: userEmail
+      },
+      updatedAt: new Date().toISOString()
+    };
+    
+    fs.writeFileSync(gitConfigPath, JSON.stringify(gitConfig, null, 2));
+    console.log('📧 [GitHub] Git configuration saved persistently');
+  } catch (error) {
+    console.warn('⚠️ [GitHub] Could not save git config:', error.message);
+  }
+}
+
+// Set git identity for current session and persist it
+function setGitIdentity(userName, userEmail) {
+  try {
+    // Sanitize inputs to prevent command injection
+    const sanitizedUserName = userName.replace(/["`\\$]/g, '').trim();
+    const sanitizedUserEmail = userEmail.replace(/["`\\$]/g, '').trim();
+    
+    // Validate input lengths to prevent issues
+    if (sanitizedUserName.length === 0 || sanitizedUserEmail.length === 0) {
+      return { success: false, error: 'Invalid user name or email after sanitization' };
+    }
+    
+    if (sanitizedUserName.length > 100 || sanitizedUserEmail.length > 100) {
+      return { success: false, error: 'User name or email is too long' };
+    }
+    
+    // Set git identity globally for the container using spawnSync for security
+    const { spawnSync } = require('child_process');
+    
+    // Set user name
+    const nameResult = spawnSync('git', ['config', '--global', 'user.name', sanitizedUserName], {
+      encoding: 'utf8'
+    });
+    
+    if (nameResult.status !== 0) {
+      throw new Error(`Failed to set git user name: ${nameResult.stderr || 'Unknown error'}`);
+    }
+    
+    // Set user email  
+    const emailResult = spawnSync('git', ['config', '--global', 'user.email', sanitizedUserEmail], {
+      encoding: 'utf8'
+    });
+    
+    if (emailResult.status !== 0) {
+      throw new Error(`Failed to set git user email: ${emailResult.stderr || 'Unknown error'}`);
+    }
+    
+    console.log(`✅ [GitHub] Git identity configured: ${sanitizedUserName} <${sanitizedUserEmail}>`);
+    
+    // Save configuration persistently (using original values for storage)
+    saveGitConfig(userName, userEmail);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ [GitHub] Failed to set git identity:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Update git identity (called from admin interface)
+function updateGitIdentity(userName, userEmail) {
+  console.log(`🔧 [GitHub] Updating git identity to: ${userName} <${userEmail}>`);
+  return setGitIdentity(userName, userEmail);
+}
+
 async function robustDirectoryCleanup(dirPath, maxRetries = 5, baseDelay = 100) {
   console.log(`🧹 [GitHub] Starting robust cleanup of: ${dirPath}`);
   
@@ -199,6 +310,16 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
   try {
     console.log(`🚀 [GitHub] Starting git upload process with message: "${commitMessage}"`);
     console.log(`📁 [GitHub] Repository path: ${repoPath}`);
+    
+    // Ensure git identity is configured before any git operations
+    try {
+      const currentName = execSync('git config --get user.name', { encoding: 'utf8' }).trim();
+      const currentEmail = execSync('git config --get user.email', { encoding: 'utf8' }).trim();
+      console.log(`📧 [GitHub] Current git identity: ${currentName} <${currentEmail}>`);
+    } catch (identityError) {
+      console.warn('⚠️ [GitHub] Git identity not set, applying default configuration');
+      loadGitConfig(); // Reload git config to ensure identity is set
+    }
     
     if (!hasChanges(repoPath)) {
       console.log('📋 [GitHub] No changes to commit or push.');
@@ -676,5 +797,7 @@ module.exports = {
   pushToGitHub,
   cloneOrPullRepository,
   browseRepository,
-  getFileContent
+  getFileContent,
+  updateGitIdentity,
+  setGitIdentity
 };
