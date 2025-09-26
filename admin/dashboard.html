@@ -1822,9 +1822,14 @@
                             <option value="true">Enabled</option>
                         </select>
                     </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label for="espressoGithubRemotePath">GitHub Remote Path</label>
                         <input type="text" id="espressoGithubRemotePath" placeholder="espresso/index.html">
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoGithubImagePath">GitHub Image Path</label>
+                        <input type="text" id="espressoGithubImagePath" placeholder="espresso/images">
                     </div>
                 </div>
                 
@@ -1833,6 +1838,34 @@
                         <label for="espressoGithubCommitMessage">Commit Message</label>
                         <input type="text" id="espressoGithubCommitMessage" placeholder="Automated espresso update">
                     </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoGithubRepoOwner">GitHub Repository Owner</label>
+                        <input type="text" id="espressoGithubRepoOwner" placeholder="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoGithubRepoName">GitHub Repository Name</label>
+                        <input type="text" id="espressoGithubRepoName" placeholder="my-repo">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="espressoGithubBranch">GitHub Branch</label>
+                        <input type="text" id="espressoGithubBranch" placeholder="main">
+                    </div>
+                    <div class="form-group">
+                        <label for="espressoGithubLocalPath">Local Repository Path</label>
+                        <input type="text" id="espressoGithubLocalPath" placeholder="/path/to/local/repo">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="espressoGithubAccessToken">GitHub Personal Access Token</label>
+                    <input type="password" id="espressoGithubAccessToken" placeholder="ghp_xxxxxxxxxxxx">
+                    <small>Required for pushing to GitHub. Create one at: Settings → Developer Settings → Personal Access Tokens</small>
                 </div>
                 
                 <!-- Template Upload Section -->
@@ -4670,7 +4703,13 @@
                     document.getElementById('espressoImagePaths').value = JSON.stringify(config.imagePaths || {}, null, 2);
                     document.getElementById('espressoGithubEnabled').value = config.githubPages?.enabled ? 'true' : 'false';
                     document.getElementById('espressoGithubRemotePath').value = config.githubPages?.remotePath || '';
+                    document.getElementById('espressoGithubImagePath').value = config.githubPages?.imageRemotePath || '';
                     document.getElementById('espressoGithubCommitMessage').value = config.githubPages?.commitMessage || '';
+                    document.getElementById('espressoGithubRepoOwner').value = config.githubPages?.repoOwner || '';
+                    document.getElementById('espressoGithubRepoName').value = config.githubPages?.repoName || '';
+                    document.getElementById('espressoGithubBranch').value = config.githubPages?.branch || '';
+                    document.getElementById('espressoGithubLocalPath').value = config.githubPages?.repoLocalPath || '';
+                    document.getElementById('espressoGithubAccessToken').value = config.githubPages?.accessToken || '';
                     
                     // Load status as well
                     loadEspressoStatus();
@@ -4703,7 +4742,13 @@
                     githubPages: {
                         enabled: document.getElementById('espressoGithubEnabled').value === 'true',
                         remotePath: document.getElementById('espressoGithubRemotePath').value.trim() || 'espresso/index.html',
-                        commitMessage: document.getElementById('espressoGithubCommitMessage').value.trim() || 'Automated espresso update'
+                        imageRemotePath: document.getElementById('espressoGithubImagePath').value.trim() || 'espresso/images',
+                        commitMessage: document.getElementById('espressoGithubCommitMessage').value.trim() || 'Automated espresso update',
+                        repoOwner: document.getElementById('espressoGithubRepoOwner').value.trim(),
+                        repoName: document.getElementById('espressoGithubRepoName').value.trim(),
+                        branch: document.getElementById('espressoGithubBranch').value.trim() || 'main',
+                        repoLocalPath: document.getElementById('espressoGithubLocalPath').value.trim(),
+                        accessToken: document.getElementById('espressoGithubAccessToken').value.trim()
                     }
                 };
 

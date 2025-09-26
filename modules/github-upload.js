@@ -928,9 +928,121 @@ function getCurrentGitIdentity() {
   }
 }
 
+// Generic file upload function for any module (espresso, vidiots, etc.)
+async function uploadFiles(fileList, commitMessage = 'Automated file update', moduleConfig = null) {
+  try {
+    // Use moduleConfig if provided, otherwise fall back to vidiots config for backward compatibility
+    const githubConfig = moduleConfig || config?.vidiots?.githubPages;
+    
+    if (!githubConfig?.enabled) {
+      console.log('📋 [GitHub] GitHub Pages integration disabled');
+      return { success: false, error: 'GitHub Pages integration not enabled' };
+    }
+    
+    const repoPath = githubConfig.repoLocalPath;
+    const accessToken = githubConfig.accessToken;
+    
+    if (!repoPath) {
+      console.error('❌ [GitHub] No repository path configured');
+      return { success: false, error: 'No repository path configured' };
+    }
+    
+    // Validate access token format
+    const tokenValidation = validateAccessToken(accessToken);
+    if (!tokenValidation.valid) {
+      console.error('❌ [GitHub] GitHub Personal Access Token validation failed');
+      return { success: false, error: tokenValidation.error };
+    }
+    
+    // Validate and sanitize the repository path
+    const normalizedPath = path.resolve(repoPath);
+    if (!normalizedPath.startsWith('/') || normalizedPath.includes('..')) {
+      console.error('❌ [GitHub] Invalid repository path');
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    // Check if the directory exists
+    if (!fs.existsSync(normalizedPath)) {
+      console.error(`❌ [GitHub] Repository path does not exist: ${normalizedPath}`);
+      return { success: false, error: `Repository path does not exist: ${normalizedPath}` };
+    }
+    
+    // Check if it's a git repository
+    const gitDir = path.join(normalizedPath, '.git');
+    if (!fs.existsSync(gitDir)) {
+      console.error(`❌ [GitHub] Directory is not a git repository: ${normalizedPath}`);
+      return { success: false, error: `Directory is not a git repository: ${normalizedPath}` };
+    }
+    
+    console.log(`🚀 [GitHub] Starting file upload to GitHub Pages...`);
+    console.log(`📁 [GitHub] Repository path: ${normalizedPath}`);
+    console.log(`📋 [GitHub] Files to upload: ${fileList.length}`);
+    
+    // Copy files to repository
+    for (const file of fileList) {
+      if (!file.localPath || !file.remotePath) {
+        console.error(`❌ [GitHub] Invalid file object: ${JSON.stringify(file)}`);
+        continue;
+      }
+      
+      // Validate local file exists
+      if (!fs.existsSync(file.localPath)) {
+        console.error(`❌ [GitHub] Local file does not exist: ${file.localPath}`);
+        continue;
+      }
+      
+      // Validate remote path (no path traversal)
+      if (file.remotePath.includes('..') || file.remotePath.includes('\0')) {
+        console.error(`❌ [GitHub] Invalid remote path: ${file.remotePath}`);
+        continue;
+      }
+      
+      const destinationPath = path.join(normalizedPath, file.remotePath);
+      
+      // Ensure destination path is within repository bounds
+      if (!destinationPath.startsWith(normalizedPath)) {
+        console.error(`❌ [GitHub] Destination path outside repository bounds: ${file.remotePath}`);
+        continue;
+      }
+      
+      // Ensure destination directory exists
+      const destinationDir = path.dirname(destinationPath);
+      if (!fs.existsSync(destinationDir)) {
+        fs.mkdirSync(destinationDir, { recursive: true });
+        console.log(`📁 [GitHub] Created directory: ${path.relative(normalizedPath, destinationDir)}`);
+      }
+      
+      // Copy file to repository
+      try {
+        fs.copyFileSync(file.localPath, destinationPath);
+        console.log(`📄 [GitHub] Copied file: ${file.localPath} -> ${file.remotePath}`);
+      } catch (copyError) {
+        console.error(`❌ [GitHub] Failed to copy file ${file.localPath}: ${copyError.message}`);
+        continue;
+      }
+    }
+    
+    // Push changes to GitHub
+    const result = await pushToGitHub(normalizedPath, commitMessage);
+    
+    if (result.success) {
+      console.log('✅ [GitHub] Files uploaded to GitHub Pages successfully');
+    } else {
+      console.error('❌ [GitHub] Failed to upload files:', result.error);
+    }
+    
+    return result;
+    
+  } catch (error) {
+    console.error('❌ [GitHub] Error in uploadFiles:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   init,
   uploadVidiots,
+  uploadFiles,
   testConnection,
   pushToGitHub,
   cloneOrPullRepository,
