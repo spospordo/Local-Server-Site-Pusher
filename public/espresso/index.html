@@ -3,38 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Espresso Template</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .espresso-card { border: 1px solid #ccc; padding: 20px; margin: 10px 0; }
-        img { max-width: 200px; height: auto; }
-    </style>
+    <title>Espresso Test Template</title>
 </head>
 <body>
-    <h1>Test Espresso Template</h1>
+    <h1>Espresso Brewing Data</h1>
     
-    <div class="espresso-card">
-        <h2 id="beanName1">Sample Bean 1</h2>
-        <p>Weight: <span id="weight1">15g</span></p>
+    <div class="espresso-data">
+        <h2>Espresso 1</h2>
+        <p>Bean: <span id="beanName1">Sample Bean 1</span></p>
+        <p>Roast Date: <span id="roastDate1">Jan 2025</span></p>
+        <p>Weight In: <span id="weight1">15g</span></p>
+        <p>Grind Size: <span id="grind1">.5</span></p>
+        <p>Temperature: <span id="tempIn1">90</span></p>
         <p>Time: <span id="time1">32s</span></p>
+        <p>Weight Out: <span id="weightOut1">40g</span></p>
         <p>Notes: <span id="notes1">None</span></p>
-        <img src="/uploads/espresso/templates/smallcontainer.svg" alt="smallcontainer">
     </div>
     
-    <div class="espresso-card">
-        <h2 id="beanName2">Sample Bean 2</h2>
-        <p>Weight: <span id="weight2">15g</span></p>
-        <p>Time: <span id="time2">25s</span></p>
-        <p>Notes: <span id="notes2">Mild, rich, balanced, citrus</span></p>
-        <img src="/uploads/espresso/templates/mediumcontainer.svg" alt="mediumcontainer">
-    </div>
-    
-    <div class="espresso-card">
-        <h2 id="beanName3">Sample Bean 3</h2>
-        <p>Weight: <span id="weight3">14g</span></p>
-        <p>Time: <span id="time3">32s</span></p>
-        <p>Notes: <span id="notes3">Balanced, rich, bitter</span></p>
-        <img src="/uploads/espresso/templates/largecontainer.svg" alt="largecontainer">
+    <div class="images">
+        <h2>Container Images</h2>
+        <img src="placeholder-small.jpg" alt="smallcontainer" />
+        <img src="https://example.com/small-container.jpg" alt="mediumcontainer" />  
+        <img src="https://example.com/medium-container.jpghttps://example.com/large-container.jpg" alt="largecontainer" />
     </div>
 </body>
 </html>
