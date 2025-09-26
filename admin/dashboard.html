@@ -1798,7 +1798,8 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="espressoTemplatePath">HTML Template Path</label>
-                        <input type="text" id="espressoTemplatePath" placeholder="/path/to/template.html">
+                        <input type="text" id="espressoTemplatePath" placeholder="/path/to/template.html" readonly>
+                        <small id="espressoTemplatePathStatus" style="color: #666;"></small>
                     </div>
                     <div class="form-group">
                         <label for="espressoOutputPath">Output HTML Path</label>
@@ -1806,11 +1807,15 @@
                     </div>
                 </div>
                 
-                <!-- Image Paths Configuration -->
+                <!-- Image Mapping Configuration -->
                 <div class="form-group">
-                    <label for="espressoImagePaths">Image Paths (JSON)</label>
-                    <textarea id="espressoImagePaths" rows="3" placeholder='{"smallcontainer": "https://example.com/small.png", "mediumcontainer": "https://example.com/medium.png"}'></textarea>
-                    <small>Map image alt text to absolute URLs (JSON format)</small>
+                    <label>Image Mapping Configuration</label>
+                    <p><small>Map template image identifiers to uploaded images or absolute URLs</small></p>
+                    <div id="espressoImageMapping" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        <div style="text-align: center; color: #666; margin: 20px 0;">
+                            <i>Loading image configuration...</i>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- GitHub Pages Configuration -->
@@ -4710,14 +4715,18 @@
                     const config = result.config;
                     document.getElementById('espressoEnabled').value = config.enabled ? 'true' : 'false';
                     document.getElementById('espressoDataFilePath').value = config.dataFilePath || '';
-                    document.getElementById('espressoTemplatePath').value = config.templatePath || '';
                     document.getElementById('espressoOutputPath').value = config.outputPath || '';
-                    document.getElementById('espressoImagePaths').value = JSON.stringify(config.imagePaths || {}, null, 2);
                     document.getElementById('espressoGithubEnabled').value = config.githubPages?.enabled ? 'true' : 'false';
                     document.getElementById('espressoGithubRemotePath').value = config.githubPages?.remotePath || '';
                     document.getElementById('espressoGithubImagePath').value = config.githubPages?.imageRemotePath || '';
                     document.getElementById('espressoGithubCommitMessage').value = config.githubPages?.commitMessage || '';
                     // Repository connection settings are now managed in the GitHub tab
+                    
+                    // Load template path info
+                    await loadEspressoTemplatePath();
+                    
+                    // Load image mapping UI
+                    await loadEspressoImageMapping(config.imagePaths || {});
                     
                     // Load status as well
                     loadEspressoStatus();
@@ -4729,17 +4738,8 @@
 
         async function saveEspressoConfig() {
             try {
-                // Parse image paths JSON
-                let imagePaths = {};
-                const imagePathsText = document.getElementById('espressoImagePaths').value.trim();
-                if (imagePathsText) {
-                    try {
-                        imagePaths = JSON.parse(imagePathsText);
-                    } catch (parseError) {
-                        showAlert('Invalid JSON format in Image Paths field', 'error', 'espressoAlert');
-                        return;
-                    }
-                }
+                // Collect image paths from new UI
+                const imagePaths = collectImagePaths();
 
                 const config = {
                     enabled: document.getElementById('espressoEnabled').value === 'true',
@@ -4831,6 +4831,18 @@
             }
         }
 
+        // Helper function to get current config
+        async function getCurrentEspressoConfig() {
+            try {
+                const response = await fetch('/admin/api/espresso/config');
+                const result = await response.json();
+                return result.success ? result.config : {};
+            } catch (error) {
+                console.error('Error getting current config:', error);
+                return {};
+            }
+        }
+
         // Espresso Template Upload Functions
         async function uploadEspressoTemplate() {
             const fileInput = document.getElementById('espressoTemplateFile');
@@ -4868,6 +4880,11 @@
                 fileInput.value = '';
                 await loadEspressoTemplateFiles();
                 await loadEspressoStatus(); // Refresh status to show template is available
+                
+                // Refresh template path and image mapping UI
+                await loadEspressoTemplatePath();
+                const currentConfig = await getCurrentEspressoConfig();
+                await loadEspressoImageMapping(currentConfig.imagePaths || {});
                 
             } catch (error) {
                 showAlert('Error uploading files: ' + error.message, 'error', 'espressoTemplateAlert');
@@ -4927,12 +4944,161 @@
                     showAlert(`File deleted: ${filename}`, 'success', 'espressoTemplateAlert');
                     await loadEspressoTemplateFiles();
                     await loadEspressoStatus(); // Refresh status
+                    
+                    // Refresh template path and image mapping UI
+                    await loadEspressoTemplatePath();
+                    const currentConfig = await getCurrentEspressoConfig();
+                    await loadEspressoImageMapping(currentConfig.imagePaths || {});
                 } else {
                     showAlert(`Failed to delete file: ${result.error}`, 'error', 'espressoTemplateAlert');
                 }
             } catch (error) {
                 showAlert('Error deleting file: ' + error.message, 'error', 'espressoTemplateAlert');
             }
+        }
+
+        // Load template path information and update UI
+        async function loadEspressoTemplatePath() {
+            try {
+                const response = await fetch('/admin/api/espresso/template-path');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const templatePath = result.templatePath;
+                    const templatePathElement = document.getElementById('espressoTemplatePath');
+                    const statusElement = document.getElementById('espressoTemplatePathStatus');
+                    
+                    if (templatePath.uploadedExists) {
+                        if (templatePath.isUploaded) {
+                            templatePathElement.value = 'Uploaded: index.html';
+                            statusElement.textContent = '✅ Using uploaded template';
+                            statusElement.style.color = '#28a745';
+                        } else {
+                            templatePathElement.value = templatePath.currentPath || '';
+                            statusElement.textContent = '⚠️ Uploaded template available but configured path is used';
+                            statusElement.style.color = '#ffc107';
+                        }
+                    } else {
+                        templatePathElement.value = templatePath.currentPath || '';
+                        if (templatePath.currentPath) {
+                            statusElement.textContent = '📁 Using configured template path';
+                            statusElement.style.color = '#17a2b8';
+                        } else {
+                            statusElement.textContent = '❌ No template found - please upload or configure path';
+                            statusElement.style.color = '#dc3545';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading template path:', error);
+            }
+        }
+
+        // Load image mapping UI
+        async function loadEspressoImageMapping(currentImagePaths = {}) {
+            try {
+                const response = await fetch('/admin/api/espresso/available-images');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const container = document.getElementById('espressoImageMapping');
+                    const images = result.images;
+                    
+                    // Known image identifiers from template
+                    const knownImageIds = ['smallcontainer', 'mediumcontainer', 'largecontainer'];
+                    
+                    let html = '<div style="margin-bottom: 15px;"><strong>Configure Image Mapping:</strong></div>';
+                    
+                    knownImageIds.forEach(imageId => {
+                        const currentValue = currentImagePaths[imageId] || '';
+                        html += `
+                            <div class="image-mapping-row" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <div style="margin-bottom: 8px; font-weight: bold;">
+                                    Image ID: <code>${imageId}</code>
+                                </div>
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <label style="font-size: 12px; color: #666;">Select Uploaded Image:</label>
+                                        <select class="image-select" data-image-id="${imageId}" style="width: 100%; margin-top: 2px;">
+                                            <option value="">-- Select Image --</option>
+                                            ${images.map(img => `
+                                                <option value="/uploads/espresso/templates/${img.filename}" ${currentValue === `/uploads/espresso/templates/${img.filename}` ? 'selected' : ''}>
+                                                    ${img.filename} (${(img.size / 1024).toFixed(1)}KB)
+                                                </option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                    <div style="color: #666; font-size: 14px; padding: 0 10px;">OR</div>
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <label style="font-size: 12px; color: #666;">Absolute URL:</label>
+                                        <input type="url" class="image-url" data-image-id="${imageId}" placeholder="https://example.com/image.jpg" 
+                                               value="${currentValue.startsWith('http') ? currentValue : ''}" 
+                                               style="width: 100%; margin-top: 2px;">
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    if (images.length === 0) {
+                        html += '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;"><i>No uploaded images found. Upload image files in the Template Upload section above.</i></div>';
+                    }
+                    
+                    container.innerHTML = html;
+                    
+                    // Add event listeners for dynamic updates
+                    container.addEventListener('change', handleImageMappingChange);
+                    container.addEventListener('input', handleImageMappingChange);
+                }
+            } catch (error) {
+                console.error('Error loading image mapping:', error);
+                document.getElementById('espressoImageMapping').innerHTML = 
+                    '<div style="color: #dc3545; text-align: center; padding: 20px;"><i>Error loading image configuration</i></div>';
+            }
+        }
+
+        // Handle changes in image mapping controls
+        function handleImageMappingChange(event) {
+            const target = event.target;
+            const imageId = target.dataset.imageId;
+            
+            if (!imageId) return;
+            
+            const row = target.closest('.image-mapping-row');
+            const selectElement = row.querySelector('.image-select');
+            const urlElement = row.querySelector('.image-url');
+            
+            if (target.classList.contains('image-select')) {
+                // Clear URL field when selecting an uploaded image
+                if (target.value) {
+                    urlElement.value = '';
+                }
+            } else if (target.classList.contains('image-url')) {
+                // Clear select field when entering URL
+                if (target.value) {
+                    selectElement.value = '';
+                }
+            }
+        }
+
+        // Collect image paths from the new UI for saving
+        function collectImagePaths() {
+            const imagePaths = {};
+            const container = document.getElementById('espressoImageMapping');
+            
+            container.querySelectorAll('.image-mapping-row').forEach(row => {
+                const imageId = row.querySelector('.image-select').dataset.imageId;
+                const selectedImage = row.querySelector('.image-select').value;
+                const enteredUrl = row.querySelector('.image-url').value.trim();
+                
+                if (selectedImage) {
+                    imagePaths[imageId] = selectedImage;
+                } else if (enteredUrl) {
+                    imagePaths[imageId] = enteredUrl;
+                }
+            });
+            
+            return imagePaths;
         }
 
         // ================================================================
