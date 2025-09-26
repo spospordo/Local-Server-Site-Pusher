@@ -86,7 +86,13 @@ const defaultConfig = {
     "imagePaths": {},
     "githubPages": {
       "enabled": false,
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "repoLocalPath": "",
+      "accessToken": "",
       "remotePath": "espresso/index.html",
+      "imageRemotePath": "espresso/images",
       "commitMessage": "Automated espresso update"
     }
   }
