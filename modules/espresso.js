@@ -101,14 +101,11 @@ function saveEspressoData(data) {
 // Generate HTML from espresso data and template
 async function generateHTML(espressoData) {
   const espressoConfig = config.espresso || {};
-  console.log(`🔧 [Espresso] Current config:`, JSON.stringify(espressoConfig, null, 2));
-  
   let templatePath = espressoConfig.templatePath;
   const outputPath = espressoConfig.outputPath || './public/espresso/index.html';
   const imagePaths = espressoConfig.imagePaths || {};
   
   if (!templatePath) {
-    console.log(`❌ [Espresso] No template path in config:`, espressoConfig);
     throw new Error('Template path not configured for espresso HTML generation');
   }
   
@@ -116,9 +113,6 @@ async function generateHTML(espressoData) {
   if (!path.isAbsolute(templatePath)) {
     templatePath = path.resolve(templatePath);
   }
-  
-  console.log(`📝 [Espresso] Using template path: ${templatePath}`);
-  console.log(`📝 [Espresso] Template exists: ${fs.existsSync(templatePath)}`);
   
   if (!fs.existsSync(templatePath)) {
     throw new Error(`Template file not found: ${templatePath}`);

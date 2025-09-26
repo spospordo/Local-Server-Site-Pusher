@@ -541,6 +541,22 @@ function validateAndRepairConfig(config) {
       }
       target[lastPart] = defaultValue;
       needsRepair = true;
+    } else if (typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+      // Merge default with existing object to ensure all required fields exist
+      // But preserve existing values over defaults
+      const existingValue = current[lastPart];
+      const mergedValue = { ...defaultValue, ...existingValue };
+      
+      // Check if merge is needed (if any default keys are missing)
+      const defaultKeys = Object.keys(defaultValue);
+      const existingKeys = Object.keys(existingValue);
+      const needsMerge = defaultKeys.some(key => !(key in existingValue));
+      
+      if (needsMerge) {
+        console.log(`Merging config section: ${sectionPath}`);
+        current[lastPart] = mergedValue;
+        needsRepair = true;
+      }
     }
   }
   
