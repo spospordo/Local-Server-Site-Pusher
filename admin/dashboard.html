@@ -1248,6 +1248,123 @@
         .admin-section.hidden {
             display: none;
         }
+
+        /* Collapsible sections */
+        .collapsible-section {
+            margin: 20px 0;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .collapsible-header:hover {
+            background: #e9ecef;
+        }
+
+        .collapsible-header.collapsed {
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+            margin-bottom: 0;
+        }
+
+        .collapsible-header.expanded {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .collapsible-title {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .collapsible-icon {
+            transition: transform 0.2s ease;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .collapsible-header.expanded .collapsible-icon {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            background: white;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding: 0 15px;
+            opacity: 0;
+        }
+
+        .collapsible-content.expanded {
+            padding: 15px;
+            opacity: 1;
+        }
+
+        .error-indicator {
+            color: #dc3545;
+            font-weight: bold;
+            margin-left: 8px;
+            font-size: 14px;
+        }
+
+        .unsaved-warning {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            animation: slideInRight 0.3s ease;
+        }
+
+        .unsaved-warning.show {
+            display: block;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .save-button-container {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
         
     </style>
 </head>
@@ -1257,6 +1374,11 @@
         <form method="POST" action="/admin/logout" style="display: inline;">
             <button type="submit" class="logout-btn">Logout</button>
         </form>
+    </div>
+    
+    <!-- Unsaved Changes Warning -->
+    <div id="unsaved-warning" class="unsaved-warning">
+        ⚠️ You have unsaved changes. Please save your work.
     </div>
     
     <div class="container">
@@ -1808,121 +1930,142 @@
                 </div>
                 
                 <!-- Image Mapping Configuration -->
-                <div class="form-group">
-                    <label>Image Mapping Configuration</label>
-                    <p><small>Map template image identifiers to uploaded images or absolute URLs</small></p>
-                    <div id="espressoImageMapping" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 10px;">
-                        <div style="text-align: center; color: #666; margin: 20px 0;">
-                            <i>Loading image configuration...</i>
+                <div id="espresso-image-mapping" class="collapsible-section">
+                    <div class="collapsible-header collapsed">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>Configure Image Mapping</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content collapsed">
+                        <p><small>Map template image identifiers to uploaded images or absolute URLs</small></p>
+                        <div id="espressoImageMapping" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <div style="text-align: center; color: #666; margin: 20px 0;">
+                                <i>Loading image configuration...</i>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Local Repository File Location -->
-                <div style="margin-top: 20px; padding: 15px; background: #f0f8e7; border-radius: 5px; border-left: 4px solid #28a745;">
-                    <h4>📂 Local Repository Output Settings</h4>
-                    <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
-                        Configure where the generated espresso HTML and images should be saved within the local repository managed by the GitHub tab.
-                        The GitHub tab handles all upload operations - this section only controls local file placement.
-                    </p>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="espressoLocalOutputPath">HTML Output Path within Repository</label>
-                            <input type="text" id="espressoLocalOutputPath" placeholder="espresso/index.html" title="Path within the local repository where the HTML file will be saved">
-                            <small>Relative path within repository. Example: <code>espresso/index.html</code> or <code>coffee/espresso.html</code></small>
-                        </div>
-                        <div class="form-group">
-                            <label for="espressoLocalImagePath">Images Path within Repository</label>
-                            <input type="text" id="espressoLocalImagePath" placeholder="espresso/images" title="Directory within the local repository where images will be saved">
-                            <small>Relative path within repository. Example: <code>espresso/images</code> or <code>assets/coffee-images</code></small>
+                <div id="espresso-local-repo" class="collapsible-section">
+                    <div class="collapsible-header collapsed">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>📂 Local Repository Output Settings</span>
                         </div>
                     </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="espressoSaveToRepo">Save to Local Repository</label>
-                            <select id="espressoSaveToRepo">
-                                <option value="false">Save to public directory (default)</option>
-                                <option value="true">Save to local repository (managed by GitHub tab)</option>
-                            </select>
-                            <small>When enabled, files are saved to the local repository configured in the GitHub tab instead of the public directory</small>
+                    <div class="collapsible-content collapsed">
+                        <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                            Configure where the generated espresso HTML and images should be saved within the local repository managed by the GitHub tab.
+                            The GitHub tab handles all upload operations - this section only controls local file placement.
+                        </p>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="espressoLocalOutputPath">HTML Output Path within Repository</label>
+                                <input type="text" id="espressoLocalOutputPath" placeholder="espresso/index.html" title="Path within the local repository where the HTML file will be saved">
+                                <small>Relative path within repository. Example: <code>espresso/index.html</code> or <code>coffee/espresso.html</code></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="espressoLocalImagePath">Images Path within Repository</label>
+                                <input type="text" id="espressoLocalImagePath" placeholder="espresso/images" title="Directory within the local repository where images will be saved">
+                                <small>Relative path within repository. Example: <code>espresso/images</code> or <code>assets/coffee-images</code></small>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div id="espressoRepoStatus" style="margin-top: 15px; padding: 10px; background: white; border-radius: 3px; border: 1px solid #dee2e6; font-size: 0.9em; color: #6c757d;">
-                        <strong>Repository Status:</strong> <span id="espressoRepoStatusText">Checking GitHub tab configuration...</span>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="espressoSaveToRepo">Save to Local Repository</label>
+                                <select id="espressoSaveToRepo">
+                                    <option value="false">Save to public directory (default)</option>
+                                    <option value="true">Save to local repository (managed by GitHub tab)</option>
+                                </select>
+                                <small>When enabled, files are saved to the local repository configured in the GitHub tab instead of the public directory</small>
+                            </div>
+                        </div>
+                        
+                        <div id="espressoRepoStatus" style="margin-top: 15px; padding: 10px; background: white; border-radius: 3px; border: 1px solid #dee2e6; font-size: 0.9em; color: #6c757d;">
+                            <strong>Repository Status:</strong> <span id="espressoRepoStatusText">Checking GitHub tab configuration...</span>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Template Source Selection -->
-                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <h4>📁 Template Source</h4>
-                    <p><small>Choose how to provide HTML template and image files. Only one method can be active at a time.</small></p>
-                    
-                    <!-- Template Source Method Selection -->
-                    <div class="form-group">
-                        <label>Template Source Method</label>
-                        <div style="margin-top: 5px;">
-                            <input type="radio" id="templateSourceUpload" name="templateSource" value="upload" onchange="toggleTemplateSourceMethod()">
-                            <label for="templateSourceUpload" style="margin-left: 5px; font-weight: normal;">📤 File Upload</label>
-                        </div>
-                        <div style="margin-top: 5px;">
-                            <input type="radio" id="templateSourceGit" name="templateSource" value="git" onchange="toggleTemplateSourceMethod()">
-                            <label for="templateSourceGit" style="margin-left: 5px; font-weight: normal;">📋 Git Repository</label>
+                <div id="espresso-template-source" class="collapsible-section">
+                    <div class="collapsible-header collapsed">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>📁 Template Source</span>
                         </div>
                     </div>
-
-                    <!-- File Upload Section -->
-                    <div id="templateUploadSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #007bff; background: rgba(0,123,255,0.1);">
-                        <h5>📤 Upload Template Files</h5>
-                        <p><small>Upload HTML template and image files directly to the server.</small></p>
+                    <div class="collapsible-content collapsed">
+                        <p><small>Choose how to provide HTML template and image files. Only one method can be active at a time.</small></p>
                         
+                        <!-- Template Source Method Selection -->
                         <div class="form-group">
-                            <label for="espressoTemplateFile">Upload Template/Images</label>
-                            <input type="file" id="espressoTemplateFile" accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg" multiple>
-                            <small>Supported: HTML templates (.html, .htm) and images (.png, .jpg, .jpeg, .gif, .svg)</small>
-                        </div>
-                        
-                        <div style="margin-top: 10px;">
-                            <button onclick="uploadEspressoTemplate()" class="btn btn-primary">Upload Files</button>
-                            <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
-                        </div>
-                    </div>
-
-                    <!-- Git Repository Section -->
-                    <div id="templateGitSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #28a745; background: rgba(40,167,69,0.1);">
-                        <h5>📋 Git Repository Template Source</h5>
-                        <p><small>Download/clone template files from a public git repository. No authentication required - works with any publicly accessible repository. All HTML and image files will be copied automatically.</small></p>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="espressoGitRepoUrl">Template Repository URL <span style="color: red;">*</span></label>
-                                <input type="url" id="espressoGitRepoUrl" placeholder="https://github.com/username/template-repo.git">
-                                <small>Public git repository URL containing template files (no authentication needed)</small>
+                            <label>Template Source Method</label>
+                            <div style="margin-top: 5px;">
+                                <input type="radio" id="templateSourceUpload" name="templateSource" value="upload" onchange="toggleTemplateSourceMethod()">
+                                <label for="templateSourceUpload" style="margin-left: 5px; font-weight: normal;">📤 File Upload</label>
                             </div>
-                            <div class="form-group">
-                                <label for="espressoGitBranch">Branch</label>
-                                <input type="text" id="espressoGitBranch" placeholder="main" value="main">
-                                <small>Git branch to download from (default: main)</small>
+                            <div style="margin-top: 5px;">
+                                <input type="radio" id="templateSourceGit" name="templateSource" value="git" onchange="toggleTemplateSourceMethod()">
+                                <label for="templateSourceGit" style="margin-left: 5px; font-weight: normal;">📋 Git Repository</label>
                             </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="espressoGitLocalPath">Temporary Download Path <span style="color: red;">*</span></label>
-                            <input type="text" id="espressoGitLocalPath" placeholder="/tmp/espresso-template-repo">
-                            <small>Temporary local directory where template files will be downloaded. Use writable paths like <code>/tmp/</code>. Files will be copied to the uploads directory automatically.</small>
+
+                        <!-- File Upload Section -->
+                        <div id="templateUploadSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #007bff; background: rgba(0,123,255,0.1);">
+                            <h5>📤 Upload Template Files</h5>
+                            <p><small>Upload HTML template and image files directly to the server.</small></p>
+                            
+                            <div class="form-group">
+                                <label for="espressoTemplateFile">Upload Template/Images</label>
+                                <input type="file" id="espressoTemplateFile" accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg" multiple>
+                                <small>Supported: HTML templates (.html, .htm) and images (.png, .jpg, .jpeg, .gif, .svg)</small>
+                            </div>
+                            
+                            <div style="margin-top: 10px;">
+                                <button onclick="uploadEspressoTemplate()" class="btn btn-primary">Upload Files</button>
+                                <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
+                            </div>
+                        </div>
+
+                        <!-- Git Repository Section -->
+                        <div id="templateGitSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #28a745; background: rgba(40,167,69,0.1);">
+                            <h5>📋 Git Repository Template Source</h5>
+                            <p><small>Download/clone template files from a public git repository. No authentication required - works with any publicly accessible repository. All HTML and image files will be copied automatically.</small></p>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="espressoGitRepoUrl">Template Repository URL <span style="color: red;">*</span></label>
+                                    <input type="url" id="espressoGitRepoUrl" placeholder="https://github.com/username/template-repo.git">
+                                    <small>Public git repository URL containing template files (no authentication needed)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="espressoGitBranch">Branch</label>
+                                    <input type="text" id="espressoGitBranch" placeholder="main" value="main">
+                                    <small>Git branch to download from (default: main)</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="espressoGitLocalPath">Temporary Download Path <span style="color: red;">*</span></label>
+                                <input type="text" id="espressoGitLocalPath" placeholder="/tmp/espresso-template-repo">
+                                <small>Temporary local directory where template files will be downloaded. Use writable paths like <code>/tmp/</code>. Files will be copied to the uploads directory automatically.</small>
+                            </div>
+                            
+                            <div style="margin-top: 10px;">
+                                <button onclick="cloneEspressoTemplateRepo()" class="btn btn-success" id="cloneTemplateBtn">Download Template Repository</button>
+                                <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
+                            </div>
                         </div>
                         
-                        <div style="margin-top: 10px;">
-                            <button onclick="cloneEspressoTemplateRepo()" class="btn btn-success" id="cloneTemplateBtn">Download Template Repository</button>
-                            <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
-                        </div>
+                        <!-- Common Template Files Display -->
+                        <div id="espressoTemplateFiles" style="margin-top: 15px;"></div>
+                        <div id="espressoTemplateAlert" class="alert" style="margin-top: 10px;"></div>
                     </div>
-                    
-                    <!-- Common Template Files Display -->
-                    <div id="espressoTemplateFiles" style="margin-top: 15px;"></div>
-                    <div id="espressoTemplateAlert" class="alert" style="margin-top: 10px;"></div>
                 </div>
                 
                 <!-- Action Buttons -->
@@ -1988,64 +2131,78 @@
                 </div>
                 
                 <!-- GitHub Pages Configuration -->
-                <div id="githubPagesConfig" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <h4>Repository Settings</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="vidiotsRepoOwner">Repository Owner</label>
-                            <input type="text" id="vidiotsRepoOwner" placeholder="github-username">
-                        </div>
-                        <div class="form-group">
-                            <label for="vidiotsRepoName">Repository Name</label>
-                            <input type="text" id="vidiotsRepoName" placeholder="username.github.io">
+                <div id="github-repository-settings" class="collapsible-section">
+                    <div class="collapsible-header collapsed">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>Repository Settings</span>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="vidiotsRepoBranch">Branch</label>
-                            <input type="text" id="vidiotsRepoBranch" placeholder="main">
+                    <div class="collapsible-content collapsed">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="vidiotsRepoOwner">Repository Owner</label>
+                                <input type="text" id="vidiotsRepoOwner" placeholder="github-username">
+                            </div>
+                            <div class="form-group">
+                                <label for="vidiotsRepoName">Repository Name</label>
+                                <input type="text" id="vidiotsRepoName" placeholder="username.github.io">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="vidiotsRepoLocalPath">Local Repository Path</label>
-                            <input type="text" id="vidiotsRepoLocalPath" placeholder="/path/to/local/repo">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="vidiotsRepoBranch">Branch</label>
+                                <input type="text" id="vidiotsRepoBranch" placeholder="main">
+                            </div>
+                            <div class="form-group">
+                                <label for="vidiotsRepoLocalPath">Local Repository Path</label>
+                                <input type="text" id="vidiotsRepoLocalPath" placeholder="/path/to/local/repo">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="vidiotsCommitMessage">Commit Message</label>
-                            <input type="text" id="vidiotsCommitMessage" placeholder="Automated vidiots update">
-                        </div>
-                        <div class="form-group">
-                            <label for="vidiotsAccessToken">GitHub Personal Access Token <span style="color: red;">*</span></label>
-                            <input type="password" id="vidiotsAccessToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-                            <small style="color: #666;">Required for authentication. Create at: Settings → Developer settings → Personal access tokens</small>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="vidiotsCommitMessage">Commit Message</label>
+                                <input type="text" id="vidiotsCommitMessage" placeholder="Automated vidiots update">
+                            </div>
+                            <div class="form-group">
+                                <label for="vidiotsAccessToken">GitHub Personal Access Token <span style="color: red;">*</span></label>
+                                <input type="password" id="vidiotsAccessToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                                <small style="color: #666;">Required for authentication. Create at: Settings → Developer settings → Personal access tokens</small>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Git Identity Configuration -->
-                <div id="gitIdentityConfig" style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 5px; border-left: 4px solid #007bff;">
-                    <h4>Git Identity Configuration</h4>
-                    <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
-                        Configure the git author identity for commits. This is required for GitHub upload operations and will persist across container restarts.
-                    </p>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="gitUserName">Git User Name <span style="color: red;">*</span></label>
-                            <input type="text" id="gitUserName" placeholder="Your Name" required>
-                            <small style="color: #666;">This will be used as the author name for git commits</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="gitUserEmail">Git User Email <span style="color: red;">*</span></label>
-                            <input type="email" id="gitUserEmail" placeholder="your.email@example.com" required>
-                            <small style="color: #666;">This will be used as the author email for git commits</small>
+                <div id="github-git-identity" class="collapsible-section">
+                    <div class="collapsible-header collapsed">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>Git Identity Configuration</span>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <button class="btn btn-primary" onclick="saveGitIdentity()">Save Git Identity</button>
-                        <button class="btn btn-secondary" onclick="loadGitIdentity()">Refresh</button>
+                    <div class="collapsible-content collapsed">
+                        <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                            Configure the git author identity for commits. This is required for GitHub upload operations and will persist across container restarts.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="gitUserName">Git User Name <span style="color: red;">*</span></label>
+                                <input type="text" id="gitUserName" placeholder="Your Name" required>
+                                <small style="color: #666;">This will be used as the author name for git commits</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="gitUserEmail">Git User Email <span style="color: red;">*</span></label>
+                                <input type="email" id="gitUserEmail" placeholder="your.email@example.com" required>
+                                <small style="color: #666;">This will be used as the author email for git commits</small>
+                            </div>
+                        </div>
+                        <div class="save-button-container">
+                            <button class="btn btn-primary" onclick="saveGitIdentity()">Save Git Identity</button>
+                            <button class="btn btn-secondary" onclick="loadGitIdentity()">Refresh</button>
+                        </div>
+                        <div id="gitIdentityAlert" class="alert" style="margin-top: 10px;"></div>
                     </div>
-                    <div id="gitIdentityAlert" class="alert" style="margin-top: 10px;"></div>
                 </div>
                 
                 <div class="form-group" style="margin-top: 20px;">
@@ -2381,6 +2538,225 @@
         let originalConfig = '';
         let currentLinks = [];
         let systemDiskSpace = null; // Cache for system disk space information
+        let unsavedChanges = new Set(); // Track sections with unsaved changes
+
+        // Collapsible section functions
+        function toggleCollapsible(sectionId) {
+            const header = document.querySelector(`#${sectionId} .collapsible-header`);
+            const content = document.querySelector(`#${sectionId} .collapsible-content`);
+            
+            if (!header || !content) {
+                console.error(`Collapsible section ${sectionId} not found`);
+                return;
+            }
+
+            const isExpanded = header.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Collapse
+                header.classList.remove('expanded');
+                header.classList.add('collapsed');
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+            } else {
+                // Expand
+                header.classList.remove('collapsed');
+                header.classList.add('expanded');
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+            }
+        }
+
+        function showErrorIndicator(sectionId, hasError) {
+            const header = document.querySelector(`#${sectionId} .collapsible-header`);
+            if (!header) return;
+
+            let errorIndicator = header.querySelector('.error-indicator');
+            
+            if (hasError && !errorIndicator) {
+                errorIndicator = document.createElement('span');
+                errorIndicator.className = 'error-indicator';
+                errorIndicator.innerHTML = '●';
+                errorIndicator.title = 'This section has missing information or errors';
+                header.querySelector('.collapsible-title').appendChild(errorIndicator);
+            } else if (!hasError && errorIndicator) {
+                errorIndicator.remove();
+            }
+        }
+
+        function markUnsavedChanges(sectionId) {
+            unsavedChanges.add(sectionId);
+            updateUnsavedWarning();
+        }
+
+        function markSaved(sectionId) {
+            unsavedChanges.delete(sectionId);
+            updateUnsavedWarning();
+        }
+
+        function updateUnsavedWarning() {
+            const warning = document.getElementById('unsaved-warning');
+            if (unsavedChanges.size > 0) {
+                if (!warning.classList.contains('show')) {
+                    warning.classList.add('show');
+                }
+                const sections = Array.from(unsavedChanges).join(', ');
+                warning.innerHTML = `⚠️ Unsaved changes in: ${sections}. Please save your changes.`;
+            } else {
+                warning.classList.remove('show');
+            }
+        }
+
+        function initializeCollapsibleSections() {
+            // Initialize all collapsible sections as collapsed by default
+            const sections = [
+                'espresso-image-mapping',
+                'espresso-local-repo',
+                'espresso-template-source',
+                'github-repository-settings',
+                'github-git-identity'
+            ];
+
+            sections.forEach(sectionId => {
+                const header = document.querySelector(`#${sectionId} .collapsible-header`);
+                const content = document.querySelector(`#${sectionId} .collapsible-content`);
+                
+                if (header && content) {
+                    // Start collapsed
+                    header.classList.add('collapsed');
+                    content.classList.add('collapsed');
+                    
+                    // Add click handler
+                    header.addEventListener('click', () => toggleCollapsible(sectionId));
+                }
+            });
+
+            // Initialize change tracking for form inputs
+            initializeChangeTracking();
+        }
+
+        function initializeChangeTracking() {
+            // Track changes for espresso section inputs
+            const espressoInputs = [
+                'espressoEnabled', 'espressoDataFilePath', 'espressoTemplatePath', 'espressoOutputPath',
+                'espressoLocalOutputPath', 'espressoLocalImagePath', 'espressoSaveToRepo',
+                'templateSourceUpload', 'templateSourceGit', 'espressoGitRepoUrl', 'espressoGitBranch', 'espressoGitLocalPath'
+            ];
+            
+            espressoInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('change', () => markUnsavedChanges('Espresso Configuration'));
+                    input.addEventListener('input', () => markUnsavedChanges('Espresso Configuration'));
+                }
+            });
+
+            // Track changes for GitHub repository settings
+            const githubRepoInputs = [
+                'vidiotsRepoOwner', 'vidiotsRepoName', 'vidiotsRepoBranch', 
+                'vidiotsRepoLocalPath', 'vidiotsCommitMessage', 'vidiotsAccessToken'
+            ];
+
+            githubRepoInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('change', () => markUnsavedChanges('GitHub Repository Settings'));
+                    input.addEventListener('input', () => markUnsavedChanges('GitHub Repository Settings'));
+                }
+            });
+
+            // Track changes for Git identity
+            const gitIdentityInputs = ['gitUserName', 'gitUserEmail'];
+            
+            gitIdentityInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('change', () => markUnsavedChanges('Git Identity'));
+                    input.addEventListener('input', () => markUnsavedChanges('Git Identity'));
+                }
+            });
+
+            // Set up periodic validation checks for error indicators
+            setInterval(updateErrorIndicators, 5000); // Check every 5 seconds
+        }
+
+        function updateErrorIndicators() {
+            // Check espresso sections for errors
+            checkEspressoImageMappingErrors();
+            checkEspressoLocalRepoErrors();
+            checkEspressoTemplateSourceErrors();
+            checkGitHubRepositoryErrors();
+            checkGitIdentityErrors();
+        }
+
+        function checkEspressoImageMappingErrors() {
+            // Check if there are image configuration issues
+            const templatePath = document.getElementById('espressoTemplatePath').value.trim();
+            const hasError = !templatePath || templatePath.includes('❌');
+            showErrorIndicator('espresso-image-mapping', hasError);
+        }
+
+        function checkEspressoLocalRepoErrors() {
+            // Check if local repository configuration has issues
+            const repoStatusText = document.getElementById('espressoRepoStatusText');
+            const hasError = repoStatusText && repoStatusText.textContent.includes('⚠️');
+            showErrorIndicator('espresso-local-repo', hasError);
+        }
+
+        function checkEspressoTemplateSourceErrors() {
+            // Check if template source has issues
+            const uploadRadio = document.getElementById('templateSourceUpload');
+            const gitRadio = document.getElementById('templateSourceGit');
+            const templateFiles = document.getElementById('espressoTemplateFiles');
+            
+            let hasError = false;
+            
+            // No method selected
+            if (!uploadRadio.checked && !gitRadio.checked) {
+                hasError = true;
+            }
+            
+            // Upload method selected but no files
+            if (uploadRadio.checked && templateFiles && templateFiles.textContent.includes('No template files uploaded yet')) {
+                hasError = true;
+            }
+            
+            // Git method selected but no URL
+            if (gitRadio.checked) {
+                const gitUrl = document.getElementById('espressoGitRepoUrl').value.trim();
+                if (!gitUrl) {
+                    hasError = true;
+                }
+            }
+            
+            showErrorIndicator('espresso-template-source', hasError);
+        }
+
+        function checkGitHubRepositoryErrors() {
+            // Check if required GitHub repository fields are missing
+            const repoOwner = document.getElementById('vidiotsRepoOwner').value.trim();
+            const repoName = document.getElementById('vidiotsRepoName').value.trim();
+            const accessToken = document.getElementById('vidiotsAccessToken').value.trim();
+            
+            const hasError = !repoOwner || !repoName || (!accessToken && accessToken !== '••••••••••••••••••••');
+            showErrorIndicator('github-repository-settings', hasError);
+        }
+
+        function checkGitIdentityErrors() {
+            // Check if required Git identity fields are missing
+            const userName = document.getElementById('gitUserName').value.trim();
+            const userEmail = document.getElementById('gitUserEmail').value.trim();
+            
+            let hasError = !userName || !userEmail;
+            
+            // Basic email validation
+            if (userEmail) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                hasError = hasError || !emailRegex.test(userEmail);
+            }
+            
+            showErrorIndicator('github-git-identity', hasError);
+        }
         
         // Load system disk space information
         async function loadSystemDiskSpace() {
@@ -4794,6 +5170,7 @@
                 if (result.success) {
                     showAlert(result.message || 'Vidiots configuration saved successfully', 'success', 'vidiotsAlert');
                     loadVidiotsStatus(); // Refresh status after config change
+                    markSaved('GitHub Repository Settings'); // Clear unsaved changes
                 } else {
                     showAlert('Failed to save vidiots configuration: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
                 }
@@ -4929,6 +5306,7 @@
                 if (result.success) {
                     showAlert(result.message || 'Espresso configuration saved successfully', 'success', 'espressoAlert');
                     loadEspressoStatus(); // Refresh status after config change
+                    markSaved('Espresso Configuration'); // Clear unsaved changes
                 } else {
                     showAlert('Failed to save espresso configuration: ' + (result.error || 'Unknown error'), 'error', 'espressoAlert');
                 }
@@ -5833,6 +6211,7 @@
                 if (result.success) {
                     addGitHubLog('SUCCESS', 'Git identity saved successfully and will persist across restarts');
                     showAlert('✅ Git identity saved successfully! This will be used for all GitHub commit operations and persists across container restarts.', 'success', 'gitIdentityAlert');
+                    markSaved('Git Identity'); // Clear unsaved changes
                 } else {
                     addGitHubLog('ERROR', `Failed to save git identity: ${result.error || 'Unknown error'}`);
                     showAlert('❌ Failed to save git identity: ' + (result.error || 'Unknown error'), 'error', 'gitIdentityAlert');
@@ -5996,6 +6375,9 @@
                     section.classList.add('hidden');
                 }
             });
+
+            // Initialize collapsible sections
+            initializeCollapsibleSections();
 
             // Add event listener for GitHub Pages toggle
             const githubEnabledSelect = document.getElementById('vidiotsGithubEnabled');
