@@ -3082,6 +3082,54 @@ app.post('/admin/api/espresso/github/upload', requireAuth, async (req, res) => {
   }
 });
 
+// Clone espresso template from git repository
+app.post('/admin/api/espresso/clone-template', requireAuth, async (req, res) => {
+  try {
+    console.log('📋 [Espresso] Template repository clone/pull triggered from admin interface');
+    
+    const { repoUrl, branch, localPath } = req.body;
+    
+    if (!repoUrl || !localPath) {
+      return res.status(400).json({
+        success: false,
+        error: 'Repository URL and local path are required'
+      });
+    }
+    
+    const repoConfig = {
+      repoUrl,
+      branch: branch || 'main',
+      localPath
+    };
+    
+    const result = await espresso.cloneTemplateRepository(repoConfig);
+    
+    if (result.success) {
+      console.log(`✅ [Espresso] Template repository ${result.action} successfully`);
+      res.json({
+        success: true,
+        message: `Repository ${result.action} successfully`,
+        action: result.action,
+        filesCopied: result.filesCopied || 0,
+        output: result.output
+      });
+    } else {
+      console.error(`❌ [Espresso] Template repository operation failed: ${result.error}`);
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ [Espresso] Error in template clone operation:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Template repository clone failed: ' + error.message
+    });
+  }
+});
+
 // Serve uploaded espresso template assets
 app.get('/uploads/espresso/templates/:filename', (req, res) => {
   try {

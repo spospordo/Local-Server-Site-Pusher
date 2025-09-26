@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const { execSync } = require('child_process');
 const githubUpload = require('./github-upload');
 
 let config = null;
@@ -538,6 +539,207 @@ function deleteUploadedTemplateFile(filename) {
   }
 }
 
+// Clone or pull template repository
+async function cloneTemplateRepository(repoConfig) {
+  try {
+    console.log('📋 [Espresso] Starting template repository clone/pull operation...');
+    
+    const { repoUrl, branch = 'main', localPath } = repoConfig;
+    
+    if (!repoUrl || !localPath) {
+      throw new Error('Repository URL and local path are required');
+    }
+    
+    // Validate and sanitize the repository path
+    const normalizedPath = path.resolve(localPath);
+    if (!normalizedPath.startsWith('/') || normalizedPath.includes('..')) {
+      throw new Error('Invalid repository path');
+    }
+    
+    // Sanitize branch name to prevent command injection
+    const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
+    
+    console.log(`🔗 [Espresso] Repository URL: ${repoUrl.replace(/:\/\/.*@/, '://****@')}`);
+    console.log(`📁 [Espresso] Local path: ${normalizedPath}`);
+    console.log(`🌿 [Espresso] Branch: ${safeBranch}`);
+    
+    // Check if directory exists and has .git folder
+    const gitDir = path.join(normalizedPath, '.git');
+    
+    if (fs.existsSync(gitDir)) {
+      // Repository exists, pull latest changes
+      console.log('📥 [Espresso] Repository exists, pulling latest changes...');
+      
+      try {
+        // Fetch and pull latest changes
+        execSync('git fetch origin', { cwd: normalizedPath });
+        
+        // Check current branch
+        const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+          cwd: normalizedPath,
+          encoding: 'utf8'
+        }).trim();
+        
+        if (currentBranch !== safeBranch) {
+          console.log(`🌿 [Espresso] Switching from ${currentBranch} to ${safeBranch}`);
+          execSync('git checkout ' + safeBranch, { cwd: normalizedPath });
+        }
+        
+        const pullOutput = execSync('git pull origin ' + safeBranch, {
+          cwd: normalizedPath,
+          encoding: 'utf8'
+        });
+        
+        console.log('✅ [Espresso] Repository updated successfully');
+        
+        // Copy template files to uploads directory
+        await copyTemplateFiles(normalizedPath);
+        
+        return { 
+          success: true, 
+          action: 'pulled',
+          message: 'Repository updated with latest changes',
+          output: pullOutput.trim()
+        };
+        
+      } catch (pullError) {
+        console.error('❌ [Espresso] Pull failed:', pullError.message);
+        return { success: false, error: `Failed to pull repository: ${pullError.message}` };
+      }
+      
+    } else {
+      // Repository doesn't exist, clone it
+      console.log('📋 [Espresso] Repository not found locally, cloning...');
+      
+      try {
+        // Ensure parent directory exists
+        const parentDir = path.dirname(normalizedPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+        
+        // Remove the target directory if it exists but is not a git repo
+        if (fs.existsSync(normalizedPath)) {
+          console.log('🗑️ [Espresso] Removing existing non-git directory');
+          const cleanupResult = await robustDirectoryCleanup(normalizedPath);
+          if (!cleanupResult.success) {
+            return cleanupResult;
+          }
+        }
+        
+        const cloneOutput = execSync('git clone --branch ' + safeBranch + ' ' + repoUrl + ' ' + JSON.stringify(normalizedPath), {
+          encoding: 'utf8'
+        });
+        
+        console.log('✅ [Espresso] Repository cloned successfully');
+        
+        // Copy template files to uploads directory
+        await copyTemplateFiles(normalizedPath);
+        
+        return { 
+          success: true, 
+          action: 'cloned',
+          message: 'Repository cloned successfully',
+          output: cloneOutput.trim()
+        };
+        
+      } catch (cloneError) {
+        console.error('❌ [Espresso] Clone failed:', cloneError.message);
+        return { success: false, error: `Failed to clone repository: ${cloneError.message}` };
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ [Espresso] Error in cloneTemplateRepository:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Helper function for robust directory cleanup (borrowed from github-upload.js pattern)
+async function robustDirectoryCleanup(dirPath) {
+  try {
+    // Use fs.rmSync with recursive option for Node.js 14.14.0+
+    fs.rmSync(dirPath, { recursive: true, force: true });
+    console.log(`🗑️ [Espresso] Directory cleanup completed: ${dirPath}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`❌ [Espresso] Directory cleanup failed: ${error.message}`);
+    return { success: false, error: `Directory cleanup failed: ${error.message}` };
+  }
+}
+
+// Copy template files from git repository to uploads directory
+async function copyTemplateFiles(repoPath) {
+  try {
+    const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+    
+    // Ensure uploads directory exists
+    if (!fs.existsSync(templatesDir)) {
+      fs.mkdirSync(templatesDir, { recursive: true });
+    }
+    
+    // Clear existing uploaded files to avoid conflicts
+    if (fs.existsSync(templatesDir)) {
+      const existingFiles = fs.readdirSync(templatesDir);
+      existingFiles.forEach(file => {
+        const filePath = path.join(templatesDir, file);
+        fs.unlinkSync(filePath);
+      });
+      console.log('🗑️ [Espresso] Cleared existing uploaded template files');
+    }
+    
+    // Find and copy template files from repository
+    const allowedExtensions = ['.html', '.htm', '.png', '.jpg', '.jpeg', '.gif', '.svg'];
+    let filesCopied = 0;
+    
+    function copyFilesRecursively(srcDir, destDir = templatesDir) {
+      const items = fs.readdirSync(srcDir);
+      
+      items.forEach(item => {
+        // Skip .git directory and other hidden directories
+        if (item.startsWith('.')) {
+          return;
+        }
+        
+        const srcPath = path.join(srcDir, item);
+        const stat = fs.statSync(srcPath);
+        
+        if (stat.isDirectory()) {
+          // Recursively search subdirectories
+          copyFilesRecursively(srcPath, destDir);
+        } else if (stat.isFile()) {
+          const fileExt = path.extname(item).toLowerCase();
+          if (allowedExtensions.includes(fileExt)) {
+            const destPath = path.join(destDir, item);
+            
+            // Avoid overwriting files with the same name
+            let finalDestPath = destPath;
+            let counter = 1;
+            while (fs.existsSync(finalDestPath)) {
+              const name = path.basename(item, fileExt);
+              finalDestPath = path.join(destDir, `${name}_${counter}${fileExt}`);
+              counter++;
+            }
+            
+            fs.copyFileSync(srcPath, finalDestPath);
+            filesCopied++;
+            console.log(`📄 [Espresso] Copied template file: ${item} -> ${path.basename(finalDestPath)}`);
+          }
+        }
+      });
+    }
+    
+    copyFilesRecursively(repoPath);
+    
+    console.log(`✅ [Espresso] Copied ${filesCopied} template files from repository`);
+    return { success: true, filesCopied };
+    
+  } catch (error) {
+    console.error('❌ [Espresso] Error copying template files:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   init,
   loadEspressoData,
@@ -550,5 +752,6 @@ module.exports = {
   getUploadedImageFiles,
   deleteUploadedTemplateFile,
   getAvailableImages,
-  getCurrentTemplatePath
+  getCurrentTemplatePath,
+  cloneTemplateRepository
 };

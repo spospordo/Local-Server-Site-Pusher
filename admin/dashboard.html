@@ -1847,22 +1847,72 @@
                     </div>
                 </div>
                 
-                <!-- Template Upload Section -->
+                <!-- Template Source Selection -->
                 <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <h4>📁 Template Upload</h4>
-                    <p><small>Upload HTML template and image files. Uploaded templates take priority over configured paths.</small></p>
+                    <h4>📁 Template Source</h4>
+                    <p><small>Choose how to provide HTML template and image files. Only one method can be active at a time.</small></p>
                     
+                    <!-- Template Source Method Selection -->
                     <div class="form-group">
-                        <label for="espressoTemplateFile">Upload Template/Images</label>
-                        <input type="file" id="espressoTemplateFile" accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg" multiple>
-                        <small>Supported: HTML templates (.html, .htm) and images (.png, .jpg, .jpeg, .gif, .svg)</small>
+                        <label>Template Source Method</label>
+                        <div style="margin-top: 5px;">
+                            <input type="radio" id="templateSourceUpload" name="templateSource" value="upload" onchange="toggleTemplateSourceMethod()">
+                            <label for="templateSourceUpload" style="margin-left: 5px; font-weight: normal;">📤 File Upload</label>
+                        </div>
+                        <div style="margin-top: 5px;">
+                            <input type="radio" id="templateSourceGit" name="templateSource" value="git" onchange="toggleTemplateSourceMethod()">
+                            <label for="templateSourceGit" style="margin-left: 5px; font-weight: normal;">📋 Git Repository</label>
+                        </div>
+                    </div>
+
+                    <!-- File Upload Section -->
+                    <div id="templateUploadSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #007bff; background: rgba(0,123,255,0.1);">
+                        <h5>📤 Upload Template Files</h5>
+                        <p><small>Upload HTML template and image files directly to the server.</small></p>
+                        
+                        <div class="form-group">
+                            <label for="espressoTemplateFile">Upload Template/Images</label>
+                            <input type="file" id="espressoTemplateFile" accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg" multiple>
+                            <small>Supported: HTML templates (.html, .htm) and images (.png, .jpg, .jpeg, .gif, .svg)</small>
+                        </div>
+                        
+                        <div style="margin-top: 10px;">
+                            <button onclick="uploadEspressoTemplate()" class="btn btn-primary">Upload Files</button>
+                            <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
+                        </div>
+                    </div>
+
+                    <!-- Git Repository Section -->
+                    <div id="templateGitSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #28a745; background: rgba(40,167,69,0.1);">
+                        <h5>📋 Git Repository Template</h5>
+                        <p><small>Clone template files from a git repository. All HTML and image files will be copied automatically.</small></p>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="espressoGitRepoUrl">Repository URL <span style="color: red;">*</span></label>
+                                <input type="url" id="espressoGitRepoUrl" placeholder="https://github.com/username/template-repo.git">
+                                <small>Git repository URL (supports HTTPS and SSH)</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="espressoGitBranch">Branch</label>
+                                <input type="text" id="espressoGitBranch" placeholder="main" value="main">
+                                <small>Git branch to clone (default: main)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="espressoGitLocalPath">Local Clone Path <span style="color: red;">*</span></label>
+                            <input type="text" id="espressoGitLocalPath" placeholder="/tmp/espresso-template-repo">
+                            <small>Local directory where the repository will be cloned</small>
+                        </div>
+                        
+                        <div style="margin-top: 10px;">
+                            <button onclick="cloneEspressoTemplateRepo()" class="btn btn-success" id="cloneTemplateBtn">Clone Repository</button>
+                            <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
+                        </div>
                     </div>
                     
-                    <div style="margin-top: 10px;">
-                        <button onclick="uploadEspressoTemplate()" class="btn btn-primary">Upload Files</button>
-                        <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
-                    </div>
-                    
+                    <!-- Common Template Files Display -->
                     <div id="espressoTemplateFiles" style="margin-top: 15px;"></div>
                     <div id="espressoTemplateAlert" class="alert" style="margin-top: 10px;"></div>
                 </div>
@@ -4548,6 +4598,106 @@
                     loadVidiotsConfig(); // Still need to load config for GitHub settings
                     initializeGitHubSection(); // Initialize GitHub logging and load git identity
                 }
+            }
+        }
+
+        // Template Source Selection Functions
+        function toggleTemplateSourceMethod() {
+            const uploadRadio = document.getElementById('templateSourceUpload');
+            const gitRadio = document.getElementById('templateSourceGit');
+            const uploadSection = document.getElementById('templateUploadSection');
+            const gitSection = document.getElementById('templateGitSection');
+            
+            if (uploadRadio.checked) {
+                uploadSection.style.display = 'block';
+                gitSection.style.display = 'none';
+                console.log('Switched to file upload method');
+            } else if (gitRadio.checked) {
+                uploadSection.style.display = 'none';
+                gitSection.style.display = 'block';
+                console.log('Switched to git repository method');
+            } else {
+                uploadSection.style.display = 'none';
+                gitSection.style.display = 'none';
+            }
+        }
+        
+        // Initialize template source selection on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Default to upload method
+            const uploadRadio = document.getElementById('templateSourceUpload');
+            if (uploadRadio) {
+                uploadRadio.checked = true;
+                toggleTemplateSourceMethod();
+            }
+        });
+
+        // Clone espresso template repository
+        async function cloneEspressoTemplateRepo() {
+            const repoUrlInput = document.getElementById('espressoGitRepoUrl');
+            const branchInput = document.getElementById('espressoGitBranch');
+            const localPathInput = document.getElementById('espressoGitLocalPath');
+            const cloneBtn = document.getElementById('cloneTemplateBtn');
+            
+            const repoUrl = repoUrlInput.value.trim();
+            const branch = branchInput.value.trim() || 'main';
+            const localPath = localPathInput.value.trim();
+            
+            if (!repoUrl) {
+                showAlert('Repository URL is required', 'error', 'espressoTemplateAlert');
+                return;
+            }
+            
+            if (!localPath) {
+                showAlert('Local clone path is required', 'error', 'espressoTemplateAlert');
+                return;
+            }
+            
+            try {
+                // Set button loading state
+                cloneBtn.disabled = true;
+                cloneBtn.innerHTML = '🔄 Cloning...';
+                
+                showAlert('Cloning template repository...', 'success', 'espressoTemplateAlert');
+                
+                const response = await fetch('/admin/api/espresso/clone-template', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        repoUrl: repoUrl,
+                        branch: branch,
+                        localPath: localPath
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const actionText = result.action === 'cloned' ? 'cloned' : 'updated';
+                    const fileText = result.filesCopied > 0 ? ` (${result.filesCopied} files copied)` : '';
+                    showAlert(`Repository ${actionText} successfully${fileText}`, 'success', 'espressoTemplateAlert');
+                    
+                    // Refresh template files list
+                    await loadEspressoTemplateFiles();
+                    await loadEspressoStatus(); // Refresh status to show template is available
+                    
+                    // Refresh template path and image mapping UI
+                    await loadEspressoTemplatePath();
+                    const currentConfig = await getCurrentEspressoConfig();
+                    await loadEspressoImageMapping(currentConfig.imagePaths || {});
+                    
+                } else {
+                    showAlert('Failed to clone repository: ' + result.error, 'error', 'espressoTemplateAlert');
+                }
+                
+            } catch (error) {
+                showAlert('Error cloning repository: ' + error.message, 'error', 'espressoTemplateAlert');
+            } finally {
+                // Reset button state
+                cloneBtn.disabled = false;
+                cloneBtn.innerHTML = 'Clone Repository';
             }
         }
 
