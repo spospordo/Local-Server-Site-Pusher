@@ -18,7 +18,19 @@ async function robustDirectoryCleanup(dirPath, maxRetries = 5, baseDelay = 100) 
       // First, try to change permissions if possible (helps with some locked files)
       try {
         if (process.platform !== 'win32') {
-          execSync(`chmod -R 755 "${dirPath}"`, { stdio: 'ignore' });
+          // Use proper escaping to prevent command injection
+          const { spawn } = require('child_process');
+          const chmod = spawn('chmod', ['-R', '755', dirPath], { stdio: 'ignore' });
+          await new Promise((resolve, reject) => {
+            chmod.on('close', (code) => {
+              if (code === 0) {
+                resolve();
+              } else {
+                reject(new Error(`chmod exited with code ${code}`));
+              }
+            });
+            chmod.on('error', reject);
+          });
         }
       } catch (chmodError) {
         // Ignore chmod failures, they're not critical
