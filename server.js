@@ -2768,6 +2768,62 @@ app.post('/admin/api/espresso/generate', requireAuth, async (req, res) => {
   }
 });
 
+// Admin espresso data endpoint - get espresso data for editing
+app.get('/admin/api/espresso/data', requireAuth, (req, res) => {
+  try {
+    console.log('📊 [Espresso] GET /admin/api/espresso/data - Fetching espresso data for admin');
+    const espressoData = espresso.getEspressoData();
+    res.json({
+      success: true,
+      data: espressoData
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error fetching data for admin:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch espresso data: ' + error.message
+    });
+  }
+});
+
+// Admin espresso data endpoint - update espresso data from admin interface
+app.post('/admin/api/espresso/data', requireAuth, async (req, res) => {
+  try {
+    console.log('📝 [Espresso] POST /admin/api/espresso/data - Updating espresso data from admin');
+    const updatedData = req.body;
+    
+    if (!updatedData || typeof updatedData !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid data format'
+      });
+    }
+    
+    const result = await espresso.updateEspressoData(updatedData);
+    
+    if (result.success) {
+      console.log('✅ [Espresso] Data updated successfully from admin interface');
+      res.json({
+        success: true,
+        message: 'Espresso data updated successfully',
+        htmlGenerated: result.htmlGenerated,
+        outputPath: result.outputPath
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error updating data from admin:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update espresso data: ' + error.message
+    });
+  }
+});
+
 // Public espresso content endpoint
 app.get('/espresso', (req, res) => {
   try {

@@ -1905,6 +1905,32 @@
             </div>
         </div>
 
+        <!-- Espresso Data Editor -->
+        <div class="card admin-section server-section server-espresso-section">
+            <div class="card-header">
+                <h2>📊 Espresso Data Editor</h2>
+            </div>
+            <div class="card-body">
+                <p>Edit the espresso brewing data for each coffee preparation:</p>
+                
+                <div id="espressoDataContainer">
+                    <!-- Data will be loaded here -->
+                    <div style="text-align: center; color: #666; margin: 20px 0;">
+                        <i>Loading espresso data...</i>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <button onclick="loadEspressoData()" class="btn btn-secondary">Reload Data</button>
+                    <button onclick="saveEspressoData()" class="btn btn-primary">Save Changes</button>
+                    <button onclick="resetEspressoData()" class="btn btn-danger">Reset to Defaults</button>
+                </div>
+                
+                <div id="espressoDataAlert" class="alert"></div>
+            </div>
+        </div>
+
         <!-- GitHub Configuration -->
         <div class="card admin-section server-section server-github-section">
             <div class="card-header">
@@ -4533,6 +4559,7 @@
                     loadEspressoConfig();
                     loadEspressoStatus();
                     loadEspressoTemplateFiles();
+                    loadEspressoData(); // Load the espresso data for editing
                 }
             } else if (subTabName === 'server-github') {
                 const githubSections = document.querySelectorAll('.server-github-section');
@@ -4939,6 +4966,184 @@
                 }
             } catch (error) {
                 showAlert('Error deleting file: ' + error.message, 'error', 'espressoTemplateAlert');
+            }
+        }
+
+        // ================================================================
+        // ESPRESSO DATA EDITOR FUNCTIONS
+        // ================================================================
+
+        // Global variable to store current espresso data
+        let currentEspressoData = {};
+
+        // Load espresso data for editing
+        async function loadEspressoData() {
+            try {
+                const response = await fetch('/admin/api/espresso/data');
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentEspressoData = result.data || {};
+                    renderEspressoDataForm();
+                    showAlert('Espresso data loaded successfully', 'success', 'espressoDataAlert');
+                } else {
+                    showAlert('Failed to load espresso data: ' + (result.error || 'Unknown error'), 'error', 'espressoDataAlert');
+                }
+            } catch (error) {
+                showAlert('Error loading espresso data: ' + error.message, 'error', 'espressoDataAlert');
+            }
+        }
+
+        // Render the espresso data editing form
+        function renderEspressoDataForm() {
+            const container = document.getElementById('espressoDataContainer');
+            
+            // Define the data structure for each espresso
+            const espressos = [
+                { id: 1, title: 'Espresso 1' },
+                { id: 2, title: 'Espresso 2' }, 
+                { id: 3, title: 'Espresso 3' }
+            ];
+
+            let html = '';
+
+            espressos.forEach(espresso => {
+                const id = espresso.id;
+                html += `
+                    <div class="espresso-data-section" style="background: #f9f9f9; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #8B4513;">
+                        <h3 style="color: #8B4513; margin-bottom: 15px;">${espresso.title}</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="beanName${id}">Bean Name</label>
+                                <input type="text" id="beanName${id}" value="${currentEspressoData['beanName' + id] || ''}" placeholder="e.g., Ethiopian Yirgacheffe">
+                            </div>
+                            <div class="form-group">
+                                <label for="roastDate${id}">Roast Date</label>
+                                <input type="text" id="roastDate${id}" value="${currentEspressoData['roastDate' + id] || ''}" placeholder="e.g., Jan 2025">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weight${id}">Weight In</label>
+                                <input type="text" id="weight${id}" value="${currentEspressoData['weight' + id] || ''}" placeholder="e.g., 15g">
+                            </div>
+                            <div class="form-group">
+                                <label for="grind${id}">Grind Size</label>
+                                <input type="text" id="grind${id}" value="${currentEspressoData['grind' + id] || ''}" placeholder="e.g., 0.5">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tempIn${id}">Temperature</label>
+                                <input type="text" id="tempIn${id}" value="${currentEspressoData['tempIn' + id] || ''}" placeholder="e.g., 90°C">
+                            </div>
+                            <div class="form-group">
+                                <label for="soak${id}">Pre-soak</label>
+                                <select id="soak${id}">
+                                    <option value="yes" ${currentEspressoData['soak' + id] === 'yes' ? 'selected' : ''}>Yes</option>
+                                    <option value="no" ${currentEspressoData['soak' + id] === 'no' ? 'selected' : ''}>No</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="time${id}">Extraction Time</label>
+                                <input type="text" id="time${id}" value="${currentEspressoData['time' + id] || ''}" placeholder="e.g., 32s">
+                            </div>
+                            <div class="form-group">
+                                <label for="weightOut${id}">Weight Out</label>
+                                <input type="text" id="weightOut${id}" value="${currentEspressoData['weightOut' + id] || ''}" placeholder="e.g., 40g">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="notes${id}">Tasting Notes</label>
+                            <textarea id="notes${id}" rows="3" placeholder="e.g., Bright and floral with citrus notes">${currentEspressoData['notes' + id] || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Save espresso data
+        async function saveEspressoData() {
+            try {
+                // Collect data from form
+                const updatedData = {};
+                
+                [1, 2, 3].forEach(id => {
+                    updatedData[`beanName${id}`] = document.getElementById(`beanName${id}`).value;
+                    updatedData[`roastDate${id}`] = document.getElementById(`roastDate${id}`).value;
+                    updatedData[`weight${id}`] = document.getElementById(`weight${id}`).value;
+                    updatedData[`grind${id}`] = document.getElementById(`grind${id}`).value;
+                    updatedData[`tempIn${id}`] = document.getElementById(`tempIn${id}`).value;
+                    updatedData[`soak${id}`] = document.getElementById(`soak${id}`).value;
+                    updatedData[`time${id}`] = document.getElementById(`time${id}`).value;
+                    updatedData[`weightOut${id}`] = document.getElementById(`weightOut${id}`).value;
+                    updatedData[`notes${id}`] = document.getElementById(`notes${id}`).value;
+                });
+
+                const response = await fetch('/admin/api/espresso/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(result.message || 'Espresso data saved successfully', 'success', 'espressoDataAlert');
+                    currentEspressoData = { ...currentEspressoData, ...updatedData };
+                    
+                    // Also refresh the status to show updated file timestamp
+                    setTimeout(() => {
+                        loadEspressoStatus();
+                    }, 1000);
+                } else {
+                    showAlert('Failed to save espresso data: ' + (result.error || 'Unknown error'), 'error', 'espressoDataAlert');
+                }
+            } catch (error) {
+                showAlert('Error saving espresso data: ' + error.message, 'error', 'espressoDataAlert');
+            }
+        }
+
+        // Reset espresso data to defaults
+        async function resetEspressoData() {
+            if (!confirm('Are you sure you want to reset all espresso data to default values? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                // Send empty object to trigger default data creation
+                const response = await fetch('/admin/api/espresso/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reset: true })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Espresso data reset to defaults successfully', 'success', 'espressoDataAlert');
+                    await loadEspressoData(); // Reload the form with new data
+                    setTimeout(() => {
+                        loadEspressoStatus();
+                    }, 1000);
+                } else {
+                    showAlert('Failed to reset espresso data: ' + (result.error || 'Unknown error'), 'error', 'espressoDataAlert');
+                }
+            } catch (error) {
+                showAlert('Error resetting espresso data: ' + error.message, 'error', 'espressoDataAlert');
             }
         }
 
