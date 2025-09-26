@@ -492,7 +492,9 @@ function validateAndRepairConfig(config) {
     'cockpit': defaultConfig.cockpit,
     'webContent': defaultConfig.webContent,
     'storage': defaultConfig.storage,
-    'client': defaultConfig.client
+    'client': defaultConfig.client,
+    'drinkMixer': defaultConfig.drinkMixer,
+    'vidiots': defaultConfig.vidiots
   };
   
   for (const [sectionPath, defaultValue] of Object.entries(requiredSections)) {
