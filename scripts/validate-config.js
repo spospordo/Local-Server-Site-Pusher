@@ -59,6 +59,24 @@ const defaultConfig = {
     "alcohols": [],
     "mixers": [],
     "recipes": []
+  },
+  "vidiots": {
+    "enabled": false,
+    "outputFile": "./public/vidiots/index.html",
+    "posterDirectory": "./public/vidiots/posters",
+    "posterBaseUrl": "/vidiots/posters/",
+    "cronSchedule": "0 6,12 * * *",
+    "forceUpdate": false,
+    "maxAgeHours": 24,
+    "githubPages": {
+      "enabled": false,
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "repoLocalPath": "",
+      "accessToken": "",
+      "commitMessage": "Automated vidiots update"
+    }
   }
 };
 
