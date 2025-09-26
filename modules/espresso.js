@@ -137,7 +137,7 @@ function getTemplatePath() {
   return null;
 }
 
-// Get image paths - prioritize uploaded images over configured paths
+// Get image paths - prioritize configured paths over uploaded images
 function getImagePaths(useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
   const vidiotsConfig = config.vidiots || {};
@@ -145,7 +145,7 @@ function getImagePaths(useGithubUrls = false) {
   const configuredImagePaths = espressoConfig.imagePaths || {};
   const imagePaths = { ...configuredImagePaths };
   
-  // Check for uploaded images and override configured paths
+  // Check for uploaded images and use them only if no configured path exists
   if (fs.existsSync(uploadsDir)) {
     const files = fs.readdirSync(uploadsDir);
     
@@ -157,26 +157,31 @@ function getImagePaths(useGithubUrls = false) {
       if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
         const basename = path.basename(file, fileExt).toLowerCase();
         
-        let imagePath;
-        if (useGithubUrls && vidiotsConfig.githubPages?.repoOwner && vidiotsConfig.githubPages?.repoName) {
-          // Generate absolute GitHub.io URL for the final deployment
-          const githubConfig = vidiotsConfig.githubPages;
-          const repoOwner = githubConfig.repoOwner;
-          const repoName = githubConfig.repoName;
-          const imageRemotePath = espressoConfig.localRepo?.imagePath || 'espresso/images';
+        // Only use uploaded image if no configured path exists for this image
+        if (!imagePaths[basename]) {
+          let imagePath;
+          if (useGithubUrls && vidiotsConfig.githubPages?.repoOwner && vidiotsConfig.githubPages?.repoName) {
+            // Generate absolute GitHub.io URL for the final deployment
+            const githubConfig = vidiotsConfig.githubPages;
+            const repoOwner = githubConfig.repoOwner;
+            const repoName = githubConfig.repoName;
+            const imageRemotePath = espressoConfig.localRepo?.imagePath || 'espresso/images';
+            
+            imagePath = `https://${repoOwner}.github.io/${repoName}/${imageRemotePath}/${file}`;
+          } else if (espressoConfig.localRepo?.enabled && vidiotsConfig.githubPages?.repoLocalPath) {
+            // Use relative path for local repository
+            const repoImagePath = espressoConfig.localRepo.imagePath || 'espresso/images';
+            imagePath = `./${repoImagePath}/${file}`;
+          } else {
+            // Use relative path from public directory for local serving
+            imagePath = `/uploads/espresso/templates/${file}`;
+          }
           
-          imagePath = `https://${repoOwner}.github.io/${repoName}/${imageRemotePath}/${file}`;
-        } else if (espressoConfig.localRepo?.enabled && vidiotsConfig.githubPages?.repoLocalPath) {
-          // Use relative path for local repository
-          const repoImagePath = espressoConfig.localRepo.imagePath || 'espresso/images';
-          imagePath = `./${repoImagePath}/${file}`;
+          imagePaths[basename] = imagePath;
+          console.log(`🖼️ [Espresso] Found uploaded image (no configured path): ${basename} -> ${imagePath}`);
         } else {
-          // Use relative path from public directory for local serving
-          imagePath = `/uploads/espresso/templates/${file}`;
+          console.log(`🖼️ [Espresso] Skipping uploaded image (configured path exists): ${basename} -> using ${imagePaths[basename]}`);
         }
-        
-        imagePaths[basename] = imagePath;
-        console.log(`🖼️ [Espresso] Found uploaded image: ${basename} -> ${imagePath}`);
       }
     });
   }
