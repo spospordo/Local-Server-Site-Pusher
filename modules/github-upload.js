@@ -9,6 +9,114 @@ function init(serverConfig) {
   config = serverConfig;
 }
 
+// Robust directory cleanup with retry mechanism for EBUSY errors
+async function robustDirectoryCleanup(dirPath, maxRetries = 5, baseDelay = 100) {
+  console.log(`🧹 [GitHub] Starting robust cleanup of: ${dirPath}`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // First, try to change permissions if possible (helps with some locked files)
+      try {
+        if (process.platform !== 'win32') {
+          // Use proper escaping to prevent command injection
+          const { spawn } = require('child_process');
+          const chmod = spawn('chmod', ['-R', '755', dirPath], { stdio: 'ignore' });
+          await new Promise((resolve, reject) => {
+            chmod.on('close', (code) => {
+              if (code === 0) {
+                resolve();
+              } else {
+                reject(new Error(`chmod exited with code ${code}`));
+              }
+            });
+            chmod.on('error', reject);
+          });
+        }
+      } catch (chmodError) {
+        // Ignore chmod failures, they're not critical
+        console.log(`🔧 [GitHub] chmod failed (non-critical): ${chmodError.message}`);
+      }
+      
+      // Try to remove the directory
+      fs.rmSync(dirPath, { recursive: true, force: true });
+      console.log(`✅ [GitHub] Directory cleanup successful on attempt ${attempt}`);
+      return { success: true };
+      
+    } catch (rmError) {
+      console.log(`⚠️ [GitHub] Cleanup attempt ${attempt}/${maxRetries} failed: ${rmError.message}`);
+      
+      // If it's an EBUSY error and we have retries left, wait and try again
+      if ((rmError.code === 'EBUSY' || rmError.code === 'EPERM' || rmError.code === 'ENOTEMPTY') && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+        console.log(`⏳ [GitHub] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // If we've exhausted retries or it's a different error, try alternative approaches
+      if (attempt === maxRetries) {
+        console.log(`🔄 [GitHub] Trying alternative cleanup methods...`);
+        
+        // Try to clear the directory contents first, then remove the directory
+        try {
+          if (fs.existsSync(dirPath)) {
+            const items = fs.readdirSync(dirPath);
+            for (const item of items) {
+              const itemPath = path.join(dirPath, item);
+              try {
+                const stat = fs.lstatSync(itemPath);
+                if (stat.isDirectory()) {
+                  const subResult = await robustDirectoryCleanup(itemPath, 2, baseDelay);
+                  if (!subResult.success) {
+                    console.log(`⚠️ [GitHub] Could not clean subdirectory: ${item}`);
+                  }
+                } else {
+                  fs.unlinkSync(itemPath);
+                }
+              } catch (itemError) {
+                console.log(`⚠️ [GitHub] Could not remove item ${item}: ${itemError.message}`);
+              }
+            }
+            
+            // Try to remove the now-empty directory
+            fs.rmdirSync(dirPath);
+            console.log(`✅ [GitHub] Directory cleanup successful using alternative method`);
+            return { success: true };
+          }
+        } catch (altError) {
+          console.log(`❌ [GitHub] Alternative cleanup method also failed: ${altError.message}`);
+          
+          // If the directory is a mounted volume, we might not be able to remove it
+          // Check if it's empty and if so, consider it success
+          try {
+            if (fs.existsSync(dirPath)) {
+              const items = fs.readdirSync(dirPath);
+              if (items.length === 0) {
+                console.log(`ℹ️ [GitHub] Directory is empty but cannot be removed (likely mounted volume)`);
+                return { success: true };
+              }
+            }
+          } catch (checkError) {
+            // Ignore check errors
+          }
+        }
+      }
+      
+      // Final failure
+      if (attempt === maxRetries) {
+        const errorMsg = `Cannot clean up directory ${dirPath}: ${rmError.message}. The directory may be in use or mounted. Please ensure no applications are accessing the directory and try again.`;
+        console.error(`❌ [GitHub] ${errorMsg}`);
+        return { 
+          success: false, 
+          error: errorMsg
+        };
+      }
+    }
+  }
+  
+  return { success: false, error: 'Unexpected error in directory cleanup' };
+}
+
 // Function to check if there are changes to commit or if local is ahead of remote
 function hasChanges(repoPath) {
   console.log(`🔍 [GitHub] Checking for changes in: ${repoPath}`);
@@ -362,12 +470,9 @@ async function cloneOrPullRepository() {
         // Remove the target directory if it exists but is not a git repo
         if (fs.existsSync(normalizedPath)) {
           console.log('🗑️ [GitHub] Removing existing non-git directory');
-          try {
-            fs.rmSync(normalizedPath, { recursive: true, force: true });
-          } catch (rmError) {
-            // Handle EBUSY or other filesystem errors more gracefully
-            console.warn('⚠️ [GitHub] Warning: Could not remove existing directory:', rmError.message);
-            return { success: false, error: `Cannot clean up directory ${normalizedPath}: ${rmError.message}. The directory may be in use. Please ensure no applications are accessing the directory and try again.` };
+          const cleanupResult = await robustDirectoryCleanup(normalizedPath);
+          if (!cleanupResult.success) {
+            return cleanupResult;
           }
         }
         
