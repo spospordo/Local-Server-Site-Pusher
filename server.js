@@ -2653,6 +2653,72 @@ app.post('/update-texts', express.json(), async (req, res) => {
   }
 });
 
+// ================================================================
+// HOME ASSISTANT COMPATIBLE API ENDPOINTS
+// ================================================================
+
+// Home Assistant compatible GET endpoint for espresso data
+app.get('/api/espresso', (req, res) => {
+  try {
+    console.log('📊 [Home Assistant] GET /api/espresso - Fetching espresso data');
+    const espressoData = espresso.getEspressoData();
+    res.json({
+      success: true,
+      data: espressoData,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ [Home Assistant] Error fetching espresso data:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch espresso data',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Home Assistant compatible POST endpoint for updating espresso data
+app.post('/api/espresso', express.json(), async (req, res) => {
+  try {
+    console.log('📝 [Home Assistant] POST /api/espresso - Updating espresso data');
+    const updatedData = req.body;
+    
+    if (!updatedData || typeof updatedData !== 'object') {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid data format. Expected JSON object.',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const result = await espresso.updateEspressoData(updatedData);
+    
+    if (result.success) {
+      console.log('✅ [Home Assistant] Espresso data updated successfully');
+      res.status(200).json({ 
+        success: true,
+        message: 'Espresso data updated successfully',
+        htmlGenerated: result.htmlGenerated,
+        outputPath: result.outputPath,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        success: false,
+        error: result.error,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('❌ [Home Assistant] Error updating espresso data:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update espresso data',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Admin espresso status endpoint
 app.get('/admin/api/espresso/status', requireAuth, (req, res) => {
   try {
