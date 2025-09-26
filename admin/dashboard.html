@@ -1847,11 +1847,11 @@
                     </div>
                 </div>
                 
-                <!-- Repository Connection Settings -->
+                <!-- GitHub Pages Deployment Settings -->
                 <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 5px; border-left: 4px solid #007bff;">
-                    <h4>🔗 Repository Connection Settings</h4>
+                    <h4>🚀 GitHub Pages Deployment Settings</h4>
                     <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
-                        Configure the GitHub repository where your espresso website will be deployed. All fields are required for GitHub upload to work.
+                        Configure the existing GitHub.io repository where your generated espresso website will be deployed. All fields are required for GitHub Pages upload to work.
                     </p>
                     
                     <div class="form-row">
@@ -1924,30 +1924,30 @@
 
                     <!-- Git Repository Section -->
                     <div id="templateGitSection" style="display: none; margin-top: 15px; padding: 10px; border-left: 3px solid #28a745; background: rgba(40,167,69,0.1);">
-                        <h5>📋 Git Repository Template</h5>
-                        <p><small>Clone template files from a git repository. All HTML and image files will be copied automatically.</small></p>
+                        <h5>📋 Git Repository Template Source</h5>
+                        <p><small>Download/clone template files from a public git repository. No authentication required - works with any publicly accessible repository. All HTML and image files will be copied automatically.</small></p>
                         
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="espressoGitRepoUrl">Repository URL <span style="color: red;">*</span></label>
+                                <label for="espressoGitRepoUrl">Template Repository URL <span style="color: red;">*</span></label>
                                 <input type="url" id="espressoGitRepoUrl" placeholder="https://github.com/username/template-repo.git">
-                                <small>Git repository URL (supports HTTPS and SSH)</small>
+                                <small>Public git repository URL containing template files (no authentication needed)</small>
                             </div>
                             <div class="form-group">
                                 <label for="espressoGitBranch">Branch</label>
                                 <input type="text" id="espressoGitBranch" placeholder="main" value="main">
-                                <small>Git branch to clone (default: main)</small>
+                                <small>Git branch to download from (default: main)</small>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="espressoGitLocalPath">Local Clone Path <span style="color: red;">*</span></label>
+                            <label for="espressoGitLocalPath">Temporary Download Path <span style="color: red;">*</span></label>
                             <input type="text" id="espressoGitLocalPath" placeholder="/tmp/espresso-template-repo">
-                            <small>Local directory where the repository will be cloned. Use writable paths like <code>/tmp/</code> or <code>/app/uploads/</code>. Avoid root-level paths like <code>/GitEspressoTemplate</code></small>
+                            <small>Temporary local directory where template files will be downloaded. Use writable paths like <code>/tmp/</code>. Files will be copied to the uploads directory automatically.</small>
                         </div>
                         
                         <div style="margin-top: 10px;">
-                            <button onclick="cloneEspressoTemplateRepo()" class="btn btn-success" id="cloneTemplateBtn">Clone Repository</button>
+                            <button onclick="cloneEspressoTemplateRepo()" class="btn btn-success" id="cloneTemplateBtn">Download Template Repository</button>
                             <button onclick="loadEspressoTemplateFiles()" class="btn btn-secondary">Refresh File List</button>
                         </div>
                     </div>
