@@ -547,6 +547,7 @@ module.exports = {
   getEspressoData,
   getStatus,
   getUploadedTemplateFiles,
+  getUploadedImageFiles,
   deleteUploadedTemplateFile,
   getAvailableImages,
   getCurrentTemplatePath
