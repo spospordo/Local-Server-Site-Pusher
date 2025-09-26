@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espresso Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .coffee-card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .coffee-name { font-size: 18px; font-weight: bold; color: #8B4513; }
+        .coffee-details { margin-top: 10px; }
+        .label { font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>☕ Espresso Test Template</h1>
+    
+    <div class="coffee-card">
+        <div class="coffee-name" id="beanName1">Direct Test Bean</div>
+        <div class="coffee-details">
+            <p><span class="label">Weight:</span> <span id="weight1">19g</span></p>
+            <p><span class="label">Grind:</span> <span id="grind1">.8</span></p>
+            <p><span class="label">Temperature:</span> <span id="tempIn1">90</span></p>
+            <p><span class="label">Time:</span> <span id="time1">32s</span></p>
+            <p><span class="label">Notes:</span> <span id="notes1">Testing direct module functionality</span></p>
+        </div>
+    </div>
+    
+    <div class="coffee-card">
+        <div class="coffee-name" id="beanName2">Ethiopian Delight</div>
+        <div class="coffee-details">
+            <p><span class="label">Weight:</span> <span id="weight2">17g</span></p>
+            <p><span class="label">Grind:</span> <span id="grind2">.9</span></p>
+            <p><span class="label">Temperature:</span> <span id="tempIn2">88</span></p>
+            <p><span class="label">Time:</span> <span id="time2">25s</span></p>
+            <p><span class="label">Notes:</span> <span id="notes2">Bright and fruity</span></p>
+        </div>
+    </div>
+    
+    <p><em>Generated: <span id="lastUpdated">{{timestamp}}</span></em></p>
+</body>
+</html>

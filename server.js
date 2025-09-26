@@ -2746,12 +2746,12 @@ app.post('/admin/api/espresso/generate', requireAuth, async (req, res) => {
   try {
     console.log('🚀 [Espresso] Manual HTML generation triggered from admin interface');
     const espressoData = espresso.getEspressoData();
-    const result = await espresso.generateHTML(espressoData);
+    const result = await espresso.generateHTMLImmediate(espressoData);
     
     if (result.success) {
       res.json({
         success: true,
-        message: 'HTML generated successfully',
+        message: 'HTML generated successfully and saved to local repository',
         outputPath: result.outputPath
       });
     } else {
