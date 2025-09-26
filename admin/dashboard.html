@@ -4505,7 +4505,7 @@
                 }
                 
                 // Show default sub-tab (useful links)
-                showSubTab('party-links', false);
+                showSubTab('party-links', true);
             } else if (tabName === 'server') {
                 // Show sub-tabs for server
                 const serverSubTabs = document.getElementById('server-subtabs');
@@ -4514,7 +4514,7 @@
                 }
                 
                 // Show default sub-tab (vidiots)
-                showSubTab('server-vidiots', false);
+                showSubTab('server-vidiots', true);
             } else if (tabName === 'settings') {
                 const settingsSections = document.querySelectorAll('.settings-section');
                 settingsSections.forEach(section => section.classList.remove('hidden'));
