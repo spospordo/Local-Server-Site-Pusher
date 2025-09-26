@@ -17,4 +17,4 @@ config/config.json
 backups/
 
 # Client uploaded files
-uploads/
+uploads/cookies.jar
