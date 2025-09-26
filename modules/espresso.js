@@ -14,6 +14,22 @@ function init(serverConfig) {
   
   // Ensure espresso data file exists
   ensureEspressoDataFile();
+  
+  // Ensure espresso templates directory exists
+  ensureEspressoTemplatesDir();
+}
+
+// Ensure the espresso templates directory exists
+function ensureEspressoTemplatesDir() {
+  const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  try {
+    if (!fs.existsSync(templatesDir)) {
+      fs.mkdirSync(templatesDir, { recursive: true });
+      console.log(`📁 [Espresso] Created templates directory: ${templatesDir}`);
+    }
+  } catch (error) {
+    console.error(`❌ [Espresso] Error creating templates directory: ${error.message}`);
+  }
 }
 
 // Ensure the espresso data file exists with default values
@@ -98,25 +114,68 @@ function saveEspressoData(data) {
   }
 }
 
+// Get template path - prioritize uploaded template over configured path
+function getTemplatePath() {
+  const espressoConfig = config.espresso || {};
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  
+  // First check for uploaded template (index.html in uploads directory)
+  const uploadedTemplatePath = path.join(uploadsDir, 'index.html');
+  if (fs.existsSync(uploadedTemplatePath)) {
+    console.log(`📝 [Espresso] Using uploaded template: ${uploadedTemplatePath}`);
+    return uploadedTemplatePath;
+  }
+  
+  // Fall back to configured template path
+  if (espressoConfig.templatePath && fs.existsSync(espressoConfig.templatePath)) {
+    console.log(`📝 [Espresso] Using configured template: ${espressoConfig.templatePath}`);
+    return espressoConfig.templatePath;
+  }
+  
+  return null;
+}
+
+// Get image paths - prioritize uploaded images over configured paths
+function getImagePaths() {
+  const espressoConfig = config.espresso || {};
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const configuredImagePaths = espressoConfig.imagePaths || {};
+  const imagePaths = { ...configuredImagePaths };
+  
+  // Check for uploaded images and override configured paths
+  if (fs.existsSync(uploadsDir)) {
+    const files = fs.readdirSync(uploadsDir);
+    
+    files.forEach(file => {
+      const filePath = path.join(uploadsDir, file);
+      const fileExt = path.extname(file).toLowerCase();
+      
+      // Check if it's an image file
+      if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+        const basename = path.basename(file, fileExt).toLowerCase();
+        // Use relative path from public directory for serving
+        const relativePath = `/uploads/espresso/templates/${file}`;
+        imagePaths[basename] = relativePath;
+        console.log(`🖼️ [Espresso] Found uploaded image: ${basename} -> ${relativePath}`);
+      }
+    });
+  }
+  
+  return imagePaths;
+}
 // Generate HTML from espresso data and template
 async function generateHTML(espressoData) {
   const espressoConfig = config.espresso || {};
-  let templatePath = espressoConfig.templatePath;
   const outputPath = espressoConfig.outputPath || './public/espresso/index.html';
-  const imagePaths = espressoConfig.imagePaths || {};
   
+  // Get template path (uploaded template takes priority over configured path)
+  const templatePath = getTemplatePath();
   if (!templatePath) {
-    throw new Error('Template path not configured for espresso HTML generation');
+    throw new Error('No template found. Please upload a template file or configure a template path.');
   }
   
-  // Convert relative path to absolute if needed
-  if (!path.isAbsolute(templatePath)) {
-    templatePath = path.resolve(templatePath);
-  }
-  
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`Template file not found: ${templatePath}`);
-  }
+  // Get image paths (uploaded images take priority over configured paths)
+  const imagePaths = getImagePaths();
   
   try {
     // Read the template HTML file
@@ -238,14 +297,67 @@ function getStatus() {
   const dataFilePath = espressoConfig.dataFilePath || './config/espresso-data.json';
   const outputPath = espressoConfig.outputPath || './public/espresso/index.html';
   
+  // Check for uploaded template
+  const uploadedTemplatePath = path.join(__dirname, '..', 'uploads', 'espresso', 'templates', 'index.html');
+  const hasUploadedTemplate = fs.existsSync(uploadedTemplatePath);
+  
+  // Check configured template
+  const hasConfiguredTemplate = espressoConfig.templatePath && fs.existsSync(espressoConfig.templatePath);
+  
   return {
     enabled: espressoConfig.enabled || false,
     dataFile: fs.existsSync(dataFilePath),
-    templateFile: espressoConfig.templatePath && fs.existsSync(espressoConfig.templatePath),
+    templateFile: hasUploadedTemplate || hasConfiguredTemplate,
+    uploadedTemplate: hasUploadedTemplate,
+    configuredTemplate: hasConfiguredTemplate,
     outputFile: fs.existsSync(outputPath),
     githubEnabled: espressoConfig.githubPages?.enabled || false,
     lastUpdated: fs.existsSync(dataFilePath) ? fs.statSync(dataFilePath).mtime : null
   };
+}
+
+// List uploaded template files
+function getUploadedTemplateFiles() {
+  const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  
+  try {
+    if (!fs.existsSync(templatesDir)) {
+      return [];
+    }
+    
+    const files = fs.readdirSync(templatesDir);
+    return files.map(file => {
+      const filePath = path.join(templatesDir, file);
+      const stats = fs.statSync(filePath);
+      return {
+        name: file,
+        size: stats.size,
+        uploadDate: stats.mtime.toISOString(),
+        type: path.extname(file).toLowerCase().includes(['png', 'jpg', 'jpeg', 'gif', 'svg']) ? 'image' : 'template'
+      };
+    });
+  } catch (error) {
+    console.error(`❌ [Espresso] Error listing template files: ${error.message}`);
+    return [];
+  }
+}
+
+// Delete uploaded template file
+function deleteUploadedTemplateFile(filename) {
+  const templatesDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const filePath = path.join(templatesDir, filename);
+  
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ [Espresso] Deleted template file: ${filename}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error(`❌ [Espresso] Error deleting template file: ${error.message}`);
+    return false;
+  }
 }
 
 module.exports = {
@@ -255,5 +367,7 @@ module.exports = {
   generateHTML,
   updateEspressoData,
   getEspressoData,
-  getStatus
+  getStatus,
+  getUploadedTemplateFiles,
+  deleteUploadedTemplateFile
 };
