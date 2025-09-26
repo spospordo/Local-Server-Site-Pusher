@@ -556,6 +556,15 @@ async function cloneTemplateRepository(repoConfig) {
       throw new Error('Invalid repository path');
     }
     
+    // Check for potentially problematic root-level directories
+    // Non-root users typically cannot create directories directly under root
+    const pathSegments = normalizedPath.split('/').filter(segment => segment.length > 0);
+    if (pathSegments.length === 1 && process.getuid && process.getuid() !== 0) {
+      // Suggest using /tmp instead for non-root users
+      const suggestedPath = `/tmp/${pathSegments[0]}`;
+      throw new Error(`Cannot create directory at root level. Non-root users should use writable directories like '/tmp'. Suggested path: '${suggestedPath}'`);
+    }
+    
     // Sanitize branch name to prevent command injection
     const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
     
@@ -615,7 +624,15 @@ async function cloneTemplateRepository(repoConfig) {
         // Ensure parent directory exists
         const parentDir = path.dirname(normalizedPath);
         if (!fs.existsSync(parentDir)) {
-          fs.mkdirSync(parentDir, { recursive: true });
+          try {
+            fs.mkdirSync(parentDir, { recursive: true });
+            console.log(`📁 [Espresso] Created parent directory: ${parentDir}`);
+          } catch (parentDirError) {
+            if (parentDirError.code === 'EACCES' || parentDirError.code === 'EPERM') {
+              throw new Error(`Permission denied creating directory '${parentDir}'. Try using a writable location like '/tmp/' instead.`);
+            }
+            throw parentDirError;
+          }
         }
         
         // Remove the target directory if it exists but is not a git repo
