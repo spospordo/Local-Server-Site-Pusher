@@ -2470,6 +2470,70 @@ app.get('/admin/api/vidiots/github/download', requireAuth, (req, res) => {
   }
 });
 
+// Configure Git identity for GitHub operations  
+app.post('/admin/api/vidiots/github/git-config', requireAuth, async (req, res) => {
+  try {
+    const { userName, userEmail } = req.body;
+    
+    // Validate input
+    if (!userName || typeof userName !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'User name is required and must be a string'
+      });
+    }
+    
+    if (!userEmail || typeof userEmail !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'User email is required and must be a string'
+      });
+    }
+    
+    // Additional security validations
+    if (userName.length > 100 || userEmail.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'User name and email must be under 100 characters'
+      });
+    }
+    
+    // Check for dangerous characters
+    const dangerousChars = /[`$\\]/;
+    if (dangerousChars.test(userName) || dangerousChars.test(userEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'User name and email cannot contain backticks, dollar signs, or backslashes'
+      });
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address'
+      });
+    }
+    
+    console.log(`🔧 [GitHub] Updating git identity from admin interface: ${userName} <${userEmail}>`);
+    const result = vidiots.githubUpload.updateGitIdentity(userName, userEmail);
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 
+        'Git identity configured successfully' : 
+        'Failed to configure git identity',
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to configure git identity: ' + error.message
+    });
+  }
+});
+
 // Public vidiots content endpoint
 app.get('/vidiots', (req, res) => {
   try {
