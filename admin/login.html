@@ -84,6 +84,54 @@
             color: #666;
             font-size: 0.9rem;
         }
+        
+        /* Matrix Animation Styles */
+        .matrix-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 9999;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .matrix-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .matrix-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 2rem;
+            text-align: center;
+            opacity: 0;
+            text-shadow: 0 0 10px #00ff00;
+            animation: glow 1s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #00ff00; }
+            to { text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00; }
+        }
+        
+        .matrix-message.show {
+            opacity: 1;
+            animation: fadeInGlow 2s ease-in-out forwards;
+        }
+        
+        @keyframes fadeInGlow {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -104,30 +152,116 @@
         </form>
         
         <script>
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('error')) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error';
-                errorDiv.textContent = 'Invalid username or password';
-                document.querySelector('.login-container').appendChild(errorDiv);
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('error')) {
+                    // Trigger Matrix animation instead of regular error message
+                    showMatrixAnimation();
+                } else {
+                    // Check if default credentials should be shown
+                    fetch('/admin/api/default-credentials-status')
+                        .then(response => response.json())
+                        .then(data => {
+                            const infoDiv = document.querySelector('.info');
+                            if (!data.showDefaultCredentials) {
+                                infoDiv.style.display = 'none';
+                            }
+                        })
+                        .catch(err => {
+                            console.log('Could not check default credentials status');
+                        });
+                }
+            });
+            
+            function showMatrixAnimation() {
+                const overlay = document.getElementById('matrixOverlay');
+                const canvas = document.getElementById('matrixCanvas');
+                const message = document.getElementById('matrixMessage');
+                
+                if (!canvas || !overlay || !message) {
+                    console.error('Matrix elements not found');
+                    return;
+                }
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to full screen
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                
+                // Show overlay
+                overlay.style.display = 'block';
+                
+                // Matrix animation variables
+                const columns = Math.floor(canvas.width / 20);
+                const drops = [];
+                
+                // Initialize drops
+                for (let i = 0; i < columns; i++) {
+                    drops[i] = 1;
+                }
+                
+                // Matrix characters (mix of letters, numbers, and symbols)
+                const matrixChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
+                
+                // Animation function
+                function draw() {
+                    // Black background with slight transparency for trail effect
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Green text
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = '15px Courier New';
+                    
+                    // Draw the characters
+                    for (let i = 0; i < drops.length; i++) {
+                        const char = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+                        ctx.fillText(char, i * 20, drops[i] * 20);
+                        
+                        // Reset drop to top randomly or when it reaches bottom
+                        if (drops[i] * 20 > canvas.height && Math.random() > 0.975) {
+                            drops[i] = 0;
+                        }
+                        drops[i]++;
+                    }
+                }
+                
+                // Start the animation
+                const animationInterval = setInterval(draw, 50);
+                
+                // Show message after 7 seconds and stop animation after 10 seconds
+                setTimeout(() => {
+                    message.classList.add('show');
+                    setTimeout(() => {
+                        clearInterval(animationInterval);
+                        overlay.style.display = 'none';
+                        // Remove error parameter and reload without it
+                        window.location.href = '/admin/login';
+                    }, 3000); // Show message for 3 more seconds
+                }, 7000);
             }
             
-            // Check if default credentials should be shown
-            fetch('/admin/api/default-credentials-status')
-                .then(response => response.json())
-                .then(data => {
-                    const infoDiv = document.querySelector('.info');
-                    if (!data.showDefaultCredentials) {
-                        infoDiv.style.display = 'none';
-                    }
-                })
-                .catch(err => {
-                    console.log('Could not check default credentials status');
-                });
+            // Handle window resize for canvas
+            window.addEventListener('resize', () => {
+                const canvas = document.getElementById('matrixCanvas');
+                if (canvas) {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                }
+            });
         </script>
         
         <div class="info">
             Default credentials: admin / admin123
+        </div>
+    </div>
+    
+    <!-- Matrix Animation Overlay -->
+    <div class="matrix-overlay" id="matrixOverlay">
+        <canvas class="matrix-canvas" id="matrixCanvas"></canvas>
+        <div class="matrix-message" id="matrixMessage">
+            CONGRATULATIONS,<br>YOU HACKED THE MAINFRAME
         </div>
     </div>
 </body>
