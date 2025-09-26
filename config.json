@@ -58,7 +58,13 @@
     "githubPages": {
       "enabled": false,
       "remotePath": "espresso/index.html",
-      "commitMessage": "Automated espresso update"
+      "imageRemotePath": "espresso/images",
+      "commitMessage": "Automated espresso update",
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "repoLocalPath": "",
+      "accessToken": ""
     }
   }
 }

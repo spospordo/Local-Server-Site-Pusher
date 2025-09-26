@@ -136,7 +136,7 @@ function getTemplatePath() {
 }
 
 // Get image paths - prioritize uploaded images over configured paths
-function getImagePaths() {
+function getImagePaths(useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
   const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
   const configuredImagePaths = espressoConfig.imagePaths || {};
@@ -153,18 +153,62 @@ function getImagePaths() {
       // Check if it's an image file
       if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
         const basename = path.basename(file, fileExt).toLowerCase();
-        // Use relative path from public directory for serving
-        const relativePath = `/uploads/espresso/templates/${file}`;
-        imagePaths[basename] = relativePath;
-        console.log(`🖼️ [Espresso] Found uploaded image: ${basename} -> ${relativePath}`);
+        
+        let imagePath;
+        if (useGithubUrls && espressoConfig.githubPages?.enabled) {
+          // Generate absolute GitHub.io URL for the final deployment
+          const githubConfig = espressoConfig.githubPages;
+          const repoOwner = githubConfig.repoOwner;
+          const repoName = githubConfig.repoName;
+          const imageRemotePath = githubConfig.imageRemotePath || 'espresso/images';
+          
+          if (repoOwner && repoName) {
+            imagePath = `https://${repoOwner}.github.io/${repoName}/${imageRemotePath}/${file}`;
+          } else {
+            // Fallback to relative path if GitHub config is incomplete
+            imagePath = `/uploads/espresso/templates/${file}`;
+          }
+        } else {
+          // Use relative path from public directory for local serving
+          imagePath = `/uploads/espresso/templates/${file}`;
+        }
+        
+        imagePaths[basename] = imagePath;
+        console.log(`🖼️ [Espresso] Found uploaded image: ${basename} -> ${imagePath}`);
       }
     });
   }
   
   return imagePaths;
 }
+
+// Get list of uploaded image files for GitHub upload
+function getUploadedImageFiles() {
+  const uploadsDir = path.join(__dirname, '..', 'uploads', 'espresso', 'templates');
+  const imageFiles = [];
+  
+  if (fs.existsSync(uploadsDir)) {
+    const files = fs.readdirSync(uploadsDir);
+    
+    files.forEach(file => {
+      const filePath = path.join(uploadsDir, file);
+      const fileExt = path.extname(file).toLowerCase();
+      
+      // Check if it's an image file
+      if (['.png', '.jpg', '.jpeg', '.gif', '.svg'].includes(fileExt)) {
+        imageFiles.push({
+          filename: file,
+          localPath: filePath
+        });
+      }
+    });
+  }
+  
+  return imageFiles;
+}
+
 // Generate HTML from espresso data and template
-async function generateHTML(espressoData) {
+async function generateHTML(espressoData, useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
   const outputPath = espressoConfig.outputPath || './public/espresso/index.html';
   
@@ -175,7 +219,7 @@ async function generateHTML(espressoData) {
   }
   
   // Get image paths (uploaded images take priority over configured paths)
-  const imagePaths = getImagePaths();
+  const imagePaths = getImagePaths(useGithubUrls);
   
   try {
     // Read the template HTML file
@@ -248,8 +292,8 @@ async function updateEspressoData(newData) {
       throw new Error('Failed to save espresso data');
     }
     
-    // Generate HTML from updated data
-    const htmlResult = await generateHTML(updatedData);
+    // Generate HTML from updated data (local version first)
+    const htmlResult = await generateHTML(updatedData, false);
     if (!htmlResult.success) {
       throw new Error(`HTML generation failed: ${htmlResult.error}`);
     }
@@ -259,10 +303,41 @@ async function updateEspressoData(newData) {
     if (espressoConfig.githubPages?.enabled) {
       try {
         console.log(`🔄 [Espresso] Uploading to GitHub Pages...`);
-        await githubUpload.uploadFiles([{
-          localPath: htmlResult.outputPath,
+        
+        // Generate GitHub version of HTML with absolute URLs
+        const githubHtmlResult = await generateHTML(updatedData, true);
+        if (!githubHtmlResult.success) {
+          throw new Error(`GitHub HTML generation failed: ${githubHtmlResult.error}`);
+        }
+        
+        // Prepare files for upload
+        const filesToUpload = [];
+        
+        // Add HTML file
+        filesToUpload.push({
+          localPath: githubHtmlResult.outputPath,
           remotePath: espressoConfig.githubPages.remotePath || 'espresso/index.html'
-        }], espressoConfig.githubPages.commitMessage || 'Automated espresso update');
+        });
+        
+        // Add image files
+        const imageFiles = getUploadedImageFiles();
+        const imageRemotePath = espressoConfig.githubPages.imageRemotePath || 'espresso/images';
+        
+        imageFiles.forEach(imageFile => {
+          filesToUpload.push({
+            localPath: imageFile.localPath,
+            remotePath: `${imageRemotePath}/${imageFile.filename}`
+          });
+        });
+        
+        console.log(`📋 [Espresso] Uploading ${filesToUpload.length} files (1 HTML + ${imageFiles.length} images)`);
+        
+        // Upload files using the espresso-specific GitHub configuration
+        await githubUpload.uploadFiles(
+          filesToUpload, 
+          espressoConfig.githubPages.commitMessage || 'Automated espresso update',
+          espressoConfig.githubPages
+        );
         
         console.log(`✅ [Espresso] Successfully uploaded to GitHub Pages`);
       } catch (uploadError) {
