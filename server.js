@@ -2569,6 +2569,24 @@ app.post('/admin/api/vidiots/github/git-config', requireAuth, async (req, res) =
   }
 });
 
+// Get current Git identity configuration
+app.get('/admin/api/vidiots/github/git-config', requireAuth, (req, res) => {
+  try {
+    console.log('📋 [GitHub] Retrieving current git identity configuration');
+    const result = vidiots.githubUpload.getCurrentGitIdentity();
+    
+    res.json({
+      success: result.success,
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve git identity: ' + error.message
+    });
+  }
+});
+
 // Public vidiots content endpoint
 app.get('/vidiots', (req, res) => {
   try {

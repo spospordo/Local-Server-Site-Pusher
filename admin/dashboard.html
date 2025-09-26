@@ -1952,10 +1952,31 @@
                 
                 <div class="form-group" style="margin-top: 20px;">
                     <button class="btn" onclick="saveVidiotsConfig()">Save Configuration</button>
-                    <button class="btn btn-secondary" onclick="testGitHubConnection()">Test GitHub</button>
-                    <button class="btn btn-secondary" onclick="cloneGitHubRepo()">Clone/Pull Repository</button>
-                    <button class="btn btn-secondary" onclick="browseGitHubRepo()">Browse Repository</button>
-                    <button class="btn btn-secondary" onclick="uploadToGitHub()">Upload to GitHub</button>
+                    <button class="btn btn-secondary" onclick="testGitHubConnection()" id="testGitHubBtn">Test GitHub</button>
+                    <button class="btn btn-secondary" onclick="cloneGitHubRepo()" id="cloneGitHubBtn">Clone/Pull Repository</button>
+                    <button class="btn btn-secondary" onclick="browseGitHubRepo()" id="browseGitHubBtn">Browse Repository</button>
+                    <button class="btn btn-secondary" onclick="uploadToGitHub()" id="uploadGitHubBtn">Upload to GitHub</button>
+                </div>
+                
+                <!-- GitHub Operation Status & Logging -->
+                <div id="githubStatusSection" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #28a745;">
+                    <h4 style="margin-bottom: 10px; color: #28a745;">GitHub Operation Status</h4>
+                    <div id="githubOperationStatus" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 3px; border: 1px solid #dee2e6; font-family: monospace; font-size: 0.9em; color: #6c757d;">
+                        Ready for GitHub operations...
+                    </div>
+                    
+                    <h5 style="margin-bottom: 10px;">Recent Operations Log</h5>
+                    <div id="githubOperationLog" style="max-height: 200px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 3px; padding: 10px; font-family: monospace; font-size: 0.85em;">
+                        <div class="log-entry" style="color: #6c757d; margin-bottom: 5px;">
+                            <span class="timestamp">[${new Date().toLocaleTimeString()}]</span> 
+                            <span class="level">INFO</span> 
+                            <span class="message">GitHub interface initialized</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-sm btn-secondary" onclick="clearGitHubLogs()" style="font-size: 0.8em;">Clear Logs</button>
+                        <button class="btn btn-sm btn-secondary" onclick="refreshGitHubStatus()" style="font-size: 0.8em;">Refresh Status</button>
+                    </div>
                 </div>
                 
                 <div id="vidiotsAlert" class="alert"></div>
@@ -4474,7 +4495,7 @@
                 
                 if (shouldLoadData) {
                     loadVidiotsConfig(); // Still need to load config for GitHub settings
-                    loadGitIdentity();
+                    initializeGitHubSection(); // Initialize GitHub logging and load git identity
                 }
             }
         }
@@ -4874,6 +4895,11 @@
 
         async function testGitHubConnection() {
             try {
+                // Set loading state
+                setButtonLoading('testGitHubBtn', true);
+                updateGitHubStatus('Testing GitHub connection...', true);
+                addGitHubLog('INFO', 'Starting GitHub connection test');
+                
                 showAlert('Testing GitHub connection...', 'success', 'vidiotsAlert');
                 
                 const response = await fetch('/admin/api/vidiots/github/test', {
@@ -4886,17 +4912,31 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    updateGitHubStatus('GitHub connection test successful');
+                    addGitHubLog('SUCCESS', 'GitHub connection test completed successfully');
                     showAlert('GitHub connection test successful', 'success', 'vidiotsAlert');
                 } else {
+                    setGitHubError('GitHub connection test failed');
+                    addGitHubLog('ERROR', `GitHub connection test failed: ${result.error || 'Unknown error'}`);
                     showAlert('GitHub connection test failed: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
                 }
             } catch (error) {
+                setGitHubError('GitHub connection test error');
+                addGitHubLog('ERROR', `GitHub connection test error: ${error.message}`);
                 showAlert('Error testing GitHub connection: ' + error.message, 'error', 'vidiotsAlert');
+            } finally {
+                // Reset button loading state
+                setButtonLoading('testGitHubBtn', false);
             }
         }
 
         async function uploadToGitHub() {
             try {
+                // Set loading state
+                setButtonLoading('uploadGitHubBtn', true);
+                updateGitHubStatus('Uploading to GitHub Pages...', true);
+                addGitHubLog('INFO', 'Starting GitHub Pages upload');
+                
                 showAlert('Uploading to GitHub Pages...', 'success', 'vidiotsAlert');
                 
                 const response = await fetch('/admin/api/vidiots/github/upload', {
@@ -4909,12 +4949,24 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    updateGitHubStatus('Successfully uploaded to GitHub Pages');
+                    addGitHubLog('SUCCESS', 'GitHub Pages upload completed successfully');
+                    if (result.commitSha) {
+                        addGitHubLog('INFO', `Commit SHA: ${result.commitSha}`);
+                    }
                     showAlert('Successfully uploaded to GitHub Pages', 'success', 'vidiotsAlert');
                 } else {
+                    setGitHubError('GitHub Pages upload failed');
+                    addGitHubLog('ERROR', `GitHub Pages upload failed: ${result.error || 'Unknown error'}`);
                     showAlert('Failed to upload to GitHub Pages: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
                 }
             } catch (error) {
+                setGitHubError('GitHub Pages upload error');
+                addGitHubLog('ERROR', `GitHub Pages upload error: ${error.message}`);
                 showAlert('Error uploading to GitHub Pages: ' + error.message, 'error', 'vidiotsAlert');
+            } finally {
+                // Reset button loading state
+                setButtonLoading('uploadGitHubBtn', false);
             }
         }
 
@@ -4923,6 +4975,11 @@
 
         async function cloneGitHubRepo() {
             try {
+                // Set loading state
+                setButtonLoading('cloneGitHubBtn', true);
+                updateGitHubStatus('Cloning/pulling GitHub repository...', true);
+                addGitHubLog('INFO', 'Starting repository clone/pull operation');
+                
                 showAlert('Cloning/pulling GitHub repository...', 'success', 'vidiotsAlert');
                 
                 const response = await fetch('/admin/api/vidiots/github/clone', {
@@ -4935,22 +4992,40 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    updateGitHubStatus(`Repository ${result.action} successfully`);
+                    addGitHubLog('SUCCESS', `Repository ${result.action} operation completed successfully`);
+                    if (result.output) {
+                        addGitHubLog('INFO', `Git output: ${result.output.substring(0, 100)}...`);
+                    }
                     showAlert(`Repository ${result.action} successfully`, 'success', 'vidiotsAlert');
+                    
                     // Automatically browse the repository after successful clone/pull
                     setTimeout(() => {
+                        addGitHubLog('INFO', 'Automatically opening repository browser');
                         browseGitHubRepo();
                     }, 1000);
                 } else {
+                    setGitHubError('Repository operation failed');
+                    addGitHubLog('ERROR', `Repository clone/pull failed: ${result.error || 'Unknown error'}`);
                     showAlert('Failed to clone/pull repository: ' + (result.error || 'Unknown error'), 'error', 'vidiotsAlert');
                 }
             } catch (error) {
+                setGitHubError('Repository operation error');
+                addGitHubLog('ERROR', `Repository clone/pull error: ${error.message}`);
                 showAlert('Error cloning/pulling repository: ' + error.message, 'error', 'vidiotsAlert');
+            } finally {
+                // Reset button loading state
+                setButtonLoading('cloneGitHubBtn', false);
             }
         }
 
         async function browseGitHubRepo(path = '') {
             try {
                 currentBrowsePath = path;
+                
+                // Set loading state for browse button
+                setButtonLoading('browseGitHubBtn', true);
+                addGitHubLog('INFO', `Browsing repository path: ${path || '/'}`);
                 
                 const response = await fetch(`/admin/api/vidiots/github/browse?path=${encodeURIComponent(path)}`, {
                     method: 'GET',
@@ -4964,12 +5039,21 @@
                 if (result.success) {
                     displayRepositoryContents(result, path);
                     document.getElementById('githubRepositoryBrowser').style.display = 'block';
+                    addGitHubLog('SUCCESS', `Repository contents loaded for path: ${path || '/'}`);
+                    if (result.items) {
+                        addGitHubLog('INFO', `Found ${result.items.length} items in directory`);
+                    }
                     showAlert('Repository contents loaded', 'success', 'repositoryBrowserAlert');
                 } else {
+                    addGitHubLog('ERROR', `Failed to browse repository: ${result.error || 'Unknown error'}`);
                     showAlert('Failed to browse repository: ' + (result.error || 'Unknown error'), 'error', 'repositoryBrowserAlert');
                 }
             } catch (error) {
+                addGitHubLog('ERROR', `Error browsing repository: ${error.message}`);
                 showAlert('Error browsing repository: ' + error.message, 'error', 'repositoryBrowserAlert');
+            } finally {
+                // Reset button loading state
+                setButtonLoading('browseGitHubBtn', false);
             }
         }
 
@@ -5095,6 +5179,7 @@
                 const userEmail = document.getElementById('gitUserEmail').value.trim();
                 
                 if (!userName || !userEmail) {
+                    addGitHubLog('WARNING', 'Git identity save failed: Both user name and email are required');
                     showAlert('Both user name and email are required', 'error', 'gitIdentityAlert');
                     return;
                 }
@@ -5102,10 +5187,12 @@
                 // Basic email validation
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(userEmail)) {
+                    addGitHubLog('WARNING', 'Git identity save failed: Invalid email format');
                     showAlert('Please enter a valid email address', 'error', 'gitIdentityAlert');
                     return;
                 }
                 
+                addGitHubLog('INFO', `Saving git identity: ${userName} <${userEmail}>`);
                 showAlert('Saving git identity...', 'success', 'gitIdentityAlert');
                 
                 const response = await fetch('/admin/api/vidiots/github/git-config', {
@@ -5122,25 +5209,159 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    addGitHubLog('SUCCESS', 'Git identity saved successfully and will persist across restarts');
                     showAlert('✅ Git identity saved successfully! This will be used for all GitHub commit operations and persists across container restarts.', 'success', 'gitIdentityAlert');
                 } else {
+                    addGitHubLog('ERROR', `Failed to save git identity: ${result.error || 'Unknown error'}`);
                     showAlert('❌ Failed to save git identity: ' + (result.error || 'Unknown error'), 'error', 'gitIdentityAlert');
                 }
             } catch (error) {
+                addGitHubLog('ERROR', `Error saving git identity: ${error.message}`);
                 showAlert('Error saving git identity: ' + error.message, 'error', 'gitIdentityAlert');
             }
         }
 
         async function loadGitIdentity() {
             try {
-                // Load current git configuration by checking if there's a stored config
-                // For now, we'll clear the form and let the user enter new values
-                // In a more advanced implementation, we could add an API to retrieve current config
-                document.getElementById('gitUserName').value = '';
-                document.getElementById('gitUserEmail').value = '';
-                showAlert('Please enter your git identity information. This is required for GitHub operations.', 'info', 'gitIdentityAlert');
+                // Load current git configuration from the API
+                const response = await fetch('/admin/api/vidiots/github/git-config', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Populate the form fields with the loaded values
+                    document.getElementById('gitUserName').value = result.userName || '';
+                    document.getElementById('gitUserEmail').value = result.userEmail || '';
+                    
+                    if (result.isDefault) {
+                        showAlert('Default git identity loaded. Please update with your information for GitHub operations.', 'info', 'gitIdentityAlert');
+                    } else {
+                        const updatedDate = result.updatedAt ? new Date(result.updatedAt).toLocaleString() : 'Unknown';
+                        showAlert(`Git identity loaded successfully. Last updated: ${updatedDate}`, 'success', 'gitIdentityAlert');
+                    }
+                } else {
+                    showAlert('Failed to load git identity: ' + (result.error || 'Unknown error'), 'error', 'gitIdentityAlert');
+                    // Clear form on error
+                    document.getElementById('gitUserName').value = '';
+                    document.getElementById('gitUserEmail').value = '';
+                }
             } catch (error) {
                 console.error('Error loading git identity:', error);
+                showAlert('Error loading git identity: ' + error.message, 'error', 'gitIdentityAlert');
+                // Clear form on error
+                document.getElementById('gitUserName').value = '';
+                document.getElementById('gitUserEmail').value = '';
+            }
+        }
+
+        // GitHub logging and status management functions
+        function addGitHubLog(level, message, timestamp = null) {
+            const logContainer = document.getElementById('githubOperationLog');
+            if (!logContainer) return;
+            
+            const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.style.marginBottom = '5px';
+            
+            // Set color based on log level
+            let color = '#6c757d'; // default gray
+            switch (level.toUpperCase()) {
+                case 'SUCCESS': color = '#28a745'; break;
+                case 'ERROR': color = '#dc3545'; break;
+                case 'WARNING': color = '#ffc107'; break;
+                case 'INFO': color = '#17a2b8'; break;
+            }
+            
+            logEntry.innerHTML = `
+                <span class="timestamp" style="color: #6c757d;">[${time}]</span> 
+                <span class="level" style="color: ${color}; font-weight: bold;">${level.toUpperCase()}</span> 
+                <span class="message">${message}</span>
+            `;
+            
+            // Add to top of log
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+            
+            // Limit to 50 entries to prevent memory issues
+            const entries = logContainer.querySelectorAll('.log-entry');
+            if (entries.length > 50) {
+                entries[entries.length - 1].remove();
+            }
+            
+            // Auto-scroll to show latest entry
+            logContainer.scrollTop = 0;
+        }
+        
+        function updateGitHubStatus(message, isLoading = false) {
+            const statusContainer = document.getElementById('githubOperationStatus');
+            if (!statusContainer) return;
+            
+            if (isLoading) {
+                statusContainer.innerHTML = `<span style="color: #ffc107;">⏳ ${message}</span>`;
+                statusContainer.style.borderLeft = '4px solid #ffc107';
+            } else {
+                statusContainer.innerHTML = `<span style="color: #28a745;">✅ ${message}</span>`;
+                statusContainer.style.borderLeft = '4px solid #28a745';
+            }
+        }
+        
+        function setGitHubError(message) {
+            const statusContainer = document.getElementById('githubOperationStatus');
+            if (!statusContainer) return;
+            
+            statusContainer.innerHTML = `<span style="color: #dc3545;">❌ ${message}</span>`;
+            statusContainer.style.borderLeft = '4px solid #dc3545';
+        }
+        
+        function clearGitHubLogs() {
+            const logContainer = document.getElementById('githubOperationLog');
+            if (!logContainer) return;
+            
+            logContainer.innerHTML = `
+                <div class="log-entry" style="color: #6c757d; margin-bottom: 5px;">
+                    <span class="timestamp">[${new Date().toLocaleTimeString()}]</span> 
+                    <span class="level">INFO</span> 
+                    <span class="message">Logs cleared</span>
+                </div>
+            `;
+            addGitHubLog('INFO', 'GitHub operation logs cleared');
+        }
+        
+        function refreshGitHubStatus() {
+            addGitHubLog('INFO', 'Refreshing GitHub status...');
+            updateGitHubStatus('Checking GitHub configuration and connectivity...', true);
+            
+            // Load git identity to refresh display
+            loadGitIdentity().then(() => {
+                updateGitHubStatus('GitHub interface ready');
+                addGitHubLog('SUCCESS', 'GitHub status refreshed successfully');
+            }).catch((error) => {
+                setGitHubError('Failed to refresh GitHub status');
+                addGitHubLog('ERROR', `Status refresh failed: ${error.message}`);
+            });
+        }
+        
+        function setButtonLoading(buttonId, loading = true, originalText = null) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+            
+            if (loading) {
+                if (!button.dataset.originalText) {
+                    button.dataset.originalText = button.textContent;
+                }
+                button.textContent = '⏳ Loading...';
+                button.disabled = true;
+                button.style.opacity = '0.7';
+            } else {
+                button.textContent = button.dataset.originalText || originalText || button.textContent;
+                button.disabled = false;
+                button.style.opacity = '1';
+                delete button.dataset.originalText;
             }
         }
 
@@ -5159,7 +5380,26 @@
             if (githubEnabledSelect) {
                 githubEnabledSelect.addEventListener('change', toggleGitHubConfig);
             }
+            
+            // Initialize GitHub status and load git identity when the page loads
+            if (document.getElementById('githubOperationLog')) {
+                addGitHubLog('INFO', 'GitHub interface initialized');
+                updateGitHubStatus('Ready for GitHub operations');
+                
+                // Load git identity automatically
+                setTimeout(() => {
+                    loadGitIdentity();
+                }, 500);
+            }
         });
+        
+        // Also load Git Identity when switching to GitHub tab
+        function initializeGitHubSection() {
+            if (document.getElementById('githubOperationLog')) {
+                addGitHubLog('INFO', 'GitHub section opened');
+                loadGitIdentity();
+            }
+        }
     </script>
 </body>
 </html>
