@@ -121,6 +121,42 @@ function updateGitIdentity(userName, userEmail) {
   return setGitIdentity(userName, userEmail);
 }
 
+// Validate GitHub Personal Access Token format
+function validateAccessToken(accessToken) {
+  if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
+    return { valid: false, error: 'GitHub Personal Access Token is required for authentication. Please configure it in the admin interface.' };
+  }
+
+  const sanitizedToken = accessToken.trim();
+  
+  // Check for JSON content (common configuration error)
+  if (sanitizedToken.startsWith('{') || sanitizedToken.includes('"user"') || sanitizedToken.includes('"name"')) {
+    return { 
+      valid: false, 
+      error: 'Invalid GitHub Personal Access Token format. The token appears to contain configuration data instead of a valid token. Please verify your token in the admin interface.' 
+    };
+  }
+
+  // Basic format validation for GitHub Personal Access Tokens
+  // Classic tokens: ghp_xxxx (40 chars total), Fine-grained: github_pat_xxxx (varies)
+  if (sanitizedToken.length < 20 || sanitizedToken.length > 255) {
+    return { 
+      valid: false, 
+      error: 'Invalid GitHub Personal Access Token format. Token should be between 20-255 characters. Please verify your token in the admin interface.' 
+    };
+  }
+
+  // Check for obviously invalid characters that shouldn't be in tokens
+  if (/[{}\[\]"'\s<>]/.test(sanitizedToken)) {
+    return { 
+      valid: false, 
+      error: 'Invalid GitHub Personal Access Token format. Token contains invalid characters. Please verify your token in the admin interface.' 
+    };
+  }
+
+  return { valid: true, sanitizedToken };
+}
+
 async function robustDirectoryCleanup(dirPath, maxRetries = 5, baseDelay = 100) {
   console.log(`🧹 [GitHub] Starting robust cleanup of: ${dirPath}`);
   
@@ -349,12 +385,15 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
       const githubConfig = config.vidiots.githubPages;
       const { repoOwner, repoName, accessToken } = githubConfig;
       
-      if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
-        console.error('❌ [GitHub] GitHub Personal Access Token not configured');
-        return { success: false, error: 'GitHub Personal Access Token is required. Please configure it in the admin interface.' };
+      // Validate access token format
+      const tokenValidation = validateAccessToken(accessToken);
+      if (!tokenValidation.valid) {
+        console.error('❌ [GitHub] GitHub Personal Access Token validation failed');
+        return { success: false, error: tokenValidation.error };
       }
+      const sanitizedToken = tokenValidation.sanitizedToken;
       
-      const authenticatedUrl = `https://${accessToken}@github.com/${repoOwner}/${repoName}.git`;
+      const authenticatedUrl = `https://${sanitizedToken}@github.com/${repoOwner}/${repoName}.git`;
       console.log(`🔧 [GitHub] Updating remote origin URL with authentication`);
       
       // Sanitize parameters to prevent command injection
@@ -458,9 +497,11 @@ async function uploadVidiots() {
       return { success: false, error: 'No repository path configured' };
     }
     
-    if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
-      console.error('❌ [GitHub] GitHub Personal Access Token not configured');
-      return { success: false, error: 'GitHub Personal Access Token is required. Please configure it in the admin interface.' };
+    // Validate access token format
+    const tokenValidation = validateAccessToken(accessToken);
+    if (!tokenValidation.valid) {
+      console.error('❌ [GitHub] GitHub Personal Access Token validation failed');
+      return { success: false, error: tokenValidation.error };
     }
     
     // Validate and sanitize the repository path
@@ -517,8 +558,10 @@ async function testConnection() {
       return { success: false, error: 'No repository path configured' };
     }
     
-    if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
-      return { success: false, error: 'GitHub Personal Access Token not configured. Please add it in the admin interface.' };
+    // Validate access token format
+    const tokenValidation = validateAccessToken(accessToken);
+    if (!tokenValidation.valid) {
+      return { success: false, error: tokenValidation.error };
     }
     
     // Validate and sanitize the repository path
@@ -577,6 +620,13 @@ async function cloneOrPullRepository() {
     if (!accessToken || typeof accessToken !== 'string' || accessToken.trim() === '') {
       return { success: false, error: 'GitHub Personal Access Token is required for authentication. Please configure it in the admin interface.' };
     }
+
+    // Validate access token format
+    const tokenValidation = validateAccessToken(accessToken);
+    if (!tokenValidation.valid) {
+      return { success: false, error: tokenValidation.error };
+    }
+    const sanitizedToken = tokenValidation.sanitizedToken;
     
     // Validate and sanitize the repository path
     const normalizedPath = path.resolve(repoLocalPath);
@@ -587,8 +637,8 @@ async function cloneOrPullRepository() {
     // Sanitize branch name to prevent command injection
     const safeBranch = branch.replace(/[^a-zA-Z0-9._/-]/g, '');
     
-    // Construct authenticated GitHub URL
-    const repoUrl = `https://${accessToken}@github.com/${repoOwner}/${repoName}.git`;
+    // Construct authenticated GitHub URL using sanitized token
+    const repoUrl = `https://${sanitizedToken}@github.com/${repoOwner}/${repoName}.git`;
     console.log(`🔗 [GitHub] Repository URL: https://****@github.com/${repoOwner}/${repoName}.git`); // Don't log the token
     console.log(`📁 [GitHub] Local path: ${normalizedPath}`);
     
