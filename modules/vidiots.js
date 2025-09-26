@@ -35,6 +35,26 @@ function truncateText(text, maxLength = 180) {
   return text.length > maxLength ? text.substring(0, maxLength).trim() + '…' : text;
 }
 
+// Helper function to resolve URLs against the base URL
+function resolveUrl(url, baseUrl = BASE_URL) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  
+  // Already an absolute URL
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // Absolute path - prepend base URL
+  if (url.startsWith('/')) {
+    return baseUrl + url;
+  }
+  
+  // Relative path - resolve against base URL
+  return baseUrl + '/' + url;
+}
+
 // Generate HTML content from movies data
 function generateHTML(movies) {
   const vidiots = config.vidiots || {};
@@ -235,25 +255,52 @@ function cleanupOldPosterImages() {
 
 async function downloadAndResizeImage(imageUrl, localFile) {
   try {
+    // Validate the URL
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      throw new Error('Invalid image URL provided');
+    }
+    
+    // Log the full URL being downloaded
     console.log(`⬇️ [Vidiots] Downloading: ${imageUrl}`);
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', headers: HEADERS });
-    if (!response.headers['content-type'] || !response.headers['content-type'].startsWith('image')) {
-      throw new Error('Not an image content-type: ' + response.headers['content-type']);
+    console.log(`📁 [Vidiots] Saving to: ${localFile}`);
+    
+    const response = await axios.get(imageUrl, { 
+      responseType: 'arraybuffer', 
+      headers: HEADERS,
+      timeout: 30000, // 30 second timeout
+      validateStatus: function (status) {
+        return status >= 200 && status < 300; // Accept only 2xx status codes
+      }
+    });
+    
+    // Check response content type
+    const contentType = response.headers['content-type'];
+    if (!contentType || !contentType.startsWith('image')) {
+      throw new Error(`Not an image content-type: ${contentType}. URL: ${imageUrl}`);
     }
     
     // Ensure directory exists
     const dir = path.dirname(localFile);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 [Vidiots] Created directory: ${dir}`);
     }
     
+    // Process and save image
     await sharp(response.data)
       .resize(100, 150, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 80 }) // Ensure output is JPEG
       .toFile(localFile);
+    
     console.log(`✅ [Vidiots] Image saved and resized: ${localFile}`);
     return true;
   } catch (err) {
-    console.error(`❌ [Vidiots] Download/resize failed for ${imageUrl}: ${err.message}`);
+    console.error(`❌ [Vidiots] Download/resize failed for ${imageUrl}`);
+    console.error(`❌ [Vidiots] Error details: ${err.message}`);
+    if (err.response) {
+      console.error(`❌ [Vidiots] HTTP Status: ${err.response.status}`);
+      console.error(`❌ [Vidiots] Response headers:`, err.response.headers);
+    }
     return false;
   }
 }
@@ -312,7 +359,10 @@ async function scrapeComingSoon() {
         let parentShowDetails = $(el).closest('.show-details');
         if (parentShowDetails.length) {
           const img = parentShowDetails.find('.show-poster-inner img').attr('src');
-          if (img) posterUrl = img;
+          if (img) {
+            // Resolve relative URLs against the base URL
+            posterUrl = resolveUrl(img);
+          }
         }
         if (posterUrl) {
           console.log(`🖼 [Vidiots] Poster URL for "${title}": ${posterUrl}`);
