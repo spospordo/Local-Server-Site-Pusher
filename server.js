@@ -9,6 +9,7 @@ const { execSync } = require('child_process');
 const axios = require('axios');
 const vidiots = require('./modules/vidiots');
 const espresso = require('./modules/espresso');
+const githubUpload = require('./modules/github-upload');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -463,7 +464,13 @@ const defaultConfig = {
     "imagePaths": {},
     "githubPages": {
       "enabled": false,
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "repoLocalPath": "",
+      "accessToken": "",
       "remotePath": "espresso/index.html",
+      "imageRemotePath": "espresso/images",
       "commitMessage": "Automated espresso update"
     }
   }
@@ -3059,7 +3066,7 @@ app.post('/admin/api/espresso/github/upload', requireAuth, async (req, res) => {
     console.log(`📋 [Espresso] Uploading ${filesToUpload.length} files (1 HTML + ${imageFiles.length} images)`);
     
     // Upload files using the espresso-specific GitHub configuration
-    const result = await vidiots.githubUpload.uploadFiles(
+    const result = await githubUpload.uploadFiles(
       filesToUpload,
       espressoConfig.githubPages.commitMessage || 'Manual espresso upload',
       espressoConfig.githubPages
