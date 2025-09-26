@@ -1822,6 +1822,7 @@
                             <option value="true">Enabled</option>
                         </select>
                     </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="espressoGithubRemotePath">GitHub Remote Path</label>
@@ -4466,14 +4467,25 @@
             const subTabs = document.querySelectorAll('.sub-tab');
             subTabs.forEach(tab => tab.classList.remove('active'));
             
-            // Add active class to clicked sub-tab (if event exists)
-            if (shouldLoadData && event) {
+            // Add active class to clicked sub-tab
+            if (shouldLoadData && event && event.target) {
+                // If we have a click event, use the clicked element
                 event.target.classList.add('active');
-            } else if (!shouldLoadData) {
-                // When called programmatically, find and activate the first tab
-                const firstSubTab = document.querySelector('.sub-tab');
-                if (firstSubTab) {
-                    firstSubTab.classList.add('active');
+            } else {
+                // Find the correct sub-tab based on subTabName and activate it
+                let targetTabText = '';
+                if (subTabName === 'party-links') targetTabText = 'Useful Links';
+                else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
+                else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
+                else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
+                else if (subTabName === 'server-espresso') targetTabText = 'Espresso';
+                else if (subTabName === 'server-github') targetTabText = 'GitHub';
+                
+                if (targetTabText) {
+                    const targetTab = Array.from(subTabs).find(tab => tab.textContent.trim() === targetTabText);
+                    if (targetTab) {
+                        targetTab.classList.add('active');
+                    }
                 }
             }
             
