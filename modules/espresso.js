@@ -5,10 +5,22 @@ const { execSync } = require('child_process');
 const githubUpload = require('./github-upload');
 
 let config = null;
+let htmlGenerationTimer = null;
 
 // Initialize the espresso module with config
 function init(serverConfig) {
   config = serverConfig;
+  
+  // Debug: Log the espresso configuration
+  console.log('🔧 [Espresso] Module initialization:');
+  console.log('  - Full config object keys:', Object.keys(serverConfig));
+  console.log('  - Espresso section exists:', !!serverConfig?.espresso);
+  console.log('  - Espresso enabled:', serverConfig?.espresso?.enabled || false);
+  console.log('  - Local repo enabled:', serverConfig?.espresso?.localRepo?.enabled || false);
+  console.log('  - Data file path:', serverConfig?.espresso?.dataFilePath || 'default');
+  if (serverConfig?.espresso) {
+    console.log('  - Full espresso config:', JSON.stringify(serverConfig.espresso, null, 2));
+  }
   
   // Initialize GitHub upload module
   githubUpload.init(serverConfig);
@@ -247,6 +259,38 @@ function getUploadedImageFiles() {
   return imageFiles;
 }
 
+// Debounced HTML generation function
+async function debouncedGenerateHTML(espressoData, delaySeconds = 30) {
+  return new Promise((resolve, reject) => {
+    // Clear existing timer if it exists
+    if (htmlGenerationTimer) {
+      clearTimeout(htmlGenerationTimer);
+      console.log(`⏳ [Espresso] Previous HTML generation timer cancelled`);
+    }
+    
+    // Set new timer
+    htmlGenerationTimer = setTimeout(async () => {
+      try {
+        console.log(`🚀 [Espresso] Starting debounced HTML generation after ${delaySeconds}s delay`);
+        const result = await generateHTML(espressoData, false);
+        
+        if (result.success) {
+          console.log(`✅ [Espresso] Debounced HTML generation completed: ${result.outputPath}`);
+          resolve(result);
+        } else {
+          console.error(`❌ [Espresso] Debounced HTML generation failed: ${result.error}`);
+          reject(new Error(result.error));
+        }
+      } catch (error) {
+        console.error(`❌ [Espresso] Debounced HTML generation error: ${error.message}`);
+        reject(error);
+      }
+    }, delaySeconds * 1000);
+    
+    console.log(`⏱️ [Espresso] HTML generation scheduled in ${delaySeconds} seconds`);
+  });
+}
+
 // Generate HTML from espresso data and template
 async function generateHTML(espressoData, useGithubUrls = false) {
   const espressoConfig = config.espresso || {};
@@ -387,78 +431,28 @@ async function updateEspressoData(newData) {
       throw new Error('Failed to save espresso data');
     }
 
-    // Try to generate HTML from updated data (local version first) - only if enabled and template exists
-    let htmlResult = null;
-    let htmlGenerated = false;
-    
+    // Try to generate HTML from updated data with debouncing - only if enabled and template exists
     const espressoConfig = config.espresso || {};
     if (espressoConfig.enabled) {
       try {
-        htmlResult = await generateHTML(updatedData, false);
-        if (htmlResult.success) {
-          htmlGenerated = true;
-          console.log(`✅ [Espresso] HTML generation successful`);
-        } else {
-          console.log(`⚠️ [Espresso] HTML generation failed (but data saved): ${htmlResult.error}`);
-        }
-      } catch (htmlError) {
-        console.log(`⚠️ [Espresso] HTML generation failed (but data saved): ${htmlError.message}`);
+        // Use debounced generation for automatic updates (30 second delay)
+        debouncedGenerateHTML(updatedData, 30).catch(error => {
+          console.log(`⚠️ [Espresso] Debounced HTML generation failed: ${error.message}`);
+        });
+        console.log(`⏱️ [Espresso] HTML generation scheduled with 30s debounce`);
+      } catch (error) {
+        console.log(`⚠️ [Espresso] Error scheduling debounced HTML generation: ${error.message}`);
       }
     } else {
       console.log(`ℹ️ [Espresso] HTML generation skipped (module disabled)`);
     }
     
-    // Upload to GitHub Pages if enabled and HTML was generated
-    if (htmlGenerated && espressoConfig.githubPages?.enabled) {
-      try {
-        console.log(`🔄 [Espresso] Uploading to GitHub Pages...`);
-        
-        // Generate GitHub version of HTML with absolute URLs
-        const githubHtmlResult = await generateHTML(updatedData, true);
-        if (!githubHtmlResult.success) {
-          throw new Error(`GitHub HTML generation failed: ${githubHtmlResult.error}`);
-        }
-        
-        // Prepare files for upload
-        const filesToUpload = [];
-        
-        // Add HTML file
-        filesToUpload.push({
-          localPath: githubHtmlResult.outputPath,
-          remotePath: espressoConfig.githubPages.remotePath || 'espresso/index.html'
-        });
-        
-        // Add image files
-        const imageFiles = getUploadedImageFiles();
-        const imageRemotePath = espressoConfig.githubPages.imageRemotePath || 'espresso/images';
-        
-        imageFiles.forEach(imageFile => {
-          filesToUpload.push({
-            localPath: imageFile.localPath,
-            remotePath: `${imageRemotePath}/${imageFile.filename}`
-          });
-        });
-        
-        console.log(`📋 [Espresso] Uploading ${filesToUpload.length} files (1 HTML + ${imageFiles.length} images)`);
-        
-        // Upload files using the espresso-specific GitHub configuration
-        await githubUpload.uploadFiles(
-          filesToUpload, 
-          espressoConfig.githubPages.commitMessage || 'Automated espresso update',
-          espressoConfig.githubPages
-        );
-        
-        console.log(`✅ [Espresso] Successfully uploaded to GitHub Pages`);
-      } catch (uploadError) {
-        console.error(`❌ [Espresso] GitHub upload failed: ${uploadError.message}`);
-      }
-    }
-    
     return {
       success: true,
       data: updatedData,
-      htmlGenerated: htmlGenerated,
-      outputPath: htmlResult?.outputPath || null
+      htmlGenerated: false, // Will be generated later with debounce
+      outputPath: null, // Will be set after debounced generation
+      debouncedGeneration: espressoConfig.enabled
     };
     
   } catch (error) {
@@ -467,6 +461,79 @@ async function updateEspressoData(newData) {
       success: false,
       error: error.message
     };
+  }
+}
+
+// Generate HTML immediately (for manual testing)
+async function generateHTMLImmediate(espressoData) {
+  console.log(`🚀 [Espresso] Starting immediate HTML generation (manual test)`);
+  
+  const espressoConfig = config.espresso || {};
+  if (!espressoConfig.enabled) {
+    return { success: false, error: 'Espresso module is disabled' };
+  }
+  
+  try {
+    const result = await generateHTML(espressoData || getEspressoData(), false);
+    
+    if (result.success) {
+      console.log(`✅ [Espresso] Immediate HTML generation successful: ${result.outputPath}`);
+      
+      // Also handle GitHub upload if enabled
+      if (espressoConfig.githubPages?.enabled) {
+        try {
+          console.log(`🔄 [Espresso] Uploading to GitHub Pages...`);
+          
+          // Generate GitHub version of HTML with absolute URLs
+          const githubHtmlResult = await generateHTML(espressoData || getEspressoData(), true);
+          if (!githubHtmlResult.success) {
+            throw new Error(`GitHub HTML generation failed: ${githubHtmlResult.error}`);
+          }
+          
+          // Prepare files for upload
+          const filesToUpload = [];
+          
+          // Add HTML file
+          filesToUpload.push({
+            localPath: githubHtmlResult.outputPath,
+            remotePath: espressoConfig.githubPages.remotePath || 'espresso/index.html'
+          });
+          
+          // Add image files
+          const imageFiles = getUploadedImageFiles();
+          const imageRemotePath = espressoConfig.githubPages.imageRemotePath || 'espresso/images';
+          
+          imageFiles.forEach(imageFile => {
+            filesToUpload.push({
+              localPath: imageFile.localPath,
+              remotePath: `${imageRemotePath}/${imageFile.filename}`
+            });
+          });
+          
+          console.log(`📋 [Espresso] Uploading ${filesToUpload.length} files (1 HTML + ${imageFiles.length} images)`);
+          
+          // Upload files using the espresso-specific GitHub configuration
+          await githubUpload.uploadFiles(
+            filesToUpload, 
+            espressoConfig.githubPages.commitMessage || 'Automated espresso update',
+            espressoConfig.githubPages
+          );
+          
+          console.log(`✅ [Espresso] Successfully uploaded to GitHub Pages`);
+        } catch (uploadError) {
+          console.error(`❌ [Espresso] GitHub upload failed: ${uploadError.message}`);
+          // Don't fail the whole operation if GitHub upload fails
+        }
+      }
+      
+      return result;
+    } else {
+      console.error(`❌ [Espresso] Immediate HTML generation failed: ${result.error}`);
+      return result;
+    }
+  } catch (error) {
+    console.error(`❌ [Espresso] Immediate HTML generation error: ${error.message}`);
+    return { success: false, error: error.message };
   }
 }
 
@@ -818,6 +885,7 @@ module.exports = {
   loadEspressoData,
   saveEspressoData,
   generateHTML,
+  generateHTMLImmediate,
   updateEspressoData,
   getEspressoData,
   getStatus,

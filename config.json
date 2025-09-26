@@ -45,15 +45,38 @@
       "url": "http://localhost:8123"
     }
   ],
+  "vidiots": {
+    "enabled": false,
+    "outputFile": "./public/vidiots/index.html",
+    "posterDirectory": "./public/vidiots/posters",
+    "posterBaseUrl": "/vidiots/posters/",
+    "cronSchedule": "0 6,12 * * *",
+    "forceUpdate": false,
+    "maxAgeHours": 24,
+    "githubPages": {
+      "enabled": false,
+      "repoOwner": "",
+      "repoName": "",
+      "branch": "main",
+      "repoLocalPath": "./test-repo",
+      "accessToken": "",
+      "commitMessage": "Automated vidiots update"
+    }
+  },
   "espresso": {
     "enabled": true,
     "dataFilePath": "./config/espresso-data.json",
-    "templatePath": "./public/espresso-template.html",
+    "templatePath": "",
     "outputPath": "./public/espresso/index.html",
     "imagePaths": {
       "smallcontainer": "https://example.github.io/small.png",
       "mediumcontainer": "https://example.github.io/medium.png", 
       "largecontainer": "https://example.github.io/large.png"
+    },
+    "localRepo": {
+      "enabled": true,
+      "outputPath": "espresso/index.html",
+      "imagePath": "espresso/images"
     },
     "githubPages": {
       "enabled": false,
