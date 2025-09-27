@@ -55,8 +55,8 @@
     "maxAgeHours": 24,
     "githubPages": {
       "enabled": true,
-      "repoOwner": "",
-      "repoName": "",
+      "repoOwner": "spospordo",
+      "repoName": "TRMNL",
       "branch": "main",
       "repoLocalPath": "./test-repo",
       "accessToken": "",

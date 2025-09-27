@@ -56,9 +56,20 @@ function resolveUrl(url, baseUrl = BASE_URL) {
 }
 
 // Generate HTML content from movies data
-function generateHTML(movies) {
+function generateHTML(movies, useGithubUrls = false) {
   const vidiots = config.vidiots || {};
-  const posterBaseUrl = vidiots.posterBaseUrl || '/vidiots/posters/';
+  let posterBaseUrl;
+  
+  // Determine poster base URL based on context
+  if (useGithubUrls && vidiots.githubPages?.enabled && vidiots.githubPages?.repoOwner && vidiots.githubPages?.repoName) {
+    // Generate absolute GitHub.io URL for GitHub Pages deployment
+    const repoOwner = vidiots.githubPages.repoOwner;
+    const repoName = vidiots.githubPages.repoName;
+    posterBaseUrl = `https://${repoOwner}.github.io/${repoName}/vidiots/`;
+  } else {
+    // Use configured relative URL for local serving
+    posterBaseUrl = vidiots.posterBaseUrl || '/vidiots/posters/';
+  }
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -508,6 +519,50 @@ async function scrapeComingSoon() {
         if (githubConfig?.enabled) {
           console.log('📤 [Vidiots] Content updated, triggering GitHub Pages upload...');
           try {
+            // Generate GitHub-specific HTML with absolute URLs
+            const githubHtmlContent = generateHTML(movies, true);
+            
+            // Write GitHub version to repository
+            if (githubConfig.repoLocalPath) {
+              const githubOutputPath = path.join(githubConfig.repoLocalPath, 'vidiots', 'index.html');
+              const githubOutputDir = path.dirname(githubOutputPath);
+              
+              // Ensure GitHub output directory exists
+              if (!fs.existsSync(githubOutputDir)) {
+                fs.mkdirSync(githubOutputDir, { recursive: true });
+                console.log(`📁 [Vidiots] Created GitHub output directory: ${githubOutputDir}`);
+              }
+              
+              fs.writeFileSync(githubOutputPath, githubHtmlContent.trim());
+              console.log(`📝 [Vidiots] GitHub HTML written: ${githubOutputPath}`);
+              
+              // Copy poster images to GitHub repository
+              const githubPosterDir = path.join(githubConfig.repoLocalPath, 'vidiots');
+              if (!fs.existsSync(githubPosterDir)) {
+                fs.mkdirSync(githubPosterDir, { recursive: true });
+              }
+              
+              const localPosterDir = vidiots.posterDirectory || './public/vidiots/posters';
+              if (fs.existsSync(localPosterDir)) {
+                const posterFiles = fs.readdirSync(localPosterDir).filter(file => file.match(/^vidiotsPoster\d+\.jpg$/));
+                let copiedCount = 0;
+                
+                for (const posterFile of posterFiles) {
+                  const sourcePath = path.join(localPosterDir, posterFile);
+                  const destPath = path.join(githubPosterDir, posterFile);
+                  
+                  try {
+                    fs.copyFileSync(sourcePath, destPath);
+                    copiedCount++;
+                  } catch (copyError) {
+                    console.warn(`⚠️ [Vidiots] Failed to copy poster ${posterFile}: ${copyError.message}`);
+                  }
+                }
+                
+                console.log(`📸 [Vidiots] Copied ${copiedCount} poster images to GitHub repository`);
+              }
+            }
+            
             const uploadResult = await githubUpload.uploadVidiots();
             if (uploadResult.success) {
               console.log('✅ [Vidiots] Successfully uploaded to GitHub Pages');
