@@ -409,12 +409,28 @@ async function generateHTML(espressoData, useGithubUrls = false) {
     
     // Update images based on alt text
     if (imagePaths && Object.keys(imagePaths).length > 0) {
-      // Find all img tags and update their src attributes
-      const imgRegex = /<img([^>]*?)src="([^"]*)"([^>]*?)alt="([^"]*)"([^>]*?)>/gi;
-      generatedHTML = generatedHTML.replace(imgRegex, (match, before, currentSrc, middle, altText, after) => {
-        const imageKey = altText.toLowerCase().replace(/\s+/g, '').toLowerCase();
+      // First, handle img tags that already have src attributes
+      const imgWithSrcRegex = /<img([^>]*?)src="([^"]*)"([^>]*?)alt="([^"]*)"([^>]*?)>/gi;
+      generatedHTML = generatedHTML.replace(imgWithSrcRegex, (match, before, currentSrc, middle, altText, after) => {
+        const imageKey = altText.toLowerCase().replace(/\s+/g, '');
         if (imagePaths[imageKey]) {
           return `<img${before}src="${imagePaths[imageKey]}"${middle}alt="${altText}"${after}>`;
+        }
+        return match;
+      });
+      
+      // Second, handle img tags without src attributes
+      const imgWithoutSrcRegex = /<img([^>]*?)alt="([^"]*)"([^>]*?)>/gi;
+      generatedHTML = generatedHTML.replace(imgWithoutSrcRegex, (match, before, altText, after) => {
+        // Skip if this img tag already has a src attribute
+        if (match.includes('src=')) {
+          return match;
+        }
+        
+        const imageKey = altText.toLowerCase().replace(/\s+/g, '');
+        if (imagePaths[imageKey]) {
+          // Insert src attribute after the opening img tag
+          return `<img${before}src="${imagePaths[imageKey]}" alt="${altText}"${after}>`;
         }
         return match;
       });
