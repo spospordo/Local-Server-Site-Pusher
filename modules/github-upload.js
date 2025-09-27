@@ -889,7 +889,7 @@ function deleteFile(relativePath) {
     
     // Validate and sanitize paths
     const normalizedRepoPath = path.resolve(repoPath);
-    if (!normalizedRepoPath.startsWith('/') || normalizedRepoPath.includes('..')) {
+    if (!path.isAbsolute(normalizedRepoPath) || normalizedRepoPath.includes('..')) {
       return { success: false, error: 'Invalid repository path' };
     }
     
