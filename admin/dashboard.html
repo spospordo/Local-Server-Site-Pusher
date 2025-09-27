@@ -6101,7 +6101,7 @@
                     <p>Size: ${formatFileSize(result.size)}</p>
                     <p>Modified: ${new Date(result.modified).toLocaleString()}</p>
                     <button class="btn" onclick="downloadFile('${result.path}')" style="margin-right: 10px;">⬇️ Download File</button>
-                    <button class="btn btn-danger" onclick="deleteFileFromRepository('${result.path}', '${escapeHtml(result.name)}')">🗑️ Delete File</button>
+                    <button class="btn btn-danger" onclick="deleteFileFromRepository('${escapeHtml(result.path)}', '${escapeHtml(result.name)}')">🗑️ Delete File</button>
                 </div>`;
             }
         }
