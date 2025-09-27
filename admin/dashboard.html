@@ -3121,6 +3121,34 @@
             }, 5000);
         }
         
+        // Handle authentication errors
+        function handleAuthError(result, fallbackMessage = 'Authentication required') {
+            if (result && result.code === 'UNAUTHORIZED') {
+                // Session expired, redirect to login
+                window.location.href = '/admin/login?expired=1';
+                return true;
+            }
+            return false;
+        }
+        
+        // Wrapper function for API calls that handles authentication errors
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                const result = await response.json();
+                
+                // Handle authentication errors
+                if (handleAuthError(result)) {
+                    throw new Error('Authentication required');
+                }
+                
+                return result;
+            } catch (error) {
+                // Re-throw to let calling function handle other errors
+                throw error;
+            }
+        }
+        
         // Load client configuration and devices
         async function loadClientConfig() {
             try {
@@ -5181,8 +5209,7 @@
 
         async function loadVidiotsStatus() {
             try {
-                const response = await fetch('/admin/api/vidiots/status');
-                const result = await response.json();
+                const result = await apiCall('/admin/api/vidiots/status');
                 
                 if (result.success && result.status) {
                     const status = result.status;
@@ -5317,8 +5344,7 @@
 
         async function loadEspressoStatus() {
             try {
-                const response = await fetch('/admin/api/espresso/status');
-                const result = await response.json();
+                const result = await apiCall('/admin/api/espresso/status');
                 
                 if (result.success && result.status) {
                     const status = result.status;
@@ -5333,7 +5359,7 @@
                     
                     document.getElementById('espressoStatus').textContent = statusText;
                 } else {
-                    document.getElementById('espressoStatus').textContent = 'Status unavailable';
+                    document.getElementById('espressoStatus').textContent = 'Error loading status: ' + (result.error || 'Status unavailable');
                 }
             } catch (error) {
                 document.getElementById('espressoStatus').textContent = 'Error loading status: ' + error.message;

@@ -745,7 +745,20 @@ const requireAuth = (req, res, next) => {
   if (req.session.authenticated) {
     next();
   } else {
-    res.redirect('/admin/login');
+    // Check if this is an API request that expects JSON
+    if (req.path.startsWith('/admin/api/') || 
+        req.get('Accept')?.includes('application/json') ||
+        req.get('Content-Type')?.includes('application/json')) {
+      // Return JSON error for API requests
+      res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required', 
+        code: 'UNAUTHORIZED' 
+      });
+    } else {
+      // Redirect to login for regular page requests
+      res.redirect('/admin/login');
+    }
   }
 };
 
