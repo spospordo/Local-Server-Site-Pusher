@@ -2981,12 +2981,32 @@ app.get('/espresso', (req, res) => {
 app.get('/espresso-editor', (req, res) => {
   try {
     const editorPath = path.join(__dirname, 'public', 'espresso-editor.html');
+    console.log(`📝 [Espresso Editor] Checking path: ${editorPath}`);
+    
     if (fs.existsSync(editorPath)) {
+      console.log('✅ [Espresso Editor] File found, serving espresso-editor.html');
       res.sendFile(editorPath);
     } else {
+      console.log(`❌ [Espresso Editor] File not found at: ${editorPath}`);
+      console.log(`📁 [Espresso Editor] Current working directory: ${process.cwd()}`);
+      
+      // Try to list the public directory for debugging
+      try {
+        const publicDir = path.join(__dirname, 'public');
+        if (fs.existsSync(publicDir)) {
+          const files = fs.readdirSync(publicDir);
+          console.log(`📂 [Espresso Editor] Public directory contents: ${files.join(', ')}`);
+        } else {
+          console.log(`📂 [Espresso Editor] Public directory does not exist: ${publicDir}`);
+        }
+      } catch (listError) {
+        console.log(`📂 [Espresso Editor] Could not list public directory: ${listError.message}`);
+      }
+      
       res.status(404).send('Espresso editor not found.');
     }
   } catch (error) {
+    console.error(`❌ [Espresso Editor] Error serving espresso editor:`, error);
     const sanitizedError = error.message.replace(/[<>"']/g, '');
     res.status(500).send('Error serving espresso editor: ' + sanitizedError);
   }
