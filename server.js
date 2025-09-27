@@ -2329,11 +2329,22 @@ app.post('/admin/api/vidiots/config', requireAuth, (req, res) => {
       });
     }
     
-    // Update config
-    config.vidiots = {
+    // Update config with special handling for githubPages.accessToken
+    // Preserve existing accessToken if not provided in the new config
+    const updatedConfig = {
       ...config.vidiots,
       ...newVidiotsConfig
     };
+    
+    // Special handling for githubPages.accessToken to prevent it from disappearing
+    if (newVidiotsConfig.githubPages && config.vidiots?.githubPages) {
+      // If accessToken is not provided in the update, preserve the existing one
+      if (!newVidiotsConfig.githubPages.hasOwnProperty('accessToken') && config.vidiots.githubPages.accessToken) {
+        updatedConfig.githubPages.accessToken = config.vidiots.githubPages.accessToken;
+      }
+    }
+    
+    config.vidiots = updatedConfig;
     
     // Reinitialize vidiots module with new config
     vidiots.init(config);
@@ -2795,11 +2806,22 @@ app.post('/admin/api/espresso/config', requireAuth, (req, res) => {
       });
     }
     
-    // Update the config
-    config.espresso = {
+    // Update config with special handling for githubPages.accessToken
+    // Preserve existing accessToken if not provided in the new config
+    const updatedConfig = {
       ...config.espresso,
       ...newEspressoConfig
     };
+    
+    // Special handling for githubPages.accessToken to prevent it from disappearing
+    if (newEspressoConfig.githubPages && config.espresso?.githubPages) {
+      // If accessToken is not provided in the update, preserve the existing one
+      if (!newEspressoConfig.githubPages.hasOwnProperty('accessToken') && config.espresso.githubPages.accessToken) {
+        updatedConfig.githubPages.accessToken = config.espresso.githubPages.accessToken;
+      }
+    }
+    
+    config.espresso = updatedConfig;
     
     // Reinitialize espresso module with new config
     espresso.init(config);
