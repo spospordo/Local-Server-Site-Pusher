@@ -34,57 +34,69 @@ function ensureEspressoTemplatesDir() {
   }
 }
 
-// Ensure the espresso data file exists with default values
-function ensureEspressoDataFile() {
+// Get default espresso data object
+function getDefaultEspressoData() {
+  return {
+    weight1: "15g",
+    grind1: ".5", 
+    tempIn1: "90",
+    soak1: "yes",
+    notes1: "None",
+    time1: "32s",
+    weightOut1: "40g",
+    weight2: "15g",
+    grind2: ".9",
+    tempIn2: "88", 
+    soak2: "Yes",
+    notes2: "Mild, rich, balanced, citrus",
+    time2: "25s",
+    weightOut2: "40g",
+    weight3: "14g",
+    grind3: "2.75",
+    tempIn3: "90",
+    soak3: "Yes", 
+    notes3: "Balanced, rich, bitter",
+    time3: "32s",
+    weightOut3: "40g",
+    beanName1: "Sample Bean 1",
+    roastDate1: "Jan 2025",
+    beanName2: "Sample Bean 2", 
+    roastDate2: "Jan 2025",
+    beanName3: "Sample Bean 3",
+    roastDate3: "Jan 2025"
+  };
+}
+
+// Create or recreate espresso data file with default values
+function createDefaultEspressoDataFile(force = false) {
   const espressoConfig = config.espresso || {};
   const dataFilePath = espressoConfig.dataFilePath || './config/espresso-data.json';
   
   try {
-    // Check if data file exists
-    if (!fs.existsSync(dataFilePath)) {
-      // Create directory if it doesn't exist
-      const dataDir = path.dirname(dataFilePath);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      
-      // Create default espresso data
-      const defaultData = {
-        weight1: "15g",
-        grind1: ".5", 
-        tempIn1: "90",
-        soak1: "yes",
-        notes1: "None",
-        time1: "32s",
-        weightOut1: "40g",
-        weight2: "15g",
-        grind2: ".9",
-        tempIn2: "88", 
-        soak2: "Yes",
-        notes2: "Mild, rich, balanced, citrus",
-        time2: "25s",
-        weightOut2: "40g",
-        weight3: "14g",
-        grind3: "2.75",
-        tempIn3: "90",
-        soak3: "Yes", 
-        notes3: "Balanced, rich, bitter",
-        time3: "32s",
-        weightOut3: "40g",
-        beanName1: "Sample Bean 1",
-        roastDate1: "Jan 2025",
-        beanName2: "Sample Bean 2", 
-        roastDate2: "Jan 2025",
-        beanName3: "Sample Bean 3",
-        roastDate3: "Jan 2025"
-      };
-      
-      fs.writeFileSync(dataFilePath, JSON.stringify(defaultData, null, 2));
-      console.log(`📝 [Espresso] Created default data file: ${dataFilePath}`);
+    // Check if data file exists and force is not set
+    if (!force && fs.existsSync(dataFilePath)) {
+      return; // File exists and we're not forcing recreation
     }
+    
+    // Create directory if it doesn't exist
+    const dataDir = path.dirname(dataFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Create default espresso data
+    const defaultData = getDefaultEspressoData();
+    
+    fs.writeFileSync(dataFilePath, JSON.stringify(defaultData, null, 2));
+    console.log(`📝 [Espresso] Created default data file: ${dataFilePath}`);
   } catch (error) {
-    console.error(`❌ [Espresso] Error ensuring data file: ${error.message}`);
+    console.error(`❌ [Espresso] Error creating data file: ${error.message}`);
   }
+}
+
+// Ensure the espresso data file exists with default values
+function ensureEspressoDataFile() {
+  createDefaultEspressoDataFile(false);
 }
 
 // Load espresso data from JSON file
@@ -93,11 +105,42 @@ function loadEspressoData() {
   const dataFilePath = espressoConfig.dataFilePath || './config/espresso-data.json';
   
   try {
+    // Check if file exists
+    if (!fs.existsSync(dataFilePath)) {
+      console.log(`📝 [Espresso] Data file not found, creating with defaults: ${dataFilePath}`);
+      createDefaultEspressoDataFile(true);
+      // Try to read again after creating default file
+      const data = fs.readFileSync(dataFilePath, 'utf8');
+      return JSON.parse(data);
+    }
+    
     const data = fs.readFileSync(dataFilePath, 'utf8');
+    
+    // Check if file is empty or contains only whitespace
+    if (!data.trim()) {
+      console.log(`📝 [Espresso] Data file is empty, recreating with defaults: ${dataFilePath}`);
+      createDefaultEspressoDataFile(true);
+      const newData = fs.readFileSync(dataFilePath, 'utf8');
+      return JSON.parse(newData);
+    }
+    
     return JSON.parse(data);
   } catch (error) {
-    console.error(`❌ [Espresso] Error loading data: ${error.message}`);
-    return {};
+    // Check if it's a JSON parse error
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      console.warn(`⚠️ [Espresso] Corrupted JSON detected, recreating with defaults: ${error.message}`);
+      try {
+        createDefaultEspressoDataFile(true);
+        const data = fs.readFileSync(dataFilePath, 'utf8');
+        return JSON.parse(data);
+      } catch (recoveryError) {
+        console.error(`❌ [Espresso] Failed to recover corrupted data file: ${recoveryError.message}`);
+        return {};
+      }
+    } else {
+      console.error(`❌ [Espresso] Error loading data: ${error.message}`);
+      return {};
+    }
   }
 }
 
@@ -415,36 +458,8 @@ async function updateEspressoData(newData) {
     if (newData.reset === true) {
       console.log(`🔄 [Espresso] Resetting data to defaults`);
       
-      // Create default data (same as in ensureEspressoDataFile)
-      updatedData = {
-        weight1: "15g",
-        grind1: ".5", 
-        tempIn1: "90",
-        soak1: "yes",
-        notes1: "None",
-        time1: "32s",
-        weightOut1: "40g",
-        weight2: "15g",
-        grind2: ".9",
-        tempIn2: "88", 
-        soak2: "Yes",
-        notes2: "Mild, rich, balanced, citrus",
-        time2: "25s",
-        weightOut2: "40g",
-        weight3: "14g",
-        grind3: "2.75",
-        tempIn3: "90",
-        soak3: "Yes", 
-        notes3: "Balanced, rich, bitter",
-        time3: "32s",
-        weightOut3: "40g",
-        beanName1: "Sample Bean 1",
-        roastDate1: "Jan 2025",
-        beanName2: "Sample Bean 2", 
-        roastDate2: "Jan 2025",
-        beanName3: "Sample Bean 3",
-        roastDate3: "Jan 2025"
-      };
+      // Use the shared default data function
+      updatedData = getDefaultEspressoData();
     } else {
       // Load existing data
       const currentData = loadEspressoData();
