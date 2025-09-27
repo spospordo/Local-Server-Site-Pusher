@@ -2942,6 +2942,77 @@ app.get('/espresso', (req, res) => {
   }
 });
 
+// Public espresso data editor endpoint
+app.get('/espresso-editor', (req, res) => {
+  try {
+    const editorPath = path.join(__dirname, 'public', 'espresso-editor.html');
+    if (fs.existsSync(editorPath)) {
+      res.sendFile(editorPath);
+    } else {
+      res.status(404).send('Espresso editor not found.');
+    }
+  } catch (error) {
+    const sanitizedError = error.message.replace(/[<>"']/g, '');
+    res.status(500).send('Error serving espresso editor: ' + sanitizedError);
+  }
+});
+
+// Public espresso data API endpoint - get espresso data (no auth required)
+app.get('/api/espresso/data', (req, res) => {
+  try {
+    console.log('📊 [Espresso] GET /api/espresso/data - Fetching espresso data for public editor');
+    const espressoData = espresso.getEspressoData();
+    res.json({
+      success: true,
+      data: espressoData
+    });
+  } catch (error) {
+    console.error('❌ [Espresso] Error fetching data for public editor:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch espresso data: ' + error.message
+    });
+  }
+});
+
+// Public espresso data API endpoint - update espresso data (no auth required)
+app.post('/api/espresso/data', express.json(), async (req, res) => {
+  try {
+    console.log('📝 [Espresso] POST /api/espresso/data - Updating espresso data from public editor');
+    const updatedData = req.body;
+    
+    if (!updatedData || typeof updatedData !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid data format'
+      });
+    }
+    
+    const result = await espresso.updateEspressoData(updatedData);
+    
+    if (result.success) {
+      console.log('✅ [Espresso] Data updated successfully from public editor');
+      res.json({
+        success: true,
+        message: 'Espresso data updated successfully',
+        htmlGenerated: result.htmlGenerated,
+        outputPath: result.outputPath
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('❌ [Espresso] Error updating data from public editor:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update espresso data: ' + error.message
+    });
+  }
+});
+
 // Espresso template upload endpoint
 app.post('/admin/api/espresso/upload-template', requireAuth, (req, res) => {
   const uploadSingle = upload.single('templateFile');
