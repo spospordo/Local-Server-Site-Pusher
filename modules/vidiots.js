@@ -55,11 +55,33 @@ function resolveUrl(url, baseUrl = BASE_URL) {
   return baseUrl + '/' + url;
 }
 
+// Helper function to normalize poster base URL
+function normalizePosterBaseUrl(posterBaseUrl) {
+  if (!posterBaseUrl) {
+    return '/vidiots/posters/';
+  }
+  
+  // If it already starts with http:// or https://, use as-is
+  if (posterBaseUrl.startsWith('http://') || posterBaseUrl.startsWith('https://')) {
+    return posterBaseUrl.endsWith('/') ? posterBaseUrl : posterBaseUrl + '/';
+  }
+  
+  // If it looks like a domain (contains dot but doesn't start with /), add protocol
+  if (posterBaseUrl.includes('.') && !posterBaseUrl.startsWith('/')) {
+    const normalizedUrl = posterBaseUrl.startsWith('//') ? posterBaseUrl : '//' + posterBaseUrl;
+    const finalUrl = 'http:' + normalizedUrl;
+    return finalUrl.endsWith('/') ? finalUrl : finalUrl + '/';
+  }
+  
+  // Otherwise treat as relative path
+  return posterBaseUrl.endsWith('/') ? posterBaseUrl : posterBaseUrl + '/';
+}
+
 // Generate HTML content from movies data
 function generateHTML(movies, useGithubUrls = false) {
   const vidiots = config.vidiots || {};
-  // Simplified: just use the configured poster base URL
-  const posterBaseUrl = vidiots.posterBaseUrl || '/vidiots/posters/';
+  // Normalize the configured poster base URL to handle GitHub Pages URLs properly
+  const posterBaseUrl = normalizePosterBaseUrl(vidiots.posterBaseUrl);
   
   return `<!DOCTYPE html>
 <html lang="en">
