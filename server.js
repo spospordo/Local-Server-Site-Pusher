@@ -2506,6 +2506,36 @@ app.get('/admin/api/vidiots/github/download', requireAuth, (req, res) => {
   }
 });
 
+// Delete file from GitHub.io repository
+app.delete('/admin/api/vidiots/github/delete', requireAuth, (req, res) => {
+  try {
+    const { path: filePath } = req.query;
+    
+    if (!filePath || typeof filePath !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'File path is required and must be a string' 
+      });
+    }
+    
+    console.log(`🗑️ [GitHub] Deleting file: "${filePath}"`);
+    
+    const result = vidiots.githubUpload.deleteFile(filePath);
+    
+    res.json({
+      success: result.success,
+      message: result.success ? result.message : undefined,
+      error: result.success ? undefined : result.error
+    });
+    
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to delete file: ' + error.message 
+    });
+  }
+});
+
 // Configure Git identity for GitHub operations  
 app.post('/admin/api/vidiots/github/git-config', requireAuth, async (req, res) => {
   try {
