@@ -188,6 +188,27 @@ GET /api/data
 ```
 Generic data endpoint for integrations. Accepts query parameters.
 
+### Espresso Editor Endpoints
+```
+GET /espresso-editor
+```
+Public espresso data editor interface. Allows editing espresso brewing parameters.
+
+```
+GET /espresso
+```
+Public espresso display page. Shows formatted espresso brewing data.
+
+```
+GET /api/espresso/data
+```
+Returns current espresso brewing data in JSON format.
+
+```
+POST /api/espresso/data
+```
+Updates espresso brewing data (public endpoint, no authentication required).
+
 ## Home Assistant Integration
 
 Add a RESTful sensor to your Home Assistant configuration:
