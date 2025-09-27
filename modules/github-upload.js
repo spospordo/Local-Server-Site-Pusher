@@ -873,6 +873,62 @@ function getFileContent(relativePath) {
   }
 }
 
+// Function to delete file from repository
+function deleteFile(relativePath) {
+  try {
+    if (!config?.vidiots?.githubPages?.enabled) {
+      return { success: false, error: 'GitHub Pages integration not enabled' };
+    }
+    
+    const githubConfig = config.vidiots.githubPages;
+    const repoPath = githubConfig.repoLocalPath;
+    
+    if (!repoPath) {
+      return { success: false, error: 'No repository path configured' };
+    }
+    
+    // Validate and sanitize paths
+    const normalizedRepoPath = path.resolve(repoPath);
+    if (!path.isAbsolute(normalizedRepoPath) || normalizedRepoPath.includes('..')) {
+      return { success: false, error: 'Invalid repository path' };
+    }
+    
+    // Validate relative path
+    if (relativePath.includes('..') || relativePath.includes('\0')) {
+      return { success: false, error: 'Invalid file path' };
+    }
+    
+    const filePath = path.join(normalizedRepoPath, relativePath);
+    
+    // Ensure file path is within repository bounds
+    if (!filePath.startsWith(normalizedRepoPath)) {
+      return { success: false, error: 'Path outside repository bounds' };
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File does not exist' };
+    }
+    
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) {
+      return { success: false, error: 'Path is not a file' };
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    console.log(`🗑️ [GitHub] Deleted file: ${relativePath}`);
+    
+    return {
+      success: true,
+      message: `File '${relativePath}' deleted successfully`
+    };
+    
+  } catch (error) {
+    console.error('❌ [GitHub] Error deleting file:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 // Simple MIME type detection
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -1048,6 +1104,7 @@ module.exports = {
   cloneOrPullRepository,
   browseRepository,
   getFileContent,
+  deleteFile,
   updateGitIdentity,
   setGitIdentity,
   getCurrentGitIdentity

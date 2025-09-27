@@ -6084,7 +6084,8 @@
                             </div>
                             <div style="color: #666; font-size: 0.9em; margin-right: 10px;">${modifiedText}</div>
                             <div>
-                                ${item.isDownloadable ? `<button class="btn btn-sm" onclick="downloadFile('${itemPath}')" style="padding: 4px 8px; font-size: 0.8em;">⬇️ Download</button>` : ''}
+                                ${item.isDownloadable ? `<button class="btn btn-sm" onclick="downloadFile('${itemPath}')" style="padding: 4px 8px; font-size: 0.8em; margin-right: 4px;">⬇️ Download</button>` : ''}
+                                ${item.isDownloadable ? `<button class="btn btn-sm btn-danger" onclick="deleteFileFromRepository('${itemPath}', '${escapeHtml(item.name)}')" style="padding: 4px 8px; font-size: 0.8em;">🗑️ Delete</button>` : ''}
                             </div>
                         </div>`;
                     });
@@ -6099,7 +6100,8 @@
                     <h4>📄 ${escapeHtml(result.name)}</h4>
                     <p>Size: ${formatFileSize(result.size)}</p>
                     <p>Modified: ${new Date(result.modified).toLocaleString()}</p>
-                    <button class="btn" onclick="downloadFile('${result.path}')">⬇️ Download File</button>
+                    <button class="btn" onclick="downloadFile('${result.path}')" style="margin-right: 10px;">⬇️ Download File</button>
+                    <button class="btn btn-danger" onclick="deleteFileFromRepository('${escapeHtml(result.path)}', '${escapeHtml(result.name)}')">🗑️ Delete File</button>
                 </div>`;
             }
         }
@@ -6142,6 +6144,36 @@
                 }
             } catch (error) {
                 showAlert('Error downloading file: ' + error.message, 'error', 'repositoryBrowserAlert');
+            }
+        }
+
+        async function deleteFileFromRepository(filePath, fileName) {
+            // Confirmation dialog
+            if (!confirm(`Are you sure you want to delete "${fileName}"? This action will permanently remove the file from your GitHub.io repository when you next upload.`)) {
+                return;
+            }
+            
+            try {
+                showAlert(`Deleting file "${fileName}"...`, 'success', 'repositoryBrowserAlert');
+                
+                const response = await fetch(`/admin/api/vidiots/github/delete?path=${encodeURIComponent(filePath)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`File "${fileName}" deleted successfully! Changes will be uploaded to GitHub.io on next upload.`, 'success', 'repositoryBrowserAlert');
+                    // Refresh the repository browser to show the updated file list
+                    refreshRepositoryBrowser();
+                } else {
+                    showAlert('Delete failed: ' + (result.error || 'Unknown error'), 'error', 'repositoryBrowserAlert');
+                }
+            } catch (error) {
+                showAlert('Error deleting file: ' + error.message, 'error', 'repositoryBrowserAlert');
             }
         }
 
