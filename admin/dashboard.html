@@ -2095,6 +2095,17 @@
             <div class="card-body">
                 <p>Edit the espresso brewing data for each coffee preparation:</p>
                 
+                <!-- Shareable URL Section -->
+                <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
+                    <h4 style="color: #155724; margin-bottom: 10px;">🔗 Shareable Espresso Editor</h4>
+                    <p style="color: #155724; margin-bottom: 10px;">Share this URL with guests on your network to let them edit espresso data without logging in:</p>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" id="espressoEditorUrl" readonly style="flex: 1; padding: 8px; background: white; border: 1px solid #ccc; border-radius: 4px;" value="">
+                        <button onclick="copyEspressoEditorUrl()" class="btn btn-secondary" style="white-space: nowrap;">Copy URL</button>
+                        <a id="espressoEditorLink" href="/espresso-editor" target="_blank" class="btn btn-primary" style="text-decoration: none; white-space: nowrap;">Open Editor</a>
+                    </div>
+                </div>
+                
                 <div id="espressoDataContainer">
                     <!-- Data will be loaded here -->
                     <div style="text-align: center; color: #666; margin: 20px 0;">
@@ -5741,6 +5752,31 @@
         // Global variable to store current espresso data
         let currentEspressoData = {};
 
+        // Initialize espresso editor URL on page load
+        function initializeEspressoEditorUrl() {
+            const urlInput = document.getElementById('espressoEditorUrl');
+            if (urlInput) {
+                const currentUrl = window.location.origin + '/espresso-editor';
+                urlInput.value = currentUrl;
+            }
+        }
+
+        // Copy espresso editor URL to clipboard
+        async function copyEspressoEditorUrl() {
+            const urlInput = document.getElementById('espressoEditorUrl');
+            if (urlInput) {
+                try {
+                    await navigator.clipboard.writeText(urlInput.value);
+                    showAlert('Espresso editor URL copied to clipboard!', 'success', 'espressoDataAlert');
+                } catch (error) {
+                    // Fallback for older browsers
+                    urlInput.select();
+                    document.execCommand('copy');
+                    showAlert('Espresso editor URL copied to clipboard!', 'success', 'espressoDataAlert');
+                }
+            }
+        }
+
         // Load espresso data for editing
         async function loadEspressoData() {
             try {
@@ -6437,6 +6473,9 @@
 
             // Initialize collapsible sections
             initializeCollapsibleSections();
+
+            // Initialize espresso editor URL
+            initializeEspressoEditorUrl();
 
             // Add event listener for GitHub Pages toggle
             const githubEnabledSelect = document.getElementById('vidiotsGithubEnabled');
