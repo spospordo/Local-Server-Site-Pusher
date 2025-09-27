@@ -58,18 +58,8 @@ function resolveUrl(url, baseUrl = BASE_URL) {
 // Generate HTML content from movies data
 function generateHTML(movies, useGithubUrls = false) {
   const vidiots = config.vidiots || {};
-  let posterBaseUrl;
-  
-  // Determine poster base URL based on context
-  if (useGithubUrls && vidiots.githubPages?.enabled && vidiots.githubPages?.repoOwner && vidiots.githubPages?.repoName) {
-    // Generate absolute GitHub.io URL for GitHub Pages deployment
-    const repoOwner = vidiots.githubPages.repoOwner;
-    const repoName = vidiots.githubPages.repoName;
-    posterBaseUrl = `https://${repoOwner}.github.io/${repoName}/vidiots/`;
-  } else {
-    // Use configured relative URL for local serving
-    posterBaseUrl = vidiots.posterBaseUrl || '/vidiots/posters/';
-  }
+  // Simplified: just use the configured poster base URL
+  const posterBaseUrl = vidiots.posterBaseUrl || '/vidiots/posters/';
   
   return `<!DOCTYPE html>
 <html lang="en">
