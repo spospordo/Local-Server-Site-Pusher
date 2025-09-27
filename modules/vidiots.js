@@ -104,7 +104,7 @@ function generateHTML(movies) {
   ${movies.map(m => `
     <div class="movie">
       <div class="poster">
-        ${m.posterUrl ? `<img src="${posterBaseUrl}${m.posterFile}" alt="${m.title} poster">` : ''}
+        ${m.posterFilePath && fs.existsSync(m.posterFilePath) ? `<img src="${posterBaseUrl}${m.posterFile}" alt="${m.title} poster">` : ''}
       </div>
       <div class="info">
         <div class="title">${m.title}${m.minidetails || ''}</div>
