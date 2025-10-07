@@ -1,4 +1,4 @@
-# Portainer ARM64 Deployment Fix - Version 1.1.1
+# Portainer ARM64 Deployment Fix - Version 1.1.2
 
 ## Issue Summary
 When deploying Local-Server-Site-Pusher as a Portainer stack from the Git repository on Raspberry Pi (ARM64), the container fails to start with:
@@ -15,42 +15,46 @@ The issue occurs when:
 1. **Using a pre-built Docker image** from Docker Hub that was built on x64 architecture
 2. **Docker build cache** contains packages from a previous x64 build
 3. **npm ci strict mode** fails to install platform-specific optional dependencies when the package-lock.json doesn't perfectly match the build platform
+4. **npm install alone doesn't rebuild** platform-specific native modules like sharp for the target architecture
 
-The sharp image processing library requires platform-specific native bindings (linux-arm64 for Raspberry Pi). If these binaries aren't installed during the Docker build on the ARM64 device, the module fails to load at runtime.
+The sharp image processing library requires platform-specific native bindings (linux-arm64 for Raspberry Pi). Even when these optional dependencies are installed, they may not be rebuilt for the specific platform where Docker is building the image.
 
-## The Fix (Version 1.1.1)
+## The Fix (Version 1.1.2)
 
-### 1. Improved Dockerfile Installation Strategy
-**Before (v1.1.0):**
-```dockerfile
-RUN npm ci --include=optional
-```
-
-**After (v1.1.1):**
+### 1. Explicit Sharp Rebuild Step
+**Before (v1.1.1):**
 ```dockerfile
 RUN npm ci --include=optional || npm install --include=optional
 ```
 
-**Why this works:**
-- `npm ci` is tried first (faster, uses lockfile)
-- If `npm ci` fails (e.g., lockfile mismatch on ARM64), it falls back to `npm install`
-- `npm install` is more flexible and correctly detects the platform to install ARM64 binaries
-- `--include=optional` ensures sharp's platform-specific optional dependencies are installed
+**After (v1.1.2):**
+```dockerfile
+RUN npm ci --include=optional || npm install --include=optional
 
-### 2. Added node_modules to .dockerignore
-**Change:**
+# Explicitly rebuild sharp for the current platform architecture
+# This ensures ARM64 binaries are correctly installed when building on Raspberry Pi
+RUN npm rebuild sharp --verbose
+```
+
+**Why this works:**
+- `npm ci` or `npm install` installs the dependencies
+- `npm rebuild sharp --verbose` forces sharp to be rebuilt specifically for the current platform (ARM64)
+- This ensures the correct linux-arm64 binaries are compiled/downloaded during the Docker build
+- The `--verbose` flag helps with debugging if issues occur
+
+### 2. Maintained .dockerignore Protection
+**Keeps:**
 ```
 node_modules
 ```
 
-**Why this works:**
-- Prevents any local `node_modules` from the build context from overwriting the freshly installed packages
-- Ensures the Docker build's npm install results are not corrupted by copied files
+**Why this is important:**
+- Prevents any local `node_modules` from the build context from interfering
+- Ensures the Docker build's npm install and rebuild results are not corrupted
 
 ### 3. Enhanced Documentation
-- Added ARM64-specific troubleshooting guide to PORTAINER.md
-- Clarified that ARM64 users must build from source on ARM64 devices
-- Added instructions for clearing Docker build cache
+- Updated troubleshooting guide with v1.1.2 fix information
+- Clarified the importance of explicit platform rebuild for sharp
 
 ## How to Deploy (Portainer on Raspberry Pi)
 
@@ -126,7 +130,7 @@ After deployment, check the container logs in Portainer. You should see:
 ✅ Ownership correct for /app/uploads
 🔄 Switching to user node...
 
-> local-server-site-pusher@1.1.1 start
+> local-server-site-pusher@1.1.2 start
 > node server.js
 
 Local Server Site Pusher running on port 3000
@@ -150,16 +154,17 @@ These binaries aren't in the image, causing the runtime error.
 
 ## Technical Details
 
-### What Changed in 1.1.1
-1. **Dockerfile**: Added fallback from `npm ci` to `npm install` for platform compatibility
-2. **.dockerignore**: Added `node_modules` to prevent build context conflicts
-3. **Documentation**: Enhanced ARM64 deployment guidance in PORTAINER.md, DEPLOYMENT.md, and SHARP_ARM64_FIX.md
+### What Changed in 1.1.2
+1. **Dockerfile**: Added explicit `npm rebuild sharp --verbose` step after npm install
+2. **Why it works**: Forces sharp to rebuild its native bindings for the exact platform where Docker is building
+3. **Documentation**: Updated with v1.1.2 fix and troubleshooting information
 
-### npm ci vs npm install
+### npm ci vs npm install vs npm rebuild
 - **npm ci**: Fast, deterministic, but strict about lockfile matching
 - **npm install**: Slower, but more flexible with platform detection and optional dependencies
+- **npm rebuild**: Forces recompilation of native modules for the current platform
 
-On ARM64, if the package-lock.json was generated on x64, `npm ci` might not correctly install ARM64 optional dependencies. The fallback to `npm install` ensures the correct platform packages are installed.
+The key insight is that even when npm installs the sharp package with `--include=optional`, it may not rebuild the native bindings for the specific platform. By explicitly running `npm rebuild sharp`, we ensure the ARM64 binaries are properly compiled/downloaded during the Docker build on Raspberry Pi.
 
 ## Support
 
