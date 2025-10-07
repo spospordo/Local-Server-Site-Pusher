@@ -26,6 +26,23 @@ docker run -d -p 3000:3000 \
   local-server-site-pusher
 ```
 
+### Building for Raspberry Pi / ARM64
+
+The container supports ARM64 architecture (Raspberry Pi 4, 5, etc.). To build for ARM64:
+
+```bash
+# On ARM64 device (Raspberry Pi)
+docker build -t local-server-site-pusher .
+
+# On x64 machine for ARM64 target (requires Docker Buildx)
+docker buildx build --platform linux/arm64 -t local-server-site-pusher:arm64 .
+
+# Multi-platform build for both architectures
+docker buildx build --platform linux/amd64,linux/arm64 -t spospordo/local-server-site-pusher:latest --push .
+```
+
+**Note**: The Dockerfile now includes `npm rebuild sharp` to ensure native dependencies (like the image processing library) are compiled correctly for the target platform.
+
 ## Fixing Permission Issues
 
 If you see permission denied errors when the container tries to create config files:

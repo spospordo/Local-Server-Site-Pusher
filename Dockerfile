@@ -6,8 +6,11 @@ WORKDIR /app
 # Copy package files first
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies including optional ones for platform-specific binaries (e.g., sharp for ARM64)
+RUN npm ci --include=optional --omit=dev
+
+# Rebuild native modules for the target platform (important for ARM64/Raspberry Pi)
+RUN npm rebuild sharp
 
 # Copy application files
 COPY . .
