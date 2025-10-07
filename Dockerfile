@@ -11,6 +11,10 @@ COPY package*.json ./
 # The --include=optional is critical for sharp's platform-specific binaries
 RUN npm ci --include=optional || npm install --include=optional
 
+# Explicitly rebuild sharp for the current platform architecture
+# This ensures ARM64 binaries are correctly installed when building on Raspberry Pi
+RUN npm rebuild sharp --verbose
+
 # Copy application files
 COPY . .
 
