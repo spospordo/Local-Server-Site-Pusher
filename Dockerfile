@@ -7,8 +7,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies including optional ones for platform-specific binaries (e.g., sharp for ARM64)
-# Removed --omit=dev to ensure all optional dependencies are included
-RUN npm ci --include=optional
+# Try npm ci first (faster), but fall back to npm install for better platform compatibility
+# The --include=optional is critical for sharp's platform-specific binaries
+RUN npm ci --include=optional || npm install --include=optional
 
 # Copy application files
 COPY . .

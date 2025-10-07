@@ -10,3 +10,4 @@ docker-compose.yml
 Dockerfile
 *.md
 test-volumes
+node_modules
