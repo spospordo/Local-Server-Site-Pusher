@@ -21,7 +21,9 @@ The Dockerfile was using `npm ci --include=optional --omit=dev` which creates a 
 
 ## How to Deploy the Fix
 
-### Option 1: Rebuild on Raspberry Pi
+**IMPORTANT**: For ARM64/Raspberry Pi users, you must build the image on the ARM64 device itself, not use a pre-built image from a different architecture.
+
+### Option 1: Rebuild on Raspberry Pi (Recommended)
 ```bash
 cd Local-Server-Site-Pusher
 git pull
@@ -30,14 +32,24 @@ docker-compose down
 docker-compose up -d
 ```
 
-### Option 2: Use the updated image (when published)
+### Option 2: Build from Repository in Portainer (Best for Portainer Users)
+```yaml
+services:
+  local-server:
+    build:
+      context: https://github.com/spospordo/Local-Server-Site-Pusher.git
+    # ... rest of your configuration
+```
+This ensures the image is built fresh on your ARM64 device with the correct binaries.
+
+### Option 3: Use the updated image (only if built for ARM64)
 ```bash
-docker pull spospordo/local-server-site-pusher:latest
+docker pull spospordo/local-server-site-pusher:latest-arm64  # ARM64-specific tag
 docker-compose down
 docker-compose up -d
 ```
 
-### Option 3: Build with buildx for ARM64
+### Option 4: Build with buildx for ARM64
 ```bash
 docker buildx build --platform linux/arm64 -t local-server-site-pusher:arm64 .
 ```

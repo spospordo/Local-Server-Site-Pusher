@@ -28,10 +28,10 @@ docker run -d -p 3000:3000 \
 
 ### Building for Raspberry Pi / ARM64
 
-The container supports ARM64 architecture (Raspberry Pi 4, 5, etc.). To build for ARM64:
+The container supports ARM64 architecture (Raspberry Pi 4, 5, etc.). **For best results on ARM64, always build the image on the ARM64 device itself.**
 
 ```bash
-# On ARM64 device (Raspberry Pi)
+# On ARM64 device (Raspberry Pi) - RECOMMENDED
 docker build -t local-server-site-pusher .
 
 # On x64 machine for ARM64 target (requires Docker Buildx)
@@ -41,7 +41,11 @@ docker buildx build --platform linux/arm64 -t local-server-site-pusher:arm64 .
 docker buildx build --platform linux/amd64,linux/arm64 -t spospordo/local-server-site-pusher:latest --push .
 ```
 
-**Note**: Version 1.1.0+ removes the `--omit=dev` flag from npm install to ensure all optional dependencies (including platform-specific binaries for sharp) are properly installed. This fixes ARM64/Raspberry Pi compatibility issues.
+**Important Notes:**
+- Version 1.1.0+ ensures npm properly installs platform-specific binaries for sharp image processing library
+- **Do NOT use x64 images on ARM64 devices** - the sharp module will fail with "Could not load the sharp module using the linux-arm64 runtime"
+- **Always build from source on Raspberry Pi** or use an ARM64-specific image tag
+- The Dockerfile uses `npm ci || npm install` fallback to handle platform-specific package installation
 
 ## Fixing Permission Issues
 

@@ -69,13 +69,14 @@ curl -sSL https://raw.githubusercontent.com/spospordo/Local-Server-Site-Pusher/m
 
 ### Method 1: Git Repository Build
 
-If you want to build from source:
+If you want to build from source (recommended for ARM64/Raspberry Pi):
 
 ```yaml
 services:
   local-server:
     build:
       context: https://github.com/spospordo/Local-Server-Site-Pusher.git
+      # For Raspberry Pi/ARM64, ensure buildkit is used for better compatibility
     ports:
       - "3000:3000"
     volumes:
@@ -87,6 +88,9 @@ services:
       - SESSION_SECRET=your-secure-secret-here
     restart: unless-stopped
 ```
+
+**Note for ARM64/Raspberry Pi Users:**
+The Dockerfile automatically detects your platform and installs the correct ARM64 binaries for the sharp image processing library. If you encounter issues with sharp not loading, ensure you're building fresh (not using a pre-built image for a different architecture).
 
 ### Method 2: Portainer App Template
 
@@ -148,6 +152,66 @@ Create a custom app template in Portainer with these settings:
 5. Run: `docker-compose up -d`
 
 ## Troubleshooting
+
+### Sharp ARM64 Module Loading Error (Raspberry Pi)
+
+If you see this error on Raspberry Pi/ARM64:
+```
+Error: Could not load the "sharp" module using the linux-arm64 runtime
+Possible solutions:
+- Ensure optional dependencies can be installed:
+    npm install --include=optional sharp
+```
+
+**Root Cause**: This occurs when:
+1. Using a pre-built image from a different architecture (x64 instead of ARM64)
+2. Build cache contains packages from a previous x64 build
+3. The container image wasn't built on the ARM64 platform
+
+**Solution 1: Build from Source on Raspberry Pi (Recommended)**
+```yaml
+services:
+  local-server:
+    build:
+      context: https://github.com/spospordo/Local-Server-Site-Pusher.git
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/lib/local-server-site-pusher/config:/app/config
+      - /var/lib/local-server-site-pusher/public:/app/public
+      - /var/lib/local-server-site-pusher/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - SESSION_SECRET=your-secure-secret-here
+    restart: unless-stopped
+```
+
+**Solution 2: Clear Docker Build Cache**
+```bash
+# In Portainer, remove the stack completely
+# Then clear Docker build cache
+docker builder prune -af
+
+# Redeploy the stack to force a fresh build
+```
+
+**Solution 3: Use ARM64-specific Image (if available)**
+```yaml
+services:
+  local-server:
+    image: spospordo/local-server-site-pusher:latest-arm64  # ARM64-specific image
+    # ... rest of configuration
+```
+
+**Verification**:
+After redeployment, check the container logs. You should see:
+```
+🚀 Local-Server-Site-Pusher Container Starting...
+📧 Git is available for GitHub operations
+...
+✅ Server started successfully on port 3000
+```
+No sharp module errors should appear.
 
 ### Container Startup Loop
 
