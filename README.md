@@ -31,6 +31,8 @@ docker-compose up -d
 
 **✨ New**: The container now automatically fixes permission issues with volume mounts - perfect for Portainer deployments!
 
+**🎉 ARM64 Support**: Now fully compatible with Raspberry Pi (4, 5, and other ARM64 devices)!
+
 ### Using Docker
 
 ```bash
