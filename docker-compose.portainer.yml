@@ -1,0 +1,48 @@
+# Portainer Stack Configuration for Local-Server-Site-Pusher
+# 
+# This file is optimized for deployment via Portainer's "Add stack" feature
+# using the "Repository" build method with the Git URL:
+# https://github.com/spospordo/Local-Server-Site-Pusher
+#
+# Instructions:
+# 1. In Portainer, go to Stacks → Add stack
+# 2. Choose "Repository" as the build method
+# 3. Enter repository URL: https://github.com/spospordo/Local-Server-Site-Pusher
+# 4. Set Compose path: docker-compose.portainer.yml
+# 5. Deploy the stack
+#
+# The configuration below uses absolute paths suitable for Portainer deployment
+
+services:
+  local-server:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # Use absolute paths for Portainer deployment
+      # Adjust these paths based on your system setup
+      - /var/lib/local-server-site-pusher/config:/app/config
+      - /var/lib/local-server-site-pusher/public:/app/public
+      - /var/lib/local-server-site-pusher/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      # IMPORTANT: Change this to a secure random string!
+      - SESSION_SECRET=your-secure-random-string-change-this
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Volume paths explanation:
+# - /var/lib/local-server-site-pusher/config: Stores admin configuration and settings
+# - /var/lib/local-server-site-pusher/public: Stores public web files
+# - /var/lib/local-server-site-pusher/uploads: Stores uploaded files from clients
+#
+# Before deploying, ensure these directories exist on your host:
+# sudo mkdir -p /var/lib/local-server-site-pusher/{config,public,uploads}
+# sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
+#
+# Note: The container automatically fixes permissions if running as root initially

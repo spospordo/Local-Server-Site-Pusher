@@ -3,6 +3,12 @@ FROM node:20
 # Set working directory
 WORKDIR /app
 
+# Install build dependencies for sharp (especially needed for ARM64)
+# libvips-dev provides the native libraries that sharp requires
+RUN apt-get update && apt-get install -y \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy package files first
 COPY package*.json ./
 
