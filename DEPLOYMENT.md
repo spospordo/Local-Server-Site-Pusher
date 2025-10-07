@@ -41,7 +41,7 @@ docker buildx build --platform linux/arm64 -t local-server-site-pusher:arm64 .
 docker buildx build --platform linux/amd64,linux/arm64 -t spospordo/local-server-site-pusher:latest --push .
 ```
 
-**Note**: The Dockerfile now includes `npm rebuild sharp` to ensure native dependencies (like the image processing library) are compiled correctly for the target platform.
+**Note**: Version 1.1.0+ removes the `--omit=dev` flag from npm install to ensure all optional dependencies (including platform-specific binaries for sharp) are properly installed. This fixes ARM64/Raspberry Pi compatibility issues.
 
 ## Fixing Permission Issues
 
