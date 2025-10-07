@@ -42,10 +42,11 @@ docker buildx build --platform linux/amd64,linux/arm64 -t spospordo/local-server
 ```
 
 **Important Notes:**
+- Version 1.1.2+ includes explicit `npm rebuild sharp` to ensure platform-specific binaries for ARM64
 - Version 1.1.0+ ensures npm properly installs platform-specific binaries for sharp image processing library
 - **Do NOT use x64 images on ARM64 devices** - the sharp module will fail with "Could not load the sharp module using the linux-arm64 runtime"
 - **Always build from source on Raspberry Pi** or use an ARM64-specific image tag
-- The Dockerfile uses `npm ci || npm install` fallback to handle platform-specific package installation
+- The Dockerfile uses `npm ci || npm install` fallback plus `npm rebuild sharp` for platform-specific package installation
 
 ## Fixing Permission Issues
 

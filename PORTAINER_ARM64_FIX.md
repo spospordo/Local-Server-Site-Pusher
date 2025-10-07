@@ -138,6 +138,20 @@ Local Server Site Pusher running on port 3000
 
 **No sharp module errors should appear!**
 
+### Advanced Verification (Optional)
+
+To verify sharp is correctly installed for ARM64, you can run:
+
+```bash
+# SSH into your Raspberry Pi
+docker exec -it <container-name> bash
+
+# Run the verification script
+bash /app/scripts/verify-arm64-sharp.sh
+```
+
+This will check for ARM64-specific sharp binaries and test module loading.
+
 ## Why Pre-Built Images Don't Work
 
 Docker images built on x64 contain x64-specific binaries for sharp:
