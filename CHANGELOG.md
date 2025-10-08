@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2025-01-08
+
+### Fixed
+- **CRITICAL FIX**: Resolved persistent sharp module ARM64 runtime error on Raspberry Pi deployments
+- Added libvips-dev build dependency installation in Dockerfile for ARM64 compatibility
+- Sharp now correctly builds and loads on ARM64 architecture (Raspberry Pi, etc.)
+
+### Added
+- docker-compose.portainer.yml - Dedicated compose file optimized for Portainer Git repository deployments
+- Installation of libvips-dev native library in Dockerfile for sharp module support on ARM64
+
+### Changed
+- Updated Dockerfile to install libvips-dev before npm install for proper ARM64 sharp compilation
+- Improved Portainer deployment documentation with correct Git repository deployment method
+
+### Technical Details
+The root cause of the persistent "Could not load the sharp module using the linux-arm64 runtime" error was the absence of libvips native libraries. The sharp npm module requires platform-specific native bindings, and on ARM64 (Raspberry Pi), it needs libvips-dev to be installed during the Docker build process. Without these libraries, even `npm rebuild sharp --verbose` cannot compile/download the correct binaries.
+
+**What changed:**
+- Added `apt-get install libvips-dev` before npm dependencies installation
+- This ensures the native libraries are available when sharp builds its ARM64 binaries
+- The npm rebuild step can now properly compile sharp for linux-arm64 runtime
+
+This fix enables successful Portainer deployment on Raspberry Pi by ensuring all required build dependencies are present during the Docker image build process.
+
 ## [1.1.2] - 2025-01-08
 
 ### Fixed

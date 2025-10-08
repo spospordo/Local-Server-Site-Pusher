@@ -1,7 +1,13 @@
-# Portainer ARM64 Deployment Fix - Version 1.1.2
+# Portainer ARM64 Deployment Fix - Version 1.1.3
+
+## ✅ RESOLVED - Working Solution Available
+
+**This issue is now fully resolved in version 1.1.3!**
+
+👉 **For the complete working solution, see: [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)**
 
 ## Issue Summary
-When deploying Local-Server-Site-Pusher as a Portainer stack from the Git repository on Raspberry Pi (ARM64), the container fails to start with:
+When deploying Local-Server-Site-Pusher as a Portainer stack from the Git repository on Raspberry Pi (ARM64), the container was failing to start with:
 
 ```
 Error: Could not load the "sharp" module using the linux-arm64 runtime
@@ -10,76 +16,52 @@ Possible solutions:
     npm install --include=optional sharp
 ```
 
-## Root Cause
-The issue occurs when:
-1. **Using a pre-built Docker image** from Docker Hub that was built on x64 architecture
-2. **Docker build cache** contains packages from a previous x64 build
-3. **npm ci strict mode** fails to install platform-specific optional dependencies when the package-lock.json doesn't perfectly match the build platform
-4. **npm install alone doesn't rebuild** platform-specific native modules like sharp for the target architecture
+## Root Cause (RESOLVED in v1.1.3)
 
-The sharp image processing library requires platform-specific native bindings (linux-arm64 for Raspberry Pi). Even when these optional dependencies are installed, they may not be rebuilt for the specific platform where Docker is building the image.
+The issue occurred because:
+1. **Missing native libraries**: The sharp npm module requires libvips native libraries to build ARM64 binaries
+2. **npm rebuild alone was insufficient**: Without libvips-dev installed, npm rebuild couldn't compile the correct binaries
+3. **Platform-specific dependencies**: Sharp needs platform-specific native bindings (linux-arm64 for Raspberry Pi)
 
-## The Fix (Version 1.1.2)
+## The Fix (Version 1.1.3)
 
-### 1. Explicit Sharp Rebuild Step
-**Before (v1.1.1):**
+### ✅ What Was Changed
+
+**Added to Dockerfile:**
 ```dockerfile
-RUN npm ci --include=optional || npm install --include=optional
+# Install build dependencies for sharp (especially needed for ARM64)
+# libvips-dev provides the native libraries that sharp requires
+RUN apt-get update && apt-get install -y \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
-**After (v1.1.2):**
-```dockerfile
-RUN npm ci --include=optional || npm install --include=optional
+This simple addition ensures:
+- ✅ libvips native libraries are available during Docker build
+- ✅ npm rebuild can properly compile sharp for ARM64
+- ✅ Correct linux-arm64 binaries are built and installed
+- ✅ Runtime successfully loads sharp module
 
-# Explicitly rebuild sharp for the current platform architecture
-# This ensures ARM64 binaries are correctly installed when building on Raspberry Pi
-RUN npm rebuild sharp --verbose
-```
+### Why This Works
 
-**Why this works:**
-- `npm ci` or `npm install` installs the dependencies
-- `npm rebuild sharp --verbose` forces sharp to be rebuilt specifically for the current platform (ARM64)
-- This ensures the correct linux-arm64 binaries are compiled/downloaded during the Docker build
-- The `--verbose` flag helps with debugging if issues occur
-
-### 2. Maintained .dockerignore Protection
-**Keeps:**
-```
-node_modules
-```
-
-**Why this is important:**
-- Prevents any local `node_modules` from the build context from interfering
-- Ensures the Docker build's npm install and rebuild results are not corrupted
-
-### 3. Enhanced Documentation
-- Updated troubleshooting guide with v1.1.2 fix information
-- Clarified the importance of explicit platform rebuild for sharp
+1. **libvips-dev installation**: Provides the native C libraries that sharp needs
+2. **npm install**: Installs sharp package with optional dependencies
+3. **npm rebuild sharp**: Now can successfully compile ARM64 binaries because libvips is present
+4. **Result**: Sharp loads correctly on Raspberry Pi ARM64
 
 ## How to Deploy (Portainer on Raspberry Pi)
 
-### Option 1: Build from Git Repository (Recommended)
+**📖 See the complete guide: [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)**
 
-In Portainer, create a new stack with this configuration:
+### Quick Deploy Method
 
-```yaml
-services:
-  local-server:
-    build:
-      context: https://github.com/spospordo/Local-Server-Site-Pusher.git
-    ports:
-      - "3000:3000"
-    volumes:
-      - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
-      - /var/lib/local-server-site-pusher/uploads:/app/uploads
-    environment:
-      - NODE_ENV=production
-      - SESSION_SECRET=your-secure-random-string
-    restart: unless-stopped
-```
+1. **In Portainer**: Stacks → Add stack
+2. **Build method**: Repository
+3. **Repository URL**: `https://github.com/spospordo/Local-Server-Site-Pusher`
+4. **Compose path**: `docker-compose.portainer.yml`
+5. **Deploy the stack**
 
-**Important**: This builds the image fresh on your Raspberry Pi with the correct ARM64 binaries.
+Portainer will build the image on your Raspberry Pi with all correct ARM64 dependencies!
 
 ### Option 2: Clear Cache and Rebuild
 
@@ -130,13 +112,13 @@ After deployment, check the container logs in Portainer. You should see:
 ✅ Ownership correct for /app/uploads
 🔄 Switching to user node...
 
-> local-server-site-pusher@1.1.2 start
+> local-server-site-pusher@1.1.3 start
 > node server.js
 
 Local Server Site Pusher running on port 3000
 ```
 
-**No sharp module errors should appear!**
+**✅ No sharp module errors should appear!**
 
 ### Advanced Verification (Optional)
 
@@ -168,33 +150,41 @@ These binaries aren't in the image, causing the runtime error.
 
 ## Technical Details
 
-### What Changed in 1.1.2
-1. **Dockerfile**: Added explicit `npm rebuild sharp --verbose` step after npm install
-2. **Why it works**: Forces sharp to rebuild its native bindings for the exact platform where Docker is building
-3. **Documentation**: Updated with v1.1.2 fix and troubleshooting information
+### What Changed in 1.1.3
+1. **Dockerfile**: Added libvips-dev installation before npm install
+2. **Why it works**: Provides native libraries that sharp needs to compile ARM64 binaries
+3. **npm rebuild sharp**: Can now successfully build because libvips is available
+4. **Documentation**: New comprehensive [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)
 
-### npm ci vs npm install vs npm rebuild
-- **npm ci**: Fast, deterministic, but strict about lockfile matching
-- **npm install**: Slower, but more flexible with platform detection and optional dependencies
-- **npm rebuild**: Forces recompilation of native modules for the current platform
+### The Evolution of Fixes
+- **v1.1.0-1.1.1**: Tried various npm install flags → Partial success
+- **v1.1.2**: Added `npm rebuild sharp --verbose` → Still failed without native libraries
+- **v1.1.3**: Added libvips-dev installation → ✅ **WORKS!**
 
-The key insight is that even when npm installs the sharp package with `--include=optional`, it may not rebuild the native bindings for the specific platform. By explicitly running `npm rebuild sharp`, we ensure the ARM64 binaries are properly compiled/downloaded during the Docker build on Raspberry Pi.
+### Why libvips-dev Was Needed
+Sharp is a Node.js wrapper around libvips, a fast image processing library written in C. To work on ARM64:
+1. **libvips native library** must be available during npm build
+2. **npm rebuild sharp** compiles bindings against libvips
+3. **Result**: Correct ARM64 binaries linked to native libraries
+4. **Runtime**: Sharp successfully loads and uses libvips
 
 ## Support
 
 If you still encounter issues after applying this fix:
 
-1. **Check Docker build cache**: Run `docker builder prune -af`
-2. **Ensure you're building from source**: Don't use `image:` in docker-compose, use `build:`
-3. **Verify architecture**: Run `uname -m` on your Raspberry Pi (should show `aarch64` or `armv8l`)
-4. **Check container logs**: Look for the exact error message in Portainer logs
-5. **Create an issue**: If the problem persists, open an issue on GitHub with:
+1. **Follow the detailed guide**: [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)
+2. **Check Docker build cache**: Run `docker builder prune -af`
+3. **Ensure you're building from source**: Use the Repository build method in Portainer
+4. **Verify architecture**: Run `uname -m` on your Raspberry Pi (should show `aarch64` or `armv8l`)
+5. **Check container logs**: Look for the exact error message in Portainer logs
+6. **Create an issue**: If the problem persists, open an issue on GitHub with:
    - Your docker-compose.yml or Portainer stack configuration
    - Complete container logs
    - Output of `uname -m` from your Raspberry Pi
    - Docker version: `docker --version`
 
 ## Related Documentation
+- [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md) - **Complete working solution for Portainer ARM64 deployment**
 - [PORTAINER.md](PORTAINER.md) - Full Portainer deployment guide
 - [SHARP_ARM64_FIX.md](SHARP_ARM64_FIX.md) - Original sharp ARM64 fix documentation
 - [DEPLOYMENT.md](DEPLOYMENT.md) - General deployment guide
