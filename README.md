@@ -51,30 +51,24 @@ docker run -d \
 
 ### TrueNAS Scale / Portainer Deployment
 
-🎯 **For Portainer and TrueNAS Scale users**: See the comprehensive [**PORTAINER.md**](PORTAINER.md) deployment guide which includes:
+🎯 **For Raspberry Pi / ARM64 users deploying via Portainer**: See the **[PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)** for the complete, working solution.
+
+📖 **For general Portainer and TrueNAS Scale users**: See the [**PORTAINER.md**](PORTAINER.md) deployment guide which includes:
 - Quick deployment steps
 - Permission troubleshooting  
 - TrueNAS Scale specific instructions
 - Security best practices
 
-**Quick Example for Portainer Stack:**
-```yaml
-services:
-  local-server:
-    image: local-server-site-pusher:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - /var/lib/local-server/config:/app/config
-      - /var/lib/local-server/public:/app/public
-      - /var/lib/local-server/uploads:/app/uploads
-    environment:
-      - NODE_ENV=production
-      - SESSION_SECRET=your-secure-secret-here
-    restart: unless-stopped
-```
+**✅ Version 1.1.3 Fix**: Now includes libvips-dev for proper ARM64 sharp module support on Raspberry Pi!
 
-The container automatically handles permission fixes for volume mounts - no manual setup required!
+**Quick Example for Portainer Stack (Git Repository Method):**
+1. In Portainer, go to **Stacks** → **Add stack**
+2. Choose **Repository** build method
+3. **Repository URL**: `https://github.com/spospordo/Local-Server-Site-Pusher`
+4. **Compose path**: `docker-compose.portainer.yml`
+5. Deploy the stack
+
+The container automatically handles permission fixes for volume mounts and builds with correct ARM64 binaries!
 
 ## Troubleshooting
 
