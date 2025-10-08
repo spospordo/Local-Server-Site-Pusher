@@ -4,7 +4,8 @@
 
 set -e
 
-echo "🚀 Local-Server-Site-Pusher Container Starting..."
+STARTUP_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+echo "🚀 Local-Server-Site-Pusher Container Starting... [$STARTUP_TIME]"
 
 # Ensure git is available and properly configured
 if command -v git >/dev/null 2>&1; then

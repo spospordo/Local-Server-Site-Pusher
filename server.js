@@ -4225,7 +4225,8 @@ app.get('/', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Local Server Site Pusher running on port ${PORT}`);
+  const startTime = new Date().toLocaleString();
+  console.log(`[${startTime}] Local Server Site Pusher v${require('./package.json').version} running on port ${PORT}`);
   console.log(`Admin interface: http://localhost:${PORT}/admin`);
   console.log(`Status endpoint: http://localhost:${PORT}/api/status`);
 });

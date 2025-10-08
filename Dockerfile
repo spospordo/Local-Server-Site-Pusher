@@ -9,16 +9,16 @@ RUN apt-get update && apt-get install -y \
     libvips-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first
+# Copy package files (package-lock.json is excluded via .dockerignore to avoid platform conflicts)
 COPY package*.json ./
 
-# Install dependencies including optional ones for platform-specific binaries (e.g., sharp for ARM64)
-# Try npm ci first (faster), but fall back to npm install for better platform compatibility
+# Install dependencies - will use npm install since package-lock.json is excluded
 # The --include=optional is critical for sharp's platform-specific binaries
-RUN npm ci --include=optional || npm install --include=optional
+# This ensures correct ARM64 binaries on Raspberry Pi
+RUN npm install --include=optional
 
-# Explicitly rebuild sharp for the current platform architecture
-# This ensures ARM64 binaries are correctly installed when building on Raspberry Pi
+# Rebuild sharp to ensure correct platform binaries are compiled
+# Essential for ARM64 Raspberry Pi deployments  
 RUN npm rebuild sharp --verbose
 
 # Copy application files
