@@ -10,6 +10,7 @@ const axios = require('axios');
 const vidiots = require('./modules/vidiots');
 const espresso = require('./modules/espresso');
 const githubUpload = require('./modules/github-upload');
+const finance = require('./modules/finance');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -657,6 +658,9 @@ vidiots.init(config);
 
 // Initialize espresso module  
 espresso.init(config);
+
+// Initialize finance module
+finance.init(config);
 
 // Initialize multer configuration after config is loaded
 upload = multer({
@@ -4206,6 +4210,114 @@ function advanceTournament(tournament) {
     tournament.currentRound++;
   }
 }
+
+// Finance Module API Endpoints
+// Get all account types with descriptions
+app.get('/admin/api/finance/account-types', requireAuth, (req, res) => {
+  try {
+    const accountTypes = finance.getAccountTypes();
+    res.json(accountTypes);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get account types: ' + err.message });
+  }
+});
+
+// Get all accounts
+app.get('/admin/api/finance/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = finance.getAccounts();
+    res.json(accounts);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get accounts: ' + err.message });
+  }
+});
+
+// Create or update account
+app.post('/admin/api/finance/accounts', requireAuth, (req, res) => {
+  try {
+    const result = finance.saveAccount(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Account saved successfully' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save account: ' + err.message });
+  }
+});
+
+// Delete account
+app.delete('/admin/api/finance/accounts/:id', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteAccount(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } else {
+      res.status(404).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete account: ' + err.message });
+  }
+});
+
+// Get demographics
+app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
+  try {
+    const demographics = finance.getDemographics();
+    res.json(demographics);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get demographics: ' + err.message });
+  }
+});
+
+// Update demographics
+app.post('/admin/api/finance/demographics', requireAuth, (req, res) => {
+  try {
+    const result = finance.updateDemographics(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Demographics updated successfully' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update demographics: ' + err.message });
+  }
+});
+
+// Add history entry
+app.post('/admin/api/finance/history', requireAuth, (req, res) => {
+  try {
+    const result = finance.addHistoryEntry(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'History entry added successfully' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add history entry: ' + err.message });
+  }
+});
+
+// Get history
+app.get('/admin/api/finance/history', requireAuth, (req, res) => {
+  try {
+    const { accountId, startDate, endDate } = req.query;
+    const history = finance.getHistory(accountId, startDate, endDate);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get history: ' + err.message });
+  }
+});
+
+// Get recommendations
+app.get('/admin/api/finance/recommendations', requireAuth, (req, res) => {
+  try {
+    const recommendations = finance.getRecommendations();
+    res.json(recommendations);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get recommendations: ' + err.message });
+  }
+});
 
 // Default route - serve public content
 app.get('/', (req, res) => {
