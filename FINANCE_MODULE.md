@@ -23,6 +23,7 @@ Track all your financial accounts and assets in one secure location:
 - Individual Stocks
 - Mutual Funds
 - ETFs (Exchange Traded Funds)
+- Bonds (Government and Corporate)
 
 **Retirement Accounts**
 - 401(k) Retirement Plans
@@ -32,6 +33,10 @@ Track all your financial accounts and assets in one secure location:
 **Real Estate**
 - Primary Residence
 - Investment Properties
+
+**Liabilities**
+- Credit Card Debt
+- Mortgage (can be linked to specific property)
 
 **Future Income**
 - Pension Plans (with start age and monthly payment)
@@ -43,12 +48,21 @@ The module provides personalized portfolio allocation recommendations based on:
 - **Your Age**: Adjusts risk profile as you approach retirement
 - **Risk Tolerance**: Conservative, Moderate, or Aggressive strategies
 - **Current Allocation**: Analyzes your existing portfolio distribution
+- **Debt-to-Asset Ratio**: Monitors and provides guidance on liability levels
 
 #### Recommendation Algorithm
 - Uses age-based asset allocation (e.g., bonds = age, stocks = 100 - age)
 - Adjusts for risk tolerance
+- Analyzes debt-to-asset ratios with recommendations when >40%
 - Provides actionable insights with current vs. target percentages
 - Highlights areas needing rebalancing (when difference > 5%)
+- Includes detailed strategy explanations with methodology and rationale
+
+#### New Enhanced Features
+- **Detailed Explanations**: Each recommendation includes a comprehensive explanation of the strategy, algorithms used, and reasoning
+- **Net Worth Tracking**: Automatically calculates net worth by subtracting liabilities from assets
+- **Debt Analysis**: Provides specific guidance on debt management and reduction strategies
+- **Asset vs Liability Visualization**: Charts clearly distinguish between assets and liabilities
 
 ### 📈 Visualization
 - Multiple chart types: Pie, Bar, and Doughnut charts
@@ -82,7 +96,12 @@ The module provides personalized portfolio allocation recommendations based on:
    - Enter Starting Age
    - Current value can be $0
 
-3. Click "Add Account"
+3. For mortgages:
+   - Enter the outstanding balance as the current value
+   - Select which property the mortgage is linked to
+   - If no properties exist, add a property account first
+
+4. Click "Add Account"
 
 ### Managing Accounts
 
@@ -97,9 +116,15 @@ The module provides personalized portfolio allocation recommendations based on:
    - At least one account added
 2. Click "Get Recommendations"
 3. Review:
-   - Total portfolio value
+   - Total assets, liabilities, and net worth
+   - Debt-to-asset ratio analysis
    - Action items with specific percentages
    - Current vs. Target allocation breakdown
+   - Detailed strategy explanation including:
+     - Algorithm methodology
+     - Risk tolerance adjustments
+     - Debt management recommendations
+     - Overall strategic guidance
 
 ## Data Storage
 
