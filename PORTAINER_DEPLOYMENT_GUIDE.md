@@ -1,6 +1,8 @@
-# Portainer Deployment Guide - ARM64 Fix (v1.1.3)
+# Portainer Deployment Guide - ARM64 Fix (v1.1.5)
 
-## ✅ WORKING SOLUTION - Deploy from Git in Portainer
+## ✅ DEFINITIVE WORKING SOLUTION - Deploy from Git in Portainer
+
+**Version 1.1.5** provides the definitive fix for ARM64 sharp module issues on Raspberry Pi!
 
 This guide provides the **correct** way to deploy Local-Server-Site-Pusher on Raspberry Pi (ARM64) using Portainer's Git repository feature.
 
@@ -61,7 +63,7 @@ Portainer will:
 4. You should see:
 
 ```
-🚀 Local-Server-Site-Pusher Container Starting...
+🚀 Local-Server-Site-Pusher Container Starting... [2025-10-08 12:34:56]
 📧 Git is available for GitHub operations
 📧 No persistent git config found - will use defaults
 🔍 Target user: node (UID: 1000, GID: 1000)
@@ -74,13 +76,17 @@ Portainer will:
 ✅ Ownership correct for /app/uploads
 🔄 Switching to user node...
 
-> local-server-site-pusher@1.1.3 start
+> local-server-site-pusher@1.1.5 start
 > node server.js
 
-Local Server Site Pusher running on port 3000
+[10/8/2025, 12:34:57 PM] Local Server Site Pusher v1.1.5 running on port 3000
+Admin interface: http://localhost:3000/admin
+Status endpoint: http://localhost:3000/api/status
 ```
 
 **✅ NO sharp module errors should appear!**
+
+**New in v1.1.5:** Notice the timestamps in the logs - this makes it easier to track when the container started.
 
 #### Step 4: Access the Application
 

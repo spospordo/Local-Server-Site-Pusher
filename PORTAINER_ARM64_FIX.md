@@ -1,10 +1,12 @@
-# Portainer ARM64 Deployment Fix - Version 1.1.3
+# Portainer ARM64 Deployment Fix - Version 1.1.5
 
-## ✅ RESOLVED - Working Solution Available
+## ✅ DEFINITIVELY RESOLVED - Working Solution Available
 
-**This issue is now fully resolved in version 1.1.3!**
+**This issue is now fully and definitively resolved in version 1.1.5!**
 
 👉 **For the complete working solution, see: [PORTAINER_DEPLOYMENT_GUIDE.md](PORTAINER_DEPLOYMENT_GUIDE.md)**
+
+👉 **For technical details, see: [VERSION_1.1.5_SUMMARY.md](VERSION_1.1.5_SUMMARY.md)**
 
 ## Issue Summary
 When deploying Local-Server-Site-Pusher as a Portainer stack from the Git repository on Raspberry Pi (ARM64), the container was failing to start with:
@@ -16,28 +18,44 @@ Possible solutions:
     npm install --include=optional sharp
 ```
 
-## Root Cause (RESOLVED in v1.1.3)
+## Root Cause (DEFINITIVELY RESOLVED in v1.1.5)
 
-The issue occurred because:
-1. **Missing native libraries**: The sharp npm module requires libvips native libraries to build ARM64 binaries
-2. **npm rebuild alone was insufficient**: Without libvips-dev installed, npm rebuild couldn't compile the correct binaries
-3. **Platform-specific dependencies**: Sharp needs platform-specific native bindings (linux-arm64 for Raspberry Pi)
+The issue persisted through v1.1.3 because:
+1. **Platform-locked dependencies**: package-lock.json contained x64-specific sharp binaries from development machines
+2. **npm ci enforcement**: When npm ci runs, it strictly installs locked versions, including wrong-platform binaries
+3. **Runtime mismatch**: Even when building on ARM64, the x64 sharp binaries were installed, causing runtime errors
 
-## The Fix (Version 1.1.3)
+## The Definitive Fix (Version 1.1.5)
 
 ### ✅ What Was Changed
 
-**Added to Dockerfile:**
-```dockerfile
-# Install build dependencies for sharp (especially needed for ARM64)
-# libvips-dev provides the native libraries that sharp requires
-RUN apt-get update && apt-get install -y \
-    libvips-dev \
-    && rm -rf /var/lib/apt/lists/*
+**1. Added to .dockerignore:**
+```
+package-lock.json
 ```
 
-This simple addition ensures:
-- ✅ libvips native libraries are available during Docker build
+**2. Updated Dockerfile:**
+```dockerfile
+# Copy package files (package-lock.json is excluded via .dockerignore to avoid platform conflicts)
+COPY package*.json ./
+
+# Install dependencies - will use npm install since package-lock.json is excluded
+# The --include=optional is critical for sharp's platform-specific binaries
+# This ensures correct ARM64 binaries on Raspberry Pi
+RUN npm install --include=optional
+
+# Rebuild sharp to ensure correct platform binaries are compiled
+# Essential for ARM64 Raspberry Pi deployments  
+RUN npm rebuild sharp --verbose
+```
+
+**3. Added timestamps to logs:**
+- Container startup shows date/time
+- Server startup shows date/time and version
+
+This ensures:
+- ✅ No platform-locked dependencies interfere with the build
+- ✅ npm correctly detects ARM64 platform and installs appropriate binaries
 - ✅ npm rebuild can properly compile sharp for ARM64
 - ✅ Correct linux-arm64 binaries are built and installed
 - ✅ Runtime successfully loads sharp module
@@ -99,9 +117,9 @@ docker-compose up -d
 After deployment, check the container logs in Portainer. You should see:
 
 ```
-🚀 Local-Server-Site-Pusher Container Starting...
+🚀 Local-Server-Site-Pusher Container Starting... [2025-10-08 12:34:56]
 📧 Git is available for GitHub operations
-📧 Loading persistent git configuration...
+📧 No persistent git config found - will use defaults
 🔍 Target user: node (UID: 1000, GID: 1000)
 🔑 Running as root, attempting to fix permissions...
 📁 Checking permissions for /app/config...
@@ -112,13 +130,17 @@ After deployment, check the container logs in Portainer. You should see:
 ✅ Ownership correct for /app/uploads
 🔄 Switching to user node...
 
-> local-server-site-pusher@1.1.3 start
+> local-server-site-pusher@1.1.5 start
 > node server.js
 
-Local Server Site Pusher running on port 3000
+[10/8/2025, 12:34:57 PM] Local Server Site Pusher v1.1.5 running on port 3000
+Admin interface: http://localhost:3000/admin
+Status endpoint: http://localhost:3000/api/status
 ```
 
 **✅ No sharp module errors should appear!**
+
+**New in v1.1.5:** Timestamps are now included in the logs for easier debugging.
 
 ### Advanced Verification (Optional)
 

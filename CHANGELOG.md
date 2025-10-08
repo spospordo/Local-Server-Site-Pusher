@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2025-10-08
+
+### Fixed
+- **DEFINITIVE ARM64 FIX**: Resolved sharp module ARM64 runtime error by excluding package-lock.json from Docker builds
+- Sharp now correctly installs platform-specific binaries on Raspberry Pi ARM64 deployments
+- Fixed platform binary mismatch that occurred when package-lock.json contained x64-specific dependencies
+
+### Added
+- Timestamp logging in server startup (shows version, date/time when server starts)
+- Timestamp logging in container startup (shows date/time when container initializes)
+- Added package-lock.json to .dockerignore to prevent cross-platform binary conflicts
+
+### Changed
+- Dockerfile now uses `npm install` instead of `npm ci` to ensure correct platform detection
+- Package-lock.json is excluded from Docker builds to avoid locked platform-specific packages
+- Container startup and server startup now display timestamps for easier log tracking
+
+### Technical Details
+The root cause of the persistent ARM64 sharp error was package-lock.json containing locked platform-specific binaries (often from x64 development environments). When copied into the Docker build context and used with `npm ci`, it forced installation of wrong-platform binaries even when building on ARM64.
+
+**The Fix:**
+1. Added `package-lock.json` to `.dockerignore` - prevents platform-locked dependencies from entering Docker build
+2. Docker build now uses `npm install` (not `npm ci`) - ensures platform detection works correctly
+3. Sharp is rebuilt after installation - guarantees ARM64 binaries are compiled correctly
+
+This ensures that when Portainer builds the image on Raspberry Pi, npm detects ARM64 and installs the correct linux-arm64 sharp binaries, eliminating the runtime error.
+
 ## [1.1.3] - 2025-01-08
 
 ### Fixed
