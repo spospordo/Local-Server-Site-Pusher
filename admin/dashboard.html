@@ -1366,7 +1366,193 @@
             border-top: 1px solid #eee;
         }
         
+        
+        /* Finance Module Styles */
+        .finance-subsection {
+            margin-bottom: 2rem;
+        }
+        
+        .finance-subsection h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .help-text {
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+        
+        .accounts-list {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .account-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            position: relative;
+        }
+        
+        .account-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+        
+        .account-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #2c3e50;
+        }
+        
+        .account-type-badge {
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .account-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #28a745;
+            margin-bottom: 0.5rem;
+        }
+        
+        .account-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .account-detail {
+            font-size: 0.85rem;
+        }
+        
+        .account-detail-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .account-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .account-actions .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+        
+        .recommendation-card {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 4px;
+        }
+        
+        .recommendation-card.warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        
+        .allocation-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .allocation-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .allocation-category {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            text-transform: capitalize;
+        }
+        
+        .allocation-values {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 0.5rem;
+        }
+        
+        .allocation-value {
+            text-align: center;
+        }
+        
+        .allocation-label {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .allocation-percent {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .allocation-percent.current {
+            color: #007bff;
+        }
+        
+        .allocation-percent.recommended {
+            color: #28a745;
+        }
+        
+        .chart-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .legend-label {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        
+        .chart-controls label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
     </style>
+    <!-- Chart.js for Finance Module -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" 
+            onerror="console.warn('Chart.js CDN blocked - charts will be unavailable')"></script>
 </head>
 <body>
     <div class="header">
@@ -1389,6 +1575,7 @@
                 <button class="main-tab" onclick="showMainTab('clients')">Clients</button>
                 <button class="main-tab" onclick="showMainTab('party')">Party</button>
                 <button class="main-tab" onclick="showMainTab('server')">Server</button>
+                <button class="main-tab" onclick="showMainTab('finance')">Finance</button>
                 <button class="main-tab" onclick="showMainTab('settings')">Settings</button>
             </div>
             
@@ -1417,6 +1604,161 @@
                         <div class="status-label">Loading...</div>
                         <div class="status-value">Please wait</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance Module -->
+        <div class="card admin-section finance-section">
+            <div class="card-header">
+                <h2>💰 Finance Module</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    🔐 All financial data is encrypted and stored securely - accessible only to administrators
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Demographics Section -->
+                <div class="finance-subsection">
+                    <h3>👤 Your Profile</h3>
+                    <p class="help-text">Tell us about yourself to get personalized recommendations</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="userAge">Current Age</label>
+                            <input type="number" id="userAge" placeholder="e.g., 35">
+                            <small class="help-text">Your current age helps calculate retirement planning</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="retirementAge">Planned Retirement Age</label>
+                            <input type="number" id="retirementAge" placeholder="e.g., 65">
+                            <small class="help-text">When do you plan to retire?</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="annualIncome">Annual Income ($)</label>
+                            <input type="number" id="annualIncome" placeholder="e.g., 75000">
+                            <small class="help-text">Your yearly income before taxes</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="riskTolerance">Risk Tolerance</label>
+                            <select id="riskTolerance">
+                                <option value="conservative">Conservative - Lower risk, stable returns</option>
+                                <option value="moderate" selected>Moderate - Balanced approach</option>
+                                <option value="aggressive">Aggressive - Higher risk, growth focused</option>
+                            </select>
+                            <small class="help-text">How comfortable are you with investment risk?</small>
+                        </div>
+                    </div>
+                    <button onclick="saveDemographics()" class="btn">Save Profile</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Account Management Section -->
+                <div class="finance-subsection">
+                    <h3>📊 Accounts & Assets</h3>
+                    <p class="help-text">Track all your financial accounts and assets in one place</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="accountName">Account Name</label>
+                            <input type="text" id="accountName" placeholder="e.g., Chase Savings">
+                        </div>
+                        <div class="form-group">
+                            <label for="accountType">Account Type</label>
+                            <select id="accountType" onchange="updateAccountTypeHelp()">
+                                <option value="">Select type...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="accountTypeHelp" class="alert" style="display:none; margin-bottom: 1rem;"></div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="accountValue">Current Value ($)</label>
+                            <input type="number" step="0.01" id="accountValue" placeholder="e.g., 25000.00">
+                            <small class="help-text">The current balance or market value</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="accountStartDate">Start Date (Optional)</label>
+                            <input type="date" id="accountStartDate">
+                            <small class="help-text">When did you open this account?</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Future Income Specific Fields -->
+                    <div id="futureIncomeFields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="monthlyPayment">Expected Monthly Payment ($)</label>
+                                <input type="number" step="0.01" id="monthlyPayment" placeholder="e.g., 2500.00">
+                                <small class="help-text">How much per month will you receive?</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="startAge">Starting Age</label>
+                                <input type="number" id="startAge" placeholder="e.g., 67">
+                                <small class="help-text">At what age will payments begin?</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountNotes">Notes (Optional)</label>
+                        <textarea id="accountNotes" rows="2" placeholder="Any additional details..."></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="accountId">
+                    <button onclick="saveAccount()" class="btn btn-success">Add Account</button>
+                    <button onclick="clearAccountForm()" class="btn" style="background: #6c757d;">Clear Form</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Accounts List -->
+                <div class="finance-subsection">
+                    <h3>📋 Your Accounts</h3>
+                    <div id="accountsList" class="accounts-list">
+                        <p style="color: #666;">No accounts added yet</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Allocation Recommendations -->
+                <div class="finance-subsection">
+                    <h3>💡 Portfolio Recommendations</h3>
+                    <p class="help-text">Based on your age and risk tolerance</p>
+                    <button onclick="loadRecommendations()" class="btn">Get Recommendations</button>
+                    <div id="recommendationsContainer" style="margin-top: 1rem;">
+                        <!-- Recommendations will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Charts Section -->
+                <div class="finance-subsection">
+                    <h3>📈 Visualizations</h3>
+                    <p class="help-text">View your portfolio allocation and account values</p>
+                    
+                    <div class="chart-controls" style="margin-bottom: 1rem;">
+                        <label>
+                            <input type="radio" name="chartType" value="pie" checked onchange="updateChart()"> Pie Chart
+                        </label>
+                        <label style="margin-left: 1rem;">
+                            <input type="radio" name="chartType" value="bar" onchange="updateChart()"> Bar Chart
+                        </label>
+                        <label style="margin-left: 1rem;">
+                            <input type="radio" name="chartType" value="doughnut" onchange="updateChart()"> Doughnut Chart
+                        </label>
+                    </div>
+                    
+                    <div style="position: relative; height: 400px; margin-bottom: 2rem;">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                    
+                    <div id="chartLegend" class="chart-legend"></div>
                 </div>
             </div>
         </div>
@@ -3725,6 +4067,7 @@
             loadClientStorageStats();
             loadMediaStreamingConfig(); // Load media streaming configuration
             initializeDrinkMixer();
+            initializeFinance();
         }
         
         // Drink Mixer Functions
@@ -4939,6 +5282,12 @@
                 loadConfig();
                 setupStorageSlider();
                 loadMediaStreamingConfig();
+            } else if (tabName === 'finance') {
+                const financeSections = document.querySelectorAll('.finance-section');
+                financeSections.forEach(section => section.classList.remove('hidden'));
+                
+                // Load finance data
+                loadFinanceData();
             }
         }
 
@@ -6501,6 +6850,477 @@
                 addGitHubLog('INFO', 'GitHub section opened');
                 loadGitIdentity();
             }
+        }
+        
+        // Finance Module Functions
+        let financeChart = null;
+        let accountTypes = {};
+        
+        async function initializeFinance() {
+            try {
+                // Load account types
+                const typesResponse = await fetch('/admin/api/finance/account-types');
+                accountTypes = await typesResponse.json();
+                
+                // Populate account type dropdown
+                const accountTypeSelect = document.getElementById('accountType');
+                accountTypeSelect.innerHTML = '<option value="">Select type...</option>';
+                
+                Object.keys(accountTypes).forEach(key => {
+                    const type = accountTypes[key];
+                    accountTypeSelect.innerHTML += `<option value="${key}">${type.name}</option>`;
+                });
+            } catch (err) {
+                console.error('Failed to initialize finance:', err);
+            }
+        }
+        
+        function updateAccountTypeHelp() {
+            const accountType = document.getElementById('accountType').value;
+            const helpDiv = document.getElementById('accountTypeHelp');
+            const futureFields = document.getElementById('futureIncomeFields');
+            
+            if (accountType && accountTypes[accountType]) {
+                const type = accountTypes[accountType];
+                helpDiv.innerHTML = `<strong>${type.name}:</strong> ${type.description}`;
+                helpDiv.style.display = 'block';
+                helpDiv.className = 'alert';
+                
+                // Show/hide future income fields
+                if (type.category === 'future_income') {
+                    futureFields.style.display = 'block';
+                } else {
+                    futureFields.style.display = 'none';
+                }
+            } else {
+                helpDiv.style.display = 'none';
+                futureFields.style.display = 'none';
+            }
+        }
+        
+        async function loadFinanceData() {
+            await loadDemographics();
+            await loadAccounts();
+            await updateChart();
+        }
+        
+        async function loadDemographics() {
+            try {
+                const response = await fetch('/admin/api/finance/demographics');
+                const demographics = await response.json();
+                
+                document.getElementById('userAge').value = demographics.age || '';
+                document.getElementById('retirementAge').value = demographics.retirementAge || 65;
+                document.getElementById('annualIncome').value = demographics.annualIncome || '';
+                document.getElementById('riskTolerance').value = demographics.riskTolerance || 'moderate';
+            } catch (err) {
+                console.error('Failed to load demographics:', err);
+            }
+        }
+        
+        async function saveDemographics() {
+            try {
+                const demographics = {
+                    age: parseInt(document.getElementById('userAge').value) || null,
+                    retirementAge: parseInt(document.getElementById('retirementAge').value) || 65,
+                    annualIncome: parseFloat(document.getElementById('annualIncome').value) || null,
+                    riskTolerance: document.getElementById('riskTolerance').value
+                };
+                
+                const response = await fetch('/admin/api/finance/demographics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(demographics)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlert('Profile saved successfully!', 'success');
+                } else {
+                    showAlert('Error saving profile: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to save profile: ' + err.message, 'error');
+            }
+        }
+        
+        async function loadAccounts() {
+            try {
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                
+                const accountsList = document.getElementById('accountsList');
+                
+                if (accounts.length === 0) {
+                    accountsList.innerHTML = '<p style="color: #666;">No accounts added yet</p>';
+                    return;
+                }
+                
+                accountsList.innerHTML = accounts.map(account => {
+                    const type = accountTypes[account.type] || { name: account.type, category: 'other' };
+                    const isFutureIncome = type.category === 'future_income';
+                    
+                    return `
+                        <div class="account-card">
+                            <div class="account-card-header">
+                                <div class="account-name">${escapeHtml(account.name)}</div>
+                                <div class="account-type-badge">${type.name}</div>
+                            </div>
+                            <div class="account-value">$${parseFloat(account.currentValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            ${isFutureIncome && account.monthlyPayment ? `
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                    Monthly: $${parseFloat(account.monthlyPayment).toLocaleString()} starting at age ${account.startAge}
+                                </div>
+                            ` : ''}
+                            ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
+                            <div class="account-details">
+                                ${account.startDate ? `
+                                    <div class="account-detail">
+                                        <span class="account-detail-label">Started:</span> ${new Date(account.startDate).toLocaleDateString()}
+                                    </div>
+                                ` : ''}
+                                <div class="account-detail">
+                                    <span class="account-detail-label">Updated:</span> ${new Date(account.updatedAt).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div class="account-actions">
+                                <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
+                                <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Failed to load accounts:', err);
+            }
+        }
+        
+        async function saveAccount() {
+            try {
+                const accountType = document.getElementById('accountType').value;
+                const type = accountTypes[accountType];
+                
+                if (!accountType) {
+                    showAlert('Please select an account type', 'error');
+                    return;
+                }
+                
+                const account = {
+                    id: document.getElementById('accountId').value || undefined,
+                    name: document.getElementById('accountName').value,
+                    type: accountType,
+                    currentValue: parseFloat(document.getElementById('accountValue').value) || 0,
+                    startDate: document.getElementById('accountStartDate').value || null,
+                    notes: document.getElementById('accountNotes').value || null
+                };
+                
+                // Add future income specific fields
+                if (type && type.category === 'future_income') {
+                    account.monthlyPayment = parseFloat(document.getElementById('monthlyPayment').value) || 0;
+                    account.startAge = parseInt(document.getElementById('startAge').value) || null;
+                }
+                
+                if (!account.name) {
+                    showAlert('Please enter an account name', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/admin/api/finance/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(account)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlert('Account saved successfully!', 'success');
+                    clearAccountForm();
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    showAlert('Error saving account: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to save account: ' + err.message, 'error');
+            }
+        }
+        
+        async function editAccount(accountId) {
+            try {
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                const account = accounts.find(a => a.id === accountId);
+                
+                if (!account) {
+                    showAlert('Account not found', 'error');
+                    return;
+                }
+                
+                document.getElementById('accountId').value = account.id;
+                document.getElementById('accountName').value = account.name;
+                document.getElementById('accountType').value = account.type;
+                document.getElementById('accountValue').value = account.currentValue;
+                document.getElementById('accountStartDate').value = account.startDate || '';
+                document.getElementById('accountNotes').value = account.notes || '';
+                
+                updateAccountTypeHelp();
+                
+                // Set future income fields if applicable
+                const type = accountTypes[account.type];
+                if (type && type.category === 'future_income') {
+                    document.getElementById('monthlyPayment').value = account.monthlyPayment || '';
+                    document.getElementById('startAge').value = account.startAge || '';
+                }
+                
+                // Scroll to form
+                document.getElementById('accountName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (err) {
+                showAlert('Failed to load account: ' + err.message, 'error');
+            }
+        }
+        
+        async function deleteAccount(accountId) {
+            if (!confirm('Are you sure you want to delete this account?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/finance/accounts/${accountId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlert('Account deleted successfully!', 'success');
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    showAlert('Error deleting account: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to delete account: ' + err.message, 'error');
+            }
+        }
+        
+        function clearAccountForm() {
+            document.getElementById('accountId').value = '';
+            document.getElementById('accountName').value = '';
+            document.getElementById('accountType').value = '';
+            document.getElementById('accountValue').value = '';
+            document.getElementById('accountStartDate').value = '';
+            document.getElementById('accountNotes').value = '';
+            document.getElementById('monthlyPayment').value = '';
+            document.getElementById('startAge').value = '';
+            updateAccountTypeHelp();
+        }
+        
+        async function loadRecommendations() {
+            try {
+                const response = await fetch('/admin/api/finance/recommendations');
+                const data = await response.json();
+                
+                const container = document.getElementById('recommendationsContainer');
+                
+                if (data.accountCount === 0) {
+                    container.innerHTML = '<p style="color: #666;">Add some accounts first to get recommendations</p>';
+                    return;
+                }
+                
+                let html = `
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Total Portfolio Value:</strong> 
+                                <span style="font-size: 1.5rem; color: #28a745; font-weight: 700;">
+                                    $${parseFloat(data.totalValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div>
+                                <strong>Accounts:</strong> ${data.accountCount}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (data.recommendations.length > 0) {
+                    html += '<h4 style="margin-bottom: 0.75rem;">📋 Action Items:</h4>';
+                    data.recommendations.forEach(rec => {
+                        html += `
+                            <div class="recommendation-card">
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">${rec.category.replace('_', ' ').toUpperCase()}</div>
+                                <div>${rec.message}</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                                    Current: ${rec.current}% → Recommended: ${rec.recommended}%
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="recommendation-card" style="background: #d4edda; border-left-color: #28a745;">✅ Your portfolio allocation looks good!</div>';
+                }
+                
+                html += '<h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">📊 Allocation Breakdown:</h4>';
+                html += '<div class="allocation-comparison">';
+                
+                Object.keys(data.currentAllocation).forEach(category => {
+                    const current = data.currentAllocation[category];
+                    const recommended = data.recommendedAllocation[category];
+                    
+                    html += `
+                        <div class="allocation-item">
+                            <div class="allocation-category">${category.replace('_', ' ')}</div>
+                            <div class="allocation-values">
+                                <div class="allocation-value">
+                                    <div class="allocation-label">Current</div>
+                                    <div class="allocation-percent current">${current}%</div>
+                                </div>
+                                <div class="allocation-value">
+                                    <div class="allocation-label">Target</div>
+                                    <div class="allocation-percent recommended">${recommended}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (err) {
+                showAlert('Failed to load recommendations: ' + err.message, 'error');
+            }
+        }
+        
+        async function updateChart() {
+            try {
+                // Check if Chart.js is available
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available - skipping chart rendering');
+                    return;
+                }
+                
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                
+                if (accounts.length === 0) {
+                    if (financeChart) {
+                        financeChart.destroy();
+                        financeChart = null;
+                    }
+                    return;
+                }
+                
+                // Group by category
+                const categoryData = {};
+                const categoryColors = {
+                    cash: '#28a745',
+                    investments: '#007bff',
+                    retirement: '#ffc107',
+                    real_estate: '#17a2b8',
+                    future_income: '#6f42c1'
+                };
+                
+                accounts.forEach(account => {
+                    const type = accountTypes[account.type];
+                    if (type) {
+                        const category = type.category;
+                        if (!categoryData[category]) {
+                            categoryData[category] = 0;
+                        }
+                        categoryData[category] += parseFloat(account.currentValue || 0);
+                    }
+                });
+                
+                const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
+                const data = Object.values(categoryData);
+                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                
+                const chartType = document.querySelector('input[name="chartType"]:checked').value;
+                
+                const ctx = document.getElementById('financeChart').getContext('2d');
+                
+                if (financeChart) {
+                    financeChart.destroy();
+                }
+                
+                financeChart = new Chart(ctx, {
+                    type: chartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Portfolio Value ($)',
+                            data: data,
+                            backgroundColor: colors,
+                            borderColor: colors.map(c => c),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: chartType === 'bar',
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed || context.parsed.y;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return ` $${value.toLocaleString()} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: chartType === 'bar' ? {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        } : {}
+                    }
+                });
+                
+                // Update legend
+                const legendDiv = document.getElementById('chartLegend');
+                legendDiv.innerHTML = labels.map((label, i) => `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: ${colors[i]}"></div>
+                        <div class="legend-label">${label}: $${data[i].toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to update chart:', err);
+            }
+        }
+        
+        function showAlert(message, type) {
+            // Use existing alert system if available, or create a simple one
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert';
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 6px;
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+                background: ${type === 'success' ? '#d4edda' : '#f8d7da'};
+                color: ${type === 'success' ? '#155724' : '#721c24'};
+                border: 1px solid ${type === 'success' ? '#c3e6cb' : '#f5c6cb'};
+            `;
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
         }
     </script>
 </body>
