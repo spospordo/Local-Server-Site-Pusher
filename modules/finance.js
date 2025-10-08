@@ -195,6 +195,11 @@ const ACCOUNT_TYPES = {
     description: 'Index funds that trade like stocks on exchanges',
     category: 'investments'
   },
+  'bonds': {
+    name: 'Bonds',
+    description: 'Fixed-income securities including government and corporate bonds',
+    category: 'investments'
+  },
   '401k': {
     name: '401(k) Retirement',
     description: 'Employer-sponsored retirement account with tax benefits',
@@ -219,6 +224,17 @@ const ACCOUNT_TYPES = {
     name: 'Investment Property',
     description: 'Real estate owned for rental income or appreciation',
     category: 'real_estate'
+  },
+  'credit_card': {
+    name: 'Credit Card',
+    description: 'Credit card debt - enter as a positive number representing amount owed',
+    category: 'liabilities'
+  },
+  'mortgage': {
+    name: 'Mortgage',
+    description: 'Home loan - enter as a positive number representing outstanding balance',
+    category: 'liabilities',
+    requiresPropertyLink: true
   },
   'pension': {
     name: 'Pension (Future)',
@@ -335,19 +351,28 @@ function getRecommendations() {
     investments: 0,
     retirement: 0,
     real_estate: 0,
-    future_income: 0
+    future_income: 0,
+    liabilities: 0
   };
   
-  let totalValue = 0;
+  let totalAssets = 0;
+  let totalLiabilities = 0;
   
   accounts.forEach(account => {
     const type = ACCOUNT_TYPES[account.type];
     if (type && account.currentValue) {
       const value = parseFloat(account.currentValue) || 0;
       allocation[type.category] += value;
-      totalValue += value;
+      
+      if (type.category === 'liabilities') {
+        totalLiabilities += value;
+      } else {
+        totalAssets += value;
+      }
     }
   });
+  
+  const totalValue = totalAssets;
   
   // Calculate percentages
   const currentAllocation = {};
@@ -369,7 +394,8 @@ function getRecommendations() {
       investments: Math.max(30, 100 - age - 20),
       retirement: Math.min(40, age * 0.5),
       real_estate: 10,
-      future_income: 0
+      future_income: 0,
+      liabilities: 0
     };
   } else if (riskTolerance === 'moderate') {
     recommendedAllocation = {
@@ -377,7 +403,8 @@ function getRecommendations() {
       investments: Math.max(40, 100 - age - 10),
       retirement: Math.min(35, age * 0.4),
       real_estate: 10,
-      future_income: 0
+      future_income: 0,
+      liabilities: 0
     };
   } else { // aggressive
     recommendedAllocation = {
@@ -385,7 +412,8 @@ function getRecommendations() {
       investments: Math.max(50, 110 - age),
       retirement: Math.min(30, age * 0.3),
       real_estate: 10,
-      future_income: 0
+      future_income: 0,
+      liabilities: 0
     };
   }
   
@@ -399,6 +427,8 @@ function getRecommendations() {
   const recommendations = [];
   
   Object.keys(allocation).forEach(category => {
+    if (category === 'liabilities') return; // Handle liabilities separately
+    
     const current = parseFloat(currentAllocation[category]);
     const recommended = parseFloat(recommendedAllocation[category]);
     const diff = current - recommended;
@@ -422,13 +452,102 @@ function getRecommendations() {
     }
   });
   
+  // Calculate debt-to-asset ratio
+  const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets * 100).toFixed(1) : 0;
+  const netWorth = totalAssets - totalLiabilities;
+  
+  // Add debt recommendations if applicable
+  if (totalLiabilities > 0) {
+    if (debtToAssetRatio > 40) {
+      recommendations.push({
+        category: 'liabilities',
+        message: `Your debt-to-asset ratio is ${debtToAssetRatio}%. Consider prioritizing debt reduction.`,
+        current: debtToAssetRatio,
+        recommended: '< 40'
+      });
+    }
+  }
+  
+  // Generate detailed explanation
+  const explanation = generateRecommendationExplanation({
+    age,
+    riskTolerance,
+    totalAssets,
+    totalLiabilities,
+    debtToAssetRatio,
+    currentAllocation,
+    recommendedAllocation,
+    recommendations
+  });
+  
   return {
     currentAllocation,
     recommendedAllocation,
     recommendations,
     totalValue,
-    accountCount: accounts.length
+    totalAssets,
+    totalLiabilities,
+    netWorth,
+    debtToAssetRatio,
+    accountCount: accounts.length,
+    explanation
   };
+}
+
+// Generate detailed explanation for recommendations
+function generateRecommendationExplanation(data) {
+  const { age, riskTolerance, totalAssets, totalLiabilities, debtToAssetRatio, recommendations } = data;
+  
+  let explanation = '<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff; margin-top: 1.5rem;">';
+  explanation += '<h4 style="margin-top: 0; color: #007bff;">📖 Recommendation Strategy & Methodology</h4>';
+  
+  // Algorithm explanation
+  explanation += '<p><strong>Algorithm Used:</strong> Age-Based Asset Allocation with Risk Adjustment</p>';
+  explanation += '<p>Our recommendation engine employs a modern portfolio theory approach combined with age-based allocation strategies. ';
+  
+  // Age-based strategy
+  explanation += `At age ${age}, we use a balanced approach where bond allocation generally equals your age (${age}%), `;
+  explanation += `and equity allocation equals 100 minus your age (${100 - age}%). This classic rule helps reduce risk as you approach retirement.</p>`;
+  
+  // Risk tolerance explanation
+  explanation += `<p><strong>Risk Tolerance Adjustment:</strong> Based on your <em>${riskTolerance}</em> risk profile, `;
+  if (riskTolerance === 'conservative') {
+    explanation += 'we recommend higher allocations to cash and bonds for capital preservation, with reduced exposure to volatile equities.';
+  } else if (riskTolerance === 'moderate') {
+    explanation += 'we balance growth potential with stability, maintaining moderate exposure to both equities and fixed-income securities.';
+  } else {
+    explanation += 'we emphasize growth-oriented investments with higher equity allocations, accepting increased volatility for potential higher returns.';
+  }
+  explanation += '</p>';
+  
+  // Debt analysis
+  if (totalLiabilities > 0) {
+    explanation += `<p><strong>Debt Analysis:</strong> Your current debt-to-asset ratio is ${debtToAssetRatio}%. `;
+    if (debtToAssetRatio > 40) {
+      explanation += 'This is above the recommended threshold of 40%. High debt levels can limit financial flexibility and increase risk. ';
+      explanation += 'Prioritizing debt reduction, especially high-interest debt like credit cards, should be a key focus before increasing investment allocations.';
+    } else if (debtToAssetRatio > 20) {
+      explanation += 'This is within acceptable range but monitoring debt levels is important. Focus on maintaining or reducing this ratio over time.';
+    } else {
+      explanation += 'This is a healthy debt level, indicating good financial management and allowing for more aggressive investment strategies if desired.';
+    }
+    explanation += '</p>';
+  }
+  
+  // Strategy summary
+  explanation += '<p><strong>Recommended Strategy:</strong> ';
+  if (recommendations.length === 0) {
+    explanation += 'Your current portfolio allocation is well-balanced and aligns with your age and risk tolerance. Continue monitoring and rebalancing quarterly to maintain these targets.';
+  } else {
+    explanation += 'We recommend rebalancing your portfolio to align with the suggested allocations above. ';
+    explanation += 'This involves gradually shifting assets over time to avoid market timing risks. ';
+    explanation += 'Consider tax implications and transaction costs when rebalancing, and aim to review your allocation quarterly or when it deviates by more than 5%.';
+  }
+  explanation += '</p>';
+  
+  explanation += '</div>';
+  
+  return explanation;
 }
 
 // Get account types with descriptions

@@ -1703,6 +1703,17 @@
                         </div>
                     </div>
                     
+                    <!-- Mortgage Property Link Fields -->
+                    <div id="mortgagePropertyFields" style="display:none;">
+                        <div class="form-group">
+                            <label for="linkedProperty">Linked Property</label>
+                            <select id="linkedProperty">
+                                <option value="">Select property...</option>
+                            </select>
+                            <small class="help-text">Which property is this mortgage for?</small>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label for="accountNotes">Notes (Optional)</label>
                         <textarea id="accountNotes" rows="2" placeholder="Any additional details..."></textarea>
@@ -6879,6 +6890,7 @@
             const accountType = document.getElementById('accountType').value;
             const helpDiv = document.getElementById('accountTypeHelp');
             const futureFields = document.getElementById('futureIncomeFields');
+            const mortgageFields = document.getElementById('mortgagePropertyFields');
             
             if (accountType && accountTypes[accountType]) {
                 const type = accountTypes[accountType];
@@ -6892,9 +6904,45 @@
                 } else {
                     futureFields.style.display = 'none';
                 }
+                
+                // Show/hide mortgage property link fields
+                if (type.requiresPropertyLink) {
+                    mortgageFields.style.display = 'block';
+                    loadPropertyOptions();
+                } else {
+                    mortgageFields.style.display = 'none';
+                }
             } else {
                 helpDiv.style.display = 'none';
                 futureFields.style.display = 'none';
+                mortgageFields.style.display = 'none';
+            }
+        }
+        
+        async function loadPropertyOptions() {
+            try {
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                
+                const propertySelect = document.getElementById('linkedProperty');
+                propertySelect.innerHTML = '<option value="">Select property...</option>';
+                
+                // Filter for real estate accounts
+                const properties = accounts.filter(acc => {
+                    const type = accountTypes[acc.type];
+                    return type && type.category === 'real_estate';
+                });
+                
+                properties.forEach(property => {
+                    const type = accountTypes[property.type];
+                    propertySelect.innerHTML += `<option value="${property.id}">${property.name} (${type.name})</option>`;
+                });
+                
+                if (properties.length === 0) {
+                    propertySelect.innerHTML += '<option value="" disabled>No properties found - add a property first</option>';
+                }
+            } catch (err) {
+                console.error('Failed to load property options:', err);
             }
         }
         
@@ -6959,6 +7007,16 @@
                 accountsList.innerHTML = accounts.map(account => {
                     const type = accountTypes[account.type] || { name: account.type, category: 'other' };
                     const isFutureIncome = type.category === 'future_income';
+                    const isMortgage = type.requiresPropertyLink;
+                    
+                    // Find linked property if applicable
+                    let linkedPropertyName = '';
+                    if (isMortgage && account.linkedProperty) {
+                        const linkedProp = accounts.find(a => a.id === account.linkedProperty);
+                        if (linkedProp) {
+                            linkedPropertyName = linkedProp.name;
+                        }
+                    }
                     
                     return `
                         <div class="account-card">
@@ -6970,6 +7028,11 @@
                             ${isFutureIncome && account.monthlyPayment ? `
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
                                     Monthly: $${parseFloat(account.monthlyPayment).toLocaleString()} starting at age ${account.startAge}
+                                </div>
+                            ` : ''}
+                            ${isMortgage && linkedPropertyName ? `
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                    🏠 Linked to: ${escapeHtml(linkedPropertyName)}
                                 </div>
                             ` : ''}
                             ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
@@ -7018,6 +7081,11 @@
                 if (type && type.category === 'future_income') {
                     account.monthlyPayment = parseFloat(document.getElementById('monthlyPayment').value) || 0;
                     account.startAge = parseInt(document.getElementById('startAge').value) || null;
+                }
+                
+                // Add mortgage property link field
+                if (type && type.requiresPropertyLink) {
+                    account.linkedProperty = document.getElementById('linkedProperty').value || null;
                 }
                 
                 if (!account.name) {
@@ -7072,6 +7140,11 @@
                     document.getElementById('startAge').value = account.startAge || '';
                 }
                 
+                // Set mortgage property link field if applicable
+                if (type && type.requiresPropertyLink) {
+                    document.getElementById('linkedProperty').value = account.linkedProperty || '';
+                }
+                
                 // Scroll to form
                 document.getElementById('accountName').scrollIntoView({ behavior: 'smooth', block: 'center' });
             } catch (err) {
@@ -7111,6 +7184,7 @@
             document.getElementById('accountNotes').value = '';
             document.getElementById('monthlyPayment').value = '';
             document.getElementById('startAge').value = '';
+            document.getElementById('linkedProperty').value = '';
             updateAccountTypeHelp();
         }
         
@@ -7128,13 +7202,27 @@
                 
                 let html = `
                     <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                             <div>
-                                <strong>Total Portfolio Value:</strong> 
+                                <strong>Total Assets:</strong> 
                                 <span style="font-size: 1.5rem; color: #28a745; font-weight: 700;">
-                                    $${parseFloat(data.totalValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    $${parseFloat(data.totalAssets || data.totalValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </div>
+                            ${data.totalLiabilities > 0 ? `
+                            <div>
+                                <strong>Total Liabilities:</strong> 
+                                <span style="font-size: 1.5rem; color: #dc3545; font-weight: 700;">
+                                    $${parseFloat(data.totalLiabilities).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div>
+                                <strong>Net Worth:</strong> 
+                                <span style="font-size: 1.5rem; color: ${data.netWorth >= 0 ? '#28a745' : '#dc3545'}; font-weight: 700;">
+                                    $${parseFloat(data.netWorth).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            ` : ''}
                             <div>
                                 <strong>Accounts:</strong> ${data.accountCount}
                             </div>
@@ -7184,6 +7272,12 @@
                 });
                 
                 html += '</div>';
+                
+                // Add detailed explanation if available
+                if (data.explanation) {
+                    html += data.explanation;
+                }
+                
                 container.innerHTML = html;
             } catch (err) {
                 showAlert('Failed to load recommendations: ' + err.message, 'error');
@@ -7216,7 +7310,8 @@
                     investments: '#007bff',
                     retirement: '#ffc107',
                     real_estate: '#17a2b8',
-                    future_income: '#6f42c1'
+                    future_income: '#6f42c1',
+                    liabilities: '#dc3545'
                 };
                 
                 accounts.forEach(account => {
