@@ -288,6 +288,42 @@ function deleteAccount(accountId) {
   return saveFinanceData(data);
 }
 
+// Update account balance (with historical tracking)
+function updateAccountBalance(accountId, newBalance, balanceDate = null) {
+  const data = loadFinanceData();
+  
+  const accountIndex = data.accounts.findIndex(a => a.id === accountId);
+  if (accountIndex < 0) {
+    return { success: false, error: 'Account not found' };
+  }
+  
+  const account = data.accounts[accountIndex];
+  const oldBalance = account.currentValue || 0;
+  
+  // Update the account balance
+  account.currentValue = parseFloat(newBalance);
+  account.updatedAt = new Date().toISOString();
+  
+  // Add history entry for balance change
+  const timestamp = balanceDate ? new Date(balanceDate).toISOString() : new Date().toISOString();
+  data.history.push({
+    accountId: accountId,
+    accountName: account.name,
+    type: 'balance_update',
+    oldBalance: parseFloat(oldBalance),
+    newBalance: parseFloat(newBalance),
+    balanceDate: timestamp,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Keep only last 1000 entries to prevent file bloat
+  if (data.history.length > 1000) {
+    data.history = data.history.slice(-1000);
+  }
+  
+  return saveFinanceData(data);
+}
+
 // Get demographics
 function getDemographics() {
   const data = loadFinanceData();
@@ -560,6 +596,7 @@ module.exports = {
   getAccounts,
   saveAccount,
   deleteAccount,
+  updateAccountBalance,
   getDemographics,
   updateDemographics,
   addHistoryEntry,
