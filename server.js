@@ -4260,6 +4260,21 @@ app.delete('/admin/api/finance/accounts/:id', requireAuth, (req, res) => {
   }
 });
 
+// Update account balance
+app.post('/admin/api/finance/accounts/:id/balance', requireAuth, (req, res) => {
+  try {
+    const { balance, balanceDate } = req.body;
+    const result = finance.updateAccountBalance(req.params.id, balance, balanceDate);
+    if (result.success) {
+      res.json({ success: true, message: 'Account balance updated successfully' });
+    } else {
+      res.status(404).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update account balance: ' + err.message });
+  }
+});
+
 // Get demographics
 app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
   try {

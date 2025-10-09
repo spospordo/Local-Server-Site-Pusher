@@ -2766,6 +2766,44 @@
         </div>
     </div>
 
+    <!-- Balance Update Modal -->
+    <div id="balanceUpdateModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Update Account Balance</h3>
+                <span class="close" onclick="closeBalanceUpdateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="balanceUpdateAlert" class="alert" style="display: none;"></div>
+                <form id="balanceUpdateForm">
+                    <input type="hidden" id="balanceAccountId">
+                    <div class="form-group">
+                        <label>Account</label>
+                        <input type="text" id="balanceAccountName" readonly style="background: #f0f0f0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Balance</label>
+                        <input type="text" id="balanceCurrentValue" readonly style="background: #f0f0f0;">
+                    </div>
+                    <div class="form-group">
+                        <label for="balanceNewValue">New Balance ($)</label>
+                        <input type="number" step="0.01" id="balanceNewValue" required placeholder="e.g., 25000.00">
+                        <small class="help-text">Enter the new balance for this account</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="balanceDate">Balance Date</label>
+                        <input type="date" id="balanceDate" required>
+                        <small class="help-text">Date when this balance is effective (for historical tracking)</small>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeBalanceUpdateModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn" style="background: #28a745;">Update Balance</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Tournament Creation Modal -->
     <div id="tournamentModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -3805,6 +3843,13 @@
         document.getElementById('passwordChangeModal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closePasswordChangeModal();
+            }
+        });
+        
+        // Close balance update modal when clicking outside of it
+        document.getElementById('balanceUpdateModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeBalanceUpdateModal();
             }
         });
         
@@ -6881,6 +6926,9 @@
                     const type = accountTypes[key];
                     accountTypeSelect.innerHTML += `<option value="${key}">${type.name}</option>`;
                 });
+                
+                // Add balance update form event listener
+                document.getElementById('balanceUpdateForm').addEventListener('submit', updateAccountBalance);
             } catch (err) {
                 console.error('Failed to initialize finance:', err);
             }
@@ -7048,6 +7096,7 @@
                             </div>
                             <div class="account-actions">
                                 <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
+                                <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(account.name)}', ${account.currentValue || 0})">Update Balance</button>
                                 <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
                             </div>
                         </div>
@@ -7172,6 +7221,74 @@
                 }
             } catch (err) {
                 showAlert('Failed to delete account: ' + err.message, 'error');
+            }
+        }
+        
+        function showUpdateBalanceModal(accountId, accountName, currentValue) {
+            document.getElementById('balanceAccountId').value = accountId;
+            document.getElementById('balanceAccountName').value = accountName;
+            document.getElementById('balanceCurrentValue').value = '$' + parseFloat(currentValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('balanceNewValue').value = '';
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('balanceDate').value = today;
+            
+            // Show modal
+            document.getElementById('balanceUpdateModal').style.display = 'flex';
+            
+            // Hide alert
+            const alert = document.getElementById('balanceUpdateAlert');
+            alert.style.display = 'none';
+        }
+        
+        function closeBalanceUpdateModal() {
+            document.getElementById('balanceUpdateModal').style.display = 'none';
+            document.getElementById('balanceUpdateForm').reset();
+        }
+        
+        async function updateAccountBalance(event) {
+            event.preventDefault();
+            
+            const accountId = document.getElementById('balanceAccountId').value;
+            const newBalance = parseFloat(document.getElementById('balanceNewValue').value);
+            const balanceDate = document.getElementById('balanceDate').value;
+            
+            if (!newBalance && newBalance !== 0) {
+                const alert = document.getElementById('balanceUpdateAlert');
+                alert.textContent = 'Please enter a valid balance';
+                alert.className = 'alert alert-error';
+                alert.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/finance/accounts/${accountId}/balance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        balance: newBalance,
+                        balanceDate: balanceDate
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    closeBalanceUpdateModal();
+                    showAlert('Balance updated successfully!', 'success');
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    const alert = document.getElementById('balanceUpdateAlert');
+                    alert.textContent = 'Error: ' + result.error;
+                    alert.className = 'alert alert-error';
+                    alert.style.display = 'block';
+                }
+            } catch (err) {
+                const alert = document.getElementById('balanceUpdateAlert');
+                alert.textContent = 'Failed to update balance: ' + err.message;
+                alert.className = 'alert alert-error';
+                alert.style.display = 'block';
             }
         }
         
