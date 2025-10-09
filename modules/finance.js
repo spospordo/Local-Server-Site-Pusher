@@ -513,7 +513,8 @@ function getRecommendations() {
     debtToAssetRatio,
     currentAllocation,
     recommendedAllocation,
-    recommendations
+    recommendations,
+    accounts
   });
   
   return {
@@ -532,7 +533,7 @@ function getRecommendations() {
 
 // Generate detailed explanation for recommendations
 function generateRecommendationExplanation(data) {
-  const { age, riskTolerance, totalAssets, totalLiabilities, debtToAssetRatio, recommendations } = data;
+  const { age, riskTolerance, totalAssets, totalLiabilities, debtToAssetRatio, currentAllocation, recommendedAllocation, recommendations, accounts } = data;
   
   let explanation = '<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff; margin-top: 1.5rem;">';
   explanation += '<h4 style="margin-top: 0; color: #007bff;">📖 Recommendation Strategy & Methodology</h4>';
@@ -556,6 +557,11 @@ function generateRecommendationExplanation(data) {
   }
   explanation += '</p>';
   
+  // Real Estate explanation (clarify primary residence treatment)
+  explanation += '<p><strong>Real Estate Treatment:</strong> Real estate assets (including your primary residence) are recommended at approximately 10% of your portfolio. ';
+  explanation += 'Both primary residences and investment properties are categorized as "real estate" in the allocation model. ';
+  explanation += 'The algorithm treats home equity as part of your net worth but recommends keeping it as a smaller percentage to maintain portfolio liquidity and diversification.</p>';
+  
   // Debt analysis
   if (totalLiabilities > 0) {
     explanation += `<p><strong>Debt Analysis:</strong> Your current debt-to-asset ratio is ${debtToAssetRatio}%. `;
@@ -570,8 +576,107 @@ function generateRecommendationExplanation(data) {
     explanation += '</p>';
   }
   
+  // Diagnostic analysis for large discrepancies (>15%)
+  const largeDiscrepancies = [];
+  Object.keys(currentAllocation).forEach(category => {
+    if (category === 'liabilities') return;
+    const current = parseFloat(currentAllocation[category]);
+    const recommended = parseFloat(recommendedAllocation[category]);
+    const diff = Math.abs(current - recommended);
+    if (diff > 15) {
+      largeDiscrepancies.push({ category, current, recommended, diff });
+    }
+  });
+  
+  if (largeDiscrepancies.length > 0) {
+    explanation += '<div style="background: #fff3cd; padding: 1rem; border-radius: 6px; border-left: 4px solid #ffc107; margin: 1rem 0;">';
+    explanation += '<h5 style="margin-top: 0; color: #856404;">⚠️ Significant Allocation Discrepancies Detected</h5>';
+    explanation += '<p style="margin-bottom: 0.5rem;">The following categories differ by more than 15% from recommendations:</p>';
+    
+    largeDiscrepancies.forEach(disc => {
+      explanation += `<div style="margin: 0.75rem 0; padding-left: 1rem; border-left: 3px solid #ffc107;">`;
+      explanation += `<strong>${disc.category.replace('_', ' ').toUpperCase()}:</strong> ${disc.current.toFixed(1)}% (current) vs ${disc.recommended.toFixed(1)}% (target) - ${disc.diff.toFixed(1)}% difference<br>`;
+      
+      // Category-specific diagnostic explanations
+      if (disc.category === 'real_estate') {
+        explanation += `<em style="font-size: 0.9rem;">Possible causes:</em> `;
+        if (disc.current > disc.recommended) {
+          explanation += `Your real estate holdings (including primary residence) may represent a large portion of your wealth. This is common for homeowners but can lead to concentration risk. `;
+          explanation += `Consider: (1) Your primary residence equity is being counted - this is standard practice but may seem high if home is paid off or highly appreciated. `;
+          explanation += `(2) If you have investment properties, ensure they're providing adequate returns. (3) Consider building up liquid investments for better diversification.`;
+        } else {
+          explanation += `You may have limited real estate exposure. This could be intentional for liquidity, or you may want to consider real estate investments if appropriate for your situation.`;
+        }
+      } else if (disc.category === 'cash') {
+        explanation += `<em style="font-size: 0.9rem;">Possible causes:</em> `;
+        if (disc.current > disc.recommended) {
+          explanation += `High cash allocation may indicate: (1) Recent liquidity event or saving period. (2) Market uncertainty leading to defensive positioning. (3) Cash earmarked for major purchase. `;
+          explanation += `Consider deploying excess cash into investments aligned with your risk tolerance.`;
+        } else {
+          explanation += `Low cash allocation may leave you vulnerable to emergencies. Ensure you maintain 3-6 months of expenses in liquid savings.`;
+        }
+      } else if (disc.category === 'investments') {
+        explanation += `<em style="font-size: 0.9rem;">Possible causes:</em> `;
+        if (disc.current > disc.recommended) {
+          explanation += `High investment allocation suggests aggressive positioning. Verify this aligns with your risk tolerance and time horizon.`;
+        } else {
+          explanation += `Low investment allocation may limit growth potential. Consider whether you have adequate funds in growth-oriented investments for long-term goals.`;
+        }
+      } else if (disc.category === 'retirement') {
+        explanation += `<em style="font-size: 0.9rem;">Possible causes:</em> `;
+        if (disc.current > disc.recommended) {
+          explanation += `High retirement account allocation is generally positive. Ensure you're also maintaining adequate liquidity for pre-retirement needs.`;
+        } else {
+          explanation += `Low retirement savings allocation. If you're under-utilizing tax-advantaged retirement accounts (401k, IRA), consider increasing contributions to maximize tax benefits.`;
+        }
+      } else if (disc.category === 'future_income') {
+        explanation += `<em style="font-size: 0.9rem;">Note:</em> Future income (pensions, Social Security) is tracked for planning but doesn't affect allocation percentages until received. This category will always show 0% allocation.`;
+      }
+      explanation += `</div>`;
+    });
+    
+    explanation += '</div>';
+  }
+  
+  // Account breakdown by category
+  if (accounts && accounts.length > 0) {
+    const accountsByCategory = {};
+    accounts.forEach(account => {
+      const type = ACCOUNT_TYPES[account.type];
+      if (type) {
+        const category = type.category;
+        if (!accountsByCategory[category]) {
+          accountsByCategory[category] = [];
+        }
+        accountsByCategory[category].push({
+          name: account.name,
+          type: type.name,
+          value: parseFloat(account.currentValue || 0)
+        });
+      }
+    });
+    
+    explanation += '<div style="margin-top: 1rem;">';
+    explanation += '<h5 style="margin-bottom: 0.5rem;">📂 Your Accounts by Category</h5>';
+    explanation += '<div style="font-size: 0.9rem;">';
+    
+    Object.keys(accountsByCategory).sort().forEach(category => {
+      const categoryAccounts = accountsByCategory[category];
+      const categoryTotal = categoryAccounts.reduce((sum, acc) => sum + acc.value, 0);
+      
+      explanation += `<div style="margin: 0.5rem 0; padding: 0.5rem; background: white; border-radius: 4px;">`;
+      explanation += `<strong>${category.replace('_', ' ').toUpperCase()}:</strong> $${categoryTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<br>`;
+      categoryAccounts.forEach(acc => {
+        explanation += `<span style="margin-left: 1rem; font-size: 0.85rem; color: #666;">• ${acc.name} (${acc.type}): $${acc.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><br>`;
+      });
+      explanation += `</div>`;
+    });
+    
+    explanation += '</div></div>';
+  }
+  
   // Strategy summary
-  explanation += '<p><strong>Recommended Strategy:</strong> ';
+  explanation += '<p style="margin-top: 1rem;"><strong>Recommended Strategy:</strong> ';
   if (recommendations.length === 0) {
     explanation += 'Your current portfolio allocation is well-balanced and aligns with your age and risk tolerance. Continue monitoring and rebalancing quarterly to maintain these targets.';
   } else {
