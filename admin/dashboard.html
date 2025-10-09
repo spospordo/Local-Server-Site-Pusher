@@ -1649,7 +1649,36 @@
                             <small class="help-text">How comfortable are you with investment risk?</small>
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="retirementYear">Retirement Year (Optional)</label>
+                            <input type="number" id="retirementYear" placeholder="e.g., 2045">
+                            <small class="help-text">What year do you plan to retire? (alternative to age)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="annualRetirementSpending">Annual Retirement Spending ($)</label>
+                            <input type="number" id="annualRetirementSpending" placeholder="e.g., 60000">
+                            <small class="help-text">How much do you plan to spend per year in retirement?</small>
+                        </div>
+                    </div>
                     <button onclick="saveDemographics()" class="btn">Save Profile</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Retirement Planning Evaluation Section -->
+                <div class="finance-subsection">
+                    <h3>🎯 Retirement Planning Evaluation</h3>
+                    <p class="help-text">Evaluate your retirement plan using Monte Carlo simulation</p>
+                    
+                    <button onclick="evaluateRetirement()" class="btn" style="margin-bottom: 1rem;">
+                        🔍 Evaluate Retirement Plan
+                    </button>
+                    
+                    <div id="retirementEvaluation" style="display: none;">
+                        <div id="retirementResult" class="alert"></div>
+                        <div id="retirementDetails" style="margin-top: 1rem;"></div>
+                    </div>
                 </div>
 
                 <div class="section-divider"></div>
@@ -7009,6 +7038,8 @@
                 document.getElementById('retirementAge').value = demographics.retirementAge || 65;
                 document.getElementById('annualIncome').value = demographics.annualIncome || '';
                 document.getElementById('riskTolerance').value = demographics.riskTolerance || 'moderate';
+                document.getElementById('retirementYear').value = demographics.retirementYear || '';
+                document.getElementById('annualRetirementSpending').value = demographics.annualRetirementSpending || '';
             } catch (err) {
                 console.error('Failed to load demographics:', err);
             }
@@ -7020,7 +7051,9 @@
                     age: parseInt(document.getElementById('userAge').value) || null,
                     retirementAge: parseInt(document.getElementById('retirementAge').value) || 65,
                     annualIncome: parseFloat(document.getElementById('annualIncome').value) || null,
-                    riskTolerance: document.getElementById('riskTolerance').value
+                    riskTolerance: document.getElementById('riskTolerance').value,
+                    retirementYear: parseInt(document.getElementById('retirementYear').value) || null,
+                    annualRetirementSpending: parseFloat(document.getElementById('annualRetirementSpending').value) || null
                 };
                 
                 const response = await fetch('/admin/api/finance/demographics', {
@@ -7037,6 +7070,120 @@
                 }
             } catch (err) {
                 showAlert('Failed to save profile: ' + err.message, 'error');
+            }
+        }
+        
+        async function evaluateRetirement() {
+            try {
+                const response = await fetch('/admin/api/finance/retirement-evaluation');
+                const result = await response.json();
+                
+                const evalSection = document.getElementById('retirementEvaluation');
+                const resultDiv = document.getElementById('retirementResult');
+                const detailsDiv = document.getElementById('retirementDetails');
+                
+                if (!result.success) {
+                    resultDiv.className = 'alert alert-error';
+                    resultDiv.textContent = result.error;
+                    evalSection.style.display = 'block';
+                    detailsDiv.innerHTML = '';
+                    return;
+                }
+                
+                // Display result with appropriate styling based on status
+                let alertClass = 'alert-info';
+                let icon = '📊';
+                
+                if (result.status === 'excellent') {
+                    alertClass = 'alert-success';
+                    icon = '✅';
+                } else if (result.status === 'good') {
+                    alertClass = 'alert-success';
+                    icon = '✅';
+                } else if (result.status === 'concerning') {
+                    alertClass = 'alert-warning';
+                    icon = '⚠️';
+                } else if (result.status === 'critical') {
+                    alertClass = 'alert-error';
+                    icon = '🚨';
+                }
+                
+                resultDiv.className = 'alert ' + alertClass;
+                resultDiv.innerHTML = `
+                    <h4 style="margin-top: 0;">${icon} Retirement Plan Success Probability: ${result.successProbability}%</h4>
+                    <p><strong>${result.recommendation}</strong></p>
+                `;
+                
+                // Display detailed information
+                detailsDiv.innerHTML = `
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff;">
+                        <h4 style="margin-top: 0; color: #007bff;">📖 Analysis Details</h4>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Current Situation</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Current Age: ${result.assumptions.currentAge}</li>
+                                <li>Retirement Age: ${result.assumptions.retirementAge}</li>
+                                <li>Years Until Retirement: ${result.assumptions.yearsUntilRetirement}</li>
+                                <li>Current Total Assets: $${result.assumptions.currentAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                                <li>Annual Contribution (15% of income): $${result.assumptions.annualContribution.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Projections</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Projected Portfolio at Retirement: $${result.projections.projectedPortfolioAtRetirement.toLocaleString('en-US')}</li>
+                                <li>Total Needed for ${result.assumptions.yearsInRetirement} Years: $${result.projections.totalNeededForRetirement.toLocaleString('en-US')}</li>
+                                ${result.projections.shortfall > 0 ? `<li style="color: #d9534f;">Projected Shortfall: $${result.projections.shortfall.toLocaleString('en-US')}</li>` : '<li style="color: #5cb85c;">✅ Projected to meet retirement goals</li>'}
+                                ${result.projections.futureIncomeValue > 0 ? `<li>Future Income Value (Pension/SS): $${result.projections.futureIncomeValue.toLocaleString('en-US')}</li>` : ''}
+                            </ul>
+                        </div>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Assumptions & Methodology</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Expected Annual Return: ${result.assumptions.expectedReturn}</li>
+                                <li>Return Volatility (Std Dev): ${result.assumptions.returnVolatility}</li>
+                                <li>Inflation Rate: ${result.assumptions.inflationRate}</li>
+                                <li>Annual Retirement Spending: $${result.assumptions.annualRetirementSpending.toLocaleString('en-US')}</li>
+                                <li>Years in Retirement: ${result.assumptions.yearsInRetirement}</li>
+                                ${result.assumptions.hasHistoricalGrowthData ? '<li>✅ Using historical growth data from your accounts (3+ months)</li>' : '<li>ℹ️ Using standard assumptions (add 3+ months of balance history for personalized projections)</li>'}
+                            </ul>
+                        </div>
+                        
+                        <div style="background: #fff; padding: 1rem; border-radius: 6px; margin-top: 1rem;">
+                            <h5 style="margin-top: 0;">📊 Methodology</h5>
+                            <p style="margin-bottom: 0;">${result.methodology}</p>
+                            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                                This analysis uses Monte Carlo simulation, a standard financial planning technique that runs thousands of scenarios 
+                                with varying market returns to estimate the probability of success. The simulation accounts for market volatility, 
+                                inflation, and your specific financial situation. Results are based on historical market data and mathematical models, 
+                                but past performance doesn't guarantee future results.
+                            </p>
+                        </div>
+                        
+                        <div style="background: #e7f3ff; padding: 1rem; border-radius: 6px; margin-top: 1rem; border-left: 4px solid #2196F3;">
+                            <h5 style="margin-top: 0; color: #1976D2;">💡 How to Improve Your Plan</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                ${result.successProbability < 80 ? '<li>Increase your annual savings rate (currently assumes 15% of income)</li>' : ''}
+                                ${result.successProbability < 80 ? '<li>Consider delaying retirement by a few years</li>' : ''}
+                                ${result.successProbability < 80 ? '<li>Review and potentially reduce planned retirement spending</li>' : ''}
+                                <li>Rebalance your portfolio according to allocation recommendations above</li>
+                                <li>Track account balances monthly to get personalized growth projections</li>
+                                <li>Review this plan annually or when your financial situation changes</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                
+                evalSection.style.display = 'block';
+                
+            } catch (err) {
+                const resultDiv = document.getElementById('retirementResult');
+                resultDiv.className = 'alert alert-error';
+                resultDiv.textContent = 'Failed to evaluate retirement plan: ' + err.message;
+                document.getElementById('retirementEvaluation').style.display = 'block';
             }
         }
         
