@@ -13,6 +13,12 @@ The Finance Module is a secure, encrypted personal finance tracking system integ
 ### 📊 Account Management
 Track all your financial accounts and assets in one secure location:
 
+#### Balance Update & Historical Tracking
+- **Streamlined Balance Updates**: Quickly update account balances with a single click
+- **Historical Tracking**: Every balance change is recorded with the effective date
+- **Time-Series Data**: Maintain a complete history of account balances over time
+- **Audit Trail**: Track when balances were updated and what they were changed to
+
 #### Supported Account Types
 
 **Cash Accounts**
@@ -155,6 +161,7 @@ All endpoints require admin authentication.
 - `GET /admin/api/finance/account-types` - Get all account types with descriptions
 - `GET /admin/api/finance/accounts` - List all accounts
 - `POST /admin/api/finance/accounts` - Create or update account
+- `POST /admin/api/finance/accounts/:id/balance` - Update account balance with historical tracking
 - `DELETE /admin/api/finance/accounts/:id` - Delete account
 
 ### Demographics
