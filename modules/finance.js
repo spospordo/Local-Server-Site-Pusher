@@ -741,7 +741,7 @@ function evaluateRetirementPlan() {
   
   accounts.forEach(account => {
     const type = ACCOUNT_TYPES[account.type];
-    if (type && account.currentValue) {
+    if (type) {
       const value = parseFloat(account.currentValue) || 0;
       
       if (type.category === 'retirement') {
