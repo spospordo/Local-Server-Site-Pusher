@@ -76,6 +76,112 @@ The module provides personalized portfolio allocation recommendations based on:
 - Real-time portfolio updates
 - Color-coded allocation breakdown
 
+### 🎯 Retirement Planning Evaluation
+
+**NEW in v2.1.0**: Advanced retirement planning analysis using Monte Carlo simulation
+
+The retirement planning feature evaluates your financial readiness for retirement and provides a probability-based assessment of achieving your retirement goals.
+
+#### Features
+- **Monte Carlo Simulation**: Runs 10,000 scenarios with varying market returns to estimate success probability
+- **Historical Growth Analysis**: Uses your actual account balance history (if 3+ months available) for personalized projections
+- **Comprehensive Projections**: Calculates projected portfolio value, retirement needs, and potential shortfalls
+- **Risk-Adjusted Returns**: Accounts for your risk tolerance and market volatility
+- **Future Income Integration**: Includes pension and Social Security benefits in calculations
+- **Inflation Adjustment**: Accounts for 3% annual inflation on retirement spending
+
+#### Required Inputs
+1. **Current Age** - Your current age
+2. **Retirement Age** - When you plan to retire (can also specify year)
+3. **Annual Retirement Spending** - How much you plan to spend per year in retirement
+4. **Current Assets** - Your tracked accounts (retirement, investments, cash, real estate)
+5. **Annual Income** (optional) - Used to calculate savings rate (assumes 15% of income)
+
+#### Calculation Methodology
+
+**Monte Carlo Simulation Process:**
+1. **Accumulation Phase**: 
+   - Projects portfolio growth from current age to retirement age
+   - Uses historical growth rate from your accounts (if available) or standard assumptions
+   - Incorporates annual contributions based on 15% of income
+   - Accounts for market volatility based on risk tolerance
+
+2. **Distribution Phase**:
+   - Simulates 30 years of retirement (to age 95)
+   - Withdraws annual spending adjusted for inflation
+   - Applies market returns with reduced volatility (more conservative allocation)
+   - Tracks if portfolio survives the full retirement period
+
+3. **Success Calculation**:
+   - Runs 10,000 independent scenarios
+   - Success = portfolio has money remaining after 30 years
+   - Probability = (successful scenarios / total scenarios) × 100%
+
+**Return Assumptions:**
+- **Conservative**: 5% return, 10% volatility
+- **Moderate**: 7% return, 15% volatility  
+- **Aggressive**: 9% return, 20% volatility
+- **Historical Data**: Uses calculated growth rate if 3+ months of balance updates exist
+
+**Key Assumptions:**
+- Inflation: 3% annually
+- Retirement Duration: 30 years (to age 95)
+- Savings Rate: 15% of annual income
+- Future Income: Includes pension and Social Security starting at specified age
+- Market Behavior: Returns follow normal distribution with specified mean and volatility
+
+#### Understanding Results
+
+**Success Probability Ratings:**
+- **≥80%**: Excellent - High likelihood of success, stay the course
+- **60-79%**: Good - On track but some risk, consider minor adjustments
+- **40-59%**: Concerning - Moderate risk, significant changes recommended
+- **<40%**: Critical - High risk of failure, urgent action needed
+
+#### How to Use
+
+1. **Enter Profile Information**:
+   - Fill in age, retirement age, income, and risk tolerance
+   - Add retirement year (optional alternative to retirement age)
+   - Enter annual retirement spending goal
+   - Click "Save Profile"
+
+2. **Track Your Accounts**:
+   - Add all financial accounts and assets
+   - Update balances regularly (monthly recommended)
+   - Include future income streams (pension, Social Security)
+
+3. **Run Evaluation**:
+   - Click "🔍 Evaluate Retirement Plan" button
+   - Review the success probability percentage
+   - Read the detailed analysis and recommendations
+   - Check assumptions and projections
+
+4. **Improve Your Plan**:
+   - Increase savings rate if probability is low
+   - Consider delaying retirement
+   - Adjust spending expectations
+   - Rebalance portfolio per recommendations
+   - Re-evaluate after making changes
+
+#### Technical Details
+
+**Algorithm**: Monte Carlo simulation with normally distributed returns
+**Simulations**: 10,000 iterations per evaluation
+**Growth Rate Calculation**: 
+- If historical data available: Annualized growth from balance updates
+- Otherwise: Standard assumptions based on risk tolerance
+**Future Income Treatment**: Present value calculation discounted to retirement date
+
+**Open Source Methodology**:
+This feature implements standard financial planning techniques used by industry professionals:
+- **Monte Carlo Simulation**: Widely used for retirement planning (similar to tools used by financial advisors)
+- **Normal Distribution**: Standard assumption for market returns (based on historical data)
+- **Inflation Adjustment**: Standard 3% assumption based on historical averages
+- **Safe Withdrawal Rate**: Implicit in the 30-year simulation period
+
+The implementation is based on established financial planning principles and does not require external libraries, keeping the system lightweight and secure.
+
 ## Usage
 
 ### Initial Setup
@@ -86,6 +192,8 @@ The module provides personalized portfolio allocation recommendations based on:
    - Planned Retirement Age
    - Annual Income
    - Risk Tolerance
+   - Retirement Year (optional)
+   - Annual Retirement Spending (for retirement planning)
 3. Click "Save Profile"
 
 ### Adding Accounts
@@ -132,6 +240,24 @@ The module provides personalized portfolio allocation recommendations based on:
      - Debt management recommendations
      - Overall strategic guidance
 
+### Evaluating Retirement Plan
+
+1. Ensure you have:
+   - Profile information entered (age, retirement age, income, risk tolerance)
+   - Annual retirement spending goal entered
+   - At least one account added
+2. Click "🔍 Evaluate Retirement Plan" button
+3. Review the results:
+   - Success probability percentage (0-100%)
+   - Status indicator (Excellent, Good, Concerning, Critical)
+   - Specific recommendations based on your situation
+   - Detailed analysis including:
+     - Current situation summary
+     - Projected portfolio at retirement
+     - Total needed vs. projected shortfall
+     - Assumptions and methodology
+     - Improvement suggestions
+
 ## Data Storage
 
 ### File Structure
@@ -172,6 +298,7 @@ All endpoints require admin authentication.
 - `GET /admin/api/finance/history` - Get historical data
 - `POST /admin/api/finance/history` - Add history entry
 - `GET /admin/api/finance/recommendations` - Get allocation recommendations
+- `GET /admin/api/finance/retirement-evaluation` - Evaluate retirement plan (Monte Carlo simulation)
 
 ## Technical Details
 

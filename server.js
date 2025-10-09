@@ -4334,6 +4334,16 @@ app.get('/admin/api/finance/recommendations', requireAuth, (req, res) => {
   }
 });
 
+// Retirement planning evaluation endpoint
+app.get('/admin/api/finance/retirement-evaluation', requireAuth, (req, res) => {
+  try {
+    const evaluation = finance.evaluateRetirementPlan();
+    res.json(evaluation);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to evaluate retirement plan: ' + err.message });
+  }
+});
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');
