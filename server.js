@@ -4348,6 +4348,58 @@ app.get('/admin/api/finance/retirement-evaluation', requireAuth, (req, res) => {
   }
 });
 
+// Demo Finance Data Endpoints
+// Get demo accounts
+app.get('/admin/api/finance/demo/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = finance.getDemoAccounts();
+    res.json(accounts);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get demo accounts: ' + err.message });
+  }
+});
+
+// Get demo demographics
+app.get('/admin/api/finance/demo/demographics', requireAuth, (req, res) => {
+  try {
+    const demographics = finance.getDemoDemographics();
+    res.json(demographics);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get demo demographics: ' + err.message });
+  }
+});
+
+// Get demo history
+app.get('/admin/api/finance/demo/history', requireAuth, (req, res) => {
+  try {
+    const { accountId, startDate, endDate } = req.query;
+    const history = finance.getDemoHistory(accountId, startDate, endDate);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get demo history: ' + err.message });
+  }
+});
+
+// Get demo recommendations
+app.get('/admin/api/finance/demo/recommendations', requireAuth, (req, res) => {
+  try {
+    const recommendations = finance.getDemoRecommendations();
+    res.json(recommendations);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get demo recommendations: ' + err.message });
+  }
+});
+
+// Get demo retirement evaluation
+app.get('/admin/api/finance/demo/retirement-evaluation', requireAuth, (req, res) => {
+  try {
+    const evaluation = finance.evaluateDemoRetirementPlan();
+    res.json(evaluation);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to evaluate demo retirement plan: ' + err.message });
+  }
+});
+
 // Ollama/Open WebUI Integration API Endpoints
 // Get Ollama configuration
 app.get('/admin/api/ollama/config', requireAuth, (req, res) => {

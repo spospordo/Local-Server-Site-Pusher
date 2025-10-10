@@ -964,6 +964,464 @@ function evaluateRetirementPlan() {
   };
 }
 
+// Generate demo data with proper allocation and historical data
+function getDemoData() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Calculate 6 months ago from current date
+  const sixMonthsAgo = new Date(currentYear, currentMonth - 6, 1);
+  
+  // Demo demographics - Age 40, Retirement 65, SS $3000/month
+  const demographics = {
+    age: 40,
+    annualIncome: 120000,
+    retirementAge: 65,
+    retirementYear: currentYear + 25,
+    annualRetirementSpending: 80000,
+    riskTolerance: 'moderate'
+  };
+  
+  // Target allocations for age 40, moderate risk
+  // Based on getRecommendations() logic:
+  // Normalized: cash: 9.5%, investments: 59.5%, retirement: 19.0%, real_estate: 11.9%
+  // We'll set balances to be within ±10% of these targets
+  // Actual: cash: 11% (+1.5%), investments: 62% (+2.5%), retirement: 27% (+8.0%)
+  
+  const totalAssets = 450000; // Total portfolio value
+  
+  // Cash: 11% = $49,500 (within +10% of 9.5% target)
+  const checkingBalance = 12375;
+  const savingsBalance = 32175;
+  const hsaBalance = 4950;
+  
+  // Investments: 62% = $279,000 (within +10% of 59.5% target)
+  const brokerageBalance = 279000;
+  
+  // Retirement: 27% = $121,500 (within +10% of 19.0% target)
+  const ira401kBalance = 75330;
+  const rothIraBalance = 46170;
+  
+  // Social Security - future income
+  const socialSecurityMonthly = 3000;
+  
+  const demoAccounts = [
+    {
+      id: 'demo-checking',
+      name: 'Demo Checking Account',
+      type: 'checking',
+      currentValue: checkingBalance,
+      startDate: new Date(currentYear - 5, 0, 1).toISOString(),
+      notes: 'Primary checking account for daily expenses',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-savings',
+      name: 'Demo High-Yield Savings',
+      type: 'savings',
+      currentValue: savingsBalance,
+      startDate: new Date(currentYear - 5, 0, 1).toISOString(),
+      notes: 'Emergency fund and short-term savings',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-401k',
+      name: 'Demo 401(k) Retirement',
+      type: '401k',
+      currentValue: ira401kBalance,
+      startDate: new Date(currentYear - 10, 0, 1).toISOString(),
+      notes: 'Employer-sponsored retirement account',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-roth-ira',
+      name: 'Demo Roth IRA',
+      type: 'roth_ira',
+      currentValue: rothIraBalance,
+      startDate: new Date(currentYear - 8, 0, 1).toISOString(),
+      notes: 'Tax-advantaged retirement savings',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-brokerage',
+      name: 'Demo Brokerage Account',
+      type: 'stocks',
+      currentValue: brokerageBalance,
+      startDate: new Date(currentYear - 7, 0, 1).toISOString(),
+      notes: 'Individual stock and ETF investments',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-hsa',
+      name: 'Demo Health Savings Account',
+      type: 'savings',
+      currentValue: hsaBalance,
+      startDate: new Date(currentYear - 3, 0, 1).toISOString(),
+      notes: 'HSA for medical expenses',
+      updatedAt: now.toISOString()
+    },
+    {
+      id: 'demo-social-security',
+      name: 'Social Security Benefits',
+      type: 'social_security',
+      currentValue: 0,
+      monthlyPayment: socialSecurityMonthly,
+      startAge: 67,
+      startDate: new Date(currentYear, 0, 1).toISOString(),
+      notes: 'Expected Social Security benefits at full retirement age',
+      updatedAt: now.toISOString()
+    }
+  ];
+  
+  // Generate 6 months of historical data with realistic growth
+  const history = [];
+  const accounts = [...demoAccounts].filter(acc => acc.type !== 'social_security'); // Exclude future income from history
+  
+  for (let i = 6; i >= 0; i--) {
+    const historyDate = new Date(currentYear, currentMonth - i, 1);
+    
+    accounts.forEach(account => {
+      // Calculate historical value with slight growth/fluctuation
+      // More recent = closer to current value
+      const growthFactor = 1 - (i * 0.008); // ~0.8% decline per month backwards
+      const randomFluctuation = 0.98 + (Math.random() * 0.04); // ±2% random
+      const historicalValue = account.currentValue * growthFactor * randomFluctuation;
+      
+      history.push({
+        accountId: account.id,
+        balance: Math.round(historicalValue * 100) / 100,
+        timestamp: historyDate.toISOString()
+      });
+    });
+  }
+  
+  return {
+    accounts: demoAccounts,
+    demographics: demographics,
+    history: history
+  };
+}
+
+// Get demo accounts
+function getDemoAccounts() {
+  const demoData = getDemoData();
+  return demoData.accounts;
+}
+
+// Get demo demographics
+function getDemoDemographics() {
+  const demoData = getDemoData();
+  return demoData.demographics;
+}
+
+// Get demo history
+function getDemoHistory(accountId = null, startDate = null, endDate = null) {
+  const demoData = getDemoData();
+  let history = demoData.history;
+  
+  if (accountId) {
+    history = history.filter(h => h.accountId === accountId);
+  }
+  
+  if (startDate) {
+    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+  }
+  
+  if (endDate) {
+    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+  }
+  
+  return history;
+}
+
+// Get demo recommendations
+function getDemoRecommendations() {
+  const demoData = getDemoData();
+  const demographics = demoData.demographics;
+  const accounts = demoData.accounts;
+  
+  // Calculate current allocation using same logic as getRecommendations()
+  const age = demographics.age;
+  const riskTolerance = demographics.riskTolerance;
+  
+  // Calculate totals by category
+  const categoryTotals = {
+    cash: 0,
+    investments: 0,
+    retirement: 0,
+    real_estate: 0,
+    future_income: 0,
+    liabilities: 0
+  };
+  
+  let totalValue = 0;
+  let totalAssets = 0;
+  let totalLiabilities = 0;
+  
+  accounts.forEach(account => {
+    const type = ACCOUNT_TYPES[account.type];
+    if (!type) return;
+    
+    const value = parseFloat(account.currentValue) || 0;
+    
+    if (type.category === 'liabilities') {
+      totalLiabilities += value;
+      categoryTotals.liabilities += value;
+    } else {
+      totalAssets += value;
+      if (type.category !== 'future_income') {
+        totalValue += value;
+      }
+    }
+    
+    if (categoryTotals.hasOwnProperty(type.category)) {
+      categoryTotals[type.category] += value;
+    }
+  });
+  
+  const netWorth = totalAssets - totalLiabilities;
+  
+  // Calculate current allocation percentages
+  const currentAllocation = {};
+  Object.keys(categoryTotals).forEach(key => {
+    if (totalValue > 0 && key !== 'liabilities' && key !== 'future_income') {
+      currentAllocation[key] = (categoryTotals[key] / totalValue) * 100;
+    } else {
+      currentAllocation[key] = 0;
+    }
+  });
+  
+  // Calculate recommended allocation (same logic as getRecommendations)
+  let recommendedAllocation = {};
+  
+  if (riskTolerance === 'conservative') {
+    recommendedAllocation = {
+      cash: Math.min(20, age * 0.3),
+      investments: Math.max(30, 90 - age),
+      retirement: Math.min(40, age * 0.5),
+      real_estate: 10,
+      future_income: 0,
+      liabilities: 0
+    };
+  } else if (riskTolerance === 'moderate') {
+    recommendedAllocation = {
+      cash: Math.min(15, age * 0.2),
+      investments: Math.max(40, 100 - age - 10),
+      retirement: Math.min(35, age * 0.4),
+      real_estate: 10,
+      future_income: 0,
+      liabilities: 0
+    };
+  } else {
+    recommendedAllocation = {
+      cash: Math.min(10, age * 0.1),
+      investments: Math.max(50, 110 - age),
+      retirement: Math.min(30, age * 0.3),
+      real_estate: 10,
+      future_income: 0,
+      liabilities: 0
+    };
+  }
+  
+  // Normalize to 100%
+  const total = Object.values(recommendedAllocation).reduce((a, b) => a + b, 0);
+  Object.keys(recommendedAllocation).forEach(key => {
+    recommendedAllocation[key] = (recommendedAllocation[key] / total) * 100;
+  });
+  
+  // Generate recommendations
+  const recommendations = [];
+  Object.keys(currentAllocation).forEach(category => {
+    if (category === 'future_income' || category === 'liabilities') return;
+    
+    const current = currentAllocation[category];
+    const recommended = recommendedAllocation[category];
+    const diff = current - recommended;
+    
+    if (Math.abs(diff) > 5) {
+      const categoryName = category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      if (diff > 0) {
+        recommendations.push(`${categoryName}: ${diff.toFixed(1)}% over-allocated. Consider rebalancing.`);
+      } else {
+        recommendations.push(`${categoryName}: ${Math.abs(diff).toFixed(1)}% under-allocated. Consider increasing allocation.`);
+      }
+    }
+  });
+  
+  const explanation = generateRecommendationExplanation({
+    demographics,
+    currentAllocation,
+    recommendedAllocation,
+    recommendations,
+    accounts
+  });
+  
+  const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+  
+  return {
+    currentAllocation,
+    recommendedAllocation,
+    recommendations: recommendations.length > 0 ? recommendations : ['Your portfolio allocation looks good!'],
+    totalValue,
+    totalAssets,
+    totalLiabilities,
+    netWorth,
+    debtToAssetRatio,
+    accountCount: accounts.length,
+    explanation
+  };
+}
+
+// Evaluate demo retirement plan
+function evaluateDemoRetirementPlan() {
+  const demoData = getDemoData();
+  const demographics = demoData.demographics;
+  const accounts = demoData.accounts;
+  const history = demoData.history;
+  
+  // Use same logic as evaluateRetirementPlan but with demo data
+  const age = demographics.age;
+  const retirementAge = demographics.retirementAge || 65;
+  const annualIncome = demographics.annualIncome || 0;
+  const annualRetirementSpending = demographics.annualRetirementSpending || annualIncome * 0.8;
+  const riskTolerance = demographics.riskTolerance || 'moderate';
+  
+  if (!age || age >= retirementAge) {
+    return {
+      success: false,
+      error: 'Please set your current age and planned retirement age in the profile section above.'
+    };
+  }
+  
+  const yearsUntilRetirement = retirementAge - age;
+  const yearsInRetirement = 30; // Assume retirement lasts until age 95
+  
+  // Calculate current assets
+  let currentAssets = 0;
+  let futureIncome = 0;
+  
+  accounts.forEach(account => {
+    const type = ACCOUNT_TYPES[account.type];
+    if (!type) return;
+    
+    const value = parseFloat(account.currentValue) || 0;
+    
+    if (type.category === 'future_income') {
+      const monthlyPayment = parseFloat(account.monthlyPayment) || 0;
+      const startAge = parseInt(account.startAge) || retirementAge;
+      const yearsReceiving = Math.max(0, 95 - startAge);
+      futureIncome += (monthlyPayment * 12 * yearsReceiving);
+    } else if (type.category !== 'liabilities') {
+      currentAssets += value;
+    }
+  });
+  
+  // Expected return and volatility based on risk tolerance
+  let expectedReturn = 0.07;
+  let returnVolatility = 0.15;
+  
+  if (riskTolerance === 'conservative') {
+    expectedReturn = 0.05;
+    returnVolatility = 0.10;
+  } else if (riskTolerance === 'aggressive') {
+    expectedReturn = 0.09;
+    returnVolatility = 0.20;
+  }
+  
+  const inflationRate = 0.03;
+  const realReturn = expectedReturn - inflationRate;
+  const annualContribution = annualIncome * 0.15; // Assume 15% savings rate
+  
+  // Monte Carlo simulation
+  const numSimulations = 10000;
+  let successCount = 0;
+  
+  for (let sim = 0; sim < numSimulations; sim++) {
+    let portfolio = currentAssets;
+    
+    // Growth phase (until retirement)
+    for (let year = 0; year < yearsUntilRetirement; year++) {
+      const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
+      portfolio = portfolio * (1 + randomReturn) + annualContribution;
+    }
+    
+    // Drawdown phase (retirement)
+    let retirementPortfolio = portfolio;
+    let survived = true;
+    
+    for (let year = 0; year < yearsInRetirement; year++) {
+      const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
+      const inflationAdjustedSpending = annualRetirementSpending * Math.pow(1 + inflationRate, year);
+      
+      retirementPortfolio = retirementPortfolio * (1 + randomReturn) - inflationAdjustedSpending;
+      
+      if (retirementPortfolio < 0) {
+        survived = false;
+        break;
+      }
+    }
+    
+    if (survived) {
+      successCount++;
+    }
+  }
+  
+  const successProbability = Math.round((successCount / numSimulations) * 100);
+  
+  // Calculate projected values
+  const projectedPortfolioAtRetirement = currentAssets * Math.pow(1 + realReturn, yearsUntilRetirement) + 
+    annualContribution * ((Math.pow(1 + realReturn, yearsUntilRetirement) - 1) / realReturn);
+  
+  const totalNeeded = annualRetirementSpending * ((1 - Math.pow(1 + realReturn, -yearsInRetirement)) / realReturn);
+  const shortfall = Math.max(0, totalNeeded - projectedPortfolioAtRetirement - futureIncome);
+  
+  // Determine status and recommendation
+  let status = 'unknown';
+  let recommendation = '';
+  
+  if (successProbability >= 90) {
+    status = 'excellent';
+    recommendation = 'Your retirement plan is on excellent track! Keep up the good work.';
+  } else if (successProbability >= 75) {
+    status = 'good';
+    recommendation = 'Your retirement plan looks good, but consider increasing savings for more security.';
+  } else if (successProbability >= 50) {
+    status = 'concerning';
+    recommendation = 'Your retirement plan needs attention. Consider increasing savings or adjusting retirement age.';
+  } else {
+    status = 'critical';
+    recommendation = 'Your retirement plan requires immediate action. Significantly increase savings or延後 retirement.';
+  }
+  
+  return {
+    success: true,
+    successProbability,
+    status,
+    recommendation,
+    assumptions: {
+      currentAge: age,
+      retirementAge,
+      yearsUntilRetirement,
+      currentAssets: Math.round(currentAssets),
+      annualContribution: Math.round(annualContribution),
+      expectedReturn: (expectedReturn * 100).toFixed(1) + '%',
+      returnVolatility: (returnVolatility * 100).toFixed(1) + '%',
+      inflationRate: (inflationRate * 100).toFixed(1) + '%',
+      annualRetirementSpending,
+      yearsInRetirement,
+      hasHistoricalGrowthData: true
+    },
+    projections: {
+      projectedPortfolioAtRetirement: Math.round(projectedPortfolioAtRetirement),
+      totalNeededForRetirement: Math.round(totalNeeded),
+      shortfall: Math.round(shortfall),
+      futureIncomeValue: Math.round(futureIncome)
+    },
+    methodology: 'Monte Carlo simulation with ' + numSimulations + ' iterations'
+  };
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -976,5 +1434,10 @@ module.exports = {
   getHistory,
   getRecommendations,
   getAccountTypes,
-  evaluateRetirementPlan
+  evaluateRetirementPlan,
+  getDemoAccounts,
+  getDemoDemographics,
+  getDemoHistory,
+  getDemoRecommendations,
+  evaluateDemoRetirementPlan
 };
