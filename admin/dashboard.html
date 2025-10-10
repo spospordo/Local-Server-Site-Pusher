@@ -1814,11 +1814,122 @@
         <div class="card admin-section finance-section finance-demo-section">
             <div class="card-header">
                 <h2>🎭 Finance Demo</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    ⚠️ This is demonstration data only - not real financial information
+                </p>
             </div>
             <div class="card-body">
-                <p style="color: #666; text-align: center; padding: 2rem;">
-                    Demo content placeholder - no content at this time
-                </p>
+                <!-- Demo Notice Banner -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <h3 style="margin: 0 0 0.5rem 0;">📊 Welcome to the Finance Module Demo</h3>
+                    <p style="margin: 0; font-size: 0.95rem;">
+                        This demo showcases the Finance Module's features with sample data. 
+                        The demo user is 40 years old, plans to retire at 65, and expects $3,000/month in Social Security benefits.
+                        All account balances and historical data are automatically generated and updated monthly.
+                    </p>
+                </div>
+
+                <!-- Demographics Section -->
+                <div class="finance-subsection">
+                    <h3>👤 Demo User Profile</h3>
+                    <p class="help-text">This demo user's profile information</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoUserAge">Current Age</label>
+                            <input type="number" id="demoUserAge" readonly style="background: #f8f9fa;">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoRetirementAge">Planned Retirement Age</label>
+                            <input type="number" id="demoRetirementAge" readonly style="background: #f8f9fa;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoAnnualIncome">Annual Income ($)</label>
+                            <input type="number" id="demoAnnualIncome" readonly style="background: #f8f9fa;">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoRiskTolerance">Risk Tolerance</label>
+                            <input type="text" id="demoRiskTolerance" readonly style="background: #f8f9fa;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoRetirementYear">Retirement Year</label>
+                            <input type="number" id="demoRetirementYear" readonly style="background: #f8f9fa;">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoAnnualRetirementSpending">Annual Retirement Spending ($)</label>
+                            <input type="number" id="demoAnnualRetirementSpending" readonly style="background: #f8f9fa;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Retirement Planning Evaluation Section -->
+                <div class="finance-subsection">
+                    <h3>🎯 Retirement Planning Evaluation</h3>
+                    <p class="help-text">Evaluate the demo retirement plan using Monte Carlo simulation</p>
+                    
+                    <button onclick="evaluateDemoRetirement()" class="btn" style="margin-bottom: 1rem;">
+                        🔍 Evaluate Demo Retirement Plan
+                    </button>
+                    
+                    <div id="demoRetirementEvaluation" style="display: none;">
+                        <div id="demoRetirementResult" class="alert"></div>
+                        <div id="demoRetirementDetails" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Accounts List -->
+                <div class="finance-subsection">
+                    <h3>📋 Demo Accounts</h3>
+                    <p class="help-text">Sample accounts demonstrating different investment types</p>
+                    <div id="demoAccountsList" class="accounts-list">
+                        <p style="color: #666;">Loading demo accounts...</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Allocation Recommendations -->
+                <div class="finance-subsection">
+                    <h3>💡 Portfolio Recommendations</h3>
+                    <p class="help-text">Based on demo user's age and risk tolerance</p>
+                    <button onclick="loadDemoRecommendations()" class="btn">Get Demo Recommendations</button>
+                    <div id="demoRecommendationsContainer" style="margin-top: 1rem;">
+                        <!-- Recommendations will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Charts Section -->
+                <div class="finance-subsection">
+                    <h3>📈 Visualizations</h3>
+                    <p class="help-text">View demo portfolio allocation and account values</p>
+                    
+                    <div class="chart-controls" style="margin-bottom: 1rem;">
+                        <label>
+                            <input type="radio" name="demoChartType" value="pie" checked onchange="updateDemoChart()"> Pie Chart
+                        </label>
+                        <label style="margin-left: 1rem;">
+                            <input type="radio" name="demoChartType" value="bar" onchange="updateDemoChart()"> Bar Chart
+                        </label>
+                        <label style="margin-left: 1rem;">
+                            <input type="radio" name="demoChartType" value="doughnut" onchange="updateDemoChart()"> Doughnut Chart
+                        </label>
+                    </div>
+                    
+                    <div style="position: relative; height: 400px; margin-bottom: 2rem;">
+                        <canvas id="demoFinanceChart"></canvas>
+                    </div>
+                    
+                    <div id="demoChartLegend" class="chart-legend"></div>
+                </div>
             </div>
         </div>
 
@@ -5590,7 +5701,9 @@
                 const demoSections = document.querySelectorAll('.finance-demo-section');
                 demoSections.forEach(section => section.classList.remove('hidden'));
                 
-                // No data loading needed for demo tab
+                if (shouldLoadData) {
+                    loadDemoFinanceData();
+                }
             } else if (subTabName === 'finance-mydata') {
                 const myDataSections = document.querySelectorAll('.finance-mydata-section');
                 myDataSections.forEach(section => section.classList.remove('hidden'));
@@ -7803,6 +7916,380 @@
                 `).join('');
             } catch (err) {
                 console.error('Failed to update chart:', err);
+            }
+        }
+        
+        // Demo Finance Functions
+        let demoFinanceChart = null;
+        
+        async function loadDemoFinanceData() {
+            await loadDemoDemographics();
+            await loadDemoAccounts();
+            await updateDemoChart();
+        }
+        
+        async function loadDemoDemographics() {
+            try {
+                const response = await fetch('/admin/api/finance/demo/demographics');
+                const demographics = await response.json();
+                
+                document.getElementById('demoUserAge').value = demographics.age || '';
+                document.getElementById('demoRetirementAge').value = demographics.retirementAge || 65;
+                document.getElementById('demoAnnualIncome').value = demographics.annualIncome || '';
+                document.getElementById('demoRiskTolerance').value = (demographics.riskTolerance || 'moderate').charAt(0).toUpperCase() + (demographics.riskTolerance || 'moderate').slice(1);
+                document.getElementById('demoRetirementYear').value = demographics.retirementYear || '';
+                document.getElementById('demoAnnualRetirementSpending').value = demographics.annualRetirementSpending || '';
+            } catch (err) {
+                console.error('Failed to load demo demographics:', err);
+            }
+        }
+        
+        async function loadDemoAccounts() {
+            try {
+                const response = await fetch('/admin/api/finance/demo/accounts');
+                const accounts = await response.json();
+                
+                const accountsList = document.getElementById('demoAccountsList');
+                
+                if (accounts.length === 0) {
+                    accountsList.innerHTML = '<p style="color: #666;">No demo accounts available</p>';
+                    return;
+                }
+                
+                accountsList.innerHTML = accounts.map(account => {
+                    const type = accountTypes[account.type] || { name: account.type, category: 'other' };
+                    const isFutureIncome = type.category === 'future_income';
+                    
+                    return `
+                        <div class="account-card" style="position: relative;">
+                            <div style="position: absolute; top: 10px; right: 10px; background: #667eea; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                DEMO
+                            </div>
+                            <div class="account-card-header">
+                                <div class="account-name">${escapeHtml(account.name)}</div>
+                                <div class="account-type-badge">${type.name}</div>
+                            </div>
+                            <div class="account-value">$${parseFloat(account.currentValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            ${isFutureIncome && account.monthlyPayment ? `
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                    Monthly: $${parseFloat(account.monthlyPayment).toLocaleString()} starting at age ${account.startAge}
+                                </div>
+                            ` : ''}
+                            ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
+                            <div class="account-details">
+                                ${account.startDate ? `
+                                    <div class="account-detail">
+                                        <span class="account-detail-label">Started:</span> ${new Date(account.startDate).toLocaleDateString()}
+                                    </div>
+                                ` : ''}
+                                <div class="account-detail">
+                                    <span class="account-detail-label">Updated:</span> ${new Date(account.updatedAt).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Failed to load demo accounts:', err);
+            }
+        }
+        
+        async function loadDemoRecommendations() {
+            try {
+                const response = await fetch('/admin/api/finance/demo/recommendations');
+                const result = await response.json();
+                
+                const container = document.getElementById('demoRecommendationsContainer');
+                
+                let html = `
+                    <div class="recommendation-card">
+                        <h4>📊 Portfolio Overview</h4>
+                        <div class="recommendation-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Assets:</span>
+                                <span class="stat-value">$${result.totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Liabilities:</span>
+                                <span class="stat-value">$${result.totalLiabilities.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Net Worth:</span>
+                                <span class="stat-value">$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            ${result.debtToAssetRatio > 0 ? `
+                                <div class="stat-item">
+                                    <span class="stat-label">Debt-to-Asset Ratio:</span>
+                                    <span class="stat-value">${result.debtToAssetRatio.toFixed(1)}%</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <h4 style="margin-top: 1.5rem;">📈 Allocation Comparison</h4>
+                        <table class="allocation-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Current</th>
+                                    <th>Recommended</th>
+                                    <th>Difference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                Object.keys(result.currentAllocation).forEach(category => {
+                    if (category === 'future_income' || category === 'liabilities') return;
+                    
+                    const current = result.currentAllocation[category];
+                    const recommended = result.recommendedAllocation[category];
+                    const diff = current - recommended;
+                    const diffClass = Math.abs(diff) > 10 ? 'allocation-diff-high' : (Math.abs(diff) > 5 ? 'allocation-diff-medium' : 'allocation-diff-low');
+                    
+                    html += `
+                        <tr>
+                            <td>${category.replace('_', ' ').toUpperCase()}</td>
+                            <td>${current.toFixed(1)}%</td>
+                            <td>${recommended.toFixed(1)}%</td>
+                            <td class="${diffClass}">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                        
+                        <h4 style="margin-top: 1.5rem;">💡 Recommendations</h4>
+                        <ul class="recommendations-list">
+                `;
+                
+                result.recommendations.forEach(rec => {
+                    html += `<li>${rec}</li>`;
+                });
+                
+                html += `
+                        </ul>
+                        
+                        ${result.explanation || ''}
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Failed to load demo recommendations:', err);
+                document.getElementById('demoRecommendationsContainer').innerHTML = 
+                    '<div class="alert alert-error">Failed to load recommendations: ' + err.message + '</div>';
+            }
+        }
+        
+        async function evaluateDemoRetirement() {
+            try {
+                const response = await fetch('/admin/api/finance/demo/retirement-evaluation');
+                const result = await response.json();
+                
+                const evalSection = document.getElementById('demoRetirementEvaluation');
+                const resultDiv = document.getElementById('demoRetirementResult');
+                const detailsDiv = document.getElementById('demoRetirementDetails');
+                
+                if (!result.success) {
+                    resultDiv.className = 'alert alert-error';
+                    resultDiv.textContent = result.error;
+                    evalSection.style.display = 'block';
+                    detailsDiv.innerHTML = '';
+                    return;
+                }
+                
+                // Display result with appropriate styling based on status
+                let alertClass = 'alert-info';
+                let icon = '📊';
+                
+                if (result.status === 'excellent') {
+                    alertClass = 'alert-success';
+                    icon = '✅';
+                } else if (result.status === 'good') {
+                    alertClass = 'alert-success';
+                    icon = '✅';
+                } else if (result.status === 'concerning') {
+                    alertClass = 'alert-warning';
+                    icon = '⚠️';
+                } else if (result.status === 'critical') {
+                    alertClass = 'alert-error';
+                    icon = '🚨';
+                }
+                
+                resultDiv.className = 'alert ' + alertClass;
+                resultDiv.innerHTML = `
+                    <h4 style="margin-top: 0;">${icon} Demo Retirement Plan Success Probability: ${result.successProbability}%</h4>
+                    <p><strong>${result.recommendation}</strong></p>
+                `;
+                
+                // Display detailed information (same as real data)
+                detailsDiv.innerHTML = `
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff;">
+                        <h4 style="margin-top: 0; color: #007bff;">📖 Demo Analysis Details</h4>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Current Situation</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Current Age: ${result.assumptions.currentAge}</li>
+                                <li>Retirement Age: ${result.assumptions.retirementAge}</li>
+                                <li>Years Until Retirement: ${result.assumptions.yearsUntilRetirement}</li>
+                                <li>Current Total Assets: $${result.assumptions.currentAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                                <li>Annual Contribution (15% of income): $${result.assumptions.annualContribution.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Projections</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Projected Portfolio at Retirement: $${result.projections.projectedPortfolioAtRetirement.toLocaleString('en-US')}</li>
+                                <li>Total Needed for ${result.assumptions.yearsInRetirement} Years: $${result.projections.totalNeededForRetirement.toLocaleString('en-US')}</li>
+                                ${result.projections.shortfall > 0 ? `<li style="color: #d9534f;">Projected Shortfall: $${result.projections.shortfall.toLocaleString('en-US')}</li>` : '<li style="color: #5cb85c;">✅ Projected to meet retirement goals</li>'}
+                                ${result.projections.futureIncomeValue > 0 ? `<li>Future Income Value (Pension/SS): $${result.projections.futureIncomeValue.toLocaleString('en-US')}</li>` : ''}
+                            </ul>
+                        </div>
+                        
+                        <div style="margin: 1rem 0;">
+                            <h5>Assumptions & Methodology</h5>
+                            <ul style="margin: 0.5rem 0;">
+                                <li>Expected Annual Return: ${result.assumptions.expectedReturn}</li>
+                                <li>Return Volatility (Std Dev): ${result.assumptions.returnVolatility}</li>
+                                <li>Inflation Rate: ${result.assumptions.inflationRate}</li>
+                                <li>Annual Retirement Spending: $${result.assumptions.annualRetirementSpending.toLocaleString('en-US')}</li>
+                                <li>Years in Retirement: ${result.assumptions.yearsInRetirement}</li>
+                                <li>✅ Using demo historical growth data (6 months)</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: #fff; padding: 1rem; border-radius: 6px; margin-top: 1rem;">
+                            <h5 style="margin-top: 0;">📊 Methodology</h5>
+                            <p style="margin-bottom: 0;">${result.methodology}</p>
+                            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                                This analysis uses Monte Carlo simulation, a standard financial planning technique that runs thousands of scenarios 
+                                with varying market returns to estimate the probability of success.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                
+                evalSection.style.display = 'block';
+                
+            } catch (err) {
+                const resultDiv = document.getElementById('demoRetirementResult');
+                resultDiv.className = 'alert alert-error';
+                resultDiv.textContent = 'Failed to evaluate demo retirement plan: ' + err.message;
+                document.getElementById('demoRetirementEvaluation').style.display = 'block';
+            }
+        }
+        
+        async function updateDemoChart() {
+            try {
+                // Check if Chart.js is available
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available - skipping demo chart rendering');
+                    return;
+                }
+                
+                const response = await fetch('/admin/api/finance/demo/accounts');
+                const accounts = await response.json();
+                
+                if (accounts.length === 0) {
+                    if (demoFinanceChart) {
+                        demoFinanceChart.destroy();
+                        demoFinanceChart = null;
+                    }
+                    return;
+                }
+                
+                // Group by category
+                const categoryData = {};
+                const categoryColors = {
+                    cash: '#28a745',
+                    investments: '#007bff',
+                    retirement: '#ffc107',
+                    real_estate: '#17a2b8',
+                    future_income: '#6f42c1',
+                    liabilities: '#dc3545'
+                };
+                
+                accounts.forEach(account => {
+                    const type = accountTypes[account.type];
+                    if (type) {
+                        const category = type.category;
+                        if (!categoryData[category]) {
+                            categoryData[category] = 0;
+                        }
+                        categoryData[category] += parseFloat(account.currentValue || 0);
+                    }
+                });
+                
+                const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
+                const data = Object.values(categoryData);
+                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                
+                const chartType = document.querySelector('input[name="demoChartType"]:checked').value;
+                
+                const ctx = document.getElementById('demoFinanceChart').getContext('2d');
+                
+                if (demoFinanceChart) {
+                    demoFinanceChart.destroy();
+                }
+                
+                demoFinanceChart = new Chart(ctx, {
+                    type: chartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Demo Portfolio Value ($)',
+                            data: data,
+                            backgroundColor: colors,
+                            borderColor: colors.map(c => c),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: chartType === 'bar',
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed || context.parsed.y;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return ` $${value.toLocaleString()} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: chartType === 'bar' ? {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        } : {}
+                    }
+                });
+                
+                // Update legend
+                const legendDiv = document.getElementById('demoChartLegend');
+                legendDiv.innerHTML = labels.map((label, i) => `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: ${colors[i]}"></div>
+                        <div class="legend-label">${label}: $${data[i].toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to update demo chart:', err);
             }
         }
         
