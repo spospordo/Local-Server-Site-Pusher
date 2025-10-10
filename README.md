@@ -8,6 +8,7 @@ A containerized web application with admin interface for serving web content and
 🔗 **API Endpoints**: Handle POST/GET requests for external integrations  
 📊 **Status Monitoring**: Integration with Home Assistant and Cockpit  
 🐳 **Containerized**: Easy deployment with Docker  
+🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 
 ## Quick Start
 
@@ -204,6 +205,39 @@ Returns current espresso brewing data in JSON format.
 POST /api/espresso/data
 ```
 Updates espresso brewing data (public endpoint, no authentication required).
+
+## Ollama/Open WebUI Integration
+
+The Finance > Spending tab includes AI-powered assistance through Ollama LLM integration via Open WebUI. This admin-only feature allows you to:
+
+- Connect to Ollama instances running on your local network (e.g., TrueNAS)
+- Configure API authentication and model selection
+- Send prompts and receive AI responses in real-time
+- View connection status and performance metrics
+- Maintain conversation history for contextual discussions
+
+### Quick Setup
+
+1. Install Open WebUI with Ollama on your network:
+   ```bash
+   docker run -d -p 3000:8080 \
+     -v open-webui:/app/backend/data \
+     --name open-webui \
+     ghcr.io/open-webui/open-webui:main
+   ```
+
+2. In Admin Dashboard, navigate to **Finance > Spending**
+3. Configure your Open WebUI URL and model (e.g., `llama2`, `mistral`)
+4. Test connection and start chatting with AI
+
+### Security Features
+
+- 🔐 AES-256-GCM encryption for API keys at rest
+- 🔒 Admin-only access with session authentication
+- 🛡️ API keys never exposed to frontend
+- 📁 Local storage - no external API calls
+
+See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
 
 ## Home Assistant Integration
 
