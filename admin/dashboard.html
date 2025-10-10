@@ -7810,21 +7810,31 @@
         let ollamaConfig = {
             webUIUrl: '',
             apiKey: '',
-            model: ''
+            model: '',
+            hasApiKey: false
         };
         let ollamaConversationHistory = [];
         
-        function loadOllamaConfig() {
-            // Load from localStorage for now (future: server-side storage)
-            const savedConfig = localStorage.getItem('ollamaConfig');
-            if (savedConfig) {
-                ollamaConfig = JSON.parse(savedConfig);
-                document.getElementById('ollamaWebUIUrl').value = ollamaConfig.webUIUrl || '';
-                document.getElementById('ollamaApiKey').value = ollamaConfig.apiKey || '';
-                document.getElementById('ollamaModel').value = ollamaConfig.model || '';
+        async function loadOllamaConfig() {
+            try {
+                const response = await fetch('/admin/api/ollama/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    ollamaConfig = config;
+                    document.getElementById('ollamaWebUIUrl').value = config.webUIUrl || '';
+                    document.getElementById('ollamaModel').value = config.model || '';
+                    // Don't populate API key field for security, but show placeholder if it exists
+                    if (config.hasApiKey) {
+                        document.getElementById('ollamaApiKey').placeholder = '••••••••••••••••';
+                    }
+                } else {
+                    console.error('Failed to load Ollama config');
+                }
+            } catch (err) {
+                console.error('Error loading Ollama config:', err);
             }
             
-            // Load conversation history
+            // Load conversation history from localStorage (temporary until backend storage is implemented)
             const savedHistory = localStorage.getItem('ollamaConversationHistory');
             if (savedHistory) {
                 ollamaConversationHistory = JSON.parse(savedHistory);
@@ -7832,17 +7842,48 @@
             }
         }
         
-        function saveOllamaConfig() {
-            ollamaConfig = {
-                webUIUrl: document.getElementById('ollamaWebUIUrl').value,
-                apiKey: document.getElementById('ollamaApiKey').value,
-                model: document.getElementById('ollamaModel').value
+        async function saveOllamaConfig() {
+            const webUIUrl = document.getElementById('ollamaWebUIUrl').value;
+            const apiKey = document.getElementById('ollamaApiKey').value;
+            const model = document.getElementById('ollamaModel').value;
+            
+            const configToSave = {
+                webUIUrl: webUIUrl,
+                model: model
             };
             
-            // Save to localStorage (future: server-side storage)
-            localStorage.setItem('ollamaConfig', JSON.stringify(ollamaConfig));
+            // Only include API key if user entered something
+            if (apiKey && apiKey.trim() && !apiKey.startsWith('••')) {
+                configToSave.apiKey = apiKey;
+            }
             
-            showOllamaAlert('Configuration saved successfully!', 'success');
+            try {
+                const response = await fetch('/admin/api/ollama/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configToSave)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update local config
+                    ollamaConfig.webUIUrl = webUIUrl;
+                    ollamaConfig.model = model;
+                    if (apiKey && apiKey.trim() && !apiKey.startsWith('••')) {
+                        ollamaConfig.hasApiKey = true;
+                        document.getElementById('ollamaApiKey').value = '';
+                        document.getElementById('ollamaApiKey').placeholder = '••••••••••••••••';
+                    }
+                    showOllamaAlert('Configuration saved successfully!', 'success');
+                } else {
+                    showOllamaAlert('Error saving configuration: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showOllamaAlert('Error saving configuration: ' + err.message, 'error');
+            }
         }
         
         async function testOllamaConnection() {
@@ -7865,28 +7906,43 @@
             metricsDiv.style.display = 'none';
             
             try {
-                const startTime = performance.now();
+                const response = await fetch('/admin/api/ollama/test-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
                 
-                // Note: This is a placeholder - actual implementation would use proper API
-                // For now, we'll simulate the connection test
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                const result = await response.json();
                 
-                const responseTime = (performance.now() - startTime).toFixed(0);
-                
-                // Simulated success (future: actual API call)
-                statusText.textContent = 'Connected (simulated - backend integration pending)';
-                statusDiv.className = 'alert alert-success';
-                
-                document.getElementById('ollamaResponseTime').textContent = responseTime + ' ms';
-                document.getElementById('ollamaModelInfo').textContent = ollamaConfig.model || 'Not specified';
-                metricsDiv.style.display = 'block';
-                
-                showOllamaAlert('Connection test completed (UI mockup only)', 'info');
+                if (result.success && result.connected) {
+                    statusText.textContent = 'Connected';
+                    statusDiv.className = 'alert alert-success';
+                    
+                    document.getElementById('ollamaResponseTime').textContent = result.responseTime + ' ms';
+                    document.getElementById('ollamaModelInfo').textContent = result.details?.model || ollamaConfig.model || 'Not specified';
+                    metricsDiv.style.display = 'block';
+                    
+                    showOllamaAlert('Successfully connected to Open WebUI', 'success');
+                } else {
+                    statusText.textContent = 'Connection failed';
+                    statusDiv.className = 'alert alert-error';
+                    errorDiv.style.display = 'block';
+                    
+                    let errorMessage = result.error || 'Unknown error';
+                    if (result.details && result.details.suggestion) {
+                        errorMessage += '\n\n' + result.details.suggestion;
+                    }
+                    document.getElementById('ollamaErrorText').textContent = errorMessage;
+                    
+                    showOllamaAlert('Connection failed: ' + result.error, 'error');
+                }
             } catch (error) {
                 statusText.textContent = 'Connection failed';
                 statusDiv.className = 'alert alert-error';
                 errorDiv.style.display = 'block';
                 document.getElementById('ollamaErrorText').textContent = error.message;
+                showOllamaAlert('Error testing connection: ' + error.message, 'error');
             }
         }
         
@@ -7909,40 +7965,49 @@
             sendBtn.textContent = '⏳ Processing...';
             
             try {
-                const startTime = performance.now();
-                
-                // Simulate AI response (future: actual API call to Open WebUI/Ollama)
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                const responseTime = (performance.now() - startTime).toFixed(0);
-                const simulatedResponse = `This is a simulated response to: "${prompt}"\n\nThe actual implementation will connect to your Ollama instance via Open WebUI at ${ollamaConfig.webUIUrl} using the ${ollamaConfig.model} model.\n\nResponse time: ${responseTime}ms (simulated)`;
-                
-                // Add to conversation history
-                ollamaConversationHistory.push({
-                    type: 'user',
-                    content: prompt,
-                    timestamp: new Date().toISOString()
+                const response = await fetch('/admin/api/ollama/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        conversationHistory: ollamaConversationHistory
+                    })
                 });
                 
-                ollamaConversationHistory.push({
-                    type: 'assistant',
-                    content: simulatedResponse,
-                    timestamp: new Date().toISOString(),
-                    responseTime: responseTime
-                });
+                const result = await response.json();
                 
-                // Save to localStorage
-                localStorage.setItem('ollamaConversationHistory', JSON.stringify(ollamaConversationHistory));
-                
-                // Display conversation
-                displayOllamaConversation();
-                
-                // Clear prompt
-                promptInput.value = '';
-                
-                showOllamaAlert('Response received (simulated)', 'success');
+                if (result.success) {
+                    // Add to conversation history
+                    ollamaConversationHistory.push({
+                        type: 'user',
+                        content: prompt,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    ollamaConversationHistory.push({
+                        type: 'assistant',
+                        content: result.response,
+                        timestamp: result.timestamp || new Date().toISOString(),
+                        responseTime: result.responseTime
+                    });
+                    
+                    // Save to localStorage (temporary until backend storage is implemented)
+                    localStorage.setItem('ollamaConversationHistory', JSON.stringify(ollamaConversationHistory));
+                    
+                    // Display conversation
+                    displayOllamaConversation();
+                    
+                    // Clear prompt
+                    promptInput.value = '';
+                    
+                    showOllamaAlert('Response received', 'success');
+                } else {
+                    showOllamaAlert('Error: ' + (result.error || 'Unknown error'), 'error');
+                }
             } catch (error) {
-                showOllamaAlert('Error: ' + error.message, 'error');
+                showOllamaAlert('Error sending prompt: ' + error.message, 'error');
             } finally {
                 sendBtn.disabled = false;
                 sendBtn.textContent = '🚀 Send Prompt';

@@ -300,6 +300,15 @@ All endpoints require admin authentication.
 - `GET /admin/api/finance/recommendations` - Get allocation recommendations
 - `GET /admin/api/finance/retirement-evaluation` - Evaluate retirement plan (Monte Carlo simulation)
 
+### AI Assistant (Ollama Integration)
+- `GET /admin/api/ollama/config` - Get Ollama configuration
+- `POST /admin/api/ollama/config` - Save Ollama configuration (webUIUrl, apiKey, model)
+- `POST /admin/api/ollama/test-connection` - Test connection to Open WebUI
+- `POST /admin/api/ollama/chat` - Send prompt and receive AI response
+- `GET /admin/api/ollama/models` - Get available Ollama models
+
+See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed Ollama API documentation.
+
 ## Technical Details
 
 ### Encryption Implementation

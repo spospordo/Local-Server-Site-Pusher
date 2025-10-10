@@ -12,15 +12,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Demo sub-tab: Empty placeholder for future content
 - My Data sub-tab: Contains all existing Finance module functionality (accounts, demographics, retirement planning, etc.)
 - Spending sub-tab: Admin interface for Ollama LLM integration via Open WebUI
-  - Connection configuration UI for Ollama LLM instances on TrueNAS
-  - Connection status display (connected/disconnected, error messages)
-  - Prompt input and response display interface
-  - Performance metrics display (response time, resource usage when available)
+  - **Backend integration completed**: Real API communication with Ollama/Open WebUI instances
+  - Connection configuration UI for Ollama LLM instances on TrueNAS or local network
+  - Secure AES-256-GCM encrypted storage for API keys and configuration
+  - Connection status display with real-time testing (connected/disconnected, error messages)
+  - Live AI chat with prompt/response interface
+  - Conversation history tracking (currently localStorage, server-side storage planned)
+  - Performance metrics display (actual response time from Ollama)
+  - Comprehensive error handling with user-friendly suggestions
+  - Support for all Ollama models (llama2, mistral, codellama, etc.)
+  - Admin-only access with session-based authentication
+  - New API endpoints:
+    - `GET /admin/api/ollama/config` - Get Ollama configuration
+    - `POST /admin/api/ollama/config` - Save Ollama configuration
+    - `POST /admin/api/ollama/test-connection` - Test connection to Open WebUI
+    - `POST /admin/api/ollama/chat` - Send prompt and receive AI response
+    - `GET /admin/api/ollama/models` - Get available models
 - Sub-tab navigation follows same pattern as Party and Server tabs
+- New documentation: `OLLAMA_INTEGRATION.md` with comprehensive setup and API guide
 
 ### Changed
 - Reorganized Finance tab to use sub-tab architecture
 - All existing Finance functionality moved to "My Data" sub-tab
+- Spending tab now uses real backend API instead of UI mockup
+- Configuration stored server-side with encryption instead of browser localStorage
 
 ## [1.1.5] - 2025-10-08
 

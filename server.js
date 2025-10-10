@@ -11,6 +11,7 @@ const vidiots = require('./modules/vidiots');
 const espresso = require('./modules/espresso');
 const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
+const OllamaIntegration = require('./modules/ollama');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -661,6 +662,9 @@ espresso.init(config);
 
 // Initialize finance module
 finance.init(config);
+
+// Initialize Ollama integration module
+const ollama = new OllamaIntegration(configDir);
 
 // Initialize multer configuration after config is loaded
 upload = multer({
@@ -4341,6 +4345,103 @@ app.get('/admin/api/finance/retirement-evaluation', requireAuth, (req, res) => {
     res.json(evaluation);
   } catch (err) {
     res.status(500).json({ error: 'Failed to evaluate retirement plan: ' + err.message });
+  }
+});
+
+// Ollama/Open WebUI Integration API Endpoints
+// Get Ollama configuration
+app.get('/admin/api/ollama/config', requireAuth, (req, res) => {
+  try {
+    const config = ollama.loadConfig();
+    // Don't send the API key to frontend, just indicate if it exists
+    const sanitizedConfig = {
+      webUIUrl: config.webUIUrl || '',
+      model: config.model || '',
+      hasApiKey: !!config.apiKey,
+      enabled: config.enabled || false
+    };
+    res.json(sanitizedConfig);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get Ollama configuration: ' + err.message });
+  }
+});
+
+// Save Ollama configuration
+app.post('/admin/api/ollama/config', requireAuth, (req, res) => {
+  try {
+    const { webUIUrl, apiKey, model, enabled } = req.body;
+    
+    // Load existing config to preserve apiKey if not provided
+    const existingConfig = ollama.loadConfig();
+    
+    const configToSave = {
+      webUIUrl: webUIUrl !== undefined ? webUIUrl : existingConfig.webUIUrl,
+      apiKey: apiKey !== undefined ? apiKey : existingConfig.apiKey,
+      model: model !== undefined ? model : existingConfig.model,
+      enabled: enabled !== undefined ? enabled : existingConfig.enabled
+    };
+    
+    const result = ollama.saveConfig(configToSave);
+    if (result.success) {
+      res.json({ success: true, message: result.message });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save Ollama configuration: ' + err.message });
+  }
+});
+
+// Test connection to Open WebUI
+app.post('/admin/api/ollama/test-connection', requireAuth, async (req, res) => {
+  try {
+    const config = ollama.loadConfig();
+    const result = await ollama.testConnection(config);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ 
+      success: false, 
+      connected: false,
+      error: 'Failed to test connection: ' + err.message 
+    });
+  }
+});
+
+// Get available models
+app.get('/admin/api/ollama/models', requireAuth, async (req, res) => {
+  try {
+    const config = ollama.loadConfig();
+    const result = await ollama.getModels(config);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get models: ' + err.message,
+      models: []
+    });
+  }
+});
+
+// Send chat prompt to Ollama
+app.post('/admin/api/ollama/chat', requireAuth, async (req, res) => {
+  try {
+    const { prompt, conversationHistory } = req.body;
+    
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Prompt is required' 
+      });
+    }
+    
+    const config = ollama.loadConfig();
+    const result = await ollama.sendPrompt(config, prompt, conversationHistory || []);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to send prompt: ' + err.message 
+    });
   }
 });
 
