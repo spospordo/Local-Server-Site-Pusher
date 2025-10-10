@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-10-10
+
+### Added
+- Finance tab now includes three sub-tabs: Demo, My Data, and Spending
+- Demo sub-tab: Empty placeholder for future content
+- My Data sub-tab: Contains all existing Finance module functionality (accounts, demographics, retirement planning, etc.)
+- Spending sub-tab: Admin interface for Ollama LLM integration via Open WebUI
+  - Connection configuration UI for Ollama LLM instances on TrueNAS
+  - Connection status display (connected/disconnected, error messages)
+  - Prompt input and response display interface
+  - Performance metrics display (response time, resource usage when available)
+- Sub-tab navigation follows same pattern as Party and Server tabs
+
+### Changed
+- Reorganized Finance tab to use sub-tab architecture
+- All existing Finance functionality moved to "My Data" sub-tab
+
 ## [1.1.5] - 2025-10-08
 
 ### Fixed

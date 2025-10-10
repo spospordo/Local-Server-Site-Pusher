@@ -1592,6 +1592,13 @@
                 <button class="sub-tab" onclick="showSubTab('server-espresso')">Espresso</button>
                 <button class="sub-tab" onclick="showSubTab('server-github')">GitHub</button>
             </div>
+            
+            <!-- Sub-tabs for Finance -->
+            <div class="sub-tabs" id="finance-subtabs">
+                <button class="sub-tab" onclick="showSubTab('finance-demo')">Demo</button>
+                <button class="sub-tab active" onclick="showSubTab('finance-mydata')">My Data</button>
+                <button class="sub-tab" onclick="showSubTab('finance-spending')">Spending</button>
+            </div>
         </div>
         <!-- Server Status -->
         <div class="card admin-section dashboard-section">
@@ -1608,8 +1615,8 @@
             </div>
         </div>
 
-        <!-- Finance Module -->
-        <div class="card admin-section finance-section">
+        <!-- Finance Module - My Data Sub-tab -->
+        <div class="card admin-section finance-section finance-mydata-section">
             <div class="card-header">
                 <h2>💰 Finance Module</h2>
                 <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
@@ -1799,6 +1806,120 @@
                     </div>
                     
                     <div id="chartLegend" class="chart-legend"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance - Demo Sub-tab -->
+        <div class="card admin-section finance-section finance-demo-section">
+            <div class="card-header">
+                <h2>🎭 Finance Demo</h2>
+            </div>
+            <div class="card-body">
+                <p style="color: #666; text-align: center; padding: 2rem;">
+                    Demo content placeholder - no content at this time
+                </p>
+            </div>
+        </div>
+
+        <!-- Finance - Spending Sub-tab (Ollama LLM Integration) -->
+        <div class="card admin-section finance-section finance-spending-section">
+            <div class="card-header">
+                <h2>🤖 Spending - AI Assistant (Ollama via Open WebUI)</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    Connect to Ollama LLM instances running on your network via Open WebUI
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Connection Configuration Section -->
+                <div class="finance-subsection">
+                    <h3>🔌 Connection Configuration</h3>
+                    <p class="help-text">Configure connection to Ollama LLM via Open WebUI on TrueNAS or local network</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ollamaWebUIUrl">Open WebUI URL</label>
+                            <input type="url" id="ollamaWebUIUrl" placeholder="e.g., http://truenas.local:3000" value="">
+                            <small class="help-text">URL where Open WebUI is accessible</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ollamaApiKey">API Key (if required)</label>
+                            <input type="password" id="ollamaApiKey" placeholder="Enter API key if needed" value="">
+                            <small class="help-text">Optional: API key for authentication</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ollamaModel">Model Name</label>
+                            <input type="text" id="ollamaModel" placeholder="e.g., llama2, mistral, codellama" value="">
+                            <small class="help-text">Name of the Ollama model to use</small>
+                        </div>
+                    </div>
+                    
+                    <button onclick="testOllamaConnection()" class="btn">Test Connection</button>
+                    <button onclick="saveOllamaConfig()" class="btn btn-success">Save Configuration</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Connection Status Section -->
+                <div class="finance-subsection">
+                    <h3>📊 Connection Status</h3>
+                    <div id="ollamaConnectionStatus" class="alert" style="display: none;">
+                        <strong>Status:</strong> <span id="ollamaStatusText">Unknown</span>
+                    </div>
+                    <div id="ollamaConnectionError" class="alert alert-error" style="display: none;">
+                        <strong>Error:</strong> <span id="ollamaErrorText"></span>
+                    </div>
+                    <div id="ollamaConnectionMetrics" style="display: none; margin-top: 1rem;">
+                        <p><strong>Last Response Time:</strong> <span id="ollamaResponseTime">-</span></p>
+                        <p><strong>Model Info:</strong> <span id="ollamaModelInfo">-</span></p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Prompt & Response Section -->
+                <div class="finance-subsection">
+                    <h3>💬 AI Interaction</h3>
+                    <p class="help-text">Send prompts to the LLM and receive responses</p>
+                    
+                    <div class="form-group">
+                        <label for="ollamaPrompt">Your Prompt</label>
+                        <textarea id="ollamaPrompt" rows="4" placeholder="Enter your question or prompt for the AI assistant..."></textarea>
+                    </div>
+                    
+                    <button onclick="sendOllamaPrompt()" class="btn" id="sendPromptBtn">
+                        🚀 Send Prompt
+                    </button>
+                    <button onclick="clearOllamaConversation()" class="btn" style="background: #6c757d;">
+                        🗑️ Clear Conversation
+                    </button>
+                    
+                    <div id="ollamaConversation" style="margin-top: 1.5rem; display: none;">
+                        <h4>Conversation History</h4>
+                        <div id="ollamaMessages" style="max-height: 500px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 5px; padding: 1rem; background: #f8f9fa;">
+                            <!-- Messages will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Implementation Notes Section -->
+                <div class="finance-subsection">
+                    <h3>📝 Implementation Notes</h3>
+                    <div class="alert" style="background-color: #e7f3ff; border-color: #b3d9ff;">
+                        <p><strong>Integration Approaches:</strong></p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Direct API:</strong> Communicate with Open WebUI's REST API endpoints for chat completions</li>
+                            <li><strong>WebSocket:</strong> Use WebSocket connection for streaming responses</li>
+                            <li><strong>Proxy:</strong> Set up a proxy endpoint on this server to handle Ollama/Open WebUI requests</li>
+                            <li><strong>Python Backend:</strong> Create a Python service using ollama-python library for more control</li>
+                        </ul>
+                        <p style="margin-top: 1rem;"><strong>Current Implementation:</strong> UI mockup - backend integration pending. Configuration and prompts are stored locally for future implementation.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5368,11 +5489,14 @@
                 setupStorageSlider();
                 loadMediaStreamingConfig();
             } else if (tabName === 'finance') {
-                const financeSections = document.querySelectorAll('.finance-section');
-                financeSections.forEach(section => section.classList.remove('hidden'));
+                // Show sub-tabs for finance
+                const financeSubTabs = document.getElementById('finance-subtabs');
+                if (financeSubTabs) {
+                    financeSubTabs.classList.add('active');
+                }
                 
-                // Load finance data
-                loadFinanceData();
+                // Show default sub-tab (My Data)
+                showSubTab('finance-mydata', true);
             }
         }
 
@@ -5394,6 +5518,9 @@
                 else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
                 else if (subTabName === 'server-espresso') targetTabText = 'Espresso';
                 else if (subTabName === 'server-github') targetTabText = 'GitHub';
+                else if (subTabName === 'finance-demo') targetTabText = 'Demo';
+                else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
+                else if (subTabName === 'finance-spending') targetTabText = 'Spending';
                 
                 if (targetTabText) {
                     const targetTab = Array.from(subTabs).find(tab => tab.textContent.trim() === targetTabText);
@@ -5408,6 +5535,8 @@
             partySections.forEach(section => section.classList.add('hidden'));
             const serverSections = document.querySelectorAll('.server-section');
             serverSections.forEach(section => section.classList.add('hidden'));
+            const financeSections = document.querySelectorAll('.finance-section');
+            financeSections.forEach(section => section.classList.add('hidden'));
             
             // Show the selected sub-tab sections
             if (subTabName === 'party-links') {
@@ -5456,6 +5585,25 @@
                 if (shouldLoadData) {
                     loadVidiotsConfig(); // Still need to load config for GitHub settings
                     initializeGitHubSection(); // Initialize GitHub logging and load git identity
+                }
+            } else if (subTabName === 'finance-demo') {
+                const demoSections = document.querySelectorAll('.finance-demo-section');
+                demoSections.forEach(section => section.classList.remove('hidden'));
+                
+                // No data loading needed for demo tab
+            } else if (subTabName === 'finance-mydata') {
+                const myDataSections = document.querySelectorAll('.finance-mydata-section');
+                myDataSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadFinanceData();
+                }
+            } else if (subTabName === 'finance-spending') {
+                const spendingSections = document.querySelectorAll('.finance-spending-section');
+                spendingSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadOllamaConfig();
                 }
             }
         }
@@ -7656,6 +7804,201 @@
             } catch (err) {
                 console.error('Failed to update chart:', err);
             }
+        }
+        
+        // Ollama/Spending Tab Functions
+        let ollamaConfig = {
+            webUIUrl: '',
+            apiKey: '',
+            model: ''
+        };
+        let ollamaConversationHistory = [];
+        
+        function loadOllamaConfig() {
+            // Load from localStorage for now (future: server-side storage)
+            const savedConfig = localStorage.getItem('ollamaConfig');
+            if (savedConfig) {
+                ollamaConfig = JSON.parse(savedConfig);
+                document.getElementById('ollamaWebUIUrl').value = ollamaConfig.webUIUrl || '';
+                document.getElementById('ollamaApiKey').value = ollamaConfig.apiKey || '';
+                document.getElementById('ollamaModel').value = ollamaConfig.model || '';
+            }
+            
+            // Load conversation history
+            const savedHistory = localStorage.getItem('ollamaConversationHistory');
+            if (savedHistory) {
+                ollamaConversationHistory = JSON.parse(savedHistory);
+                displayOllamaConversation();
+            }
+        }
+        
+        function saveOllamaConfig() {
+            ollamaConfig = {
+                webUIUrl: document.getElementById('ollamaWebUIUrl').value,
+                apiKey: document.getElementById('ollamaApiKey').value,
+                model: document.getElementById('ollamaModel').value
+            };
+            
+            // Save to localStorage (future: server-side storage)
+            localStorage.setItem('ollamaConfig', JSON.stringify(ollamaConfig));
+            
+            showOllamaAlert('Configuration saved successfully!', 'success');
+        }
+        
+        async function testOllamaConnection() {
+            const statusDiv = document.getElementById('ollamaConnectionStatus');
+            const errorDiv = document.getElementById('ollamaConnectionError');
+            const metricsDiv = document.getElementById('ollamaConnectionMetrics');
+            const statusText = document.getElementById('ollamaStatusText');
+            
+            if (!ollamaConfig.webUIUrl) {
+                errorDiv.style.display = 'block';
+                statusDiv.style.display = 'none';
+                document.getElementById('ollamaErrorText').textContent = 'Please enter Open WebUI URL first';
+                return;
+            }
+            
+            statusText.textContent = 'Testing connection...';
+            statusDiv.className = 'alert';
+            statusDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            metricsDiv.style.display = 'none';
+            
+            try {
+                const startTime = performance.now();
+                
+                // Note: This is a placeholder - actual implementation would use proper API
+                // For now, we'll simulate the connection test
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const responseTime = (performance.now() - startTime).toFixed(0);
+                
+                // Simulated success (future: actual API call)
+                statusText.textContent = 'Connected (simulated - backend integration pending)';
+                statusDiv.className = 'alert alert-success';
+                
+                document.getElementById('ollamaResponseTime').textContent = responseTime + ' ms';
+                document.getElementById('ollamaModelInfo').textContent = ollamaConfig.model || 'Not specified';
+                metricsDiv.style.display = 'block';
+                
+                showOllamaAlert('Connection test completed (UI mockup only)', 'info');
+            } catch (error) {
+                statusText.textContent = 'Connection failed';
+                statusDiv.className = 'alert alert-error';
+                errorDiv.style.display = 'block';
+                document.getElementById('ollamaErrorText').textContent = error.message;
+            }
+        }
+        
+        async function sendOllamaPrompt() {
+            const promptInput = document.getElementById('ollamaPrompt');
+            const prompt = promptInput.value.trim();
+            
+            if (!prompt) {
+                showOllamaAlert('Please enter a prompt', 'error');
+                return;
+            }
+            
+            if (!ollamaConfig.webUIUrl || !ollamaConfig.model) {
+                showOllamaAlert('Please configure Open WebUI URL and Model first', 'error');
+                return;
+            }
+            
+            const sendBtn = document.getElementById('sendPromptBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '⏳ Processing...';
+            
+            try {
+                const startTime = performance.now();
+                
+                // Simulate AI response (future: actual API call to Open WebUI/Ollama)
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                const responseTime = (performance.now() - startTime).toFixed(0);
+                const simulatedResponse = `This is a simulated response to: "${prompt}"\n\nThe actual implementation will connect to your Ollama instance via Open WebUI at ${ollamaConfig.webUIUrl} using the ${ollamaConfig.model} model.\n\nResponse time: ${responseTime}ms (simulated)`;
+                
+                // Add to conversation history
+                ollamaConversationHistory.push({
+                    type: 'user',
+                    content: prompt,
+                    timestamp: new Date().toISOString()
+                });
+                
+                ollamaConversationHistory.push({
+                    type: 'assistant',
+                    content: simulatedResponse,
+                    timestamp: new Date().toISOString(),
+                    responseTime: responseTime
+                });
+                
+                // Save to localStorage
+                localStorage.setItem('ollamaConversationHistory', JSON.stringify(ollamaConversationHistory));
+                
+                // Display conversation
+                displayOllamaConversation();
+                
+                // Clear prompt
+                promptInput.value = '';
+                
+                showOllamaAlert('Response received (simulated)', 'success');
+            } catch (error) {
+                showOllamaAlert('Error: ' + error.message, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '🚀 Send Prompt';
+            }
+        }
+        
+        function displayOllamaConversation() {
+            const conversationDiv = document.getElementById('ollamaConversation');
+            const messagesDiv = document.getElementById('ollamaMessages');
+            
+            if (ollamaConversationHistory.length === 0) {
+                conversationDiv.style.display = 'none';
+                return;
+            }
+            
+            conversationDiv.style.display = 'block';
+            
+            messagesDiv.innerHTML = ollamaConversationHistory.map(msg => {
+                const time = new Date(msg.timestamp).toLocaleTimeString();
+                const isUser = msg.type === 'user';
+                
+                return `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; border-radius: 8px; background: ${isUser ? '#e3f2fd' : '#f1f8e9'}; border-left: 4px solid ${isUser ? '#2196f3' : '#8bc34a'};">
+                        <div style="font-weight: 600; color: ${isUser ? '#1976d2' : '#689f38'}; margin-bottom: 0.25rem;">
+                            ${isUser ? '👤 You' : '🤖 Assistant'} <span style="font-weight: normal; font-size: 0.85rem; color: #666;">${time}</span>
+                        </div>
+                        <div style="white-space: pre-wrap; color: #333;">${escapeHtml(msg.content)}</div>
+                        ${msg.responseTime ? `<div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">⏱️ Response time: ${msg.responseTime}ms</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function clearOllamaConversation() {
+            if (!confirm('Clear all conversation history?')) {
+                return;
+            }
+            
+            ollamaConversationHistory = [];
+            localStorage.removeItem('ollamaConversationHistory');
+            document.getElementById('ollamaConversation').style.display = 'none';
+            showOllamaAlert('Conversation cleared', 'success');
+        }
+        
+        function showOllamaAlert(message, type) {
+            // Reuse the existing alert system
+            showAlert(message, type);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         function showAlert(message, type) {
