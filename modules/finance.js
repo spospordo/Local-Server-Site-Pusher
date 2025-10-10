@@ -985,26 +985,23 @@ function getDemoData() {
   
   // Target allocations for age 40, moderate risk
   // Based on getRecommendations() logic:
-  // cash: 12%, investments: 48%, retirement: 30%, real_estate: 10%
+  // Normalized: cash: 9.5%, investments: 59.5%, retirement: 19.0%, real_estate: 11.9%
   // We'll set balances to be within ±10% of these targets
+  // Actual: cash: 11% (+1.5%), investments: 62% (+2.5%), retirement: 27% (+8.0%)
   
   const totalAssets = 450000; // Total portfolio value
   
-  // Target: 12% = $54,000, we'll use $48,000 (within 10%)
-  const checkingBalance = 12000;
-  const savingsBalance = 36000;
+  // Cash: 11% = $49,500 (within +10% of 9.5% target)
+  const checkingBalance = 12375;
+  const savingsBalance = 32175;
+  const hsaBalance = 4950;
   
-  // Target: 48% = $216,000, we'll use $210,000 (within 10%)
-  const brokerageBalance = 135000;
-  const stocksBalance = 75000;
+  // Investments: 62% = $279,000 (within +10% of 59.5% target)
+  const brokerageBalance = 279000;
   
-  // Target: 30% = $135,000, we'll use $138,000 (within 10%)
-  const ira401kBalance = 85000;
-  const rothIraBalance = 53000;
-  
-  // Real estate: 10% = $45,000, we don't have property in demo, so $0
-  // HSA: additional cash-like account
-  const hsaBalance = 6000;
+  // Retirement: 27% = $121,500 (within +10% of 19.0% target)
+  const ira401kBalance = 75330;
+  const rothIraBalance = 46170;
   
   // Social Security - future income
   const socialSecurityMonthly = 3000;
