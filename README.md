@@ -340,6 +340,11 @@ Run the magic mirror test suite to validate the implementation:
 node scripts/test-magic-mirror.js
 ```
 
+Test network accessibility (containers, remote devices):
+```bash
+node scripts/test-magic-mirror-network.js
+```
+
 ### Troubleshooting
 
 **Weather not displaying:**
