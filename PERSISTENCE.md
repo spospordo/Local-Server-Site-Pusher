@@ -28,6 +28,45 @@ The following data is automatically persisted when properly configured:
 - **Contains**: Admin credentials, server configuration, client settings
 - **Auto-persist**: ✅ Yes, saved immediately when modified
 
+### 🎬 Vidiots Scraper Configuration
+- **Location**: `config/config.json` → `vidiots` section
+- **Contains**: 
+  - Scraper enabled/disabled state (`vidiots.enabled`)
+  - Cron schedule settings
+  - Output file paths
+  - GitHub Pages upload configuration (`vidiots.githubPages.enabled`, credentials)
+- **Auto-persist**: ✅ Yes, saved immediately when modified
+- **Note**: GitHub access tokens are preserved even when not displayed in UI
+
+### 📊 Finance Module Data
+- **Location**: 
+  - `config/.finance_data` (encrypted financial data)
+  - `config/.finance_key` (encryption key, 0600 permissions)
+- **Contains**:
+  - Account information and balances
+  - Demographics and profile data
+  - Historical transaction data
+- **Auto-persist**: ✅ Yes, encrypted and saved immediately when modified
+- **Security**: All data encrypted with AES-256-GCM at rest
+
+### 🤖 Ollama AI Integration
+- **Location**: 
+  - `config/ollama-config.json.enc` (encrypted configuration)
+  - `config/.ollama-key` (encryption key)
+- **Contains**: Ollama WebUI URL, API key, model preferences
+- **Auto-persist**: ✅ Yes, encrypted and saved when configured
+
+### 🐙 GitHub Integration Settings
+- **Location**: `config/.gitconfig` (JSON format)
+- **Contains**: Git user name and email for commits
+- **Auto-persist**: ✅ Yes, saved when git identity is updated
+- **Used by**: Vidiots GitHub upload, Espresso GitHub upload
+
+### ☕ Espresso Data
+- **Location**: `config/espresso-data.json`
+- **Contains**: Espresso machine shot tracking data
+- **Auto-persist**: ✅ Yes, saved when shots are logged
+
 ## Container Update Best Practices
 
 ### 1. Pre-Update Backup

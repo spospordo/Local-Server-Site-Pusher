@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2025-10-13
+
+### Fixed
+- **CRITICAL: Persistence Bug Fixed**: Config files no longer copied into Docker image, ensuring settings persist across container rebuilds
+- Added all persistent config files to .dockerignore to prevent them from being baked into the image
+- Finance module profile data now properly persists (was already working, now documented)
+- Vidiots scraper enable/disable state now properly persists across redeploys
+- GitHub upload enable/disable state now properly persists across redeploys
+
+### Changed
+- Updated .dockerignore to exclude all persistent configuration files:
+  - config/config.json (main configuration)
+  - config/.client_auth (client passwords)
+  - config/.finance_key and config/.finance_data (finance module)
+  - config/.gitconfig (git identity)
+  - config/ollama-config.json.enc and config/.ollama-key (Ollama AI)
+  - config/config.json.backup and backups/ (backup files)
+
+### Documentation
+- Enhanced PERSISTENCE.md with complete list of all persistent data points:
+  - Added Vidiots scraper configuration section
+  - Added Finance module data section with encryption details
+  - Added Ollama AI integration section
+  - Added GitHub integration settings section
+  - Added Espresso data section
+- All data persistence mechanisms now documented with locations and auto-persist status
+
 ## [2.2.0] - 2025-10-10
 
 ### Added

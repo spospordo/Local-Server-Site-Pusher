@@ -32,6 +32,8 @@ docker-compose up -d
 
 **✨ New**: The container now automatically fixes permission issues with volume mounts - perfect for Portainer deployments!
 
+**🔥 Version 2.2.1 Critical Fix**: Persistence bug resolved! All settings (Vidiots, GitHub upload, Finance data) now properly persist across container rebuilds. See [PERSISTENCE_FIX_SUMMARY.md](PERSISTENCE_FIX_SUMMARY.md) for details.
+
 **🎉 ARM64 Support**: Now fully compatible with Raspberry Pi (4, 5, and other ARM64 devices)!
 
 ### Using Docker
@@ -136,13 +138,19 @@ When using Docker, mount the `config` directory to persist configuration changes
 - Configuration changes via the admin interface are saved to this file
 - Mounting the `config` directory ensures settings persist across container restarts
 
+**🔥 Version 2.2.1 Persistence Fix:**
+- ✅ **Fixed critical bug** where config files were copied into Docker image
+- ✅ **All settings now persist** correctly across container rebuilds (Vidiots, GitHub upload, Finance data)
+- ✅ **Config files excluded** from Docker image via `.dockerignore`
+- ✅ **Volume-mounted config** is now the single source of truth
+
 **Enhanced Persistence Features:**
 - ✅ **Automatic configuration validation and repair** on startup
 - ✅ **Backup utilities** for safe container updates 
 - ✅ **Data recovery tools** for configuration corruption
 - ✅ **Container update scripts** that preserve all settings
 
-See [PERSISTENCE.md](PERSISTENCE.md) for complete persistence documentation.
+See [PERSISTENCE.md](PERSISTENCE.md) for complete persistence documentation, or [PERSISTENCE_FIX_SUMMARY.md](PERSISTENCE_FIX_SUMMARY.md) for details on the v2.2.1 fix.
 
 ### Container Updates
 
