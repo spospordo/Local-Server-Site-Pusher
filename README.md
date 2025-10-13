@@ -302,13 +302,16 @@ This URL can be opened in a browser on any device (tablet, dedicated display, et
 - **API Key** (optional): Get free API key from [OpenWeather](https://openweathermap.org/api)
   - Without key: Shows location name only
   - With key: Live weather data including temperature, conditions, humidity, wind speed
+  - **Persistence**: API key is stored encrypted and persists across container restarts
 - **Update Frequency**: Every 10 minutes (when API key is configured)
+- **Testing**: Use `/api/magicmirror/weather/test` endpoint to verify connection and troubleshoot issues
 
 #### Calendar Widget
 - **iCal/ICS URL**: Any valid iCal/ICS calendar feed
   - Google Calendar: Share calendar → Secret address in iCal format
   - Office 365: Calendar settings → Shared calendars → Publish → ICS
-  - Apple iCloud: Calendar settings → Public calendar → Copy link
+  - Apple iCloud: Calendar settings → Public calendar → Copy link (webcal:// or https://)
+  - **Webcal Support**: Both `webcal://` and `webcals://` URLs are automatically supported
 - **Display**: Shows next 10 upcoming events within 30 days
 - **Update Frequency**: Every hour
 
@@ -323,7 +326,8 @@ This URL can be opened in a browser on any device (tablet, dedicated display, et
 The Magic Mirror uses the following API endpoints for data:
 - `GET /api/magicmirror/data` - Get configuration
 - `GET /api/magicmirror/weather` - Fetch weather data
-- `GET /api/magicmirror/calendar` - Fetch calendar events
+- `GET /api/magicmirror/weather/test` - Test weather API connection (troubleshooting)
+- `GET /api/magicmirror/calendar` - Fetch calendar events (supports webcal:// protocol)
 - `GET /api/magicmirror/news` - Fetch news items
 
 ### Configuration Storage
@@ -340,6 +344,11 @@ Run the magic mirror test suite to validate the implementation:
 node scripts/test-magic-mirror.js
 ```
 
+Test webcal protocol and weather API features:
+```bash
+node scripts/test-webcal-weather.js
+```
+
 Test network accessibility (containers, remote devices):
 ```bash
 node scripts/test-magic-mirror-network.js
@@ -348,6 +357,10 @@ node scripts/test-magic-mirror-network.js
 ### Troubleshooting
 
 **Weather not displaying:**
+- **First**: Test the connection using `curl http://localhost:3000/api/magicmirror/weather/test`
+- This will provide detailed error messages for common issues (invalid API key, location not found, network issues)
+
+**Weather not displaying (continued):**
 - Verify your OpenWeather API key is valid
 - Check location format (e.g., "London,UK" not just "London")
 - View browser console for API errors

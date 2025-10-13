@@ -4698,6 +4698,126 @@ app.get('/api/magicmirror/weather', async (req, res) => {
   }
 });
 
+// Magic Mirror weather API test endpoint
+app.get('/api/magicmirror/weather/test', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🧪 [Magic Mirror Weather Test] ${timestamp} - Request from ${clientIp}`);
+  
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    // Check if weather widget is configured
+    if (!config.enabled || !config.widgets?.weather) {
+      console.log(`⚠️  [Magic Mirror Weather Test] ${timestamp} - Widget not enabled`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Weather widget not enabled',
+        details: 'Enable the weather widget in Magic Mirror configuration first'
+      });
+    }
+
+    // Check if location is configured
+    if (!config.weather?.location) {
+      console.log(`⚠️  [Magic Mirror Weather Test] ${timestamp} - Location not configured`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Location not configured',
+        details: 'Please configure a location (city name) in the weather settings'
+      });
+    }
+
+    // Check if API key is configured
+    if (!config.weather.apiKey || config.weather.apiKey.trim() === '') {
+      console.log(`⚠️  [Magic Mirror Weather Test] ${timestamp} - API key not configured`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'API key not configured',
+        details: 'Please configure your OpenWeather API key in the weather settings. Get one at https://openweathermap.org/api'
+      });
+    }
+
+    // Test the actual API connection
+    const axios = require('axios');
+    const apiKey = config.weather.apiKey;
+    const location = config.weather.location;
+    
+    console.log(`🔍 [Magic Mirror Weather Test] ${timestamp} - Testing connection with location: ${location}`);
+    
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=metric`;
+    
+    try {
+      const response = await axios.get(weatherUrl);
+      const data = response.data;
+      
+      console.log(`✅ [Magic Mirror Weather Test] ${timestamp} - Connection successful for ${data.name}`);
+      
+      res.json({
+        success: true,
+        message: 'Weather API connection successful',
+        details: {
+          location: data.name,
+          country: data.sys?.country,
+          temperature: Math.round(data.main.temp),
+          description: data.weather[0].description,
+          coordinates: {
+            lat: data.coord.lat,
+            lon: data.coord.lon
+          }
+        }
+      });
+    } catch (apiError) {
+      console.error(`❌ [Magic Mirror Weather Test] ${timestamp} - API Error:`, apiError.message);
+      
+      // Provide detailed error messages based on response status
+      if (apiError.response) {
+        const status = apiError.response.status;
+        const errorData = apiError.response.data;
+        
+        if (status === 401) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid API key',
+            details: `Your OpenWeather API key is invalid. Please check your API key at https://openweathermap.org/api. Error: ${errorData.message || 'Unauthorized'}`
+          });
+        } else if (status === 404) {
+          return res.status(400).json({
+            success: false,
+            error: 'Location not found',
+            details: `The location "${location}" could not be found. Please check the spelling or try a different city name. You can also try using "City, Country Code" format (e.g., "London, UK")`
+          });
+        } else {
+          return res.status(500).json({
+            success: false,
+            error: 'API request failed',
+            details: `OpenWeather API returned status ${status}: ${errorData.message || apiError.message}`
+          });
+        }
+      } else if (apiError.code === 'ENOTFOUND' || apiError.code === 'ECONNREFUSED') {
+        return res.status(500).json({
+          success: false,
+          error: 'Network connection error',
+          details: 'Cannot reach OpenWeather API. Please check your internet connection and firewall settings.'
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: 'Connection failed',
+          details: apiError.message
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror Weather Test] ${timestamp} - Error:`, err.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Test failed', 
+      details: err.message 
+    });
+  }
+});
+
 // Magic Mirror calendar API endpoint
 app.get('/api/magicmirror/calendar', async (req, res) => {
   const timestamp = new Date().toISOString();
@@ -4716,8 +4836,18 @@ app.get('/api/magicmirror/calendar', async (req, res) => {
     const axios = require('axios');
     const ical = require('node-ical');
     
+    // Convert webcal:// protocol to https:// for compatibility
+    let calendarUrl = config.calendar.url;
+    if (calendarUrl.startsWith('webcal://')) {
+      calendarUrl = calendarUrl.replace('webcal://', 'https://');
+      console.log(`🔄 [Magic Mirror Calendar] ${timestamp} - Converted webcal:// to https://`);
+    } else if (calendarUrl.startsWith('webcals://')) {
+      calendarUrl = calendarUrl.replace('webcals://', 'https://');
+      console.log(`🔄 [Magic Mirror Calendar] ${timestamp} - Converted webcals:// to https://`);
+    }
+    
     // Fetch and parse iCal data
-    const response = await axios.get(config.calendar.url);
+    const response = await axios.get(calendarUrl);
     const events = await ical.async.parseICS(response.data);
     
     const upcomingEvents = [];

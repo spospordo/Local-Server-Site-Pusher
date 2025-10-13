@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Magic Mirror - Weather API Testing**: New endpoint `/api/magicmirror/weather/test` for testing OpenWeather API connectivity
+  - Tests API key validity with detailed error messages
+  - Validates location configuration and provides suggestions for corrections
+  - Diagnoses network connectivity issues
+  - Provides helpful troubleshooting guidance for common problems
+  - Returns actual weather data on successful connection
+- **Magic Mirror - Webcal Protocol Support**: Calendar widget now supports `webcal://` and `webcals://` URLs
+  - Automatically converts webcal URLs to https for compatibility
+  - Fixes "Unsupported protocol webcal:" error
+  - Works seamlessly with iCloud and other calendar services using webcal links
+
+### Changed
+- Enhanced calendar endpoint to automatically convert webcal:// and webcals:// protocols to https://
+- Improved weather API error handling with specific error codes and detailed troubleshooting messages
+- Updated Magic Mirror documentation with webcal support and weather testing instructions
+
+### Fixed
+- Calendar widget now accepts shared calendars with webcal:// protocol links
+- Weather API key persistence confirmed working across container restarts (already implemented in v2.2.4)
+
+### Technical
+- Modified `/api/magicmirror/calendar` endpoint to handle webcal protocol conversion
+- Added new endpoint: `GET /api/magicmirror/weather/test` for API connection testing
+- Added comprehensive test suite: `scripts/test-webcal-weather.js`
+- All tests passing (6/6)
+
 ## [2.2.4] - 2025-10-13
 
 ### Added
