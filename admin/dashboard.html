@@ -3135,32 +3135,202 @@
                 <!-- Widget Configuration -->
                 <div id="magicMirrorWidgets" style="margin-top: 1.5rem;">
                     <h3>Widget Configuration</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="widgetClock" onchange="saveMagicMirrorConfig()"> 
-                                Clock & Date
-                            </label>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+                        Configure which widgets to display and customize their position and size on the dashboard grid.
+                    </p>
+                    
+                    <!-- Clock Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetClock" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>Clock & Date</strong>
+                                </label>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="widgetWeather" onchange="saveMagicMirrorConfig()"> 
-                                Weather
-                            </label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetClockArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetClockArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetClockSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetClockSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="widgetCalendar" onchange="saveMagicMirrorConfig()"> 
-                                Calendar
-                            </label>
+
+                    <!-- Weather Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetWeather" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>Weather</strong>
+                                </label>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="widgetNews" onchange="saveMagicMirrorConfig()"> 
-                                News Feed
-                            </label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetWeatherArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetWeatherArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetWeatherSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetWeatherSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetCalendar" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>Calendar</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetCalendarArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetCalendarArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetCalendarSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetCalendarSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- News Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetNews" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>News Feed</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetNewsArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetNewsArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetNewsSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetNewsSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Media Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetMedia" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>Media Player</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetMediaArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetMediaArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetMediaSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetMediaSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -9445,11 +9615,36 @@
                     urlElement.textContent = 'Dashboard disabled';
                 }
                 
-                // Set widget checkboxes
-                document.getElementById('widgetClock').checked = config.widgets?.clock || false;
-                document.getElementById('widgetWeather').checked = config.widgets?.weather || false;
-                document.getElementById('widgetCalendar').checked = config.widgets?.calendar || false;
-                document.getElementById('widgetNews').checked = config.widgets?.news || false;
+                // Set widget checkboxes, areas, and sizes
+                // Clock widget
+                const clockWidget = config.widgets?.clock;
+                document.getElementById('widgetClock').checked = clockWidget?.enabled || false;
+                document.getElementById('widgetClockArea').value = clockWidget?.area || 'upper-left';
+                document.getElementById('widgetClockSize').value = clockWidget?.size || 'box';
+                
+                // Weather widget
+                const weatherWidget = config.widgets?.weather;
+                document.getElementById('widgetWeather').checked = weatherWidget?.enabled || false;
+                document.getElementById('widgetWeatherArea').value = weatherWidget?.area || 'upper-center';
+                document.getElementById('widgetWeatherSize').value = weatherWidget?.size || 'box';
+                
+                // Calendar widget
+                const calendarWidget = config.widgets?.calendar;
+                document.getElementById('widgetCalendar').checked = calendarWidget?.enabled || false;
+                document.getElementById('widgetCalendarArea').value = calendarWidget?.area || 'middle-left';
+                document.getElementById('widgetCalendarSize').value = calendarWidget?.size || 'box';
+                
+                // News widget
+                const newsWidget = config.widgets?.news;
+                document.getElementById('widgetNews').checked = newsWidget?.enabled || false;
+                document.getElementById('widgetNewsArea').value = newsWidget?.area || 'bottom-left';
+                document.getElementById('widgetNewsSize').value = newsWidget?.size || 'bar';
+                
+                // Media widget
+                const mediaWidget = config.widgets?.media;
+                document.getElementById('widgetMedia').checked = mediaWidget?.enabled || false;
+                document.getElementById('widgetMediaArea').value = mediaWidget?.area || 'middle-right';
+                document.getElementById('widgetMediaSize').value = mediaWidget?.size || 'box';
                 
                 // Set weather config
                 document.getElementById('weatherLocation').value = config.weather?.location || '';
@@ -9472,10 +9667,31 @@
                 const config = {
                     enabled: document.getElementById('magicMirrorEnabled').value === 'true',
                     widgets: {
-                        clock: document.getElementById('widgetClock').checked,
-                        weather: document.getElementById('widgetWeather').checked,
-                        calendar: document.getElementById('widgetCalendar').checked,
-                        news: document.getElementById('widgetNews').checked
+                        clock: {
+                            enabled: document.getElementById('widgetClock').checked,
+                            area: document.getElementById('widgetClockArea').value,
+                            size: document.getElementById('widgetClockSize').value
+                        },
+                        weather: {
+                            enabled: document.getElementById('widgetWeather').checked,
+                            area: document.getElementById('widgetWeatherArea').value,
+                            size: document.getElementById('widgetWeatherSize').value
+                        },
+                        calendar: {
+                            enabled: document.getElementById('widgetCalendar').checked,
+                            area: document.getElementById('widgetCalendarArea').value,
+                            size: document.getElementById('widgetCalendarSize').value
+                        },
+                        news: {
+                            enabled: document.getElementById('widgetNews').checked,
+                            area: document.getElementById('widgetNewsArea').value,
+                            size: document.getElementById('widgetNewsSize').value
+                        },
+                        media: {
+                            enabled: document.getElementById('widgetMedia').checked,
+                            area: document.getElementById('widgetMediaArea').value,
+                            size: document.getElementById('widgetMediaSize').value
+                        }
                     },
                     weather: {
                         location: document.getElementById('weatherLocation').value,
