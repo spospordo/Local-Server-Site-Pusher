@@ -275,17 +275,44 @@
             if (!weatherContent || !config.weather?.location) return;
 
             try {
-                // This is a placeholder - in production, you would call a weather API
-                // For now, just show the location
-                weatherContent.innerHTML = `
-                    <div class="temperature">--°</div>
-                    <div class="weather-description">
-                        ${config.weather.location}<br>
-                        <small style="color: #666;">Weather API integration needed</small>
-                    </div>
-                `;
+                const response = await fetch('/api/magicmirror/weather');
+                if (!response.ok) throw new Error('Failed to fetch weather data');
+                
+                const data = await response.json();
+                
+                if (data.placeholder) {
+                    weatherContent.innerHTML = `
+                        <div class="temperature">--°</div>
+                        <div class="weather-description">
+                            ${data.location}<br>
+                            <small style="color: #666;">Configure API key in admin panel for live weather</small>
+                        </div>
+                    `;
+                } else {
+                    const iconUrl = `https://openweathermap.org/img/wn/${data.icon}@2x.png`;
+                    weatherContent.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <img src="${iconUrl}" alt="${data.description}" style="width: 80px; height: 80px;">
+                            <div>
+                                <div class="temperature">${data.temperature}°C</div>
+                                <div class="weather-description">
+                                    ${data.description}<br>
+                                    ${data.location}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem; font-size: 0.9rem; color: #aaa;">
+                            💧 ${data.humidity}% | 💨 ${data.windSpeed} m/s
+                        </div>
+                    `;
+                }
             } catch (error) {
                 console.error('Error updating weather:', error);
+                weatherContent.innerHTML = `
+                    <div class="weather-description" style="color: #ff6b6b;">
+                        Unable to fetch weather data
+                    </div>
+                `;
             }
         }
 
@@ -294,15 +321,46 @@
             if (!calendarContent || !config.calendar?.url) return;
 
             try {
-                // This is a placeholder - in production, you would fetch and parse the iCal feed
-                calendarContent.innerHTML = `
-                    <div class="calendar-event">
-                        <div class="event-time">Calendar integration</div>
-                        <div>iCal parsing to be implemented</div>
-                    </div>
-                `;
+                const response = await fetch('/api/magicmirror/calendar');
+                if (!response.ok) throw new Error('Failed to fetch calendar data');
+                
+                const data = await response.json();
+                
+                if (data.events && data.events.length > 0) {
+                    const eventsHtml = data.events.map(event => {
+                        const startDate = new Date(event.start);
+                        const timeStr = startDate.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                        const dateStr = startDate.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        
+                        return `
+                            <div class="calendar-event">
+                                <div class="event-time">${dateStr} at ${timeStr}</div>
+                                <div>${event.summary}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    calendarContent.innerHTML = eventsHtml;
+                } else {
+                    calendarContent.innerHTML = `
+                        <div class="calendar-event">
+                            <div>No upcoming events</div>
+                        </div>
+                    `;
+                }
             } catch (error) {
                 console.error('Error updating calendar:', error);
+                calendarContent.innerHTML = `
+                    <div style="color: #ff6b6b;">
+                        Unable to fetch calendar data
+                    </div>
+                `;
             }
         }
 
@@ -311,15 +369,43 @@
             if (!newsContent || !config.news?.source) return;
 
             try {
-                // This is a placeholder - in production, you would fetch and parse the RSS feed
-                newsContent.innerHTML = `
-                    <div class="news-item">
-                        <div class="news-title">News Feed Integration</div>
-                        <div class="news-time">RSS parsing to be implemented</div>
-                    </div>
-                `;
+                const response = await fetch('/api/magicmirror/news');
+                if (!response.ok) throw new Error('Failed to fetch news data');
+                
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    const newsHtml = data.items.map(item => {
+                        const pubDate = item.pubDate ? new Date(item.pubDate).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : '';
+                        
+                        return `
+                            <div class="news-item">
+                                <div class="news-title">${item.title}</div>
+                                ${pubDate ? `<div class="news-time">${pubDate}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    newsContent.innerHTML = newsHtml;
+                } else {
+                    newsContent.innerHTML = `
+                        <div class="news-item">
+                            <div class="news-title">No news items available</div>
+                        </div>
+                    `;
+                }
             } catch (error) {
                 console.error('Error updating news:', error);
+                newsContent.innerHTML = `
+                    <div style="color: #ff6b6b;">
+                        Unable to fetch news feed
+                    </div>
+                `;
             }
         }
 

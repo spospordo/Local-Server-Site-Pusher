@@ -4561,6 +4561,137 @@ app.get('/api/magicmirror/data', (req, res) => {
   }
 });
 
+// Magic Mirror weather API endpoint
+app.get('/api/magicmirror/weather', async (req, res) => {
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    if (!config.enabled || !config.widgets?.weather || !config.weather?.location) {
+      return res.status(400).json({ error: 'Weather widget not configured' });
+    }
+
+    // If API key is provided, fetch real weather data
+    if (config.weather.apiKey) {
+      const axios = require('axios');
+      const apiKey = config.weather.apiKey;
+      const location = config.weather.location;
+      
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=metric`;
+      
+      const response = await axios.get(weatherUrl);
+      const data = response.data;
+      
+      res.json({
+        temperature: Math.round(data.main.temp),
+        description: data.weather[0].description,
+        icon: data.weather[0].icon,
+        location: data.name,
+        humidity: data.main.humidity,
+        windSpeed: data.wind.speed
+      });
+    } else {
+      // Return placeholder data if no API key
+      res.json({
+        temperature: '--',
+        description: 'API key required',
+        location: config.weather.location,
+        placeholder: true
+      });
+    }
+  } catch (err) {
+    console.error('❌ [Magic Mirror] Weather API error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch weather data: ' + err.message });
+  }
+});
+
+// Magic Mirror calendar API endpoint
+app.get('/api/magicmirror/calendar', async (req, res) => {
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    if (!config.enabled || !config.widgets?.calendar || !config.calendar?.url) {
+      return res.status(400).json({ error: 'Calendar widget not configured' });
+    }
+
+    const axios = require('axios');
+    const ical = require('node-ical');
+    
+    // Fetch and parse iCal data
+    const response = await axios.get(config.calendar.url);
+    const events = await ical.async.parseICS(response.data);
+    
+    const upcomingEvents = [];
+    const now = new Date();
+    const futureLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    for (const event of Object.values(events)) {
+      if (event.type === 'VEVENT') {
+        const start = new Date(event.start);
+        if (start >= now && start <= futureLimit) {
+          upcomingEvents.push({
+            summary: event.summary,
+            start: start.toISOString(),
+            end: event.end ? new Date(event.end).toISOString() : null,
+            description: event.description || ''
+          });
+        }
+      }
+    }
+    
+    // Sort by start time
+    upcomingEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+    
+    res.json({
+      events: upcomingEvents.slice(0, 10) // Limit to 10 events
+    });
+  } catch (err) {
+    console.error('❌ [Magic Mirror] Calendar API error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch calendar data: ' + err.message });
+  }
+});
+
+// Magic Mirror news API endpoint
+app.get('/api/magicmirror/news', async (req, res) => {
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    if (!config.enabled || !config.widgets?.news || !config.news?.source) {
+      return res.status(400).json({ error: 'News widget not configured' });
+    }
+
+    const axios = require('axios');
+    const cheerio = require('cheerio');
+    
+    // Fetch RSS feed
+    const response = await axios.get(config.news.source);
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    
+    const newsItems = [];
+    $('item').each((i, item) => {
+      if (i < 10) { // Limit to 10 items
+        const title = $(item).find('title').text();
+        const link = $(item).find('link').text();
+        const pubDate = $(item).find('pubDate').text();
+        const description = $(item).find('description').text();
+        
+        newsItems.push({
+          title: title,
+          link: link,
+          pubDate: pubDate,
+          description: description
+        });
+      }
+    });
+    
+    res.json({
+      items: newsItems
+    });
+  } catch (err) {
+    console.error('❌ [Magic Mirror] News API error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch news data: ' + err.message });
+  }
+});
+
 // Magic Mirror display page
 app.get('/magic-mirror', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'magic-mirror.html'));

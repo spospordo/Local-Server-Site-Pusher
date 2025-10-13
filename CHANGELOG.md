@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2025-10-13
+
+### Added
+- **Complete Magic Mirror Implementation**: Fully functional magic mirror dashboard with real data integration
+  - Weather widget now fetches live weather data from OpenWeather API
+  - Calendar widget parses and displays iCal/ICS feeds with upcoming events
+  - News widget fetches and displays RSS feed items
+  - Backend API endpoints for weather, calendar, and news data
+  - Graceful fallbacks when API keys or feeds are not configured
+  - Real-time updates for all widgets (weather: 10 min, calendar: 1 hour, news: 15 min)
+  - Comprehensive error handling and user-friendly error messages
+  
+### Changed
+- Magic Mirror weather widget now displays live weather data with temperature, conditions, humidity, and wind speed
+- Magic Mirror calendar widget now shows actual upcoming events from iCal feeds
+- Magic Mirror news widget now displays real RSS feed items with titles and timestamps
+- Enhanced magic mirror HTML with improved weather display including weather icons
+- Improved error handling for all magic mirror API endpoints
+
+### Fixed
+- Magic mirror placeholder implementations replaced with fully functional integrations
+- Weather API now properly handles both configured and unconfigured API key states
+- Calendar parsing now correctly filters and sorts upcoming events
+- News feed parsing now properly extracts RSS items
+
+### Technical
+- Added `node-ical` dependency for iCal/ICS calendar parsing
+- New API endpoints:
+  - `GET /api/magicmirror/weather` - Fetch weather data
+  - `GET /api/magicmirror/calendar` - Fetch calendar events
+  - `GET /api/magicmirror/news` - Fetch news feed items
+- Added comprehensive test suite: `scripts/test-magic-mirror.js`
+- All tests passing (14/14)
+
 ## [2.2.3] - 2025-10-13
 
 ### Added

@@ -250,25 +250,37 @@ See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
 
 ## Magic Mirror Dashboard
 
-The Magic Mirror feature provides a customizable information dashboard that can be displayed on external devices like tablets or dedicated displays.
+The Magic Mirror feature provides a fully functional information dashboard that displays real-time data from multiple sources. Perfect for tablets, dedicated displays, or digital signage.
 
 ### Features
 
-- **Widgets**: Clock/Date, Weather, Calendar, News Feed
+- **Real-time Widgets**: Clock/Date, Weather, Calendar, News Feed
+- **Live Data Integration**: 
+  - Weather data from OpenWeather API (optional API key)
+  - Calendar events from iCal/ICS feeds
+  - News items from RSS feeds
+- **Auto-refresh**: Widgets automatically update (weather: 10 min, calendar: 1 hour, news: 15 min)
 - **Customizable**: Enable/disable widgets as needed
 - **Easy Configuration**: Simple admin interface for setup
 - **Secure**: AES-256-GCM encrypted configuration storage
 - **Public Display**: Accessible via unique URL for display on any device
+- **Graceful Fallbacks**: Works with or without API keys/feeds configured
 
 ### Quick Setup
 
 1. In Admin Dashboard, navigate to **Server > Magic Mirror**
 2. Enable Magic Mirror Dashboard
 3. Configure widgets:
-   - **Clock**: Automatically shows current time and date
-   - **Weather**: Set location and optional OpenWeather API key
-   - **Calendar**: Add iCal/ICS calendar URL
-   - **News**: Configure RSS feed URL
+   - **Clock**: Automatically shows current time and date (always available)
+   - **Weather**: Set location and optional OpenWeather API key for live weather
+     - Without API key: Shows location only
+     - With API key: Live temperature, conditions, humidity, wind speed
+   - **Calendar**: Add iCal/ICS calendar URL for upcoming events
+     - Displays next 10 upcoming events
+     - Shows event time and title
+   - **News**: Configure RSS feed URL for latest news
+     - Displays latest 10 news items
+     - Shows title and publication time
 4. Click "Save Configuration"
 5. Open the dashboard at `http://your-server:3000/magic-mirror`
 
@@ -281,20 +293,67 @@ http://your-server-ip:3000/magic-mirror
 
 This URL can be opened in a browser on any device (tablet, dedicated display, etc.) to show your customized information dashboard.
 
+### Widget Configuration Details
+
+#### Weather Widget
+- **Location**: City name (e.g., "London, UK" or "New York, US")
+- **API Key** (optional): Get free API key from [OpenWeather](https://openweathermap.org/api)
+  - Without key: Shows location name only
+  - With key: Live weather data including temperature, conditions, humidity, wind speed
+- **Update Frequency**: Every 10 minutes (when API key is configured)
+
+#### Calendar Widget
+- **iCal/ICS URL**: Any valid iCal/ICS calendar feed
+  - Google Calendar: Share calendar → Secret address in iCal format
+  - Office 365: Calendar settings → Shared calendars → Publish → ICS
+  - Apple iCloud: Calendar settings → Public calendar → Copy link
+- **Display**: Shows next 10 upcoming events within 30 days
+- **Update Frequency**: Every hour
+
+#### News Widget
+- **RSS Feed URL**: Any valid RSS/Atom feed
+  - Examples: BBC, CNN, TechCrunch, your favorite blog
+- **Display**: Shows latest 10 news items with titles and timestamps
+- **Update Frequency**: Every 15 minutes
+
+### API Endpoints
+
+The Magic Mirror uses the following API endpoints for data:
+- `GET /api/magicmirror/data` - Get configuration
+- `GET /api/magicmirror/weather` - Fetch weather data
+- `GET /api/magicmirror/calendar` - Fetch calendar events
+- `GET /api/magicmirror/news` - Fetch news items
+
 ### Configuration Storage
 
 - Configuration stored in encrypted format: `config/magicmirror-config.json.enc`
 - Encryption key: `config/.magicmirror-key` (auto-generated)
 - Settings persist across container restarts via volume mounts
+- API keys stored securely and never exposed to frontend
 
-### Future Enhancements
+### Testing
 
-The Magic Mirror implementation provides a foundation for:
-- Additional widget types (transit times, reminders, custom modules)
-- Weather API integration with live data
-- Calendar event parsing and display
-- RSS feed parsing for news updates
-- Custom widget development
+Run the magic mirror test suite to validate the implementation:
+```bash
+node scripts/test-magic-mirror.js
+```
+
+### Troubleshooting
+
+**Weather not displaying:**
+- Verify your OpenWeather API key is valid
+- Check location format (e.g., "London,UK" not just "London")
+- View browser console for API errors
+
+**Calendar events not showing:**
+- Ensure iCal URL is publicly accessible
+- Test the URL in a browser to verify it returns calendar data
+- Check that events are in the future (next 30 days)
+
+**News feed not loading:**
+- Verify RSS feed URL is valid and accessible
+- Some feeds may have CORS restrictions
+- Check browser console for errors
 
 ## Home Assistant Integration
 
