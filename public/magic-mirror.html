@@ -211,6 +211,140 @@
             color: #aaa;
         }
 
+        /* Media Widget Styles */
+        .media-player-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .media-bar {
+            flex-direction: row;
+        }
+
+        .media-box {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .media-album-art {
+            flex-shrink: 0;
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .media-album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-album-art-small {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            margin: 0 auto 0.75rem;
+        }
+
+        .media-album-art-small img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-width: 0;
+        }
+
+        .media-track-info {
+            margin-bottom: 0.5rem;
+        }
+
+        .media-title {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-artist {
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-bottom: 0.3rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-album {
+            font-size: 0.95rem;
+            color: #888;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-state-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .media-player-name {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .media-state {
+            font-size: 0.9rem;
+            color: #4a90e2;
+            font-weight: 500;
+        }
+
+        .media-details-compact {
+            width: 100%;
+        }
+
+        .media-title-small {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-artist-small {
+            font-size: 0.95rem;
+            color: #aaa;
+            margin-bottom: 0.4rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-state-small {
+            font-size: 0.85rem;
+            color: #4a90e2;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
         .error-message {
             padding: 1rem;
             background: rgba(255, 59, 48, 0.1);
@@ -364,6 +498,12 @@
                     updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000); // 15 minutes
                 }
                 
+                const mediaConfig = config.widgets.media;
+                if (mediaConfig && mediaConfig.enabled) {
+                    updateMedia();
+                    updateIntervals.media = setInterval(updateMedia, 5000); // 5 seconds for real-time updates
+                }
+                
                 updateLastUpdateTime();
                 setInterval(updateLastUpdateTime, 60000); // Update every minute
                 
@@ -399,6 +539,11 @@
                     icon: '📰',
                     title: 'News',
                     content: `<div id="news-content"><div class="loading">Loading news...</div></div>`
+                },
+                media: {
+                    icon: '🎵',
+                    title: 'Now Playing',
+                    content: `<div id="media-content"><div class="loading">Loading media data...</div></div>`
                 }
             };
 
@@ -566,6 +711,84 @@
             } catch (error) {
                 console.error('Error updating news:', error);
                 content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        }
+
+        async function updateMedia() {
+            const content = document.getElementById('media-content');
+            if (!content) return;
+            
+            try {
+                const response = await fetch('/api/media-streaming');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch media data');
+                }
+                
+                const result = await response.json();
+                const data = result.data;
+                
+                if (!result.success || !data.hasActiveMedia || data.players.length === 0) {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No active media players</div>';
+                    return;
+                }
+                
+                // Find the first active player
+                const activePlayer = data.players.find(p => p.isActive);
+                if (!activePlayer) {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No media playing</div>';
+                    return;
+                }
+                
+                // Build HTML based on widget size
+                const mediaWidget = document.getElementById('media-widget');
+                const isBarSize = mediaWidget && mediaWidget.classList.contains('size-bar');
+                
+                let mediaHtml = '';
+                
+                if (isBarSize) {
+                    // Large/bar widget - show more details with album art
+                    mediaHtml = `
+                        <div class="media-player-info media-bar">
+                            ${activePlayer.entity_picture ? 
+                                `<div class="media-album-art">
+                                    <img src="${activePlayer.entity_picture}" alt="Album Art" />
+                                </div>` : ''}
+                            <div class="media-details">
+                                <div class="media-track-info">
+                                    <div class="media-title">${activePlayer.media_title || 'Unknown Track'}</div>
+                                    ${activePlayer.media_artist ? `<div class="media-artist">${activePlayer.media_artist}</div>` : ''}
+                                    ${activePlayer.media_album_name ? `<div class="media-album">${activePlayer.media_album_name}</div>` : ''}
+                                </div>
+                                <div class="media-state-info">
+                                    <div class="media-player-name">${activePlayer.friendly_name}</div>
+                                    <div class="media-state">${activePlayer.state === 'playing' ? '▶ Playing' : activePlayer.state === 'paused' ? '⏸ Paused' : activePlayer.state}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Small/box widget - compact view
+                    mediaHtml = `
+                        <div class="media-player-info media-box">
+                            ${activePlayer.entity_picture ? 
+                                `<div class="media-album-art-small">
+                                    <img src="${activePlayer.entity_picture}" alt="Album Art" />
+                                </div>` : ''}
+                            <div class="media-details-compact">
+                                <div class="media-title-small">${activePlayer.media_title || 'Unknown Track'}</div>
+                                ${activePlayer.media_artist ? `<div class="media-artist-small">${activePlayer.media_artist}</div>` : ''}
+                                <div class="media-state-small">${activePlayer.state === 'playing' ? '▶ Playing' : activePlayer.state === 'paused' ? '⏸ Paused' : activePlayer.state}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                content.innerHTML = mediaHtml;
+            } catch (error) {
+                console.error('Error updating media:', error);
+                content.innerHTML = '<div style="text-align: center; padding: 1rem; color: #ff6b6b; font-size: 0.9rem;">' + error.message + '</div>';
             }
         }
 
