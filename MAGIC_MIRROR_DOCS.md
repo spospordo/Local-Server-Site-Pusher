@@ -62,6 +62,7 @@ Enable and configure the widgets you want:
    - **Google Calendar**: Calendar settings → "Integrate calendar" → Secret address in iCal format
    - **Office 365**: Calendar → Settings → Shared calendars → Publish → Copy ICS link
    - **Apple iCloud**: Calendar settings → Public calendar → Copy webcal or https link
+   - **Webcal Protocol**: Both `webcal://` and `webcals://` URLs are automatically supported and converted to `https://`
 
 #### News Widget
 1. Check "News Feed" to enable
@@ -132,7 +133,7 @@ Response (without API key):
 ```
 GET /api/magicmirror/calendar
 ```
-Fetches and parses iCal/ICS calendar events
+Fetches and parses iCal/ICS calendar events. Supports standard `https://` URLs as well as `webcal://` and `webcals://` protocols (automatically converted to `https://`).
 
 Response:
 ```json
@@ -145,6 +146,47 @@ Response:
       "description": "Weekly sync"
     }
   ]
+}
+```
+
+```
+GET /api/magicmirror/weather/test
+```
+Tests the OpenWeather API connection and configuration. Provides detailed error messages for troubleshooting.
+
+Response (success):
+```json
+{
+  "success": true,
+  "message": "Weather API connection successful",
+  "details": {
+    "location": "London",
+    "country": "GB",
+    "temperature": 22,
+    "description": "clear sky",
+    "coordinates": {
+      "lat": 51.51,
+      "lon": -0.13
+    }
+  }
+}
+```
+
+Response (error - missing API key):
+```json
+{
+  "success": false,
+  "error": "API key not configured",
+  "details": "Please configure your OpenWeather API key in the weather settings. Get one at https://openweathermap.org/api"
+}
+```
+
+Response (error - invalid location):
+```json
+{
+  "success": false,
+  "error": "Location not found",
+  "details": "The location \"Unknowncity\" could not be found. Please check the spelling or try a different city name. You can also try using \"City, Country Code\" format (e.g., \"London, UK\")"
 }
 ```
 
@@ -231,22 +273,28 @@ Total: 14
 
 ### Manual Testing
 
-1. **Test Weather Widget**:
+1. **Test Weather API Connection** (recommended first step):
+   ```bash
+   curl http://localhost:3000/api/magicmirror/weather/test
+   ```
+   This will verify your API key, location, and network connectivity with detailed error messages.
+
+2. **Test Weather Widget**:
    ```bash
    curl http://localhost:3000/api/magicmirror/weather
    ```
 
-2. **Test Calendar Widget**:
+3. **Test Calendar Widget**:
    ```bash
    curl http://localhost:3000/api/magicmirror/calendar
    ```
 
-3. **Test News Widget**:
+4. **Test News Widget**:
    ```bash
    curl http://localhost:3000/api/magicmirror/news
    ```
 
-4. **View Dashboard**:
+5. **View Dashboard**:
    - Open: `http://localhost:3000/magic-mirror`
    - Check browser console for errors
    - Verify widgets display correctly
@@ -257,23 +305,51 @@ Total: 14
 
 **Problem**: Weather not displaying or showing errors
 
-**Solutions**:
-1. Verify OpenWeather API key is valid:
-   - Login to openweathermap.org
-   - Check API keys section
-   - Ensure key is active (may take 10 minutes after creation)
+**First Step - Use the Test Endpoint**:
+```bash
+curl http://localhost:3000/api/magicmirror/weather/test
+```
 
-2. Check location format:
-   - Use format: "City, CountryCode" (e.g., "London, UK")
-   - Try just city name if country code doesn't work
-   - Some cities require state: "Austin, TX, US"
+This dedicated test endpoint will check:
+- ✅ Weather widget is enabled
+- ✅ Location is configured
+- ✅ API key is configured
+- ✅ API connection is working
+- ✅ Location can be found
 
-3. Check browser console:
-   - Look for API error messages
-   - Verify API response format
-   - Check for CORS issues
+The test provides detailed error messages for each issue, making troubleshooting much easier.
+
+**Common Issues and Solutions**:
+
+1. **Invalid API Key**:
+   - Error: `"Invalid API key"`
+   - Solution: 
+     - Verify your key at openweathermap.org
+     - Ensure key is active (may take 10-15 minutes after creation)
+     - Copy the key carefully (no extra spaces)
+
+2. **Location Not Found**:
+   - Error: `"Location not found"`
+   - Solution:
+     - Use format: "City, CountryCode" (e.g., "London, UK")
+     - Try just city name if country code doesn't work
+     - Some cities require state: "Austin, TX, US"
+     - Check spelling of city name
+
+3. **Network Connection Error**:
+   - Error: `"Network connection error"`
+   - Solution:
+     - Check internet connectivity
+     - Verify firewall allows outbound HTTPS to api.openweathermap.org
+     - Check if running in isolated Docker network
+
+4. **Widget Not Enabled**:
+   - Error: `"Weather widget not enabled"`
+   - Solution: Enable the weather widget in Magic Mirror configuration
 
 **Free API Limits**: OpenWeather free tier allows 1,000 calls/day (more than enough for 10-min updates)
+
+**API Key Persistence**: Your API key is stored encrypted and persists across container restarts when using volume mounts.
 
 ### Calendar Widget Issues
 
@@ -291,10 +367,16 @@ Total: 14
    - Past events are ignored
    - Verify events exist in this timeframe
 
-3. Common URL issues:
+3. **Webcal Protocol Support**:
+   - ✅ **Both `webcal://` and `webcals://` URLs are now supported**
+   - The system automatically converts them to `https://`
+   - No need to manually replace `webcal://` anymore!
+   - Example: `webcal://example.com/cal.ics` → works automatically
+
+4. Common URL issues:
    - Google Calendar: Must use "Secret Address" not sharing link
    - Office 365: Use ICS URL not web link
-   - iCloud: Use https:// link (replace webcal://)
+   - iCloud: Can use `webcal://` or `https://` link (both work)
 
 ### News Widget Issues
 
