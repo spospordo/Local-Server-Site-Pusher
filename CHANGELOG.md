@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Magic Mirror - Forecast Widget**: New separate widget for multi-day weather forecasts
+  - Displays weather projections for tomorrow and up to 10 days ahead
+  - Shows daily temperature ranges (min/max)
+  - Configurable forecast duration (1, 3, 5, or 10 days)
+  - Weather condition icons for each forecast day
+  - Humidity and wind speed information per day
+  - New API endpoint: `GET /api/magicmirror/forecast`
 - **Magic Mirror - Weather API Testing**: New endpoint `/api/magicmirror/weather/test` for testing OpenWeather API connectivity
   - Tests API key validity with detailed error messages
   - Validates location configuration and provides suggestions for corrections
@@ -20,19 +27,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Works seamlessly with iCloud and other calendar services using webcal links
 
 ### Changed
+- **Weather Widget Title**: Changed from "Weather" to "Current Weather" to distinguish from forecast
+- Enhanced weather API response to include `condition` field (main weather category)
+- Enhanced weather API response to include `unit` field (temperature unit)
+- Improved weather widget display with larger weather icons
 - Enhanced calendar endpoint to automatically convert webcal:// and webcals:// protocols to https://
 - Improved weather API error handling with specific error codes and detailed troubleshooting messages
-- Updated Magic Mirror documentation with webcal support and weather testing instructions
+- Updated Magic Mirror documentation with forecast widget and enhanced weather features
 
 ### Fixed
+- **Weather Widget Data Rendering**: Fixed 'undefined' values in weather display
+  - Corrected API response field mapping (`condition` instead of just `description`)
+  - Added missing `unit` field for temperature display
+  - Fixed placeholder data to include all required fields
+  - All weather data now displays correctly
 - Calendar widget now accepts shared calendars with webcal:// protocol links
 - Weather API key persistence confirmed working across container restarts (already implemented in v2.2.4)
 
 ### Technical
+- Modified `/api/magicmirror/weather` endpoint to include `condition` and `unit` fields
+- Added new endpoint: `GET /api/magicmirror/forecast` for multi-day weather forecasts
 - Modified `/api/magicmirror/calendar` endpoint to handle webcal protocol conversion
-- Added new endpoint: `GET /api/magicmirror/weather/test` for API connection testing
+- Added weather icon mapping in both HTML and module files
+- Enhanced widget templates to support forecast widget
+- Added forecast configuration to DEFAULT_CONFIG in magicmirror.js
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
-- All tests passing (6/6)
+- Weather and forecast tests passing (7/7)
 
 ## [2.2.4] - 2025-10-13
 
