@@ -79,15 +79,21 @@ async function runTests() {
         }
     });
 
-    // Test 2: Dashboard HTML contains all required widgets
-    await test('Dashboard HTML contains all required widgets', async () => {
+    // Test 2: Dashboard HTML contains all required widget areas
+    await test('Dashboard HTML contains all required widget areas', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
         const requiredElements = [
-            'clock-widget',
-            'weather-widget',
-            'calendar-widget',
-            'news-widget',
+            'widget-area',
+            'area-upper-left',
+            'area-upper-center',
+            'area-upper-right',
+            'area-middle-left',
+            'area-middle-center',
+            'area-middle-right',
+            'area-bottom-left',
+            'area-bottom-center',
+            'area-bottom-right',
             'disabled-container',
             'dashboard-container'
         ];
@@ -205,9 +211,14 @@ async function runTests() {
             throw new Error('Response is not valid HTML');
         }
         
-        // Should contain widget containers
-        if (!response.rawBody.includes('clock-widget')) {
-            throw new Error('Response missing clock widget container');
+        // Should contain widget area containers
+        if (!response.rawBody.includes('widget-area')) {
+            throw new Error('Response missing widget area containers');
+        }
+        
+        // Should contain createWidgets function for dynamic widget creation
+        if (!response.rawBody.includes('createWidgets')) {
+            throw new Error('Response missing createWidgets function');
         }
     });
 
