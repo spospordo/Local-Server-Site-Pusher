@@ -21,6 +21,8 @@ config/.finance_data
 config/.gitconfig
 config/ollama-config.json.enc
 config/.ollama-key
+config/magicmirror-config.json.enc
+config/.magicmirror-key
 
 # Exclude backup files
 config/config.json.backup

@@ -9,6 +9,7 @@ A containerized web application with admin interface for serving web content and
 📊 **Status Monitoring**: Integration with Home Assistant and Cockpit  
 🐳 **Containerized**: Easy deployment with Docker  
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
+🪞 **Magic Mirror**: Customizable information dashboard for displaying time, weather, calendar, and news  
 
 ## Quick Start
 
@@ -246,6 +247,54 @@ The Finance > Spending tab includes AI-powered assistance through Ollama LLM int
 - 📁 Local storage - no external API calls
 
 See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
+
+## Magic Mirror Dashboard
+
+The Magic Mirror feature provides a customizable information dashboard that can be displayed on external devices like tablets or dedicated displays.
+
+### Features
+
+- **Widgets**: Clock/Date, Weather, Calendar, News Feed
+- **Customizable**: Enable/disable widgets as needed
+- **Easy Configuration**: Simple admin interface for setup
+- **Secure**: AES-256-GCM encrypted configuration storage
+- **Public Display**: Accessible via unique URL for display on any device
+
+### Quick Setup
+
+1. In Admin Dashboard, navigate to **Server > Magic Mirror**
+2. Enable Magic Mirror Dashboard
+3. Configure widgets:
+   - **Clock**: Automatically shows current time and date
+   - **Weather**: Set location and optional OpenWeather API key
+   - **Calendar**: Add iCal/ICS calendar URL
+   - **News**: Configure RSS feed URL
+4. Click "Save Configuration"
+5. Open the dashboard at `http://your-server:3000/magic-mirror`
+
+### Display URL
+
+Once enabled, the Magic Mirror dashboard is accessible at:
+```
+http://your-server-ip:3000/magic-mirror
+```
+
+This URL can be opened in a browser on any device (tablet, dedicated display, etc.) to show your customized information dashboard.
+
+### Configuration Storage
+
+- Configuration stored in encrypted format: `config/magicmirror-config.json.enc`
+- Encryption key: `config/.magicmirror-key` (auto-generated)
+- Settings persist across container restarts via volume mounts
+
+### Future Enhancements
+
+The Magic Mirror implementation provides a foundation for:
+- Additional widget types (transit times, reminders, custom modules)
+- Weather API integration with live data
+- Calendar event parsing and display
+- RSS feed parsing for news updates
+- Custom widget development
 
 ## Home Assistant Integration
 

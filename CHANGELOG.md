@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.3] - 2025-10-13
+
+### Added
+- **Magic Mirror Dashboard**: New tab in Server section for configurable information dashboard
+  - Admin interface to enable/disable Magic Mirror dashboard
+  - Widget configuration (Clock, Weather, Calendar, News)
+  - Weather settings with location and optional API key support
+  - Calendar integration via iCal/ICS URL
+  - News feed integration via RSS URL
+  - Public dashboard page accessible at `/magic-mirror`
+  - Secure encrypted storage for configuration (AES-256-GCM)
+  - New backend module `modules/magicmirror.js` for configuration management
+  - API endpoints:
+    - `GET /admin/api/magicmirror/config` - Get configuration (admin only)
+    - `POST /admin/api/magicmirror/config` - Update configuration (admin only)
+    - `GET /api/magicmirror/data` - Get dashboard data (public, enabled check)
+
+### Changed
+- Added Magic Mirror sub-tab to Server section in admin dashboard
+- Enhanced server configuration capabilities with dashboard display functionality
+
 ## [2.2.2] - 2025-10-13
 
 ### Added
