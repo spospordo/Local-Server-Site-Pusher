@@ -722,7 +722,7 @@ function generateDefaultHTML() {
                     if (!areaElement) continue;
                     
                     const widgetHtml = \`
-                        <div class="widget size-\${size} \${widgetName}-widget">
+                        <div class="widget size-\${size}" id="\${widgetName}-widget">
                             <div class="widget-header">
                                 <span class="widget-icon">\${template.icon}</span>
                                 <span class="widget-title">\${template.title}</span>
