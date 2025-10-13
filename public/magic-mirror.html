@@ -3,9 +3,498 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Mirror - Placeholder</title>
+    <title>Magic Mirror Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        .disabled-message {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(255, 59, 48, 0.1);
+            border: 2px solid rgba(255, 59, 48, 0.3);
+            border-radius: 10px;
+            margin: 2rem auto;
+            max-width: 600px;
+        }
+
+        .disabled-message h2 {
+            color: #ff3b30;
+            margin-bottom: 1rem;
+        }
+
+        .disabled-message p {
+            color: #ddd;
+            line-height: 1.6;
+        }
+
+        .widget-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .widget:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(74, 144, 226, 0.2);
+        }
+
+        .widget-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .widget-icon {
+            font-size: 2rem;
+            margin-right: 1rem;
+        }
+
+        .widget-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
+
+        .widget-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        .clock-time {
+            font-size: 4rem;
+            font-weight: 300;
+            text-align: center;
+            margin: 1rem 0;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        .clock-date {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #aaa;
+        }
+
+        .weather-temp {
+            font-size: 3rem;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .weather-icon {
+            text-align: center;
+            font-size: 4rem;
+            margin: 1rem 0;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .weather-detail {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .calendar-event {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #4a90e2;
+        }
+
+        .event-time {
+            color: #4a90e2;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .event-title {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .news-item {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #ff6b6b;
+        }
+
+        .news-title {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .news-time {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .error-message {
+            padding: 1rem;
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            border-radius: 8px;
+            color: #ff6b6b;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #aaa;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 2rem;
+            padding: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .widget-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .clock-time {
+                font-size: 3rem;
+            }
+            
+            .weather-temp {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    dashboard placeholder
+    <div class="container">
+        <div class="header">
+            <h1>Magic Mirror Dashboard</h1>
+        </div>
+
+        <div id="disabled-container" class="disabled-message" style="display: none;">
+            <h2>⚠️ Magic Mirror is Disabled</h2>
+            <p>Please enable the Magic Mirror in the admin panel to view the dashboard.</p>
+            <p style="margin-top: 1rem;">
+                Go to: <strong>Admin → Server → Magic Mirror</strong>
+            </p>
+        </div>
+
+        <div id="dashboard-container">
+            <div class="widget-grid">
+                <!-- Clock Widget -->
+                <div class="widget" id="clock-widget">
+                    <div class="widget-header">
+                        <div class="widget-icon">🕐</div>
+                        <div class="widget-title">Clock</div>
+                    </div>
+                    <div class="widget-content">
+                        <div class="clock-time" id="clock-time">--:--</div>
+                        <div class="clock-date" id="clock-date">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Weather Widget -->
+                <div class="widget" id="weather-widget" style="display: none;">
+                    <div class="widget-header">
+                        <div class="widget-icon">🌤️</div>
+                        <div class="widget-title">Weather</div>
+                    </div>
+                    <div class="widget-content" id="weather-content">
+                        <div class="loading">Loading weather data...</div>
+                    </div>
+                </div>
+
+                <!-- Calendar Widget -->
+                <div class="widget" id="calendar-widget" style="display: none;">
+                    <div class="widget-header">
+                        <div class="widget-icon">📅</div>
+                        <div class="widget-title">Calendar</div>
+                    </div>
+                    <div class="widget-content" id="calendar-content">
+                        <div class="loading">Loading calendar events...</div>
+                    </div>
+                </div>
+
+                <!-- News Widget -->
+                <div class="widget" id="news-widget" style="display: none;">
+                    <div class="widget-header">
+                        <div class="widget-icon">📰</div>
+                        <div class="widget-title">News</div>
+                    </div>
+                    <div class="widget-content" id="news-content">
+                        <div class="loading">Loading news...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="last-update" id="last-update"></div>
+        </div>
+    </div>
+
+    <script>
+        let config = null;
+        let updateIntervals = {};
+
+        // Initialize dashboard
+        async function initDashboard() {
+            try {
+                // Fetch Magic Mirror configuration
+                const response = await fetch('/api/magicmirror/data');
+                
+                if (response.status === 403) {
+                    // Magic Mirror is disabled
+                    document.getElementById('dashboard-container').style.display = 'none';
+                    document.getElementById('disabled-container').style.display = 'block';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load configuration');
+                }
+                
+                config = await response.json();
+                
+                // Show dashboard
+                document.getElementById('dashboard-container').style.display = 'block';
+                document.getElementById('disabled-container').style.display = 'none';
+                
+                // Initialize clock (always visible)
+                updateClock();
+                setInterval(updateClock, 1000);
+                
+                // Initialize enabled widgets
+                if (config.widgets.weather) {
+                    showWidget('weather');
+                    updateWeather();
+                    updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000); // 10 minutes
+                }
+                
+                if (config.widgets.calendar) {
+                    showWidget('calendar');
+                    updateCalendar();
+                    updateIntervals.calendar = setInterval(updateCalendar, 60 * 60 * 1000); // 1 hour
+                }
+                
+                if (config.widgets.news) {
+                    showWidget('news');
+                    updateNews();
+                    updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000); // 15 minutes
+                }
+                
+                updateLastUpdateTime();
+                setInterval(updateLastUpdateTime, 60000); // Update every minute
+                
+            } catch (error) {
+                console.error('Error initializing dashboard:', error);
+                document.getElementById('dashboard-container').innerHTML = 
+                    '<div class="error-message">Error loading dashboard: ' + error.message + '</div>';
+            }
+        }
+
+        function showWidget(widgetName) {
+            const widget = document.getElementById(widgetName + '-widget');
+            if (widget) {
+                widget.style.display = 'block';
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateStr = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            document.getElementById('clock-time').textContent = timeStr;
+            document.getElementById('clock-date').textContent = dateStr;
+        }
+
+        async function updateWeather() {
+            const content = document.getElementById('weather-content');
+            
+            try {
+                const response = await fetch('/api/magicmirror/weather');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch weather');
+                }
+                
+                const data = await response.json();
+                
+                if (data.location) {
+                    const weatherIconMap = {
+                        'Clear': '☀️',
+                        'Clouds': '☁️',
+                        'Rain': '🌧️',
+                        'Snow': '❄️',
+                        'Thunderstorm': '⛈️',
+                        'Drizzle': '🌦️',
+                        'Mist': '🌫️',
+                        'Fog': '🌫️'
+                    };
+                    
+                    const icon = weatherIconMap[data.condition] || '🌤️';
+                    
+                    content.innerHTML = `
+                        <div class="weather-icon">${icon}</div>
+                        <div class="weather-temp">${data.temperature}°${data.unit}</div>
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <div style="font-size: 1.2rem;">${data.condition}</div>
+                            <div style="color: #aaa; font-size: 0.9rem;">${data.location}</div>
+                        </div>
+                        <div class="weather-details">
+                            <div class="weather-detail">
+                                <div style="color: #aaa; font-size: 0.9rem;">Humidity</div>
+                                <div style="font-size: 1.2rem;">${data.humidity}%</div>
+                            </div>
+                            <div class="weather-detail">
+                                <div style="color: #aaa; font-size: 0.9rem;">Wind</div>
+                                <div style="font-size: 1.2rem;">${data.windSpeed} m/s</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = '<div class="error-message">Weather data not available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating weather:', error);
+                content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        }
+
+        async function updateCalendar() {
+            const content = document.getElementById('calendar-content');
+            
+            try {
+                const response = await fetch('/api/magicmirror/calendar');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch calendar');
+                }
+                
+                const data = await response.json();
+                
+                if (data.events && data.events.length > 0) {
+                    const eventsHtml = data.events.map(event => `
+                        <div class="calendar-event">
+                            <div class="event-time">${event.date} at ${event.time}</div>
+                            <div class="event-title">${event.title}</div>
+                        </div>
+                    `).join('');
+                    
+                    content.innerHTML = eventsHtml;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No upcoming events</div>';
+                }
+            } catch (error) {
+                console.error('Error updating calendar:', error);
+                content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        }
+
+        async function updateNews() {
+            const content = document.getElementById('news-content');
+            
+            try {
+                const response = await fetch('/api/magicmirror/news');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch news');
+                }
+                
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    const newsHtml = data.items.map(item => `
+                        <div class="news-item">
+                            <div class="news-title">${item.title}</div>
+                            <div class="news-time">${item.date}</div>
+                        </div>
+                    `).join('');
+                    
+                    content.innerHTML = newsHtml;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No news items available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating news:', error);
+                content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+            document.getElementById('last-update').textContent = 'Last updated: ' + timeStr;
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
 </body>
 </html>

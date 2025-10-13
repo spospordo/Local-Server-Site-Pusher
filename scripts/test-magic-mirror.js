@@ -169,42 +169,54 @@ async function runTests() {
         }
     });
 
-    // Test 12: HTML contains placeholder text
-    await test('Magic mirror HTML contains placeholder text', async () => {
+    // Test 12: HTML contains dashboard title
+    await test('Magic mirror HTML contains dashboard title', async () => {
         const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
         const htmlContent = fs.readFileSync(htmlPath, 'utf8');
         
-        if (!htmlContent.includes('dashboard placeholder')) {
-            throw new Error('Missing placeholder text: "dashboard placeholder"');
+        if (!htmlContent.includes('Magic Mirror Dashboard')) {
+            throw new Error('Missing dashboard title: "Magic Mirror Dashboard"');
         }
     });
 
-    // Test 13: HTML is minimal placeholder (for troubleshooting)
-    await test('Magic mirror HTML is minimal placeholder', async () => {
+    // Test 13: HTML contains widget structure
+    await test('Magic mirror HTML contains widget structure', async () => {
         const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
         const htmlContent = fs.readFileSync(htmlPath, 'utf8');
         
-        // Verify it's a simple HTML structure
+        // Verify it's a proper HTML structure
         if (!htmlContent.includes('<!DOCTYPE html>')) {
             throw new Error('Missing DOCTYPE declaration');
         }
         
-        // Ensure it's truly minimal (less than 500 bytes is reasonable for placeholder)
-        if (htmlContent.length > 500) {
-            throw new Error('HTML is not minimal - should be a simple placeholder');
+        // Check for key dashboard elements
+        if (!htmlContent.includes('clock-widget')) {
+            throw new Error('Missing clock widget');
+        }
+        
+        if (!htmlContent.includes('weather-widget')) {
+            throw new Error('Missing weather widget');
+        }
+        
+        if (!htmlContent.includes('calendar-widget')) {
+            throw new Error('Missing calendar widget');
+        }
+        
+        if (!htmlContent.includes('news-widget')) {
+            throw new Error('Missing news widget');
         }
     });
 
-    // Test 14: Placeholder serves successfully via HTTP
-    await test('Magic mirror placeholder serves via HTTP', async () => {
+    // Test 14: Dashboard serves successfully via HTTP
+    await test('Magic mirror dashboard serves via HTTP', async () => {
         const response = await makeRequest('/magic-mirror');
         
         if (response.statusCode !== 200) {
-            throw new Error(`Placeholder returned status ${response.statusCode}`);
+            throw new Error(`Dashboard returned status ${response.statusCode}`);
         }
         
-        if (!response.body.includes('dashboard placeholder')) {
-            throw new Error('Response does not contain placeholder text');
+        if (!response.body.includes('Magic Mirror Dashboard')) {
+            throw new Error('Response does not contain dashboard title');
         }
     });
 
