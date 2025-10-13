@@ -805,14 +805,20 @@ app.post('/admin/login', (req, res) => {
     req.session.authenticated = true;
     // Check if using default password
     req.session.isDefaultPassword = (password === 'admin123');
+    logger.success(logger.categories.SYSTEM, `Admin login successful for user: ${username}`);
+    if (password === 'admin123') {
+      logger.warning(logger.categories.SYSTEM, 'Admin is using default password - security risk!');
+    }
     res.redirect('/admin');
   } else {
+    logger.warning(logger.categories.SYSTEM, `Failed login attempt for user: ${username}`);
     res.redirect('/admin/login?error=1');
   }
 });
 
 // Admin logout
 app.post('/admin/logout', (req, res) => {
+  logger.info(logger.categories.SYSTEM, 'Admin logged out');
   req.session.destroy();
   res.redirect('/admin/login');
 });
@@ -1222,8 +1228,10 @@ app.post('/api/client/authenticate', (req, res) => {
   
   if (verifyPassword(password, storedPasswordHash)) {
     req.session.clientAuthenticated = true;
+    logger.success(logger.categories.CLIENT, 'Client authentication successful');
     res.json({ success: true, message: 'Authentication successful' });
   } else {
+    logger.warning(logger.categories.CLIENT, 'Failed client authentication attempt');
     res.status(401).json({ success: false, error: 'Invalid password' });
   }
 });
@@ -2405,7 +2413,18 @@ app.post('/admin/api/vidiots/config', requireAuth, (req, res) => {
 app.post('/admin/api/vidiots/trigger', requireAuth, async (req, res) => {
   try {
     console.log('🚀 Manual vidiots scrape triggered from admin interface');
+    logger.info(logger.categories.BUILD, 'Vidiots scrape operation started');
     const result = await vidiots.triggerScrape();
+    
+    if (result.success) {
+      if (result.updated) {
+        logger.success(logger.categories.BUILD, 'Vidiots scrape completed - content updated');
+      } else {
+        logger.info(logger.categories.BUILD, 'Vidiots scrape completed - no changes detected');
+      }
+    } else {
+      logger.error(logger.categories.BUILD, `Vidiots scrape failed: ${result.error || 'Unknown error'}`);
+    }
     
     res.json({
       success: result.success,
@@ -2415,6 +2434,7 @@ app.post('/admin/api/vidiots/trigger', requireAuth, async (req, res) => {
       ...result
     });
   } catch (error) {
+    logger.error(logger.categories.BUILD, `Vidiots scrape error: ${error.message}`);
     res.status(500).json({ 
       success: false, 
       error: 'Failed to trigger vidiots scrape: ' + error.message 
@@ -2443,7 +2463,14 @@ app.post('/admin/api/vidiots/github/test', requireAuth, async (req, res) => {
 app.post('/admin/api/vidiots/github/upload', requireAuth, async (req, res) => {
   try {
     console.log('📤 [GitHub] Manual GitHub Pages upload triggered from admin interface');
+    logger.info(logger.categories.GITHUB, 'Manual GitHub Pages upload triggered');
     const result = await vidiots.githubUpload.uploadVidiots();
+    
+    if (result.success) {
+      logger.success(logger.categories.GITHUB, 'GitHub Pages upload successful');
+    } else {
+      logger.error(logger.categories.GITHUB, `GitHub Pages upload failed: ${result.error || 'Unknown error'}`);
+    }
     
     res.json({
       success: result.success,
@@ -2451,6 +2478,7 @@ app.post('/admin/api/vidiots/github/upload', requireAuth, async (req, res) => {
       ...result
     });
   } catch (error) {
+    logger.error(logger.categories.GITHUB, `GitHub Pages upload error: ${error.message}`);
     res.status(500).json({ 
       success: false, 
       error: 'Failed to upload to GitHub Pages: ' + error.message 
@@ -2462,6 +2490,7 @@ app.post('/admin/api/vidiots/github/upload', requireAuth, async (req, res) => {
 app.post('/admin/api/vidiots/github/clone', requireAuth, async (req, res) => {
   try {
     console.log('📥 [GitHub] Clone/pull repository triggered from admin interface');
+    logger.info(logger.categories.GITHUB, 'Clone/pull repository operation started');
     const result = await vidiots.githubUpload.cloneOrPullRepository();
     
     res.json({
@@ -2889,16 +2918,19 @@ app.post('/admin/api/espresso/config', requireAuth, (req, res) => {
 app.post('/admin/api/espresso/generate', requireAuth, async (req, res) => {
   try {
     console.log('🚀 [Espresso] Manual HTML generation triggered from admin interface');
+    logger.info(logger.categories.BUILD, 'Espresso HTML generation started');
     const espressoData = espresso.getEspressoData();
     const result = await espresso.generateHTMLImmediate(espressoData);
     
     if (result.success) {
+      logger.success(logger.categories.BUILD, `Espresso HTML generated successfully: ${result.outputPath}`);
       res.json({
         success: true,
         message: 'HTML generated successfully and saved to local repository',
         outputPath: result.outputPath
       });
     } else {
+      logger.error(logger.categories.BUILD, `Espresso HTML generation failed: ${result.error}`);
       res.status(500).json({
         success: false,
         error: result.error
@@ -2906,6 +2938,7 @@ app.post('/admin/api/espresso/generate', requireAuth, async (req, res) => {
     }
   } catch (error) {
     console.error('❌ [Espresso] Error generating HTML:', error.message);
+    logger.error(logger.categories.BUILD, `Espresso HTML generation error: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'Failed to generate HTML: ' + error.message
@@ -4246,11 +4279,14 @@ app.post('/admin/api/finance/accounts', requireAuth, (req, res) => {
   try {
     const result = finance.saveAccount(req.body);
     if (result.success) {
+      logger.success(logger.categories.FINANCE, `Financial account saved: ${req.body.name || 'Unnamed'}`);
       res.json({ success: true, message: 'Account saved successfully' });
     } else {
+      logger.error(logger.categories.FINANCE, `Failed to save account: ${result.error}`);
       res.status(500).json({ success: false, error: result.error });
     }
   } catch (err) {
+    logger.error(logger.categories.FINANCE, `Account save error: ${err.message}`);
     res.status(500).json({ error: 'Failed to save account: ' + err.message });
   }
 });
