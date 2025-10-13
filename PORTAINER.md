@@ -318,6 +318,8 @@ sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
 
 #### Step 2: Deploy Parallel Test Stack in Portainer
 
+This configuration allows you to run **both production and test containers simultaneously** in a single stack.
+
 1. In Portainer, go to **Stacks** → **Add Stack**
 2. Name your stack: `local-server-parallel-test`
 3. Use this docker-compose configuration:
@@ -358,7 +360,8 @@ services:
     restart: unless-stopped
 ```
 
-4. Click **Deploy the stack**
+4. **Customize environment variables** (SESSION_SECRET, NODE_ENV) as needed
+5. Click **Deploy the stack**
 
 #### Step 3: Access Your Containers
 
@@ -367,7 +370,7 @@ services:
 
 ### Using Different Branches for Testing
 
-To deploy from a specific branch, update the build context in the test container:
+To deploy from a specific branch, simply update the build context in the test container configuration. This allows you to easily test different branches without affecting production:
 
 **Examples:**
 ```yaml
