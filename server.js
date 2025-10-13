@@ -12,6 +12,7 @@ const espresso = require('./modules/espresso');
 const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
+const magicMirror = require('./modules/magicmirror');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -4514,6 +4515,55 @@ app.post('/admin/api/ollama/chat', requireAuth, async (req, res) => {
       error: 'Failed to send prompt: ' + err.message 
     });
   }
+});
+
+// Magic Mirror API endpoints
+
+// Get Magic Mirror configuration
+app.get('/admin/api/magicmirror/config', requireAuth, (req, res) => {
+  try {
+    const config = magicMirror.getConfig();
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get Magic Mirror configuration: ' + err.message });
+  }
+});
+
+// Save Magic Mirror configuration
+app.post('/admin/api/magicmirror/config', requireAuth, (req, res) => {
+  try {
+    const newConfig = req.body;
+    const result = magicMirror.updateConfig(newConfig);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Configuration saved successfully' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save Magic Mirror configuration: ' + err.message });
+  }
+});
+
+// Get Magic Mirror data for display page (includes full config with API keys)
+app.get('/api/magicmirror/data', (req, res) => {
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    // Only return data if Magic Mirror is enabled
+    if (!config.enabled) {
+      return res.status(403).json({ error: 'Magic Mirror is not enabled' });
+    }
+    
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get Magic Mirror data: ' + err.message });
+  }
+});
+
+// Magic Mirror display page
+app.get('/magic-mirror', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'magic-mirror.html'));
 });
 
 // Default route - serve public content

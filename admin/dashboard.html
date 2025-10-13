@@ -1591,6 +1591,7 @@
                 <button class="sub-tab active" onclick="showSubTab('server-vidiots')">Vidiots</button>
                 <button class="sub-tab" onclick="showSubTab('server-espresso')">Espresso</button>
                 <button class="sub-tab" onclick="showSubTab('server-github')">GitHub</button>
+                <button class="sub-tab" onclick="showSubTab('server-magicmirror')">Magic Mirror</button>
             </div>
             
             <!-- Sub-tabs for Finance -->
@@ -3077,6 +3078,111 @@
                     <button class="btn btn-secondary" onclick="refreshRepositoryBrowser()">Refresh</button>
                     <button class="btn btn-secondary" onclick="goToParentDirectory()">📁 Up One Level</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Magic Mirror Configuration -->
+        <div class="card admin-section server-section server-magicmirror-section">
+            <div class="card-header">
+                <h2>🪞 Magic Mirror Dashboard</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure and manage your Magic Mirror information dashboard:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="magicMirrorEnabled">Magic Mirror Dashboard</label>
+                        <select id="magicMirrorEnabled" onchange="saveMagicMirrorConfig()">
+                            <option value="false">Disabled</option>
+                            <option value="true">Enabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dashboard URL</label>
+                        <div id="magicMirrorUrl" style="padding: 0.75rem; background: #f8f9fa; border-radius: 5px; font-family: monospace;">
+                            Not configured
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Widget Configuration -->
+                <div id="magicMirrorWidgets" style="margin-top: 1.5rem;">
+                    <h3>Widget Configuration</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="widgetClock" onchange="saveMagicMirrorConfig()"> 
+                                Clock & Date
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="widgetWeather" onchange="saveMagicMirrorConfig()"> 
+                                Weather
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="widgetCalendar" onchange="saveMagicMirrorConfig()"> 
+                                Calendar
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="widgetNews" onchange="saveMagicMirrorConfig()"> 
+                                News Feed
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Configuration -->
+                <div id="weatherConfig" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 5px;">
+                    <h4>Weather Settings</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="weatherLocation">Location</label>
+                            <input type="text" id="weatherLocation" placeholder="City, Country" onchange="saveMagicMirrorConfig()">
+                        </div>
+                        <div class="form-group">
+                            <label for="weatherApiKey">OpenWeather API Key (optional)</label>
+                            <input type="password" id="weatherApiKey" placeholder="Enter API key" onchange="saveMagicMirrorConfig()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar Configuration -->
+                <div id="calendarConfig" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 5px;">
+                    <h4>Calendar Settings</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="calendarUrl">Calendar URL (iCal/ICS)</label>
+                            <input type="text" id="calendarUrl" placeholder="https://example.com/calendar.ics" onchange="saveMagicMirrorConfig()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- News Configuration -->
+                <div id="newsConfig" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 5px;">
+                    <h4>News Feed Settings</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newsSource">News RSS Feed URL</label>
+                            <input type="text" id="newsSource" placeholder="https://example.com/rss" onchange="saveMagicMirrorConfig()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="margin-top: 1.5rem;">
+                    <button class="btn btn-primary" onclick="saveMagicMirrorConfig()">Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="openMagicMirrorDisplay()">Open Dashboard</button>
+                    <button class="btn btn-secondary" onclick="loadMagicMirrorConfig()">Refresh</button>
+                </div>
+
+                <div id="magicMirrorAlert" class="alert"></div>
             </div>
         </div>
 
@@ -5814,6 +5920,7 @@
                 else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
                 else if (subTabName === 'server-espresso') targetTabText = 'Espresso';
                 else if (subTabName === 'server-github') targetTabText = 'GitHub';
+                else if (subTabName === 'server-magicmirror') targetTabText = 'Magic Mirror';
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
@@ -5882,6 +5989,13 @@
                 if (shouldLoadData) {
                     loadVidiotsConfig(); // Still need to load config for GitHub settings
                     initializeGitHubSection(); // Initialize GitHub logging and load git identity
+                }
+            } else if (subTabName === 'server-magicmirror') {
+                const magicMirrorSections = document.querySelectorAll('.server-magicmirror-section');
+                magicMirrorSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadMagicMirrorConfig();
                 }
             } else if (subTabName === 'finance-demo') {
                 const demoSections = document.querySelectorAll('.finance-demo-section');
@@ -9073,6 +9187,111 @@
             
             setTimeout(() => {
                 alertDiv.remove();
+            }, 3000);
+        }
+
+        // Magic Mirror Configuration Functions
+        async function loadMagicMirrorConfig() {
+            try {
+                const response = await fetch('/admin/api/magicmirror/config');
+                const config = await response.json();
+                
+                // Set enabled state
+                document.getElementById('magicMirrorEnabled').value = config.enabled ? 'true' : 'false';
+                
+                // Set dashboard URL
+                const urlElement = document.getElementById('magicMirrorUrl');
+                if (config.enabled) {
+                    const baseUrl = window.location.origin;
+                    urlElement.innerHTML = `<a href="${baseUrl}/magic-mirror" target="_blank" style="color: #007bff; text-decoration: none;">${baseUrl}/magic-mirror</a>`;
+                } else {
+                    urlElement.textContent = 'Dashboard disabled';
+                }
+                
+                // Set widget checkboxes
+                document.getElementById('widgetClock').checked = config.widgets?.clock || false;
+                document.getElementById('widgetWeather').checked = config.widgets?.weather || false;
+                document.getElementById('widgetCalendar').checked = config.widgets?.calendar || false;
+                document.getElementById('widgetNews').checked = config.widgets?.news || false;
+                
+                // Set weather config
+                document.getElementById('weatherLocation').value = config.weather?.location || '';
+                document.getElementById('weatherApiKey').value = config.weather?.apiKey || '';
+                
+                // Set calendar config
+                document.getElementById('calendarUrl').value = config.calendar?.url || '';
+                
+                // Set news config
+                document.getElementById('newsSource').value = config.news?.source || '';
+                
+            } catch (error) {
+                console.error('Error loading Magic Mirror config:', error);
+                showMagicMirrorAlert('Error loading configuration: ' + error.message, 'error');
+            }
+        }
+
+        async function saveMagicMirrorConfig() {
+            try {
+                const config = {
+                    enabled: document.getElementById('magicMirrorEnabled').value === 'true',
+                    widgets: {
+                        clock: document.getElementById('widgetClock').checked,
+                        weather: document.getElementById('widgetWeather').checked,
+                        calendar: document.getElementById('widgetCalendar').checked,
+                        news: document.getElementById('widgetNews').checked
+                    },
+                    weather: {
+                        location: document.getElementById('weatherLocation').value,
+                        apiKey: document.getElementById('weatherApiKey').value
+                    },
+                    calendar: {
+                        url: document.getElementById('calendarUrl').value
+                    },
+                    news: {
+                        source: document.getElementById('newsSource').value
+                    }
+                };
+
+                const response = await fetch('/admin/api/magicmirror/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMagicMirrorAlert('Configuration saved successfully', 'success');
+                    // Reload to update URL display
+                    await loadMagicMirrorConfig();
+                } else {
+                    showMagicMirrorAlert('Error: ' + (result.error || 'Failed to save configuration'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving Magic Mirror config:', error);
+                showMagicMirrorAlert('Error saving configuration: ' + error.message, 'error');
+            }
+        }
+
+        function openMagicMirrorDisplay() {
+            const enabled = document.getElementById('magicMirrorEnabled').value === 'true';
+            if (!enabled) {
+                showMagicMirrorAlert('Please enable Magic Mirror first', 'error');
+                return;
+            }
+            window.open('/magic-mirror', '_blank');
+        }
+
+        function showMagicMirrorAlert(message, type) {
+            const alertDiv = document.getElementById('magicMirrorAlert');
+            alertDiv.textContent = message;
+            alertDiv.className = 'alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
+            alertDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
             }, 3000);
         }
     </script>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Mirror Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            padding: 2rem;
+            gap: 2rem;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .widget h2 {
+            margin-bottom: 1rem;
+            color: #4fc3f7;
+            font-size: 1.5rem;
+        }
+
+        .clock-widget {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        .time {
+            font-size: 4rem;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+        }
+
+        .date {
+            font-size: 1.5rem;
+            color: #aaa;
+        }
+
+        .weather-widget {
+            grid-column: 1;
+        }
+
+        .temperature {
+            font-size: 3rem;
+            margin: 1rem 0;
+        }
+
+        .weather-description {
+            font-size: 1.2rem;
+            color: #aaa;
+        }
+
+        .calendar-widget {
+            grid-column: 2;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .calendar-event {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .event-time {
+            color: #4fc3f7;
+            font-weight: 600;
+        }
+
+        .news-widget {
+            grid-column: 1 / -1;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .news-item {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .news-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .news-time {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .error-message {
+            color: #f44336;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.5rem;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="loading">⏳ Loading Magic Mirror...</div>
+    </div>
+
+    <script>
+        let config = null;
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/magicmirror/data');
+                if (!response.ok) {
+                    throw new Error('Magic Mirror is not enabled or configuration error');
+                }
+                config = await response.json();
+                renderDashboard();
+            } catch (error) {
+                document.getElementById('app').innerHTML = `
+                    <div class="error-message">
+                        <h2>❌ Error</h2>
+                        <p>${error.message}</p>
+                        <p>Please configure Magic Mirror in the admin panel.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderDashboard() {
+            const widgets = config.widgets || {};
+            let html = '<div class="container">';
+
+            // Clock widget (always shown if any widget is enabled)
+            if (widgets.clock || Object.values(widgets).some(v => v)) {
+                html += `
+                    <div class="widget clock-widget">
+                        <div class="time" id="time">00:00:00</div>
+                        <div class="date" id="date">Monday, January 1, 2024</div>
+                    </div>
+                `;
+            }
+
+            // Weather widget
+            if (widgets.weather) {
+                html += `
+                    <div class="widget weather-widget">
+                        <h2>🌤️ Weather</h2>
+                        <div id="weather-content">
+                            <div class="temperature">--°</div>
+                            <div class="weather-description">
+                                ${config.weather?.location || 'Location not set'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Calendar widget
+            if (widgets.calendar) {
+                html += `
+                    <div class="widget calendar-widget">
+                        <h2>📅 Calendar</h2>
+                        <div id="calendar-content">
+                            ${config.calendar?.url ? 
+                                '<div class="calendar-event">No upcoming events</div>' : 
+                                '<div style="color: #aaa;">Calendar URL not configured</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // News widget
+            if (widgets.news) {
+                html += `
+                    <div class="widget news-widget">
+                        <h2>📰 News</h2>
+                        <div id="news-content">
+                            ${config.news?.source ? 
+                                '<div class="news-item"><div class="news-title">Loading news...</div></div>' : 
+                                '<div style="color: #aaa;">News source not configured</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            document.getElementById('app').innerHTML = html;
+
+            // Start updates
+            if (widgets.clock || Object.values(widgets).some(v => v)) {
+                updateClock();
+                setInterval(updateClock, 1000);
+            }
+
+            if (widgets.weather && config.weather?.location) {
+                updateWeather();
+                setInterval(updateWeather, 600000); // Update every 10 minutes
+            }
+
+            if (widgets.calendar && config.calendar?.url) {
+                updateCalendar();
+                setInterval(updateCalendar, 3600000); // Update every hour
+            }
+
+            if (widgets.news && config.news?.source) {
+                updateNews();
+                setInterval(updateNews, 900000); // Update every 15 minutes
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeElement = document.getElementById('time');
+            const dateElement = document.getElementById('date');
+
+            if (timeElement) {
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            if (dateElement) {
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                dateElement.textContent = now.toLocaleDateString('en-US', options);
+            }
+        }
+
+        async function updateWeather() {
+            const weatherContent = document.getElementById('weather-content');
+            if (!weatherContent || !config.weather?.location) return;
+
+            try {
+                // This is a placeholder - in production, you would call a weather API
+                // For now, just show the location
+                weatherContent.innerHTML = `
+                    <div class="temperature">--°</div>
+                    <div class="weather-description">
+                        ${config.weather.location}<br>
+                        <small style="color: #666;">Weather API integration needed</small>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error updating weather:', error);
+            }
+        }
+
+        async function updateCalendar() {
+            const calendarContent = document.getElementById('calendar-content');
+            if (!calendarContent || !config.calendar?.url) return;
+
+            try {
+                // This is a placeholder - in production, you would fetch and parse the iCal feed
+                calendarContent.innerHTML = `
+                    <div class="calendar-event">
+                        <div class="event-time">Calendar integration</div>
+                        <div>iCal parsing to be implemented</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error updating calendar:', error);
+            }
+        }
+
+        async function updateNews() {
+            const newsContent = document.getElementById('news-content');
+            if (!newsContent || !config.news?.source) return;
+
+            try {
+                // This is a placeholder - in production, you would fetch and parse the RSS feed
+                newsContent.innerHTML = `
+                    <div class="news-item">
+                        <div class="news-title">News Feed Integration</div>
+                        <div class="news-time">RSS parsing to be implemented</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error updating news:', error);
+            }
+        }
+
+        // Initialize
+        loadConfig();
+    </script>
+</body>
+</html>
