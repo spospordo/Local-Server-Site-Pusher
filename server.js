@@ -4714,9 +4714,11 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   const startTime = new Date().toLocaleString();
   console.log(`[${startTime}] Local Server Site Pusher v${require('./package.json').version} running on port ${PORT}`);
   console.log(`Admin interface: http://localhost:${PORT}/admin`);
   console.log(`Status endpoint: http://localhost:${PORT}/api/status`);
+  console.log(`Magic Mirror: http://localhost:${PORT}/magic-mirror`);
+  console.log(`\nFor container/remote access, replace 'localhost' with your server's IP address`);
 });

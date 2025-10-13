@@ -293,6 +293,8 @@ http://your-server-ip:3000/magic-mirror
 
 This URL can be opened in a browser on any device (tablet, dedicated display, etc.) to show your customized information dashboard.
 
+**📖 For detailed access instructions from containers, remote devices, and troubleshooting network issues, see [MAGIC_MIRROR_ACCESS.md](MAGIC_MIRROR_ACCESS.md)**
+
 ### Widget Configuration Details
 
 #### Weather Widget
@@ -336,6 +338,11 @@ The Magic Mirror uses the following API endpoints for data:
 Run the magic mirror test suite to validate the implementation:
 ```bash
 node scripts/test-magic-mirror.js
+```
+
+Test network accessibility (containers, remote devices):
+```bash
+node scripts/test-magic-mirror-network.js
 ```
 
 ### Troubleshooting
