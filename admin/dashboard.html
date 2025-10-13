@@ -3178,6 +3178,10 @@
                             <input type="password" id="weatherApiKey" placeholder="Enter API key" onchange="saveMagicMirrorConfig()">
                         </div>
                     </div>
+                    <div style="margin-top: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="testWeatherConnection()">🧪 Test Connection</button>
+                        <div id="weatherTestResult" style="margin-top: 0.5rem;"></div>
+                    </div>
                 </div>
 
                 <!-- Calendar Configuration -->
@@ -3185,9 +3189,13 @@
                     <h4>Calendar Settings</h4>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="calendarUrl">Calendar URL (iCal/ICS)</label>
-                            <input type="text" id="calendarUrl" placeholder="https://example.com/calendar.ics" onchange="saveMagicMirrorConfig()">
+                            <label for="calendarUrl">Calendar URL (iCal/ICS or webcal://)</label>
+                            <input type="text" id="calendarUrl" placeholder="https://example.com/calendar.ics or webcal://example.com/calendar.ics" onchange="saveMagicMirrorConfig()">
                         </div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="testCalendarConnection()">🧪 Test Connection</button>
+                        <div id="calendarTestResult" style="margin-top: 0.5rem;"></div>
                     </div>
                 </div>
 
@@ -3199,6 +3207,10 @@
                             <label for="newsSource">News RSS Feed URL</label>
                             <input type="text" id="newsSource" placeholder="https://example.com/rss" onchange="saveMagicMirrorConfig()">
                         </div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="testNewsConnection()">🧪 Test Connection</button>
+                        <div id="newsTestResult" style="margin-top: 0.5rem;"></div>
                     </div>
                 </div>
 
@@ -9518,6 +9530,115 @@
             setTimeout(() => {
                 alertDiv.style.display = 'none';
             }, 3000);
+        }
+
+        // Test connection functions for widgets
+        async function testWeatherConnection() {
+            const resultDiv = document.getElementById('weatherTestResult');
+            resultDiv.innerHTML = '<div style="color: #666; padding: 0.5rem;">Testing connection...</div>';
+            
+            try {
+                const response = await fetch('/api/magicmirror/weather/test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
+                            <strong>✅ Connection Successful!</strong><br>
+                            <small>Location: ${result.details.location}, ${result.details.country}<br>
+                            Temperature: ${result.details.temperature}°C<br>
+                            Conditions: ${result.details.description}</small>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                            <strong>❌ ${result.error}</strong><br>
+                            <small>${result.details}</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                        <strong>❌ Test Failed</strong><br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCalendarConnection() {
+            const resultDiv = document.getElementById('calendarTestResult');
+            resultDiv.innerHTML = '<div style="color: #666; padding: 0.5rem;">Testing connection...</div>';
+            
+            try {
+                const response = await fetch('/api/magicmirror/calendar/test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
+                            <strong>✅ Connection Successful!</strong><br>
+                            <small>Format: ${result.details.dataFormat}<br>
+                            Total Events: ${result.details.totalEvents}<br>
+                            Upcoming Events (30 days): ${result.details.upcomingEvents}<br>
+                            ${result.details.protocol === 'webcal' ? '🔄 Webcal protocol converted to HTTPS' : ''}</small>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                            <strong>❌ ${result.error}</strong><br>
+                            <small>${result.details}</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                        <strong>❌ Test Failed</strong><br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        async function testNewsConnection() {
+            const resultDiv = document.getElementById('newsTestResult');
+            resultDiv.innerHTML = '<div style="color: #666; padding: 0.5rem;">Testing connection...</div>';
+            
+            try {
+                const response = await fetch('/api/magicmirror/news/test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const sampleItem = result.details.sampleItem ? 
+                        `<br>Sample: "${result.details.sampleItem.title}"` : '';
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
+                            <strong>✅ Connection Successful!</strong><br>
+                            <small>Feed: ${result.details.feedTitle}<br>
+                            Total Items: ${result.details.totalItems}<br>
+                            Format: ${result.details.dataFormat}${sampleItem}</small>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                            <strong>❌ ${result.error}</strong><br>
+                            <small>${result.details}</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 0.75rem; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">
+                        <strong>❌ Test Failed</strong><br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
         }
     </script>
 </body>

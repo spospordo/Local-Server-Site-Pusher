@@ -4858,8 +4858,22 @@ app.get('/api/magicmirror/calendar', async (req, res) => {
       if (event.type === 'VEVENT') {
         const start = new Date(event.start);
         if (start >= now && start <= futureLimit) {
+          // Format date and time for frontend display
+          const dateStr = start.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+          });
+          const timeStr = start.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true
+          });
+          
           upcomingEvents.push({
-            summary: event.summary,
+            title: event.summary || 'Untitled Event',
+            date: dateStr,
+            time: timeStr,
             start: start.toISOString(),
             end: event.end ? new Date(event.end).toISOString() : null,
             description: event.description || ''
@@ -4879,6 +4893,150 @@ app.get('/api/magicmirror/calendar', async (req, res) => {
   } catch (err) {
     console.error(`❌ [Magic Mirror Calendar] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to fetch calendar data: ' + err.message });
+  }
+});
+
+// Magic Mirror calendar API test endpoint
+app.get('/api/magicmirror/calendar/test', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🧪 [Magic Mirror Calendar Test] ${timestamp} - Request from ${clientIp}`);
+  
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    // Check if calendar widget is configured
+    if (!config.enabled || !config.widgets?.calendar) {
+      console.log(`⚠️  [Magic Mirror Calendar Test] ${timestamp} - Widget not enabled`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Calendar widget not enabled',
+        details: 'Enable the calendar widget in Magic Mirror configuration first'
+      });
+    }
+
+    // Check if calendar URL is configured
+    if (!config.calendar?.url || config.calendar.url.trim() === '') {
+      console.log(`⚠️  [Magic Mirror Calendar Test] ${timestamp} - Calendar URL not configured`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Calendar URL not configured',
+        details: 'Please configure a calendar URL (iCal/webcal format) in the calendar settings'
+      });
+    }
+
+    // Test the actual calendar connection
+    const axios = require('axios');
+    const ical = require('node-ical');
+    
+    let calendarUrl = config.calendar.url;
+    
+    // Convert webcal:// protocol to https:// for compatibility
+    if (calendarUrl.startsWith('webcal://')) {
+      calendarUrl = calendarUrl.replace('webcal://', 'https://');
+      console.log(`🔄 [Magic Mirror Calendar Test] ${timestamp} - Converted webcal:// to https://`);
+    } else if (calendarUrl.startsWith('webcals://')) {
+      calendarUrl = calendarUrl.replace('webcals://', 'https://');
+      console.log(`🔄 [Magic Mirror Calendar Test] ${timestamp} - Converted webcals:// to https://`);
+    }
+    
+    console.log(`🔍 [Magic Mirror Calendar Test] ${timestamp} - Testing connection to: ${calendarUrl}`);
+    
+    try {
+      const response = await axios.get(calendarUrl, { timeout: 10000 });
+      
+      // Try to parse the iCal data
+      const events = await ical.async.parseICS(response.data);
+      
+      // Count events
+      let totalEvents = 0;
+      let upcomingEvents = 0;
+      const now = new Date();
+      const futureLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      for (const event of Object.values(events)) {
+        if (event.type === 'VEVENT') {
+          totalEvents++;
+          const start = new Date(event.start);
+          if (start >= now && start <= futureLimit) {
+            upcomingEvents++;
+          }
+        }
+      }
+      
+      console.log(`✅ [Magic Mirror Calendar Test] ${timestamp} - Connection successful, found ${totalEvents} total events, ${upcomingEvents} upcoming`);
+      
+      res.json({
+        success: true,
+        message: 'Calendar connection successful',
+        details: {
+          url: config.calendar.url,
+          protocol: config.calendar.url.startsWith('webcal') ? 'webcal' : 'https',
+          totalEvents: totalEvents,
+          upcomingEvents: upcomingEvents,
+          dataFormat: 'iCal/ICS'
+        }
+      });
+    } catch (apiError) {
+      console.error(`❌ [Magic Mirror Calendar Test] ${timestamp} - Connection Error:`, apiError.message);
+      
+      // Provide detailed error messages
+      if (apiError.response) {
+        const status = apiError.response.status;
+        
+        if (status === 401 || status === 403) {
+          return res.status(400).json({
+            success: false,
+            error: 'Access denied',
+            details: `The calendar URL requires authentication or is not publicly accessible. Status: ${status}`
+          });
+        } else if (status === 404) {
+          return res.status(400).json({
+            success: false,
+            error: 'Calendar not found',
+            details: `The calendar URL could not be found (404). Please verify the URL is correct: ${config.calendar.url}`
+          });
+        } else {
+          return res.status(500).json({
+            success: false,
+            error: 'HTTP request failed',
+            details: `Server returned status ${status}: ${apiError.message}`
+          });
+        }
+      } else if (apiError.code === 'ENOTFOUND' || apiError.code === 'ECONNREFUSED') {
+        return res.status(500).json({
+          success: false,
+          error: 'Network connection error',
+          details: `Cannot reach the calendar server. Please check the URL and your internet connection. URL: ${config.calendar.url}`
+        });
+      } else if (apiError.code === 'ETIMEDOUT') {
+        return res.status(500).json({
+          success: false,
+          error: 'Connection timeout',
+          details: 'The calendar server took too long to respond. Please try again or check if the server is slow.'
+        });
+      } else if (apiError.message && apiError.message.includes('Invalid')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid calendar format',
+          details: `The URL does not appear to contain valid iCal/ICS data. Error: ${apiError.message}`
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: 'Connection failed',
+          details: apiError.message
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror Calendar Test] ${timestamp} - Error:`, err.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Test failed', 
+      details: err.message 
+    });
   }
 });
 
@@ -4912,10 +5070,29 @@ app.get('/api/magicmirror/news', async (req, res) => {
         const pubDate = $(item).find('pubDate').text();
         const description = $(item).find('description').text();
         
+        // Format date for display
+        let displayDate = pubDate;
+        try {
+          if (pubDate) {
+            const dateObj = new Date(pubDate);
+            if (!isNaN(dateObj.getTime())) {
+              displayDate = dateObj.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            }
+          }
+        } catch (e) {
+          // If date parsing fails, use original
+          displayDate = pubDate;
+        }
+        
         newsItems.push({
-          title: title,
+          title: title || 'Untitled',
           link: link,
-          pubDate: pubDate,
+          date: displayDate,
           description: description
         });
       }
@@ -4929,6 +5106,137 @@ app.get('/api/magicmirror/news', async (req, res) => {
   } catch (err) {
     console.error(`❌ [Magic Mirror News] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to fetch news data: ' + err.message });
+  }
+});
+
+// Magic Mirror news API test endpoint
+app.get('/api/magicmirror/news/test', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🧪 [Magic Mirror News Test] ${timestamp} - Request from ${clientIp}`);
+  
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    // Check if news widget is configured
+    if (!config.enabled || !config.widgets?.news) {
+      console.log(`⚠️  [Magic Mirror News Test] ${timestamp} - Widget not enabled`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'News widget not enabled',
+        details: 'Enable the news widget in Magic Mirror configuration first'
+      });
+    }
+
+    // Check if news source is configured
+    if (!config.news?.source || config.news.source.trim() === '') {
+      console.log(`⚠️  [Magic Mirror News Test] ${timestamp} - News source not configured`);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'News source not configured',
+        details: 'Please configure a news RSS feed URL in the news settings'
+      });
+    }
+
+    // Test the actual news feed connection
+    const axios = require('axios');
+    const cheerio = require('cheerio');
+    
+    const newsSource = config.news.source;
+    
+    console.log(`🔍 [Magic Mirror News Test] ${timestamp} - Testing connection to: ${newsSource}`);
+    
+    try {
+      const response = await axios.get(newsSource, { timeout: 10000 });
+      
+      // Try to parse the RSS feed
+      const $ = cheerio.load(response.data, { xmlMode: true });
+      
+      // Count items
+      const totalItems = $('item').length;
+      
+      // Get feed info
+      const feedTitle = $('channel > title').first().text() || 'Unknown';
+      const feedDescription = $('channel > description').first().text() || '';
+      
+      // Get first item as sample
+      let sampleItem = null;
+      if (totalItems > 0) {
+        const firstItem = $('item').first();
+        sampleItem = {
+          title: firstItem.find('title').text() || 'Untitled',
+          pubDate: firstItem.find('pubDate').text() || 'Unknown date'
+        };
+      }
+      
+      console.log(`✅ [Magic Mirror News Test] ${timestamp} - Connection successful, found ${totalItems} items from ${feedTitle}`);
+      
+      res.json({
+        success: true,
+        message: 'News feed connection successful',
+        details: {
+          url: newsSource,
+          feedTitle: feedTitle,
+          feedDescription: feedDescription.substring(0, 100) + (feedDescription.length > 100 ? '...' : ''),
+          totalItems: totalItems,
+          sampleItem: sampleItem,
+          dataFormat: 'RSS/XML'
+        }
+      });
+    } catch (apiError) {
+      console.error(`❌ [Magic Mirror News Test] ${timestamp} - Connection Error:`, apiError.message);
+      
+      // Provide detailed error messages
+      if (apiError.response) {
+        const status = apiError.response.status;
+        
+        if (status === 401 || status === 403) {
+          return res.status(400).json({
+            success: false,
+            error: 'Access denied',
+            details: `The news feed requires authentication or is not publicly accessible. Status: ${status}`
+          });
+        } else if (status === 404) {
+          return res.status(400).json({
+            success: false,
+            error: 'News feed not found',
+            details: `The news feed URL could not be found (404). Please verify the URL is correct: ${newsSource}`
+          });
+        } else {
+          return res.status(500).json({
+            success: false,
+            error: 'HTTP request failed',
+            details: `Server returned status ${status}: ${apiError.message}`
+          });
+        }
+      } else if (apiError.code === 'ENOTFOUND' || apiError.code === 'ECONNREFUSED') {
+        return res.status(500).json({
+          success: false,
+          error: 'Network connection error',
+          details: `Cannot reach the news feed server. Please check the URL and your internet connection. URL: ${newsSource}`
+        });
+      } else if (apiError.code === 'ETIMEDOUT') {
+        return res.status(500).json({
+          success: false,
+          error: 'Connection timeout',
+          details: 'The news feed server took too long to respond. Please try again or check if the server is slow.'
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: 'Connection failed',
+          details: apiError.message
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror News Test] ${timestamp} - Error:`, err.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Test failed', 
+      details: err.message 
+    });
   }
 });
 
