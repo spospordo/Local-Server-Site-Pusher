@@ -223,24 +223,42 @@ All displays will show the same dashboard and update in real-time.
 
 ### "Not Found" Error (404)
 
-1. **Check Magic Mirror is enabled**
+1. **Check server logs for detailed information**
+   ```bash
+   # View server logs
+   docker logs local-server | grep -i "magic"
+   
+   # Look for error messages like:
+   # ❌ [Magic Mirror] ERROR: magic-mirror.html not found at /path/to/file
+   ```
+
+2. **Check Magic Mirror is enabled**
    - Go to: `http://SERVER_IP:3000/admin`
    - Navigate to: Server → Magic Mirror
    - Ensure "Magic Mirror Dashboard" is enabled
    - Click "Save Configuration"
 
-2. **Verify endpoint availability**
+3. **Verify endpoint availability**
    ```bash
    # Test the endpoint
    curl http://localhost:3000/magic-mirror
    
    # Should return HTTP 200 with HTML content
    curl -I http://localhost:3000/magic-mirror
+   
+   # Server logs should show:
+   # 🪞 [Magic Mirror] Request from YOUR_IP for /magic-mirror
+   # ✅ [Magic Mirror] Successfully serving magic-mirror.html to YOUR_IP
    ```
 
-3. **Check server logs**
+4. **Check server logs for detailed diagnostics**
    ```bash
-   docker logs local-server | grep -i "magic\|error"
+   # View all Magic Mirror related logs
+   docker logs local-server | grep -i "magic"
+   
+   # Look for specific errors or warnings:
+   # ❌ [Magic Mirror] ERROR: magic-mirror.html not found
+   # ⚠️  [Magic Mirror API] Access denied: Magic Mirror is disabled
    ```
 
 ### "Magic Mirror is not enabled" Message
@@ -277,6 +295,95 @@ If the server is only accessible on localhost but not from other devices:
    - Check server startup logs for confirmation
    - Look for: "running on port 3000"
 
+## Enhanced Logging (v2.2.4+)
+
+As of version 2.2.4, the server includes comprehensive logging for all Magic Mirror requests and API calls to help diagnose issues.
+
+### Server Startup Logs
+
+When the server starts, you'll see detailed network configuration information:
+
+```
+================================================================================
+[Date/Time] Local Server Site Pusher v2.2.4 running on port 3000
+================================================================================
+
+🌐 Network Configuration:
+   ✅ Server listening on: 0.0.0.0:3000 (all network interfaces)
+   ✅ This allows access from local network devices
+
+🔗 Local Access URLs:
+   Admin interface: http://localhost:3000/admin
+   Status endpoint: http://localhost:3000/api/status
+   Magic Mirror:    http://localhost:3000/magic-mirror
+
+🌍 Network Access:
+   📱 From other devices: http://YOUR_IP:3000/magic-mirror
+
+================================================================================
+
+✅ Magic Mirror page ready and available
+📝 Magic Mirror request logging is enabled
+💡 All requests to /magic-mirror and API endpoints will be logged
+```
+
+### Request Logging
+
+Every request to the Magic Mirror page and API endpoints is logged with:
+- **Timestamp** (ISO 8601 format)
+- **Client IP address**
+- **Endpoint accessed**
+- **Success/error status**
+- **Additional context** (config status, widget status, errors)
+
+Example log entries:
+
+```
+🪞 [Magic Mirror] 2025-10-13T16:03:45.711Z - Request from 192.168.1.100 for /magic-mirror
+✅ [Magic Mirror] 2025-10-13T16:03:45.711Z - Successfully serving magic-mirror.html to 192.168.1.100
+✅ [Magic Mirror] 2025-10-13T16:03:45.711Z - File delivered successfully to 192.168.1.100
+
+📊 [Magic Mirror API] 2025-10-13T16:04:18.514Z - Data request from 192.168.1.100
+✅ [Magic Mirror API] 2025-10-13T16:04:18.514Z - Returning config data (enabled: true, widgets: clock, weather, calendar, news)
+
+🌤️  [Magic Mirror Weather] 2025-10-13T16:04:41.140Z - Request from 192.168.1.100
+⚠️  [Magic Mirror Weather] 2025-10-13T16:04:41.140Z - Returning placeholder (no API key configured)
+```
+
+### Viewing Logs
+
+#### Docker Container
+```bash
+# View live logs
+docker logs -f local-server
+
+# View last 50 lines
+docker logs --tail 50 local-server
+
+# Filter for Magic Mirror logs only
+docker logs local-server | grep -i "magic"
+```
+
+#### Direct Node.js
+```bash
+# Logs appear in console where server was started
+# Or redirect to file:
+node server.js > server.log 2>&1
+```
+
+### Log Symbols and Meanings
+
+| Symbol | Meaning | Description |
+|--------|---------|-------------|
+| 🪞 | Magic Mirror Page | Request to /magic-mirror |
+| 📊 | Data API | Request to /api/magicmirror/data |
+| 🌤️ | Weather API | Request to /api/magicmirror/weather |
+| 📅 | Calendar API | Request to /api/magicmirror/calendar |
+| 📰 | News API | Request to /api/magicmirror/news |
+| ✅ | Success | Operation completed successfully |
+| ⚠️ | Warning | Non-critical issue (e.g., missing API key) |
+| ❌ | Error | Critical error occurred |
+
 ## Testing Accessibility
 
 ### Quick Test Checklist
@@ -285,26 +392,37 @@ If the server is only accessible on localhost but not from other devices:
    ```bash
    curl -I http://localhost:3000/magic-mirror
    # Should return: HTTP/1.1 200 OK
+   # Check logs for: 🪞 [Magic Mirror] Request from 127.0.0.1
    ```
 
 2. ✅ **Host IP access**
    ```bash
    curl -I http://$(hostname -I | awk '{print $1}'):3000/magic-mirror
    # Should return: HTTP/1.1 200 OK
+   # Check logs for: 🪞 [Magic Mirror] Request from YOUR_IP
    ```
 
 3. ✅ **From another device**
    - Open browser on tablet/phone
    - Navigate to: `http://SERVER_IP:3000/magic-mirror`
    - Should display the dashboard
+   - Check logs for: 🪞 [Magic Mirror] Request from DEVICE_IP
 
-4. ✅ **Check server logs**
+4. ✅ **Check server logs for startup info**
    ```bash
-   docker logs local-server | tail -20
+   docker logs local-server | tail -40
    # Should show:
-   # - Server running on port 3000
-   # - Magic Mirror: http://localhost:3000/magic-mirror
-   # - For container/remote access, replace 'localhost' with your server's IP
+   # - Network Configuration section
+   # - Server listening on 0.0.0.0:3000
+   # - Magic Mirror page ready and available
+   # - Request logging enabled
+   ```
+
+5. ✅ **Test logging functionality**
+   ```bash
+   # From the repository
+   node scripts/test-magic-mirror-logging.js
+   # Validates all logging endpoints
    ```
 
 ## Port Customization
