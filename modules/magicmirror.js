@@ -1007,7 +1007,7 @@ function generateDefaultHTML() {
                 }
                 
                 // Build HTML based on widget size
-                const mediaWidget = document.querySelector('.media-widget');
+                const mediaWidget = document.getElementById('media-widget');
                 const isBarSize = mediaWidget && mediaWidget.classList.contains('size-bar');
                 
                 let mediaHtml = '';
