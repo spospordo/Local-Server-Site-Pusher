@@ -4547,26 +4547,40 @@ app.post('/admin/api/magicmirror/config', requireAuth, (req, res) => {
 
 // Get Magic Mirror data for display page (includes full config with API keys)
 app.get('/api/magicmirror/data', (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`📊 [Magic Mirror API] ${timestamp} - Data request from ${clientIp}`);
+  
   try {
     const config = magicMirror.getFullConfig();
     
     // Only return data if Magic Mirror is enabled
     if (!config.enabled) {
+      console.log(`⚠️  [Magic Mirror API] ${timestamp} - Access denied: Magic Mirror is disabled`);
       return res.status(403).json({ error: 'Magic Mirror is not enabled' });
     }
     
+    console.log(`✅ [Magic Mirror API] ${timestamp} - Returning config data (enabled: ${config.enabled}, widgets: ${Object.keys(config.widgets || {}).join(', ')})`);
     res.json(config);
   } catch (err) {
+    console.error(`❌ [Magic Mirror API] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to get Magic Mirror data: ' + err.message });
   }
 });
 
 // Magic Mirror weather API endpoint
 app.get('/api/magicmirror/weather', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🌤️  [Magic Mirror Weather] ${timestamp} - Request from ${clientIp}`);
+  
   try {
     const config = magicMirror.getFullConfig();
     
     if (!config.enabled || !config.widgets?.weather || !config.weather?.location) {
+      console.log(`⚠️  [Magic Mirror Weather] ${timestamp} - Widget not configured or disabled`);
       return res.status(400).json({ error: 'Weather widget not configured' });
     }
 
@@ -4581,6 +4595,8 @@ app.get('/api/magicmirror/weather', async (req, res) => {
       const response = await axios.get(weatherUrl);
       const data = response.data;
       
+      console.log(`✅ [Magic Mirror Weather] ${timestamp} - Successfully fetched weather for ${data.name}`);
+      
       res.json({
         temperature: Math.round(data.main.temp),
         description: data.weather[0].description,
@@ -4590,6 +4606,7 @@ app.get('/api/magicmirror/weather', async (req, res) => {
         windSpeed: data.wind.speed
       });
     } else {
+      console.log(`⚠️  [Magic Mirror Weather] ${timestamp} - Returning placeholder (no API key configured)`);
       // Return placeholder data if no API key
       res.json({
         temperature: '--',
@@ -4599,17 +4616,23 @@ app.get('/api/magicmirror/weather', async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('❌ [Magic Mirror] Weather API error:', err.message);
+    console.error(`❌ [Magic Mirror Weather] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to fetch weather data: ' + err.message });
   }
 });
 
 // Magic Mirror calendar API endpoint
 app.get('/api/magicmirror/calendar', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`📅 [Magic Mirror Calendar] ${timestamp} - Request from ${clientIp}`);
+  
   try {
     const config = magicMirror.getFullConfig();
     
     if (!config.enabled || !config.widgets?.calendar || !config.calendar?.url) {
+      console.log(`⚠️  [Magic Mirror Calendar] ${timestamp} - Widget not configured or disabled`);
       return res.status(400).json({ error: 'Calendar widget not configured' });
     }
 
@@ -4641,21 +4664,29 @@ app.get('/api/magicmirror/calendar', async (req, res) => {
     // Sort by start time
     upcomingEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
     
+    console.log(`✅ [Magic Mirror Calendar] ${timestamp} - Successfully fetched ${upcomingEvents.length} events`);
+    
     res.json({
       events: upcomingEvents.slice(0, 10) // Limit to 10 events
     });
   } catch (err) {
-    console.error('❌ [Magic Mirror] Calendar API error:', err.message);
+    console.error(`❌ [Magic Mirror Calendar] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to fetch calendar data: ' + err.message });
   }
 });
 
 // Magic Mirror news API endpoint
 app.get('/api/magicmirror/news', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`📰 [Magic Mirror News] ${timestamp} - Request from ${clientIp}`);
+  
   try {
     const config = magicMirror.getFullConfig();
     
     if (!config.enabled || !config.widgets?.news || !config.news?.source) {
+      console.log(`⚠️  [Magic Mirror News] ${timestamp} - Widget not configured or disabled`);
       return res.status(400).json({ error: 'News widget not configured' });
     }
 
@@ -4683,18 +4714,48 @@ app.get('/api/magicmirror/news', async (req, res) => {
       }
     });
     
+    console.log(`✅ [Magic Mirror News] ${timestamp} - Successfully fetched ${newsItems.length} news items from ${config.news.source}`);
+    
     res.json({
       items: newsItems
     });
   } catch (err) {
-    console.error('❌ [Magic Mirror] News API error:', err.message);
+    console.error(`❌ [Magic Mirror News] ${timestamp} - Error:`, err.message);
     res.status(500).json({ error: 'Failed to fetch news data: ' + err.message });
   }
 });
 
 // Magic Mirror display page
 app.get('/magic-mirror', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'magic-mirror.html'));
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🪞 [Magic Mirror] ${timestamp} - Request from ${clientIp} for /magic-mirror`);
+  
+  const htmlPath = path.join(__dirname, 'public', 'magic-mirror.html');
+  
+  // Check if file exists before serving
+  if (!fs.existsSync(htmlPath)) {
+    console.error(`❌ [Magic Mirror] ${timestamp} - ERROR: magic-mirror.html not found at ${htmlPath}`);
+    return res.status(404).send(`
+      <h1>Magic Mirror Not Found</h1>
+      <p>The magic-mirror.html file is missing from the server.</p>
+      <p>Expected location: ${htmlPath}</p>
+    `);
+  }
+  
+  console.log(`✅ [Magic Mirror] ${timestamp} - Successfully serving magic-mirror.html to ${clientIp}`);
+  
+  res.sendFile(htmlPath, (err) => {
+    if (err) {
+      console.error(`❌ [Magic Mirror] ${timestamp} - Error serving file to ${clientIp}:`, err.message);
+      if (!res.headersSent) {
+        res.status(500).send('Error loading Magic Mirror page');
+      }
+    } else {
+      console.log(`✅ [Magic Mirror] ${timestamp} - File delivered successfully to ${clientIp}`);
+    }
+  });
 });
 
 // Default route - serve public content
@@ -4716,9 +4777,56 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   const startTime = new Date().toLocaleString();
+  console.log(`\n${'='.repeat(80)}`);
   console.log(`[${startTime}] Local Server Site Pusher v${require('./package.json').version} running on port ${PORT}`);
-  console.log(`Admin interface: http://localhost:${PORT}/admin`);
-  console.log(`Status endpoint: http://localhost:${PORT}/api/status`);
-  console.log(`Magic Mirror: http://localhost:${PORT}/magic-mirror`);
-  console.log(`\nFor container/remote access, replace 'localhost' with your server's IP address`);
+  console.log(`${'='.repeat(80)}\n`);
+  
+  // Network configuration info
+  console.log('🌐 Network Configuration:');
+  console.log(`   ✅ Server listening on: 0.0.0.0:${PORT} (all network interfaces)`);
+  console.log(`   ✅ This allows access from local network devices\n`);
+  
+  // Local access URLs
+  console.log('🔗 Local Access URLs:');
+  console.log(`   Admin interface: http://localhost:${PORT}/admin`);
+  console.log(`   Status endpoint: http://localhost:${PORT}/api/status`);
+  console.log(`   Magic Mirror:    http://localhost:${PORT}/magic-mirror\n`);
+  
+  // Network access info
+  console.log('🌍 Network Access:');
+  try {
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    let hasNetworkIP = false;
+    
+    Object.keys(networkInterfaces).forEach(interfaceName => {
+      networkInterfaces[interfaceName].forEach(iface => {
+        // Skip internal and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          console.log(`   📱 From other devices: http://${iface.address}:${PORT}/magic-mirror`);
+          hasNetworkIP = true;
+        }
+      });
+    });
+    
+    if (!hasNetworkIP) {
+      console.log('   ⚠️  No external network interfaces detected');
+      console.log('   💡 If running in a container, ensure ports are properly mapped');
+    }
+  } catch (err) {
+    console.log('   ⚠️  Could not determine network addresses');
+  }
+  
+  console.log(`\n${'='.repeat(80)}\n`);
+  
+  // Magic Mirror status check
+  const magicMirrorHtmlPath = path.join(__dirname, 'public', 'magic-mirror.html');
+  if (fs.existsSync(magicMirrorHtmlPath)) {
+    console.log('✅ Magic Mirror page ready and available');
+  } else {
+    console.error('❌ WARNING: magic-mirror.html not found!');
+  }
+  
+  console.log('📝 Magic Mirror request logging is enabled');
+  console.log('💡 All requests to /magic-mirror and API endpoints will be logged\n');
 });
