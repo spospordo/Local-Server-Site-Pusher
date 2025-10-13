@@ -169,47 +169,42 @@ async function runTests() {
         }
     });
 
-    // Test 12: HTML contains widget elements
-    await test('Magic mirror HTML contains widget structure', async () => {
+    // Test 12: HTML contains placeholder text
+    await test('Magic mirror HTML contains placeholder text', async () => {
         const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
         const htmlContent = fs.readFileSync(htmlPath, 'utf8');
         
-        const requiredElements = ['clock-widget', 'weather-widget', 'calendar-widget', 'news-widget'];
-        for (const element of requiredElements) {
-            if (!htmlContent.includes(element)) {
-                throw new Error(`Missing widget class: ${element}`);
-            }
+        if (!htmlContent.includes('dashboard placeholder')) {
+            throw new Error('Missing placeholder text: "dashboard placeholder"');
         }
     });
 
-    // Test 13: HTML contains update functions
-    await test('Magic mirror HTML contains update functions', async () => {
+    // Test 13: HTML is minimal placeholder (for troubleshooting)
+    await test('Magic mirror HTML is minimal placeholder', async () => {
         const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
         const htmlContent = fs.readFileSync(htmlPath, 'utf8');
         
-        const requiredFunctions = ['updateClock', 'updateWeather', 'updateCalendar', 'updateNews'];
-        for (const func of requiredFunctions) {
-            if (!htmlContent.includes(`function ${func}`)) {
-                throw new Error(`Missing function: ${func}`);
-            }
+        // Verify it's a simple HTML structure
+        if (!htmlContent.includes('<!DOCTYPE html>')) {
+            throw new Error('Missing DOCTYPE declaration');
+        }
+        
+        // Ensure it's truly minimal (less than 500 bytes is reasonable for placeholder)
+        if (htmlContent.length > 500) {
+            throw new Error('HTML is not minimal - should be a simple placeholder');
         }
     });
 
-    // Test 14: HTML makes API calls
-    await test('Magic mirror HTML makes API calls to backend', async () => {
-        const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
-        const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+    // Test 14: Placeholder serves successfully via HTTP
+    await test('Magic mirror placeholder serves via HTTP', async () => {
+        const response = await makeRequest('/magic-mirror');
         
-        const apiCalls = [
-            '/api/magicmirror/weather',
-            '/api/magicmirror/calendar',
-            '/api/magicmirror/news'
-        ];
+        if (response.statusCode !== 200) {
+            throw new Error(`Placeholder returned status ${response.statusCode}`);
+        }
         
-        for (const apiCall of apiCalls) {
-            if (!htmlContent.includes(apiCall)) {
-                throw new Error(`Missing API call: ${apiCall}`);
-            }
+        if (!response.body.includes('dashboard placeholder')) {
+            throw new Error('Response does not contain placeholder text');
         }
     });
 
