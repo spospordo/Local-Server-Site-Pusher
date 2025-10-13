@@ -15,10 +15,26 @@ if (!fs.existsSync(CONFIG_DIR)) {
 const DEFAULT_CONFIG = {
     enabled: false,
     widgets: {
-        clock: true,
-        weather: false,
-        calendar: false,
-        news: false
+        clock: {
+            enabled: true,
+            area: 'upper-left',
+            size: 'box'
+        },
+        weather: {
+            enabled: false,
+            area: 'upper-center',
+            size: 'box'
+        },
+        calendar: {
+            enabled: false,
+            area: 'middle-left',
+            size: 'box'
+        },
+        news: {
+            enabled: false,
+            area: 'bottom-left',
+            size: 'bar'
+        }
     },
     weather: {
         location: '',
@@ -129,9 +145,30 @@ function saveConfig(config) {
 function getConfig() {
     const config = loadConfig();
     
+    // Handle backward compatibility - convert old boolean format to new object format
+    const widgets = {};
+    for (const [key, value] of Object.entries(config.widgets || {})) {
+        if (typeof value === 'boolean') {
+            // Old format: { clock: true, weather: false }
+            widgets[key] = {
+                enabled: value,
+                area: DEFAULT_CONFIG.widgets[key]?.area || 'upper-left',
+                size: DEFAULT_CONFIG.widgets[key]?.size || 'box'
+            };
+        } else if (typeof value === 'object') {
+            // New format: { clock: { enabled: true, area: 'upper-left', size: 'box' } }
+            widgets[key] = {
+                enabled: value.enabled !== undefined ? value.enabled : true,
+                area: value.area || DEFAULT_CONFIG.widgets[key]?.area || 'upper-left',
+                size: value.size || DEFAULT_CONFIG.widgets[key]?.size || 'box'
+            };
+        }
+    }
+    
     // Don't send API keys to client (just indicate if they exist)
     return {
         ...config,
+        widgets,
         weather: {
             ...config.weather,
             hasApiKey: !!config.weather?.apiKey,
@@ -260,9 +297,32 @@ function generateDefaultHTML() {
 
         .widget-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: auto auto auto;
+            grid-template-areas:
+                "upper-left upper-center upper-right"
+                "middle-left middle-center middle-right"
+                "bottom-left bottom-center bottom-right";
             gap: 2rem;
+            min-height: 70vh;
         }
+
+        .widget-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 100px;
+        }
+
+        .widget-area.upper-left { grid-area: upper-left; }
+        .widget-area.upper-center { grid-area: upper-center; }
+        .widget-area.upper-right { grid-area: upper-right; }
+        .widget-area.middle-left { grid-area: middle-left; }
+        .widget-area.middle-center { grid-area: middle-center; }
+        .widget-area.middle-right { grid-area: middle-right; }
+        .widget-area.bottom-left { grid-area: bottom-left; }
+        .widget-area.bottom-center { grid-area: bottom-center; }
+        .widget-area.bottom-right { grid-area: bottom-right; }
 
         .widget {
             background: rgba(255, 255, 255, 0.05);
@@ -277,6 +337,15 @@ function generateDefaultHTML() {
         .widget:hover {
             transform: translateY(-5px);
             box-shadow: 0 12px 40px rgba(74, 144, 226, 0.2);
+        }
+
+        .widget.size-box {
+            /* Standard box size - natural width within area */
+        }
+
+        .widget.size-bar {
+            /* Bar size - can span full width of area */
+            width: 100%;
         }
 
         .widget-header {
@@ -380,6 +449,39 @@ function generateDefaultHTML() {
             font-size: 0.85rem;
             color: #aaa;
         }
+
+        /* Portrait orientation - single column layout */
+        @media (orientation: portrait) {
+            .widget-grid {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "upper-left"
+                    "upper-center"
+                    "upper-right"
+                    "middle-left"
+                    "middle-center"
+                    "middle-right"
+                    "bottom-left"
+                    "bottom-center"
+                    "bottom-right";
+            }
+        }
+
+        @media (max-width: 768px) {
+            .widget-grid {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "upper-left"
+                    "upper-center"
+                    "upper-right"
+                    "middle-left"
+                    "middle-center"
+                    "middle-right"
+                    "bottom-left"
+                    "bottom-center"
+                    "bottom-right";
+            }
+        }
     </style>
 </head>
 <body>
@@ -419,92 +521,91 @@ function generateDefaultHTML() {
                     return;
                 }
                 
-                // Build widget grid based on enabled widgets
+                // Build widget grid with area-based layout
                 const widgets = config.widgets || {};
+                
+                // Initialize widget grid with all areas
                 let widgetsHtml = '<div class="widget-grid">';
-                
-                // Clock widget (always show if enabled)
-                if (widgets.clock) {
-                    widgetsHtml += \`
-                        <div class="widget clock-widget">
-                            <div class="widget-header">
-                                <span class="widget-icon">🕐</span>
-                                <span class="widget-title">Clock</span>
-                            </div>
-                            <div class="widget-content">
-                                <div class="time" id="clock-time">--:--:--</div>
-                                <div class="date" id="clock-date">Loading...</div>
-                            </div>
-                        </div>
-                    \`;
-                }
-                
-                // Weather widget
-                if (widgets.weather) {
-                    widgetsHtml += \`
-                        <div class="widget weather-widget">
-                            <div class="widget-header">
-                                <span class="widget-icon">🌤️</span>
-                                <span class="widget-title">Weather</span>
-                            </div>
-                            <div class="widget-content" id="weather-content">
-                                <div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div>
-                            </div>
-                        </div>
-                    \`;
-                }
-                
-                // Calendar widget
-                if (widgets.calendar) {
-                    widgetsHtml += \`
-                        <div class="widget calendar-widget">
-                            <div class="widget-header">
-                                <span class="widget-icon">📅</span>
-                                <span class="widget-title">Calendar</span>
-                            </div>
-                            <div class="widget-content" id="calendar-content">
-                                <div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div>
-                            </div>
-                        </div>
-                    \`;
-                }
-                
-                // News widget
-                if (widgets.news) {
-                    widgetsHtml += \`
-                        <div class="widget news-widget">
-                            <div class="widget-header">
-                                <span class="widget-icon">📰</span>
-                                <span class="widget-title">News</span>
-                            </div>
-                            <div class="widget-content" id="news-content">
-                                <div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div>
-                            </div>
-                        </div>
-                    \`;
-                }
-                
+                widgetsHtml += '<div class="widget-area upper-left" id="area-upper-left"></div>';
+                widgetsHtml += '<div class="widget-area upper-center" id="area-upper-center"></div>';
+                widgetsHtml += '<div class="widget-area upper-right" id="area-upper-right"></div>';
+                widgetsHtml += '<div class="widget-area middle-left" id="area-middle-left"></div>';
+                widgetsHtml += '<div class="widget-area middle-center" id="area-middle-center"></div>';
+                widgetsHtml += '<div class="widget-area middle-right" id="area-middle-right"></div>';
+                widgetsHtml += '<div class="widget-area bottom-left" id="area-bottom-left"></div>';
+                widgetsHtml += '<div class="widget-area bottom-center" id="area-bottom-center"></div>';
+                widgetsHtml += '<div class="widget-area bottom-right" id="area-bottom-right"></div>';
                 widgetsHtml += '</div>';
                 
                 document.getElementById('dashboard-content').innerHTML = widgetsHtml;
                 
+                // Widget templates
+                const widgetTemplates = {
+                    clock: { icon: '🕐', title: 'Clock', content: '<div class="time" id="clock-time">--:--:--</div><div class="date" id="clock-date">Loading...</div>' },
+                    weather: { icon: '🌤️', title: 'Weather', content: '<div id="weather-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
+                    calendar: { icon: '📅', title: 'Calendar', content: '<div id="calendar-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
+                    news: { icon: '📰', title: 'News', content: '<div id="news-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' }
+                };
+                
+                // Place widgets in their configured areas
+                for (const [widgetName, widgetConfig] of Object.entries(widgets)) {
+                    let enabled, area, size;
+                    
+                    // Handle both old boolean format and new object format
+                    if (typeof widgetConfig === 'boolean') {
+                        enabled = widgetConfig;
+                        area = 'upper-left';
+                        size = 'box';
+                    } else if (typeof widgetConfig === 'object') {
+                        enabled = widgetConfig.enabled;
+                        area = widgetConfig.area || 'upper-left';
+                        size = widgetConfig.size || 'box';
+                    } else {
+                        continue;
+                    }
+                    
+                    if (!enabled) continue;
+                    
+                    const template = widgetTemplates[widgetName];
+                    if (!template) continue;
+                    
+                    const areaElement = document.getElementById('area-' + area);
+                    if (!areaElement) continue;
+                    
+                    const widgetHtml = \`
+                        <div class="widget size-\${size} \${widgetName}-widget">
+                            <div class="widget-header">
+                                <span class="widget-icon">\${template.icon}</span>
+                                <span class="widget-title">\${template.title}</span>
+                            </div>
+                            <div class="widget-content">
+                                \${template.content}
+                            </div>
+                        </div>
+                    \`;
+                    
+                    areaElement.innerHTML += widgetHtml;
+                }
+                
                 // Start updates for enabled widgets
-                if (widgets.clock) {
+                const isEnabled = (w) => typeof w === 'boolean' ? w : (w && w.enabled);
+                
+                if (isEnabled(widgets.clock)) {
                     updateClock();
                     setInterval(updateClock, 1000);
                 }
                 
-                if (widgets.weather) {
+                if (isEnabled(widgets.weather)) {
                     updateWeather();
                     setInterval(updateWeather, 600000); // 10 minutes
                 }
                 
-                if (widgets.calendar) {
+                if (isEnabled(widgets.calendar)) {
                     updateCalendar();
                     setInterval(updateCalendar, 600000); // 10 minutes
                 }
                 
-                if (widgets.news) {
+                if (isEnabled(widgets.news)) {
                     updateNews();
                     setInterval(updateNews, 600000); // 10 minutes
                 }
