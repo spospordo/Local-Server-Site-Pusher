@@ -209,9 +209,9 @@ function updateConfig(newConfig) {
             }
         };
         
-        // Only update API key if a new one is provided
-        if (newConfig.weather?.apiKey && newConfig.weather.apiKey.trim()) {
-            updatedConfig.weather.apiKey = newConfig.weather.apiKey;
+        // Preserve API key if new one is not provided or is empty
+        if (!newConfig.weather?.apiKey || !newConfig.weather.apiKey.trim()) {
+            updatedConfig.weather.apiKey = currentConfig.weather?.apiKey || '';
         }
         
         return saveConfig(updatedConfig);
