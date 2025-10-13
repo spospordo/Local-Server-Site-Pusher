@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
+const logger = require('./modules/logger');
 const vidiots = require('./modules/vidiots');
 const espresso = require('./modules/espresso');
 const githubUpload = require('./modules/github-upload');
@@ -604,33 +605,41 @@ try {
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     console.log('Loaded configuration from config/config.json');
+    logger.success(logger.categories.SYSTEM, 'Configuration loaded from config/config.json');
     
     // Validate and repair configuration
     const validation = validateAndRepairConfig(config);
     if (validation.needsRepair) {
       console.log('Configuration validation found issues, applying repairs...');
+      logger.warning(logger.categories.SYSTEM, 'Configuration validation found issues, applying repairs');
       config = validation.config;
       
       if (configWritable) {
         if (createConfigFile(configPath, config)) {
           console.log('Repaired configuration saved to file');
+          logger.success(logger.categories.SYSTEM, 'Repaired configuration saved to file');
         } else {
           console.warn('Could not save repaired configuration, using in-memory repairs');
+          logger.warning(logger.categories.SYSTEM, 'Could not save repaired configuration, using in-memory repairs');
         }
       } else {
         console.warn('Config directory not writable, repairs applied in-memory only');
+        logger.warning(logger.categories.SYSTEM, 'Config directory not writable, repairs applied in-memory only');
       }
     } else {
       console.log('Configuration validation passed');
+      logger.info(logger.categories.SYSTEM, 'Configuration validation passed');
     }
   } else {
     config = defaultConfig;
     if (configWritable) {
       if (createConfigFile(configPath, defaultConfig)) {
         console.log('Created default configuration file');
+        logger.success(logger.categories.SYSTEM, 'Created default configuration file');
       }
     } else {
       console.log('Config directory not writable, using in-memory configuration only');
+      logger.warning(logger.categories.SYSTEM, 'Config directory not writable, using in-memory configuration only');
     }
   }
 } catch (err) {
@@ -1059,26 +1068,21 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
 
 // API endpoint for system logs
 app.get('/admin/api/logs', requireAuth, (req, res) => {
-  // Simple mock logs for demonstration
-  const logs = [
-    {
-      timestamp: new Date().toISOString(),
-      level: 'INFO',
-      message: 'Server started successfully on port ' + PORT
-    },
-    {
-      timestamp: new Date(Date.now() - 60000).toISOString(),
-      level: 'INFO',
-      message: 'Configuration loaded from config file'
-    },
-    {
-      timestamp: new Date(Date.now() - 120000).toISOString(),
-      level: 'INFO',
-      message: 'Admin session authenticated'
-    }
-  ];
+  const category = req.query.category || null;
+  const limit = req.query.limit ? parseInt(req.query.limit) : null;
   
-  res.json(logs);
+  const logs = logger.getLogs(category, limit);
+  
+  res.json({
+    logs: logs,
+    categories: logger.getCategories()
+  });
+});
+
+// Clear logs endpoint
+app.post('/admin/api/logs/clear', requireAuth, (req, res) => {
+  logger.clear();
+  res.json({ success: true, message: 'All logs cleared' });
 });
 
 // Status endpoint for Home Assistant and other tools
@@ -4781,10 +4785,15 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[${startTime}] Local Server Site Pusher v${require('./package.json').version} running on port ${PORT}`);
   console.log(`${'='.repeat(80)}\n`);
   
+  // Log server start
+  logger.success(logger.categories.SYSTEM, `Server started successfully v${require('./package.json').version} on port ${PORT}`);
+  
   // Network configuration info
   console.log('🌐 Network Configuration:');
   console.log(`   ✅ Server listening on: 0.0.0.0:${PORT} (all network interfaces)`);
   console.log(`   ✅ This allows access from local network devices\n`);
+  
+  logger.info(logger.categories.SERVER, `Listening on 0.0.0.0:${PORT} (all network interfaces)`);
   
   // Local access URLs
   console.log('🔗 Local Access URLs:');
@@ -4823,10 +4832,13 @@ app.listen(PORT, '0.0.0.0', () => {
   const magicMirrorHtmlPath = path.join(__dirname, 'public', 'magic-mirror.html');
   if (fs.existsSync(magicMirrorHtmlPath)) {
     console.log('✅ Magic Mirror page ready and available');
+    logger.success(logger.categories.MAGIC_MIRROR, 'Magic Mirror page ready and available');
   } else {
     console.error('❌ WARNING: magic-mirror.html not found!');
+    logger.error(logger.categories.MAGIC_MIRROR, 'magic-mirror.html not found at expected path');
   }
   
   console.log('📝 Magic Mirror request logging is enabled');
   console.log('💡 All requests to /magic-mirror and API endpoints will be logged\n');
+  logger.info(logger.categories.MAGIC_MIRROR, 'Request logging is enabled for all Magic Mirror endpoints');
 });

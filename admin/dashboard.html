@@ -260,6 +260,27 @@
             color: #dc3545;
         }
         
+        .log-level.SUCCESS {
+            color: #28a745;
+        }
+        
+        .log-level.WARNING {
+            color: #ffc107;
+        }
+        
+        .log-level.DEBUG {
+            color: #6c757d;
+        }
+        
+        .log-category {
+            background: #e9ecef;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            color: #495057;
+        }
+        
         .links-list {
             list-style: none;
         }
@@ -1600,6 +1621,12 @@
                 <button class="sub-tab active" onclick="showSubTab('finance-mydata')">My Data</button>
                 <button class="sub-tab" onclick="showSubTab('finance-spending')">Spending</button>
             </div>
+            
+            <!-- Sub-tabs for Settings -->
+            <div class="sub-tabs" id="settings-subtabs">
+                <button class="sub-tab active" onclick="showSubTab('settings-general')">General</button>
+                <button class="sub-tab" onclick="showSubTab('settings-logs')">📝 Logs</button>
+            </div>
         </div>
         <!-- Server Status -->
         <div class="card admin-section dashboard-section">
@@ -2170,7 +2197,7 @@
         </div>
 
         <!-- Configuration Management -->
-        <div class="card admin-section settings-section">
+        <div class="card admin-section settings-section settings-general-section">
             <div class="card-header">
                 <h2>Configuration Management</h2>
             </div>
@@ -2251,7 +2278,7 @@
         </div>
 
         <!-- Storage Management -->
-        <div class="card admin-section settings-section">
+        <div class="card admin-section settings-section settings-general-section">
             <div class="card-header">
                 <h2>Storage Management</h2>
             </div>
@@ -3188,7 +3215,7 @@
 
 
         <!-- Home Assistant Media Streaming -->
-        <div class="card admin-section settings-section">
+        <div class="card admin-section settings-section settings-general-section">
             <div class="card-header">
                 <h2>Home Assistant Media Streaming</h2>
             </div>
@@ -3247,6 +3274,54 @@
                 </div>
                 
                 <div id="mediaStreamingAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- System Logs - Settings Sub-tab -->
+        <div class="card admin-section settings-section settings-logs-section hidden">
+            <div class="card-header">
+                <h2>📝 System Logs</h2>
+            </div>
+            <div class="card-body">
+                <p>View error, status, and activity logs from all system modules. Logs are organized by category to help with troubleshooting.</p>
+                
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="logCategoryFilter">Filter by Module:</label>
+                        <select id="logCategoryFilter" onchange="loadSystemLogs()">
+                            <option value="ALL">All Modules</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="logLevelFilter">Filter by Level:</label>
+                        <select id="logLevelFilter" onchange="applyLogFilters()">
+                            <option value="ALL">All Levels</option>
+                            <option value="ERROR">❌ Errors Only</option>
+                            <option value="WARNING">⚠️ Warnings Only</option>
+                            <option value="SUCCESS">✅ Success Only</option>
+                            <option value="INFO">ℹ️ Info Only</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button onclick="loadSystemLogs()" class="btn btn-secondary" style="margin-right: 0.5rem;">🔄 Refresh</button>
+                        <button onclick="clearSystemLogs()" class="btn btn-danger">🗑️ Clear Logs</button>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label>
+                        <input type="checkbox" id="autoRefreshLogs" onchange="toggleAutoRefresh()">
+                        Auto-refresh every 5 seconds
+                    </label>
+                </div>
+                
+                <div id="systemLogsContainer" class="logs-container" style="max-height: 600px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 1rem;">
+                    <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                        Loading logs...
+                    </div>
+                </div>
+                
+                <div id="systemLogsAlert" class="alert" style="margin-top: 1rem;"></div>
             </div>
         </div>
 
@@ -3966,14 +4041,15 @@
             section.classList.toggle('hidden');
         }
         
-        // Load logs
+        // Load logs (for Dashboard tab)
         async function loadLogs() {
             try {
                 const response = await fetch('/admin/api/logs');
-                const logs = await response.json();
+                const data = await response.json();
                 
                 const container = document.getElementById('logsContainer');
-                container.innerHTML = logs.map(log => `
+                const logs = data.logs || [];
+                container.innerHTML = logs.slice(0, 10).map(log => `
                     <div class="log-entry">
                         <span class="log-timestamp">${new Date(log.timestamp).toLocaleString()}</span>
                         <span class="log-level ${log.level}">${log.level}</span>
@@ -3983,6 +4059,134 @@
             } catch (err) {
                 console.error('Failed to load logs:', err);
             }
+        }
+        
+        // System Logs Functions (for Settings > Logs sub-tab)
+        let autoRefreshInterval = null;
+        let allSystemLogs = [];
+        
+        async function loadSystemLogs() {
+            try {
+                const category = document.getElementById('logCategoryFilter').value;
+                const response = await fetch(`/admin/api/logs?category=${category}`);
+                const data = await response.json();
+                
+                // Update category filter if needed
+                const categoryFilter = document.getElementById('logCategoryFilter');
+                if (categoryFilter.options.length === 1 && data.categories) {
+                    categoryFilter.innerHTML = '<option value="ALL">All Modules</option>';
+                    Object.entries(data.categories).forEach(([key, value]) => {
+                        categoryFilter.innerHTML += `<option value="${value}">${value}</option>`;
+                    });
+                    categoryFilter.value = category;
+                }
+                
+                allSystemLogs = data.logs || [];
+                applyLogFilters();
+                
+                showSystemLogsAlert('Logs refreshed successfully', 'success');
+                setTimeout(() => hideSystemLogsAlert(), 2000);
+            } catch (err) {
+                console.error('Failed to load system logs:', err);
+                showSystemLogsAlert('Failed to load logs: ' + err.message, 'error');
+            }
+        }
+        
+        function applyLogFilters() {
+            const levelFilter = document.getElementById('logLevelFilter').value;
+            let filteredLogs = allSystemLogs;
+            
+            if (levelFilter !== 'ALL') {
+                filteredLogs = allSystemLogs.filter(log => log.level === levelFilter);
+            }
+            
+            displaySystemLogs(filteredLogs);
+        }
+        
+        function displaySystemLogs(logs) {
+            const container = document.getElementById('systemLogsContainer');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">No logs to display</div>';
+                return;
+            }
+            
+            const levelEmojis = {
+                'INFO': 'ℹ️',
+                'SUCCESS': '✅',
+                'WARNING': '⚠️',
+                'ERROR': '❌',
+                'DEBUG': '🔍'
+            };
+            
+            container.innerHTML = logs.map(log => `
+                <div class="log-entry">
+                    <span class="log-timestamp">${new Date(log.timestamp).toLocaleString()}</span>
+                    <span class="log-category">${log.category}</span>
+                    <span class="log-level ${log.level}">${levelEmojis[log.level] || ''} ${log.level}</span>
+                    <span class="log-message">${escapeHtml(log.message)}</span>
+                </div>
+            `).join('');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefreshLogs');
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(loadSystemLogs, 5000);
+                showSystemLogsAlert('Auto-refresh enabled', 'success');
+                setTimeout(() => hideSystemLogsAlert(), 2000);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                showSystemLogsAlert('Auto-refresh disabled', 'success');
+                setTimeout(() => hideSystemLogsAlert(), 2000);
+            }
+        }
+        
+        async function clearSystemLogs() {
+            if (!confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/logs/clear', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    showSystemLogsAlert('All logs cleared successfully', 'success');
+                    loadSystemLogs();
+                } else {
+                    throw new Error('Failed to clear logs');
+                }
+            } catch (err) {
+                console.error('Failed to clear logs:', err);
+                showSystemLogsAlert('Failed to clear logs: ' + err.message, 'error');
+            }
+        }
+        
+        function showSystemLogsAlert(message, type) {
+            const alertDiv = document.getElementById('systemLogsAlert');
+            alertDiv.textContent = message;
+            alertDiv.className = 'alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
+            alertDiv.style.display = 'block';
+        }
+        
+        function hideSystemLogsAlert() {
+            const alertDiv = document.getElementById('systemLogsAlert');
+            alertDiv.style.display = 'none';
         }
         
         // Load useful links
@@ -5883,13 +6087,14 @@
                 // Show default sub-tab (vidiots)
                 showSubTab('server-vidiots', true);
             } else if (tabName === 'settings') {
-                const settingsSections = document.querySelectorAll('.settings-section');
-                settingsSections.forEach(section => section.classList.remove('hidden'));
+                // Show sub-tabs for settings
+                const settingsSubTabs = document.getElementById('settings-subtabs');
+                if (settingsSubTabs) {
+                    settingsSubTabs.classList.add('active');
+                }
                 
-                // Load settings data
-                loadConfig();
-                setupStorageSlider();
-                loadMediaStreamingConfig();
+                // Show default sub-tab (general)
+                showSubTab('settings-general', true);
             } else if (tabName === 'finance') {
                 // Show sub-tabs for finance
                 const financeSubTabs = document.getElementById('finance-subtabs');
@@ -5925,6 +6130,8 @@
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
                 else if (subTabName === 'finance-advanced') targetTabText = 'Advanced';
+                else if (subTabName === 'settings-general') targetTabText = 'General';
+                else if (subTabName === 'settings-logs') targetTabText = '📝 Logs';
                 
                 if (targetTabText) {
                     const targetTab = Array.from(subTabs).find(tab => tab.textContent.trim() === targetTabText);
@@ -5934,13 +6141,15 @@
                 }
             }
             
-            // Hide all party and server sections
+            // Hide all party, server, finance and settings sections
             const partySections = document.querySelectorAll('.party-section');
             partySections.forEach(section => section.classList.add('hidden'));
             const serverSections = document.querySelectorAll('.server-section');
             serverSections.forEach(section => section.classList.add('hidden'));
             const financeSections = document.querySelectorAll('.finance-section');
             financeSections.forEach(section => section.classList.add('hidden'));
+            const settingsSections = document.querySelectorAll('.settings-section');
+            settingsSections.forEach(section => section.classList.add('hidden'));
             
             // Show the selected sub-tab sections
             if (subTabName === 'party-links') {
@@ -6024,6 +6233,22 @@
                 
                 if (shouldLoadData) {
                     loadAdvancedSettings();
+                }
+            } else if (subTabName === 'settings-general') {
+                const generalSections = document.querySelectorAll('.settings-general-section');
+                generalSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadConfig();
+                    setupStorageSlider();
+                    loadMediaStreamingConfig();
+                }
+            } else if (subTabName === 'settings-logs') {
+                const logsSections = document.querySelectorAll('.settings-logs-section');
+                logsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadSystemLogs();
                 }
             }
         }
