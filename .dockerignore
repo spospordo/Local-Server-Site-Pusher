@@ -12,3 +12,16 @@ Dockerfile
 *.md
 test-volumes
 node_modules
+
+# Exclude persistent config files - these should only exist in volumes
+config/config.json
+config/.client_auth
+config/.finance_key
+config/.finance_data
+config/.gitconfig
+config/ollama-config.json.enc
+config/.ollama-key
+
+# Exclude backup files
+config/config.json.backup
+backups/
