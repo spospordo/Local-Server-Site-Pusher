@@ -15,6 +15,7 @@ The Magic Mirror Dashboard is a fully functional information display system that
 - **Weather Widget** - Live weather data from OpenWeather API
 - **Calendar Widget** - Upcoming events from iCal/ICS feeds
 - **News Widget** - Latest news from RSS feeds
+- **Media Player Widget** - Now Playing information from Home Assistant media players
 
 ### Technical Features
 
@@ -22,6 +23,7 @@ The Magic Mirror Dashboard is a fully functional information display system that
   - Weather: Every 10 minutes
   - Calendar: Every hour  
   - News: Every 15 minutes
+  - Media: Every 5 seconds (real-time updates)
 - **Secure Storage**: AES-256-GCM encryption for sensitive data
 - **Graceful Fallbacks**: Works with or without API keys
 - **Error Handling**: User-friendly error messages
@@ -71,6 +73,24 @@ Enable and configure the widgets you want:
      - BBC News: `http://feeds.bbci.co.uk/news/rss.xml`
      - TechCrunch: `https://techcrunch.com/feed/`
      - Any valid RSS/Atom feed
+
+#### Media Player Widget
+1. **Prerequisites**: Home Assistant integration must be configured
+   - See [HOME_ASSISTANT_API.md](HOME_ASSISTANT_API.md) for setup instructions
+   - Go to **Server > Home Assistant** in admin panel
+   - Enable Home Assistant integration and configure URL and access token
+   - Enable Media Players integration
+2. Check "Media Player" to enable
+3. **Widget Sizes**:
+   - **Box (Small)**: Compact view with album art, track title, artist, and play state
+   - **Bar (Large/Wide)**: Extended view with additional details like album name and player name
+4. **Features**:
+   - Displays currently playing media from Home Assistant media players
+   - Shows album artwork when available
+   - Real-time playback state (Playing/Paused)
+   - Track information (title, artist, album)
+   - Auto-updates every 5 seconds for real-time status
+   - Supports filtering by specific media players (configured in Home Assistant settings)
 
 ### Step 4: Open Dashboard
 
@@ -206,6 +226,52 @@ Response:
       "description": "Article summary..."
     }
   ]
+}
+```
+
+```
+GET /api/media-streaming
+```
+Fetches currently playing media from Home Assistant media players
+
+Response (with active media):
+```json
+{
+  "success": true,
+  "timestamp": "2025-10-13T19:00:00.000Z",
+  "data": {
+    "hasActiveMedia": true,
+    "totalDevices": 2,
+    "activeDevices": 1,
+    "players": [
+      {
+        "entity_id": "media_player.living_room",
+        "state": "playing",
+        "friendly_name": "Living Room Speaker",
+        "media_title": "Bohemian Rhapsody",
+        "media_artist": "Queen",
+        "media_album_name": "A Night at the Opera",
+        "entity_picture": "/api/media_player_proxy/media_player.living_room?token=...",
+        "isActive": true,
+        "displayText": "Bohemian Rhapsody - Queen",
+        "deviceType": "Wireless Speaker"
+      }
+    ]
+  }
+}
+```
+
+Response (no active media):
+```json
+{
+  "success": true,
+  "timestamp": "2025-10-13T19:00:00.000Z",
+  "data": {
+    "hasActiveMedia": false,
+    "totalDevices": 0,
+    "activeDevices": 0,
+    "players": []
+  }
 }
 ```
 
