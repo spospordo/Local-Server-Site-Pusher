@@ -9648,7 +9648,29 @@
                 
                 // Set weather config
                 document.getElementById('weatherLocation').value = config.weather?.location || '';
-                document.getElementById('weatherApiKey').value = config.weather?.apiKey || '';
+                
+                // Only update API key field if:
+                // 1. There's an actual value from server (not empty string)
+                // 2. OR the field is currently empty and hasApiKey is false
+                const apiKeyField = document.getElementById('weatherApiKey');
+                const currentApiKeyValue = apiKeyField.value;
+                const hasApiKey = config.weather?.hasApiKey || false;
+                const serverApiKey = config.weather?.apiKey || '';
+                
+                // If server sent actual API key, update field
+                if (serverApiKey) {
+                    apiKeyField.value = serverApiKey;
+                } 
+                // If hasApiKey is true but server sent empty string (security masking),
+                // keep the current field value (don't clear it)
+                else if (hasApiKey && currentApiKeyValue) {
+                    // Keep existing value - API key exists on server, don't clear the field
+                    // No action needed
+                }
+                // If hasApiKey is false and no value, clear the field
+                else if (!hasApiKey) {
+                    apiKeyField.value = '';
+                }
                 
                 // Set calendar config
                 document.getElementById('calendarUrl').value = config.calendar?.url || '';
