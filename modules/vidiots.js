@@ -651,10 +651,9 @@ function startCronJob() {
         console.error('❌ [Vidiots] Scheduled scrape failed:', err.message);
       });
     }, {
-      scheduled: false
+      scheduled: true
     });
     
-    cronJob.start();
     console.log(`⏰ [Vidiots] Cron job started with schedule: ${schedule}`);
   }
 }
@@ -681,6 +680,7 @@ function getStatus() {
   
   return {
     enabled: vidiots.enabled || false,
+    schedule: vidiots.schedule || null, // Include the user-friendly schedule
     cronSchedule: vidiots.cronSchedule || '0 6,12 * * *',
     outputFile,
     fileExists,
