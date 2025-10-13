@@ -1,0 +1,121 @@
+# Parallel Test Container Configuration for Local-Server-Site-Pusher
+# 
+# This file demonstrates how to run both a production (main) container and a test container
+# simultaneously. This is useful for testing new features or bugfixes without impacting production.
+#
+# Usage:
+# 1. For local development/testing:
+#    docker-compose -f docker-compose.parallel-test.yml up -d
+#
+# 2. For Portainer deployment:
+#    - Copy this file content to a new Portainer stack
+#    - Adjust volume paths and environment variables as needed
+#    - Deploy the stack
+#
+# Key Features:
+# - Main container runs on port 3000 (production)
+# - Test container runs on port 3001 (testing/staging)
+# - Separate volume paths prevent data conflicts
+# - Test container can build from a specific branch
+# - Independent environment configurations
+
+services:
+  # Production/Main Container
+  # Uses the latest stable image from main branch
+  local-server:
+    image: spospordo/local-server-site-pusher:latest
+    container_name: local-server-main
+    ports:
+      - "3000:3000"
+    volumes:
+      # Production data paths
+      - /var/lib/local-server-site-pusher/config:/app/config
+      - /var/lib/local-server-site-pusher/public:/app/public
+      - /var/lib/local-server-site-pusher/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - SESSION_SECRET=main-production-secret-change-this
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Test/Staging Container
+  # Can build from a specific branch for testing new features
+  local-server-test:
+    # Option 1: Build from a specific branch (recommended for testing features)
+    build:
+      context: https://github.com/spospordo/Local-Server-Site-Pusher.git#feature/my-test-branch
+      # Change 'feature/my-test-branch' to your actual branch name
+      # Examples:
+      #   - feature/new-module
+      #   - staging
+      #   - development
+      #   - refs/pull/123/head (for testing a specific PR)
+    
+    # Option 2: Use the same image as main (for testing configuration changes only)
+    # Uncomment the line below and comment out the 'build' section above
+    # image: spospordo/local-server-site-pusher:latest
+    
+    container_name: local-server-test
+    ports:
+      - "3001:3000"  # Test container accessible on port 3001
+    volumes:
+      # Separate test data paths to avoid conflicts with production
+      - /var/lib/local-server-site-pusher-test/config:/app/config
+      - /var/lib/local-server-site-pusher-test/public:/app/public
+      - /var/lib/local-server-site-pusher-test/uploads:/app/uploads
+    environment:
+      - NODE_ENV=development  # Or 'staging' for staging environment
+      - SESSION_SECRET=test-staging-secret-change-this
+      # You can add additional test-specific environment variables here
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# IMPORTANT SETUP INSTRUCTIONS:
+# ================================
+#
+# 1. Create host directories for BOTH containers:
+#    sudo mkdir -p /var/lib/local-server-site-pusher/{config,public,uploads}
+#    sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,public,uploads}
+#    sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
+#    sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
+#
+# 2. Update the branch name in the test container's build context:
+#    - Replace 'feature/my-test-branch' with your actual branch name
+#    - For main branch, use: https://github.com/spospordo/Local-Server-Site-Pusher.git
+#    - For specific branch: https://github.com/spospordo/Local-Server-Site-Pusher.git#branch-name
+#
+# 3. Set unique SESSION_SECRET values for each container
+#
+# 4. Access the containers:
+#    - Production: http://your-server-ip:3000
+#    - Test: http://your-server-ip:3001
+#
+# TROUBLESHOOTING:
+# ================
+#
+# Port Conflicts:
+# - Ensure ports 3000 and 3001 are not in use: netstat -tulpn | grep -E ':(3000|3001)'
+# - Change the host port if needed (e.g., "3002:3000" for test container)
+#
+# Branch Not Found:
+# - Verify the branch exists: git ls-remote https://github.com/spospordo/Local-Server-Site-Pusher.git
+# - Use full branch reference if needed: refs/heads/branch-name
+#
+# Volume Path Issues:
+# - Ensure both sets of directories exist and have correct permissions
+# - Check SELinux context if applicable: ls -Z /var/lib/
+#
+# Build Failures:
+# - Check Portainer/Docker logs for build errors
+# - Ensure you have internet access to clone from GitHub
+# - For ARM64/Raspberry Pi, building may take 10-15 minutes - be patient!
