@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2025-10-13
+
+### Added
+- **Advanced Settings for Finance Module**: New Advanced Settings page accessible from "My Data" tab
+  - Configure Monte Carlo simulation parameters (number of simulations, years in retirement)
+  - Customize inflation rate and savings rate assumptions
+  - Adjust expected returns and volatility for each risk profile (conservative, moderate, aggressive)
+  - Set retirement phase adjustments for return and volatility
+  - All settings influence both retirement assessment and allocation recommendations
+  - Reset to defaults option available
+- "Advanced settings" link at the bottom of the Finance "My Data" tab
+- New API endpoints:
+  - `GET /admin/api/finance/advanced-settings` - Get advanced settings
+  - `POST /admin/api/finance/advanced-settings` - Update advanced settings
+
+### Changed
+- Retirement evaluation now uses configurable advanced settings instead of hardcoded values
+- Demo retirement evaluation also respects user's advanced settings
+- Finance module default data structure now includes advancedSettings object
+
 ## [2.2.1] - 2025-10-13
 
 ### Fixed
