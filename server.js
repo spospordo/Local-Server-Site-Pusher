@@ -4400,6 +4400,25 @@ app.get('/admin/api/finance/demo/retirement-evaluation', requireAuth, (req, res)
   }
 });
 
+// Advanced Settings API endpoints
+app.get('/admin/api/finance/advanced-settings', requireAuth, (req, res) => {
+  try {
+    const settings = finance.getAdvancedSettings();
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get advanced settings: ' + err.message });
+  }
+});
+
+app.post('/admin/api/finance/advanced-settings', requireAuth, (req, res) => {
+  try {
+    const result = finance.updateAdvancedSettings(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update advanced settings: ' + err.message });
+  }
+});
+
 // Ollama/Open WebUI Integration API Endpoints
 // Get Ollama configuration
 app.get('/admin/api/ollama/config', requireAuth, (req, res) => {

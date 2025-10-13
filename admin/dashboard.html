@@ -1807,6 +1807,15 @@
                     
                     <div id="chartLegend" class="chart-legend"></div>
                 </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Advanced Settings Link -->
+                <div style="text-align: center; padding: 1rem;">
+                    <a href="#" onclick="showSubTab('finance-advanced'); return false;" style="color: #007bff; text-decoration: none; font-size: 0.95rem;">
+                        ⚙️ Advanced settings
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -2032,6 +2041,130 @@
                         <p style="margin-top: 1rem;"><strong>Current Implementation:</strong> UI mockup - backend integration pending. Configuration and prompts are stored locally for future implementation.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Finance - Advanced Settings Sub-tab -->
+        <div class="card admin-section finance-section finance-advanced-section">
+            <div class="card-header">
+                <h2>⚙️ Advanced Settings</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    Configure advanced parameters that influence retirement and allocation assessments
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Monte Carlo Simulation Settings -->
+                <div class="finance-subsection">
+                    <h3>🎲 Monte Carlo Simulation Parameters</h3>
+                    <p class="help-text">These settings control the retirement planning simulation accuracy and assumptions</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="monteCarloSimulations">Number of Simulations</label>
+                            <input type="number" id="monteCarloSimulations" min="1000" max="100000" step="1000" placeholder="10000">
+                            <small class="help-text">More simulations = more accurate results (default: 10,000)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="yearsInRetirement">Years in Retirement</label>
+                            <input type="number" id="yearsInRetirement" min="10" max="50" placeholder="30">
+                            <small class="help-text">Planning horizon for retirement (default: 30 years)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="inflationRate">Inflation Rate (%)</label>
+                            <input type="number" id="inflationRate" step="0.1" min="0" max="10" placeholder="3.0">
+                            <small class="help-text">Expected annual inflation (default: 3.0%)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="savingsRate">Assumed Savings Rate (%)</label>
+                            <input type="number" id="savingsRate" step="1" min="0" max="100" placeholder="15">
+                            <small class="help-text">Annual savings as % of income (default: 15%)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Return Assumptions by Risk Profile -->
+                <div class="finance-subsection">
+                    <h3>📊 Return Assumptions by Risk Tolerance</h3>
+                    <p class="help-text">Expected returns and volatility for each risk profile</p>
+                    
+                    <h4 style="margin-top: 1.5rem; color: #6c757d;">Conservative Profile</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="conservativeReturn">Expected Return (%)</label>
+                            <input type="number" id="conservativeReturn" step="0.1" min="0" max="20" placeholder="5.0">
+                            <small class="help-text">Annual return (default: 5.0%)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="conservativeVolatility">Volatility / Std Dev (%)</label>
+                            <input type="number" id="conservativeVolatility" step="0.1" min="0" max="50" placeholder="10.0">
+                            <small class="help-text">Risk measure (default: 10.0%)</small>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-top: 1.5rem; color: #6c757d;">Moderate Profile</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="moderateReturn">Expected Return (%)</label>
+                            <input type="number" id="moderateReturn" step="0.1" min="0" max="20" placeholder="7.0">
+                            <small class="help-text">Annual return (default: 7.0%)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="moderateVolatility">Volatility / Std Dev (%)</label>
+                            <input type="number" id="moderateVolatility" step="0.1" min="0" max="50" placeholder="15.0">
+                            <small class="help-text">Risk measure (default: 15.0%)</small>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-top: 1.5rem; color: #6c757d;">Aggressive Profile</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="aggressiveReturn">Expected Return (%)</label>
+                            <input type="number" id="aggressiveReturn" step="0.1" min="0" max="20" placeholder="9.0">
+                            <small class="help-text">Annual return (default: 9.0%)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="aggressiveVolatility">Volatility / Std Dev (%)</label>
+                            <input type="number" id="aggressiveVolatility" step="0.1" min="0" max="50" placeholder="20.0">
+                            <small class="help-text">Risk measure (default: 20.0%)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Retirement Phase Adjustments -->
+                <div class="finance-subsection">
+                    <h3>🏖️ Retirement Distribution Phase</h3>
+                    <p class="help-text">Portfolio behavior adjustments during retirement (typically more conservative)</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="retirementReturnAdjustment">Return Adjustment Factor</label>
+                            <input type="number" id="retirementReturnAdjustment" step="0.05" min="0" max="1" placeholder="0.70">
+                            <small class="help-text">Multiplier for expected return in retirement (default: 0.70 = 70%)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="retirementVolatilityAdjustment">Volatility Adjustment Factor</label>
+                            <input type="number" id="retirementVolatilityAdjustment" step="0.05" min="0" max="1" placeholder="0.80">
+                            <small class="help-text">Multiplier for volatility in retirement (default: 0.80 = 80%)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button onclick="saveAdvancedSettings()" class="btn btn-success">💾 Save Settings</button>
+                    <button onclick="resetAdvancedSettings()" class="btn" style="background: #6c757d;">🔄 Reset to Defaults</button>
+                </div>
+                
+                <div id="advancedSettingsAlert" style="margin-top: 1rem;"></div>
             </div>
         </div>
 
@@ -5684,6 +5817,7 @@
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
+                else if (subTabName === 'finance-advanced') targetTabText = 'Advanced';
                 
                 if (targetTabText) {
                     const targetTab = Array.from(subTabs).find(tab => tab.textContent.trim() === targetTabText);
@@ -5769,6 +5903,13 @@
                 
                 if (shouldLoadData) {
                     loadOllamaConfig();
+                }
+            } else if (subTabName === 'finance-advanced') {
+                const advancedSections = document.querySelectorAll('.finance-advanced-section');
+                advancedSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadAdvancedSettings();
                 }
             }
         }
@@ -8537,6 +8678,118 @@
             } catch (err) {
                 console.error('Failed to update demo chart:', err);
             }
+        }
+        
+        // Advanced Settings Functions
+        async function loadAdvancedSettings() {
+            try {
+                const response = await fetch('/admin/api/finance/advanced-settings');
+                const settings = await response.json();
+                
+                // Monte Carlo Simulation Parameters
+                document.getElementById('monteCarloSimulations').value = settings.monteCarloSimulations || 10000;
+                document.getElementById('yearsInRetirement').value = settings.yearsInRetirement || 30;
+                document.getElementById('inflationRate').value = (settings.inflationRate * 100 || 3.0).toFixed(1);
+                document.getElementById('savingsRate').value = (settings.savingsRate * 100 || 15).toFixed(0);
+                
+                // Return Assumptions
+                document.getElementById('conservativeReturn').value = (settings.conservativeReturn * 100 || 5.0).toFixed(1);
+                document.getElementById('conservativeVolatility').value = (settings.conservativeVolatility * 100 || 10.0).toFixed(1);
+                document.getElementById('moderateReturn').value = (settings.moderateReturn * 100 || 7.0).toFixed(1);
+                document.getElementById('moderateVolatility').value = (settings.moderateVolatility * 100 || 15.0).toFixed(1);
+                document.getElementById('aggressiveReturn').value = (settings.aggressiveReturn * 100 || 9.0).toFixed(1);
+                document.getElementById('aggressiveVolatility').value = (settings.aggressiveVolatility * 100 || 20.0).toFixed(1);
+                
+                // Retirement Adjustments
+                document.getElementById('retirementReturnAdjustment').value = (settings.retirementReturnAdjustment || 0.7).toFixed(2);
+                document.getElementById('retirementVolatilityAdjustment').value = (settings.retirementVolatilityAdjustment || 0.8).toFixed(2);
+            } catch (err) {
+                console.error('Failed to load advanced settings:', err);
+                showAdvancedSettingsAlert('Failed to load advanced settings', 'error');
+            }
+        }
+
+        async function saveAdvancedSettings() {
+            try {
+                const settings = {
+                    monteCarloSimulations: parseInt(document.getElementById('monteCarloSimulations').value) || 10000,
+                    yearsInRetirement: parseInt(document.getElementById('yearsInRetirement').value) || 30,
+                    inflationRate: parseFloat(document.getElementById('inflationRate').value) / 100 || 0.03,
+                    savingsRate: parseFloat(document.getElementById('savingsRate').value) / 100 || 0.15,
+                    
+                    conservativeReturn: parseFloat(document.getElementById('conservativeReturn').value) / 100 || 0.05,
+                    conservativeVolatility: parseFloat(document.getElementById('conservativeVolatility').value) / 100 || 0.10,
+                    moderateReturn: parseFloat(document.getElementById('moderateReturn').value) / 100 || 0.07,
+                    moderateVolatility: parseFloat(document.getElementById('moderateVolatility').value) / 100 || 0.15,
+                    aggressiveReturn: parseFloat(document.getElementById('aggressiveReturn').value) / 100 || 0.09,
+                    aggressiveVolatility: parseFloat(document.getElementById('aggressiveVolatility').value) / 100 || 0.20,
+                    
+                    retirementReturnAdjustment: parseFloat(document.getElementById('retirementReturnAdjustment').value) || 0.7,
+                    retirementVolatilityAdjustment: parseFloat(document.getElementById('retirementVolatilityAdjustment').value) || 0.8
+                };
+
+                const response = await fetch('/admin/api/finance/advanced-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                if (response.ok) {
+                    showAdvancedSettingsAlert('✅ Advanced settings saved successfully!', 'success');
+                } else {
+                    throw new Error('Failed to save settings');
+                }
+            } catch (err) {
+                console.error('Failed to save advanced settings:', err);
+                showAdvancedSettingsAlert('❌ Failed to save advanced settings', 'error');
+            }
+        }
+
+        async function resetAdvancedSettings() {
+            if (confirm('Are you sure you want to reset all advanced settings to default values?')) {
+                const defaults = {
+                    monteCarloSimulations: 10000,
+                    yearsInRetirement: 30,
+                    inflationRate: 0.03,
+                    savingsRate: 0.15,
+                    conservativeReturn: 0.05,
+                    conservativeVolatility: 0.10,
+                    moderateReturn: 0.07,
+                    moderateVolatility: 0.15,
+                    aggressiveReturn: 0.09,
+                    aggressiveVolatility: 0.20,
+                    retirementReturnAdjustment: 0.7,
+                    retirementVolatilityAdjustment: 0.8
+                };
+
+                try {
+                    const response = await fetch('/admin/api/finance/advanced-settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(defaults)
+                    });
+
+                    if (response.ok) {
+                        await loadAdvancedSettings();
+                        showAdvancedSettingsAlert('✅ Settings reset to defaults', 'success');
+                    } else {
+                        throw new Error('Failed to reset settings');
+                    }
+                } catch (err) {
+                    console.error('Failed to reset advanced settings:', err);
+                    showAdvancedSettingsAlert('❌ Failed to reset settings', 'error');
+                }
+            }
+        }
+
+        function showAdvancedSettingsAlert(message, type) {
+            const alertDiv = document.getElementById('advancedSettingsAlert');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertDiv.style.display = 'block';
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 5000);
         }
         
         // Ollama/Spending Tab Functions

@@ -113,6 +113,25 @@ function getDefaultFinanceData() {
       annualRetirementSpending: null,
       riskTolerance: 'moderate' // conservative, moderate, aggressive
     },
+    advancedSettings: {
+      // Monte Carlo Simulation Settings
+      monteCarloSimulations: 10000,
+      yearsInRetirement: 30,
+      inflationRate: 0.03, // 3%
+      savingsRate: 0.15, // 15%
+      
+      // Return Assumptions by Risk Tolerance
+      conservativeReturn: 0.05, // 5%
+      conservativeVolatility: 0.10, // 10%
+      moderateReturn: 0.07, // 7%
+      moderateVolatility: 0.15, // 15%
+      aggressiveReturn: 0.09, // 9%
+      aggressiveVolatility: 0.20, // 20%
+      
+      // Retirement Distribution Adjustments
+      retirementReturnAdjustment: 0.7, // 70% of accumulation return
+      retirementVolatilityAdjustment: 0.8 // 80% of accumulation volatility
+    },
     history: []
   };
 }
@@ -336,6 +355,19 @@ function getDemographics() {
 function updateDemographics(demographics) {
   const data = loadFinanceData();
   data.demographics = { ...data.demographics, ...demographics };
+  return saveFinanceData(data);
+}
+
+// Get advanced settings
+function getAdvancedSettings() {
+  const data = loadFinanceData();
+  return data.advancedSettings || getDefaultFinanceData().advancedSettings;
+}
+
+// Update advanced settings
+function updateAdvancedSettings(settings) {
+  const data = loadFinanceData();
+  data.advancedSettings = { ...data.advancedSettings, ...settings };
   return saveFinanceData(data);
 }
 
@@ -704,6 +736,7 @@ function evaluateRetirementPlan() {
   const demographics = data.demographics;
   const accounts = data.accounts;
   const history = data.history || [];
+  const advancedSettings = data.advancedSettings || getDefaultFinanceData().advancedSettings;
   
   // Validate required inputs
   const currentAge = demographics.age;
@@ -830,36 +863,36 @@ function evaluateRetirementPlan() {
   if (!hasHistoricalData) {
     // Use standard assumptions if no historical data
     if (riskTolerance === 'conservative') {
-      expectedReturn = 0.05; // 5%
-      returnVolatility = 0.10; // 10%
+      expectedReturn = advancedSettings.conservativeReturn || 0.05; // 5%
+      returnVolatility = advancedSettings.conservativeVolatility || 0.10; // 10%
     } else if (riskTolerance === 'moderate') {
-      expectedReturn = 0.07; // 7%
-      returnVolatility = 0.15; // 15%
+      expectedReturn = advancedSettings.moderateReturn || 0.07; // 7%
+      returnVolatility = advancedSettings.moderateVolatility || 0.15; // 15%
     } else { // aggressive
-      expectedReturn = 0.09; // 9%
-      returnVolatility = 0.20; // 20%
+      expectedReturn = advancedSettings.aggressiveReturn || 0.09; // 9%
+      returnVolatility = advancedSettings.aggressiveVolatility || 0.20; // 20%
     }
   } else {
     // Adjust volatility based on risk tolerance even with historical data
     if (riskTolerance === 'conservative') {
-      returnVolatility = 0.10;
+      returnVolatility = advancedSettings.conservativeVolatility || 0.10;
     } else if (riskTolerance === 'moderate') {
-      returnVolatility = 0.15;
+      returnVolatility = advancedSettings.moderateVolatility || 0.15;
     } else {
-      returnVolatility = 0.20;
+      returnVolatility = advancedSettings.aggressiveVolatility || 0.20;
     }
   }
   
   // Calculate savings needed
   const yearsUntilRetirement = retirementAge - currentAge;
-  const yearsInRetirement = 30; // Assume 30 years in retirement (to age 95)
-  const inflationRate = 0.03; // 3% inflation
+  const yearsInRetirement = advancedSettings.yearsInRetirement || 30; // Assume 30 years in retirement (to age 95)
+  const inflationRate = advancedSettings.inflationRate || 0.03; // 3% inflation
   
   // Annual contribution (from income if provided)
-  const annualContribution = annualIncome ? Math.max(0, annualIncome * 0.15) : 0; // Assume 15% savings rate
+  const annualContribution = annualIncome ? Math.max(0, annualIncome * (advancedSettings.savingsRate || 0.15)) : 0; // Use savings rate from settings
   
   // Monte Carlo Simulation
-  const numSimulations = 10000;
+  const numSimulations = advancedSettings.monteCarloSimulations || 10000;
   let successfulSimulations = 0;
   
   // Helper function for normal distribution (Box-Muller transform)
@@ -896,7 +929,7 @@ function evaluateRetirementPlan() {
       }
       
       // Random return for this year
-      const yearReturn = randomNormal(expectedReturn * 0.7, returnVolatility * 0.8); // Lower returns in retirement (bonds)
+      const yearReturn = randomNormal(expectedReturn * (advancedSettings.retirementReturnAdjustment || 0.7), returnVolatility * (advancedSettings.retirementVolatilityAdjustment || 0.8)); // Lower returns in retirement (bonds)
       remainingValue = remainingValue * (1 + yearReturn);
       
       // Increase spending for inflation
@@ -1280,6 +1313,10 @@ function evaluateDemoRetirementPlan() {
   const accounts = demoData.accounts;
   const history = demoData.history;
   
+  // Get advanced settings from user's data (or use defaults for demo)
+  const userData = loadFinanceData();
+  const advancedSettings = userData.advancedSettings || getDefaultFinanceData().advancedSettings;
+  
   // Use same logic as evaluateRetirementPlan but with demo data
   const age = demographics.age;
   const retirementAge = demographics.retirementAge || 65;
@@ -1295,7 +1332,7 @@ function evaluateDemoRetirementPlan() {
   }
   
   const yearsUntilRetirement = retirementAge - age;
-  const yearsInRetirement = 30; // Assume retirement lasts until age 95
+  const yearsInRetirement = advancedSettings.yearsInRetirement || 30; // Assume retirement lasts until age 95
   
   // Calculate current assets
   let currentAssets = 0;
@@ -1318,23 +1355,23 @@ function evaluateDemoRetirementPlan() {
   });
   
   // Expected return and volatility based on risk tolerance
-  let expectedReturn = 0.07;
-  let returnVolatility = 0.15;
+  let expectedReturn = advancedSettings.moderateReturn || 0.07;
+  let returnVolatility = advancedSettings.moderateVolatility || 0.15;
   
   if (riskTolerance === 'conservative') {
-    expectedReturn = 0.05;
-    returnVolatility = 0.10;
+    expectedReturn = advancedSettings.conservativeReturn || 0.05;
+    returnVolatility = advancedSettings.conservativeVolatility || 0.10;
   } else if (riskTolerance === 'aggressive') {
-    expectedReturn = 0.09;
-    returnVolatility = 0.20;
+    expectedReturn = advancedSettings.aggressiveReturn || 0.09;
+    returnVolatility = advancedSettings.aggressiveVolatility || 0.20;
   }
   
-  const inflationRate = 0.03;
+  const inflationRate = advancedSettings.inflationRate || 0.03;
   const realReturn = expectedReturn - inflationRate;
-  const annualContribution = annualIncome * 0.15; // Assume 15% savings rate
+  const annualContribution = annualIncome * (advancedSettings.savingsRate || 0.15); // Use savings rate from settings
   
   // Monte Carlo simulation
-  const numSimulations = 10000;
+  const numSimulations = advancedSettings.monteCarloSimulations || 10000;
   let successCount = 0;
   
   for (let sim = 0; sim < numSimulations; sim++) {
@@ -1430,6 +1467,8 @@ module.exports = {
   updateAccountBalance,
   getDemographics,
   updateDemographics,
+  getAdvancedSettings,
+  updateAdvancedSettings,
   addHistoryEntry,
   getHistory,
   getRecommendations,
