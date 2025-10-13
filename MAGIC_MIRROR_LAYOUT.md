@@ -91,6 +91,7 @@ When using the old format, widgets are placed in default positions:
 - `weather`: upper-center, box
 - `calendar`: middle-left, box
 - `news`: bottom-left, bar
+- `media`: middle-right, box
 
 ## Multiple Widgets in Same Area
 
@@ -126,6 +127,7 @@ All widgets in the center column:
   "widgets": {
     "clock": { "enabled": true, "area": "upper-center", "size": "box" },
     "weather": { "enabled": true, "area": "middle-center", "size": "box" },
+    "media": { "enabled": true, "area": "middle-center", "size": "box" },
     "news": { "enabled": true, "area": "bottom-center", "size": "bar" }
   }
 }
@@ -159,6 +161,48 @@ News spanning the bottom:
   }
 }
 ```
+
+### Media Player Display
+
+Media widget examples showing both box and bar sizes:
+
+**Compact (Box) Size:**
+```json
+{
+  "widgets": {
+    "media": {
+      "enabled": true,
+      "area": "middle-right",
+      "size": "box"
+    }
+  }
+}
+```
+
+**Extended (Bar) Size:**
+```json
+{
+  "widgets": {
+    "media": {
+      "enabled": true,
+      "area": "bottom-center",
+      "size": "bar"
+    }
+  }
+}
+```
+
+The **box** size displays:
+- Album artwork (80×80px)
+- Track title
+- Artist name
+- Play state
+
+The **bar** size displays all of the above plus:
+- Album name
+- Player/device name
+- Larger album artwork (120×120px)
+- More detailed layout
 
 ## Responsive Behavior
 
