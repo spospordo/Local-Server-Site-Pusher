@@ -4585,6 +4585,43 @@ app.post('/admin/api/magicmirror/config', requireAuth, (req, res) => {
   }
 });
 
+// Generate magic-mirror.html if missing
+app.post('/api/magicmirror/generate', (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`⚡ [Magic Mirror] ${timestamp} - User ${clientIp} triggered generation of magic-mirror.html`);
+  logger.info(logger.categories.MAGIC_MIRROR, `User ${clientIp} triggered generation of missing magic-mirror.html`);
+  
+  try {
+    const result = magicMirror.generateDefaultHTML();
+    
+    if (result.success) {
+      console.log(`✅ [Magic Mirror] ${timestamp} - magic-mirror.html generated at ${result.path}`);
+      logger.success(logger.categories.MAGIC_MIRROR, `magic-mirror.html generated successfully at ${result.path}`);
+      res.json({ 
+        success: true, 
+        message: 'magic-mirror.html generated successfully',
+        path: result.path 
+      });
+    } else {
+      console.error(`❌ [Magic Mirror] ${timestamp} - Failed to generate magic-mirror.html: ${result.error}`);
+      logger.error(logger.categories.MAGIC_MIRROR, `Failed to generate magic-mirror.html: ${result.error}`);
+      res.status(400).json({ 
+        success: false, 
+        error: result.error 
+      });
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror] ${timestamp} - Error generating magic-mirror.html:`, err.message);
+    logger.error(logger.categories.MAGIC_MIRROR, `Error generating magic-mirror.html: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to generate magic-mirror.html: ' + err.message 
+    });
+  }
+});
+
 // Get Magic Mirror data for display page (includes full config with API keys)
 app.get('/api/magicmirror/data', (req, res) => {
   const timestamp = new Date().toISOString();
@@ -4778,9 +4815,155 @@ app.get('/magic-mirror', (req, res) => {
   if (!fs.existsSync(htmlPath)) {
     console.error(`❌ [Magic Mirror] ${timestamp} - ERROR: magic-mirror.html not found at ${htmlPath}`);
     return res.status(404).send(`
-      <h1>Magic Mirror Not Found</h1>
-      <p>The magic-mirror.html file is missing from the server.</p>
-      <p>Expected location: ${htmlPath}</p>
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Magic Mirror Not Found</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+          }
+          .container {
+            text-align: center;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #ff3b30;
+          }
+          p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #ddd;
+            margin-bottom: 1rem;
+          }
+          .path {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin: 1rem 0;
+          }
+          .button {
+            display: inline-block;
+            background: #4a90e2;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 1rem;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+            transition: background 0.3s ease;
+          }
+          .button:hover {
+            background: #357abd;
+          }
+          .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+          }
+          .message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 5px;
+            font-size: 0.9rem;
+          }
+          .message.success {
+            background: rgba(76, 217, 100, 0.1);
+            border: 1px solid rgba(76, 217, 100, 0.3);
+            color: #4cd964;
+          }
+          .message.error {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+          }
+          .loading {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🪞 Magic Mirror Not Found</h1>
+          <p>The magic-mirror.html file is missing from the server.</p>
+          <div class="path">Expected location: ${htmlPath}</div>
+          <p>Click the button below to generate a default Magic Mirror page.</p>
+          <button id="generateBtn" class="button" onclick="generateFile()">
+            Generate Magic Mirror Page
+          </button>
+          <div id="message"></div>
+        </div>
+
+        <script>
+          async function generateFile() {
+            const btn = document.getElementById('generateBtn');
+            const messageDiv = document.getElementById('message');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Generating...';
+            messageDiv.innerHTML = '';
+            
+            try {
+              const response = await fetch('/api/magicmirror/generate', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                messageDiv.innerHTML = '<div class="message success">✅ ' + result.message + '</div>';
+                setTimeout(() => {
+                  window.location.reload();
+                }, 2000);
+              } else {
+                messageDiv.innerHTML = '<div class="message error">❌ ' + result.error + '</div>';
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Magic Mirror Page';
+              }
+            } catch (error) {
+              messageDiv.innerHTML = '<div class="message error">❌ Error: ' + error.message + '</div>';
+              btn.disabled = false;
+              btn.innerHTML = 'Generate Magic Mirror Page';
+            }
+          }
+        </script>
+      </body>
+      </html>
     `);
   }
   
