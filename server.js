@@ -4677,10 +4677,12 @@ app.get('/api/magicmirror/weather', async (req, res) => {
       res.json({
         temperature: Math.round(data.main.temp),
         description: data.weather[0].description,
+        condition: data.weather[0].main, // Main weather condition (Clear, Clouds, Rain, etc.)
         icon: data.weather[0].icon,
         location: data.name,
         humidity: data.main.humidity,
-        windSpeed: data.wind.speed
+        windSpeed: data.wind.speed,
+        unit: 'C' // Using metric units
       });
     } else {
       console.log(`⚠️  [Magic Mirror Weather] ${timestamp} - Returning placeholder (no API key configured)`);
@@ -4688,7 +4690,11 @@ app.get('/api/magicmirror/weather', async (req, res) => {
       res.json({
         temperature: '--',
         description: 'API key required',
+        condition: 'N/A',
         location: config.weather.location,
+        humidity: '--',
+        windSpeed: '--',
+        unit: 'C',
         placeholder: true
       });
     }
@@ -4815,6 +4821,114 @@ app.get('/api/magicmirror/weather/test', async (req, res) => {
       error: 'Test failed', 
       details: err.message 
     });
+  }
+});
+
+// Magic Mirror forecast API endpoint
+app.get('/api/magicmirror/forecast', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🌦️  [Magic Mirror Forecast] ${timestamp} - Request from ${clientIp}`);
+  
+  try {
+    const config = magicMirror.getFullConfig();
+    
+    if (!config.enabled || !config.widgets?.forecast || !config.weather?.location) {
+      console.log(`⚠️  [Magic Mirror Forecast] ${timestamp} - Widget not configured or disabled`);
+      return res.status(400).json({ error: 'Forecast widget not configured' });
+    }
+
+    // If API key is provided, fetch real forecast data
+    if (config.weather.apiKey) {
+      const axios = require('axios');
+      const apiKey = config.weather.apiKey;
+      const location = config.weather.location;
+      
+      // Get the number of days to forecast (default to 5, support 1, 3, 5, or 10)
+      const days = config.forecast?.days || 5;
+      const daysToFetch = Math.min(Math.max(1, days), 10); // Limit between 1 and 10
+      
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${apiKey}&units=metric&cnt=${daysToFetch * 8}`; // 8 readings per day (3-hour intervals)
+      
+      const response = await axios.get(forecastUrl);
+      const data = response.data;
+      
+      console.log(`✅ [Magic Mirror Forecast] ${timestamp} - Successfully fetched forecast for ${data.city.name}`);
+      
+      // Group forecast by day
+      const forecastByDay = {};
+      
+      data.list.forEach(item => {
+        const date = new Date(item.dt * 1000);
+        const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        if (!forecastByDay[dateKey]) {
+          forecastByDay[dateKey] = {
+            date: dateKey,
+            temps: [],
+            conditions: [],
+            humidity: [],
+            windSpeed: [],
+            icons: []
+          };
+        }
+        
+        forecastByDay[dateKey].temps.push(item.main.temp);
+        forecastByDay[dateKey].conditions.push(item.weather[0].main);
+        forecastByDay[dateKey].humidity.push(item.main.humidity);
+        forecastByDay[dateKey].windSpeed.push(item.wind.speed);
+        forecastByDay[dateKey].icons.push(item.weather[0].icon);
+      });
+      
+      // Calculate daily averages and select most common condition
+      const forecast = Object.values(forecastByDay).slice(0, daysToFetch).map(day => {
+        const avgTemp = Math.round(day.temps.reduce((a, b) => a + b, 0) / day.temps.length);
+        const maxTemp = Math.round(Math.max(...day.temps));
+        const minTemp = Math.round(Math.min(...day.temps));
+        
+        // Find most common condition
+        const conditionCount = {};
+        day.conditions.forEach(c => {
+          conditionCount[c] = (conditionCount[c] || 0) + 1;
+        });
+        const condition = Object.keys(conditionCount).reduce((a, b) => 
+          conditionCount[a] > conditionCount[b] ? a : b
+        );
+        
+        const avgHumidity = Math.round(day.humidity.reduce((a, b) => a + b, 0) / day.humidity.length);
+        const avgWindSpeed = (day.windSpeed.reduce((a, b) => a + b, 0) / day.windSpeed.length).toFixed(1);
+        
+        return {
+          date: day.date,
+          temperature: avgTemp,
+          maxTemp,
+          minTemp,
+          condition,
+          humidity: avgHumidity,
+          windSpeed: avgWindSpeed,
+          icon: day.icons[Math.floor(day.icons.length / 2)] // Pick middle icon
+        };
+      });
+      
+      res.json({
+        location: data.city.name,
+        forecast,
+        unit: 'C'
+      });
+    } else {
+      console.log(`⚠️  [Magic Mirror Forecast] ${timestamp} - Returning placeholder (no API key configured)`);
+      // Return placeholder data if no API key
+      res.json({
+        location: config.weather.location,
+        forecast: [],
+        unit: 'C',
+        placeholder: true
+      });
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror Forecast] ${timestamp} - Error:`, err.message);
+    res.status(500).json({ error: 'Failed to fetch forecast data: ' + err.message });
   }
 });
 

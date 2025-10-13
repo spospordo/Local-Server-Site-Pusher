@@ -486,6 +486,12 @@
                     updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000); // 10 minutes
                 }
                 
+                const forecastConfig = config.widgets.forecast;
+                if (forecastConfig && forecastConfig.enabled) {
+                    updateForecast();
+                    updateIntervals.forecast = setInterval(updateForecast, 10 * 60 * 1000); // 10 minutes
+                }
+                
                 const calendarConfig = config.widgets.calendar;
                 if (calendarConfig && calendarConfig.enabled) {
                     updateCalendar();
@@ -527,8 +533,13 @@
                 },
                 weather: {
                     icon: '🌤️',
-                    title: 'Weather',
+                    title: 'Current Weather',
                     content: `<div id="weather-content"><div class="loading">Loading weather data...</div></div>`
+                },
+                forecast: {
+                    icon: '🌦️',
+                    title: 'Forecast',
+                    content: `<div id="forecast-content"><div class="loading">Loading forecast...</div></div>`
                 },
                 calendar: {
                     icon: '📅',
@@ -648,6 +659,65 @@
                 }
             } catch (error) {
                 console.error('Error updating weather:', error);
+                content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+            }
+        }
+
+        async function updateForecast() {
+            const content = document.getElementById('forecast-content');
+            
+            try {
+                const response = await fetch('/api/magicmirror/forecast');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch forecast');
+                }
+                
+                const data = await response.json();
+                
+                if (data.forecast && data.forecast.length > 0) {
+                    const weatherIconMap = {
+                        'Clear': '☀️',
+                        'Clouds': '☁️',
+                        'Rain': '🌧️',
+                        'Snow': '❄️',
+                        'Thunderstorm': '⛈️',
+                        'Drizzle': '🌦️',
+                        'Mist': '🌫️',
+                        'Fog': '🌫️'
+                    };
+                    
+                    const forecastHtml = data.forecast.map(day => {
+                        const icon = weatherIconMap[day.condition] || '🌤️';
+                        return `
+                            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 0.8rem 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div style="font-size: 0.9rem; color: #aaa;">${day.date}</div>
+                                        <div style="font-size: 0.85rem; color: #888; margin-top: 0.2rem;">${day.condition}</div>
+                                    </div>
+                                    <div style="font-size: 2rem; margin: 0 1rem;">${icon}</div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.2rem; font-weight: 500;">${day.maxTemp}°/${day.minTemp}°</div>
+                                        <div style="font-size: 0.8rem; color: #888; margin-top: 0.2rem;">${day.humidity}% • ${day.windSpeed}m/s</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    content.innerHTML = `
+                        <div style="margin-bottom: 0.5rem;">
+                            <div style="color: #aaa; font-size: 0.9rem; text-align: center;">${data.location}</div>
+                        </div>
+                        ${forecastHtml}
+                    `;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No forecast data available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating forecast:', error);
                 content.innerHTML = '<div class="error-message">' + error.message + '</div>';
             }
         }

@@ -25,6 +25,11 @@ const DEFAULT_CONFIG = {
             area: 'upper-center',
             size: 'box'
         },
+        forecast: {
+            enabled: false,
+            area: 'upper-right',
+            size: 'box'
+        },
         calendar: {
             enabled: false,
             area: 'middle-left',
@@ -44,6 +49,9 @@ const DEFAULT_CONFIG = {
     weather: {
         location: '',
         apiKey: ''
+    },
+    forecast: {
+        days: 5  // Number of days to forecast (1, 3, 5, or 10)
     },
     calendar: {
         url: ''
@@ -681,7 +689,8 @@ function generateDefaultHTML() {
                 // Widget templates
                 const widgetTemplates = {
                     clock: { icon: '🕐', title: 'Clock', content: '<div class="time" id="clock-time">--:--:--</div><div class="date" id="clock-date">Loading...</div>' },
-                    weather: { icon: '🌤️', title: 'Weather', content: '<div id="weather-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
+                    weather: { icon: '🌤️', title: 'Current Weather', content: '<div id="weather-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
+                    forecast: { icon: '🌦️', title: 'Forecast', content: '<div id="forecast-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
                     calendar: { icon: '📅', title: 'Calendar', content: '<div id="calendar-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
                     news: { icon: '📰', title: 'News', content: '<div id="news-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' },
                     media: { icon: '🎵', title: 'Now Playing', content: '<div id="media-content"><div style="text-align: center; padding: 2rem; color: #aaa;">Loading...</div></div>' }
@@ -738,6 +747,11 @@ function generateDefaultHTML() {
                 if (isEnabled(widgets.weather)) {
                     updateWeather();
                     setInterval(updateWeather, 600000); // 10 minutes
+                }
+                
+                if (isEnabled(widgets.forecast)) {
+                    updateForecast();
+                    setInterval(updateForecast, 600000); // 10 minutes
                 }
                 
                 if (isEnabled(widgets.calendar)) {
@@ -802,7 +816,23 @@ function generateDefaultHTML() {
                 const data = await response.json();
                 
                 if (data.temperature !== undefined) {
+                    const weatherIconMap = {
+                        'Clear': '☀️',
+                        'Clouds': '☁️',
+                        'Rain': '🌧️',
+                        'Snow': '❄️',
+                        'Thunderstorm': '⛈️',
+                        'Drizzle': '🌦️',
+                        'Mist': '🌫️',
+                        'Fog': '🌫️'
+                    };
+                    
+                    const icon = weatherIconMap[data.condition] || '🌤️';
+                    
                     content.innerHTML = \`
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <div style="font-size: 3rem;">\${icon}</div>
+                        </div>
                         <div class="weather-temp">\${data.temperature}°\${data.unit}</div>
                         <div style="text-align: center; margin-bottom: 1rem;">
                             <div style="font-size: 1.2rem;">\${data.condition}</div>
@@ -820,11 +850,70 @@ function generateDefaultHTML() {
                         </div>
                     \`;
                 } else {
-                    content.innerHTML = '<div class="error-message">Weather data not available</div>';
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">Weather data not available</div>';
                 }
             } catch (error) {
                 console.error('Error updating weather:', error);
-                content.innerHTML = '<div class="error-message">' + error.message + '</div>';
+                content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #ff6b6b;">' + error.message + '</div>';
+            }
+        }
+
+        async function updateForecast() {
+            const content = document.getElementById('forecast-content');
+            
+            try {
+                const response = await fetch('/api/magicmirror/forecast');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch forecast');
+                }
+                
+                const data = await response.json();
+                
+                if (data.forecast && data.forecast.length > 0) {
+                    const weatherIconMap = {
+                        'Clear': '☀️',
+                        'Clouds': '☁️',
+                        'Rain': '🌧️',
+                        'Snow': '❄️',
+                        'Thunderstorm': '⛈️',
+                        'Drizzle': '🌦️',
+                        'Mist': '🌫️',
+                        'Fog': '🌫️'
+                    };
+                    
+                    const forecastHtml = data.forecast.map(day => {
+                        const icon = weatherIconMap[day.condition] || '🌤️';
+                        return \`
+                            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 0.8rem 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div style="font-size: 0.9rem; color: #aaa;">\${day.date}</div>
+                                        <div style="font-size: 0.85rem; color: #888; margin-top: 0.2rem;">\${day.condition}</div>
+                                    </div>
+                                    <div style="font-size: 2rem; margin: 0 1rem;">\${icon}</div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.2rem; font-weight: 500;">\${day.maxTemp}°/\${day.minTemp}°</div>
+                                        <div style="font-size: 0.8rem; color: #888; margin-top: 0.2rem;">\${day.humidity}% • \${day.windSpeed}m/s</div>
+                                    </div>
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+                    
+                    content.innerHTML = \`
+                        <div style="margin-bottom: 0.5rem;">
+                            <div style="color: #aaa; font-size: 0.9rem; text-align: center;">\${data.location}</div>
+                        </div>
+                        \${forecastHtml}
+                    \`;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No forecast data available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating forecast:', error);
+                content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #ff6b6b;">' + error.message + '</div>';
             }
         }
 
