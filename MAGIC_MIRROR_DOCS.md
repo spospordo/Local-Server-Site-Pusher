@@ -77,6 +77,8 @@ Enable and configure the widgets you want:
 2. Or navigate directly to: `http://your-server:3000/magic-mirror`
 3. Display this URL on your tablet, monitor, or digital signage device
 
+**📖 Need help accessing from containers or remote devices? See [MAGIC_MIRROR_ACCESS.md](MAGIC_MIRROR_ACCESS.md) for detailed network configuration and troubleshooting.**
+
 ## API Endpoints
 
 The Magic Mirror uses the following backend endpoints:

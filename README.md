@@ -293,6 +293,8 @@ http://your-server-ip:3000/magic-mirror
 
 This URL can be opened in a browser on any device (tablet, dedicated display, etc.) to show your customized information dashboard.
 
+**📖 For detailed access instructions from containers, remote devices, and troubleshooting network issues, see [MAGIC_MIRROR_ACCESS.md](MAGIC_MIRROR_ACCESS.md)**
+
 ### Widget Configuration Details
 
 #### Weather Widget
