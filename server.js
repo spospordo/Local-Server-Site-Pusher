@@ -4630,7 +4630,7 @@ app.get('/api/magicmirror/data', (req, res) => {
   console.log(`📊 [Magic Mirror API] ${timestamp} - Data request from ${clientIp}`);
   
   try {
-    const config = magicMirror.getFullConfig();
+    const config = magicMirror.getConfig(); // Use getConfig() for backward compatibility conversion
     
     // Only return data if Magic Mirror is enabled
     if (!config.enabled) {
