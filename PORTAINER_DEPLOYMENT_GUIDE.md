@@ -330,8 +330,47 @@ If you still encounter issues after following this guide:
    - Raspberry Pi specs
    - Portainer version
 
+---
+
+## Running a Parallel Test Container
+
+For testing new features or configurations without affecting your production environment, you can run a parallel test container. See the **[PORTAINER.md - Running a Parallel Test Container](PORTAINER.md#running-a-parallel-test-container)** section for detailed instructions.
+
+### Quick Overview
+
+**Benefits:**
+- Test new features safely before deploying to production
+- Run staging/development environments alongside production
+- Test specific branches or pull requests
+- Validate configuration changes without downtime
+
+**Key Points:**
+1. **Different Ports**: Test container runs on port 3001 (production on 3000)
+2. **Separate Data**: Use different volume paths (e.g., `/var/lib/local-server-site-pusher-test/`)
+3. **Custom Branches**: Deploy from feature branches using build context
+4. **Independent Config**: Separate SESSION_SECRET and environment variables
+
+**Quick Setup:**
+```bash
+# Create test directories
+sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,public,uploads}
+sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
+```
+
+Then in Portainer, use the `docker-compose.parallel-test.yml` file or follow the detailed guide in PORTAINER.md.
+
+**Troubleshooting Parallel Deployments:**
+- **Port conflicts**: Ensure 3000 and 3001 are available, or use different ports
+- **Branch not found**: Verify branch name with `git ls-remote --heads https://github.com/spospordo/Local-Server-Site-Pusher.git`
+- **Volume conflicts**: Ensure test and main use completely separate directory paths
+
+For complete parallel deployment instructions, troubleshooting, and examples, see: **[PORTAINER.md - Running a Parallel Test Container](PORTAINER.md#running-a-parallel-test-container)**
+
+---
+
 ## Related Documentation
 
 - [README.md](README.md) - Project overview
 - [DEPLOYMENT.md](DEPLOYMENT.md) - General deployment guide
+- [PORTAINER.md](PORTAINER.md) - Complete Portainer deployment guide with parallel container setup
 - [CHANGELOG.md](CHANGELOG.md) - Version history
