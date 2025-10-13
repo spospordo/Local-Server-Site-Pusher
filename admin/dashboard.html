@@ -2438,9 +2438,61 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="vidiotsCronSchedule">Schedule (Cron)</label>
-                        <input type="text" id="vidiotsCronSchedule" placeholder="0 6,12 * * *" title="Cron expression (default: 6 AM and 12 PM daily)">
+                        <label for="vidiotsScheduleFrequency">Schedule Frequency</label>
+                        <select id="vidiotsScheduleFrequency" onchange="updateScheduleUI()">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
                     </div>
+                </div>
+                
+                <!-- Weekly options (hidden by default) -->
+                <div id="weeklyOptions" class="form-row" style="display: none;">
+                    <div class="form-group">
+                        <label>Days of Week</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay0" value="0"> Sunday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay1" value="1"> Monday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay2" value="2"> Tuesday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay3" value="3"> Wednesday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay4" value="4"> Thursday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay5" value="5"> Friday
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="vidiotsDay6" value="6"> Saturday
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Monthly options (hidden by default) -->
+                <div id="monthlyOptions" class="form-row" style="display: none;">
+                    <div class="form-group">
+                        <label for="vidiotsDayOfMonth">Day of Month (1-31)</label>
+                        <input type="number" id="vidiotsDayOfMonth" min="1" max="31" value="1" placeholder="1">
+                        <small>Note: Months with fewer days will use the last day of the month</small>
+                    </div>
+                </div>
+                
+                <!-- Run times section -->
+                <div class="form-group">
+                    <label>Run Times</label>
+                    <div id="vidiotsRunTimes" style="margin-top: 10px;">
+                        <!-- Run time entries will be added here -->
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="addVidiotsRunTime()" style="margin-top: 10px;">+ Add Run Time</button>
                 </div>
                 
                 <div class="form-row">
@@ -5830,7 +5882,10 @@
                 if (result.success && result.config) {
                     const config = result.config;
                     document.getElementById('vidiotsEnabled').value = config.enabled ? 'true' : 'false';
-                    document.getElementById('vidiotsCronSchedule').value = config.cronSchedule || '0 6,12 * * *';
+                    
+                    // Load schedule configuration
+                    loadVidiotsSchedule(config);
+                    
                     document.getElementById('vidiotsOutputFile').value = config.outputFile || './public/vidiots/index.html';
                     document.getElementById('vidiotsPosterDirectory').value = config.posterDirectory || './public/vidiots/posters';
                     document.getElementById('vidiotsPosterBaseUrl').value = config.posterBaseUrl || '/vidiots/posters/';
@@ -5858,11 +5913,177 @@
             }
         }
 
+        // Helper functions for new scheduling UI
+        function updateScheduleUI() {
+            const frequency = document.getElementById('vidiotsScheduleFrequency').value;
+            const weeklyOptions = document.getElementById('weeklyOptions');
+            const monthlyOptions = document.getElementById('monthlyOptions');
+            
+            weeklyOptions.style.display = frequency === 'weekly' ? 'flex' : 'none';
+            monthlyOptions.style.display = frequency === 'monthly' ? 'flex' : 'none';
+        }
+
+        function addVidiotsRunTime(hour = 6, minute = 0) {
+            const container = document.getElementById('vidiotsRunTimes');
+            const timeId = 'vidiotsTime_' + Date.now();
+            
+            const timeEntry = document.createElement('div');
+            timeEntry.className = 'time-entry';
+            timeEntry.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;';
+            timeEntry.innerHTML = `
+                <input type="number" min="0" max="23" value="${hour}" placeholder="Hour (0-23)" style="width: 100px;" data-type="hour">
+                <span>:</span>
+                <input type="number" min="0" max="59" value="${minute}" placeholder="Minute" style="width: 100px;" data-type="minute">
+                <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="padding: 5px 10px;">Remove</button>
+            `;
+            container.appendChild(timeEntry);
+        }
+
+        function loadVidiotsSchedule(config) {
+            // Load schedule from config
+            const schedule = config.schedule || {};
+            
+            // If we have new-style schedule config, use it
+            if (schedule.frequency) {
+                document.getElementById('vidiotsScheduleFrequency').value = schedule.frequency;
+                
+                if (schedule.frequency === 'weekly' && schedule.daysOfWeek) {
+                    schedule.daysOfWeek.forEach(day => {
+                        const checkbox = document.getElementById('vidiotsDay' + day);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                } else if (schedule.frequency === 'monthly' && schedule.dayOfMonth) {
+                    document.getElementById('vidiotsDayOfMonth').value = schedule.dayOfMonth;
+                }
+                
+                // Load run times
+                const runTimesContainer = document.getElementById('vidiotsRunTimes');
+                runTimesContainer.innerHTML = '';
+                if (schedule.times && schedule.times.length > 0) {
+                    schedule.times.forEach(time => {
+                        addVidiotsRunTime(time.hour, time.minute);
+                    });
+                } else {
+                    // Default times
+                    addVidiotsRunTime(6, 0);
+                    addVidiotsRunTime(12, 0);
+                }
+            } else {
+                // Try to parse from cron schedule (backward compatibility)
+                const cronSchedule = config.cronSchedule || '0 6,12 * * *';
+                parseVidiotsCronSchedule(cronSchedule);
+            }
+            
+            updateScheduleUI();
+        }
+
+        function parseVidiotsCronSchedule(cronSchedule) {
+            // Parse cron format: "minute hour day month dayOfWeek"
+            const parts = cronSchedule.trim().split(/\s+/);
+            if (parts.length >= 5) {
+                const [minute, hour, day, month, dayOfWeek] = parts;
+                const runTimesContainer = document.getElementById('vidiotsRunTimes');
+                runTimesContainer.innerHTML = '';
+                
+                // Parse hours (e.g., "6,12" or "6" or "*/4")
+                const hours = hour.includes(',') ? hour.split(',').map(h => parseInt(h)) : [parseInt(hour) || 6];
+                const minutes = minute.includes(',') ? minute.split(',').map(m => parseInt(m)) : [parseInt(minute) || 0];
+                
+                // Add time entries (combine hours and minutes)
+                hours.forEach((h, i) => {
+                    const m = minutes[i] || minutes[0] || 0;
+                    addVidiotsRunTime(h, m);
+                });
+                
+                // Determine frequency
+                if (dayOfWeek !== '*') {
+                    document.getElementById('vidiotsScheduleFrequency').value = 'weekly';
+                    const days = dayOfWeek.split(',');
+                    days.forEach(d => {
+                        const checkbox = document.getElementById('vidiotsDay' + d);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                } else if (day !== '*') {
+                    document.getElementById('vidiotsScheduleFrequency').value = 'monthly';
+                    document.getElementById('vidiotsDayOfMonth').value = parseInt(day) || 1;
+                } else {
+                    document.getElementById('vidiotsScheduleFrequency').value = 'daily';
+                }
+            } else {
+                // Default schedule
+                const runTimesContainer = document.getElementById('vidiotsRunTimes');
+                runTimesContainer.innerHTML = '';
+                addVidiotsRunTime(6, 0);
+                addVidiotsRunTime(12, 0);
+            }
+        }
+
+        function getVidiotsScheduleConfig() {
+            const frequency = document.getElementById('vidiotsScheduleFrequency').value;
+            const schedule = { frequency };
+            
+            if (frequency === 'weekly') {
+                const daysOfWeek = [];
+                for (let i = 0; i <= 6; i++) {
+                    const checkbox = document.getElementById('vidiotsDay' + i);
+                    if (checkbox && checkbox.checked) {
+                        daysOfWeek.push(i);
+                    }
+                }
+                schedule.daysOfWeek = daysOfWeek.length > 0 ? daysOfWeek : [1]; // Default to Monday
+            } else if (frequency === 'monthly') {
+                schedule.dayOfMonth = parseInt(document.getElementById('vidiotsDayOfMonth').value) || 1;
+            }
+            
+            // Get run times
+            const times = [];
+            const timeEntries = document.querySelectorAll('#vidiotsRunTimes .time-entry');
+            timeEntries.forEach(entry => {
+                const hour = parseInt(entry.querySelector('[data-type="hour"]').value) || 0;
+                const minute = parseInt(entry.querySelector('[data-type="minute"]').value) || 0;
+                times.push({ hour, minute });
+            });
+            schedule.times = times.length > 0 ? times : [{ hour: 6, minute: 0 }];
+            
+            return schedule;
+        }
+
+        function scheduleToCron(schedule) {
+            // Convert schedule to cron format
+            const { frequency, daysOfWeek, dayOfMonth, times } = schedule;
+            
+            if (!times || times.length === 0) {
+                return '0 6,12 * * *'; // Default
+            }
+            
+            // Extract unique hours and minutes
+            const hours = [...new Set(times.map(t => t.hour))].sort((a, b) => a - b);
+            const minutes = [...new Set(times.map(t => t.minute))].sort((a, b) => a - b);
+            
+            const minuteStr = minutes.join(',');
+            const hourStr = hours.join(',');
+            
+            if (frequency === 'weekly') {
+                const days = daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek.sort((a, b) => a - b).join(',') : '*';
+                return `${minuteStr} ${hourStr} * * ${days}`;
+            } else if (frequency === 'monthly') {
+                return `${minuteStr} ${hourStr} ${dayOfMonth || 1} * *`;
+            } else {
+                // Daily
+                return `${minuteStr} ${hourStr} * * *`;
+            }
+        }
+
+
         async function saveVidiotsConfig() {
             try {
+                const schedule = getVidiotsScheduleConfig();
+                const cronSchedule = scheduleToCron(schedule);
+                
                 const config = {
                     enabled: document.getElementById('vidiotsEnabled').value === 'true',
-                    cronSchedule: document.getElementById('vidiotsCronSchedule').value.trim() || '0 6,12 * * *',
+                    schedule: schedule, // Store the user-friendly schedule
+                    cronSchedule: cronSchedule, // Also store the cron expression for compatibility
                     outputFile: document.getElementById('vidiotsOutputFile').value.trim() || './public/vidiots/index.html',
                     posterDirectory: document.getElementById('vidiotsPosterDirectory').value.trim() || './public/vidiots/posters',
                     posterBaseUrl: document.getElementById('vidiotsPosterBaseUrl').value.trim() || '/vidiots/posters/',
@@ -5921,8 +6142,33 @@
                 if (result.success && result.status) {
                     const status = result.status;
                     let statusText = `Enabled: ${status.enabled ? 'Yes' : 'No'}\n`;
-                    statusText += `Schedule: ${status.cronSchedule}\n`;
-                    statusText += `Cron Job Running: ${status.isRunning ? 'Yes' : 'No'}\n`;
+                    
+                    // Show friendly schedule description
+                    if (status.schedule && status.schedule.frequency) {
+                        const sched = status.schedule;
+                        statusText += `Schedule: ${sched.frequency.charAt(0).toUpperCase() + sched.frequency.slice(1)}`;
+                        
+                        if (sched.frequency === 'weekly' && sched.daysOfWeek) {
+                            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                            const days = sched.daysOfWeek.map(d => dayNames[d]).join(', ');
+                            statusText += ` (${days})`;
+                        } else if (sched.frequency === 'monthly' && sched.dayOfMonth) {
+                            statusText += ` (Day ${sched.dayOfMonth})`;
+                        }
+                        
+                        if (sched.times && sched.times.length > 0) {
+                            const times = sched.times.map(t => {
+                                const h = String(t.hour).padStart(2, '0');
+                                const m = String(t.minute).padStart(2, '0');
+                                return `${h}:${m}`;
+                            }).join(', ');
+                            statusText += `\nRun Times: ${times}`;
+                        }
+                    } else {
+                        statusText += `Schedule (Cron): ${status.cronSchedule}`;
+                    }
+                    
+                    statusText += `\nCron Job Running: ${status.isRunning ? 'Yes' : 'No'}\n`;
                     statusText += `Output File: ${status.outputFile}\n`;
                     statusText += `File Exists: ${status.fileExists ? 'Yes' : 'No'}\n`;
                     if (status.fileExists) {
