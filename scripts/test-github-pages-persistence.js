@@ -104,13 +104,12 @@ if (espressoSection) {
         hasErrors = true;
     }
     
-    // Specifically check that localRepo is NOT present
+    // Check that localRepo also exists (it's a separate feature for local file management)
     if (espressoSection.includes('"localRepo"')) {
-        console.log('❌ espresso config still has "localRepo" - this causes the bug!');
-        console.log('   "localRepo" should be replaced with "githubPages"');
-        hasErrors = true;
+        console.log('✅ espresso config has "localRepo" section (separate feature for local files)');
     } else {
-        console.log('✅ espresso config does not have "localRepo" (correct)');
+        console.log('⚠️  espresso config missing "localRepo" section');
+        // Not a critical error for GitHub Pages persistence, but good to have
     }
 } else {
     console.log('❌ Could not find espresso config section!');
@@ -143,7 +142,7 @@ console.log('📋 Test 3: Consistency check between files');
 console.log('-------------------------------------------');
 
 if (espressoSection && validateEspressoSection) {
-    // Both should have githubPages, not localRepo
+    // Both should have githubPages
     const serverHasGithubPages = espressoSection.includes('"githubPages"');
     const validateHasGithubPages = validateEspressoSection.includes('"githubPages"');
     
@@ -154,12 +153,17 @@ if (espressoSection && validateEspressoSection) {
         hasErrors = true;
     }
     
+    // Check that both have localRepo (it's a valid separate feature)
     const serverHasLocalRepo = espressoSection.includes('"localRepo"');
-    if (serverHasLocalRepo) {
-        console.log('❌ server.js still has espresso.localRepo - this is the bug!');
-        hasErrors = true;
+    const validateHasLocalRepo = validateEspressoSection.includes('"localRepo"');
+    
+    if (serverHasLocalRepo && validateHasLocalRepo) {
+        console.log('✅ Both files have espresso.localRepo section (for local file management)');
+    } else if (!serverHasLocalRepo && !validateHasLocalRepo) {
+        console.log('ℹ️  Neither file has espresso.localRepo (may be legacy feature)');
     } else {
-        console.log('✅ server.js does not have espresso.localRepo');
+        console.log('⚠️  Inconsistency in espresso.localRepo between files');
+        // Not critical for GitHub Pages persistence
     }
 }
 
@@ -178,7 +182,9 @@ if (!hasErrors) {
     console.log('   ✓ Settings will persist across deployments');
     console.log('');
     console.log('📚 What was fixed:');
-    console.log('   - Replaced espresso.localRepo with espresso.githubPages in server.js');
+    console.log('   - Added espresso.githubPages section to server.js defaultConfig');
+    console.log('   - espresso.localRepo remains for local file management');
+    console.log('   - Both sections work together: localRepo for local files, githubPages for upload');
     console.log('   - This ensures config validation uses correct defaults');
     console.log('   - GitHub Pages enabled setting now persists across redeploys');
     console.log('');
@@ -187,13 +193,14 @@ if (!hasErrors) {
     console.log('❌ Tests FAILED!');
     console.log('');
     console.log('🔍 The issue:');
-    console.log('   When server.js has "localRepo" instead of "githubPages" for espresso,');
-    console.log('   the config validation merges wrong defaults, potentially overwriting');
-    console.log('   the githubPages.enabled setting during startup or redeploy.');
+    console.log('   When server.js was missing "githubPages" for espresso config,');
+    console.log('   the config validation could not properly merge defaults, potentially');
+    console.log('   losing the githubPages.enabled setting during startup or redeploy.');
     console.log('');
     console.log('💡 The fix:');
-    console.log('   Replace "localRepo" with "githubPages" in server.js defaultConfig');
-    console.log('   to match the actual usage and validate-config.js structure.');
+    console.log('   Add "githubPages" section to server.js espresso defaultConfig');
+    console.log('   alongside the existing "localRepo" section (they serve different purposes).');
+    console.log('   This ensures config validation properly preserves GitHub Pages settings.');
     console.log('');
     process.exit(1);
 }

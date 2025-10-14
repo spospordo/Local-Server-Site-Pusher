@@ -466,6 +466,11 @@ const defaultConfig = {
     "templatePath": "",
     "outputPath": "./public/espresso/index.html",
     "imagePaths": {},
+    "localRepo": {
+      "enabled": false,
+      "outputPath": "espresso/index.html",
+      "imagePath": "espresso/images"
+    },
     "githubPages": {
       "enabled": false,
       "repoOwner": "",
