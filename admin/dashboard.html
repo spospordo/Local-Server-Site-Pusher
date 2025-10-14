@@ -3217,6 +3217,45 @@
                         </div>
                     </div>
 
+                    <!-- Forecast Widget -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="widgetForecast" onchange="saveMagicMirrorConfig()"> 
+                                    <strong>Forecast</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="widgetForecastArea">Position
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
+                                </label>
+                                <select id="widgetForecastArea" onchange="saveMagicMirrorConfig()">
+                                    <option value="upper-left">Upper Left</option>
+                                    <option value="upper-center">Upper Center</option>
+                                    <option value="upper-right">Upper Right</option>
+                                    <option value="middle-left">Middle Left</option>
+                                    <option value="middle-center">Middle Center</option>
+                                    <option value="middle-right">Middle Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="bottom-center">Bottom Center</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="widgetForecastSize">Size
+                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
+                                </label>
+                                <select id="widgetForecastSize" onchange="saveMagicMirrorConfig()">
+                                    <option value="box">Box (Standard)</option>
+                                    <option value="bar">Bar (Full Width)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Calendar Widget -->
                     <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
                         <div class="form-row">
@@ -3346,6 +3385,19 @@
                         <div class="form-group">
                             <label for="weatherApiKey">OpenWeather API Key (optional)</label>
                             <input type="password" id="weatherApiKey" placeholder="Enter API key" onchange="saveMagicMirrorConfig()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="forecastDays">Forecast Days
+                                <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Number of days to show in the forecast widget">ⓘ</span>
+                            </label>
+                            <select id="forecastDays" onchange="saveMagicMirrorConfig()">
+                                <option value="1">Tomorrow (1 day)</option>
+                                <option value="3">3 days</option>
+                                <option value="5">5 days</option>
+                                <option value="10">10 days</option>
+                            </select>
                         </div>
                     </div>
                     <div style="margin-top: 0.5rem;">
@@ -9628,6 +9680,12 @@
                 document.getElementById('widgetWeatherArea').value = weatherWidget?.area || 'upper-center';
                 document.getElementById('widgetWeatherSize').value = weatherWidget?.size || 'box';
                 
+                // Forecast widget
+                const forecastWidget = config.widgets?.forecast;
+                document.getElementById('widgetForecast').checked = forecastWidget?.enabled || false;
+                document.getElementById('widgetForecastArea').value = forecastWidget?.area || 'upper-right';
+                document.getElementById('widgetForecastSize').value = forecastWidget?.size || 'box';
+                
                 // Calendar widget
                 const calendarWidget = config.widgets?.calendar;
                 document.getElementById('widgetCalendar').checked = calendarWidget?.enabled || false;
@@ -9648,6 +9706,9 @@
                 
                 // Set weather config
                 document.getElementById('weatherLocation').value = config.weather?.location || '';
+                
+                // Set forecast days config
+                document.getElementById('forecastDays').value = config.forecast?.days || 5;
                 
                 // Only update API key field if:
                 // 1. There's an actual value from server (not empty string)
@@ -9699,6 +9760,11 @@
                             area: document.getElementById('widgetWeatherArea').value,
                             size: document.getElementById('widgetWeatherSize').value
                         },
+                        forecast: {
+                            enabled: document.getElementById('widgetForecast').checked,
+                            area: document.getElementById('widgetForecastArea').value,
+                            size: document.getElementById('widgetForecastSize').value
+                        },
                         calendar: {
                             enabled: document.getElementById('widgetCalendar').checked,
                             area: document.getElementById('widgetCalendarArea').value,
@@ -9718,6 +9784,9 @@
                     weather: {
                         location: document.getElementById('weatherLocation').value,
                         apiKey: document.getElementById('weatherApiKey').value
+                    },
+                    forecast: {
+                        days: parseInt(document.getElementById('forecastDays').value) || 5
                     },
                     calendar: {
                         url: document.getElementById('calendarUrl').value
