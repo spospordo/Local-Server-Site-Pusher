@@ -203,6 +203,10 @@ function updateConfig(newConfig) {
                 ...currentConfig.weather,
                 ...newConfig.weather
             },
+            forecast: {
+                ...currentConfig.forecast,
+                ...newConfig.forecast
+            },
             calendar: {
                 ...currentConfig.calendar,
                 ...newConfig.calendar
@@ -221,6 +225,13 @@ function updateConfig(newConfig) {
         if (!newConfig.weather?.apiKey || !newConfig.weather.apiKey.trim()) {
             updatedConfig.weather.apiKey = currentConfig.weather?.apiKey || '';
         }
+        
+        // Log configuration update for debugging
+        console.log('✅ [Magic Mirror] Configuration updated successfully');
+        console.log('   Enabled:', updatedConfig.enabled);
+        console.log('   Widgets:', Object.keys(updatedConfig.widgets || {})
+            .filter(w => updatedConfig.widgets[w]?.enabled)
+            .join(', ') || 'none');
         
         return saveConfig(updatedConfig);
     } catch (error) {
@@ -655,21 +666,33 @@ function generateDefaultHTML() {
     <script>
         async function initDashboard() {
             try {
+                console.log('🪞 [Magic Mirror] Initializing dashboard...');
                 const response = await fetch('/api/magicmirror/data');
                 
                 if (!response.ok) {
-                    console.error('Failed to fetch Magic Mirror data');
+                    console.error('❌ [Magic Mirror] Failed to fetch Magic Mirror data. Status:', response.status);
                     return;
                 }
                 
                 const config = await response.json();
+                console.log('📊 [Magic Mirror] Config loaded:', {
+                    enabled: config.enabled,
+                    widgets: Object.keys(config.widgets || {})
+                });
                 
                 if (!config.enabled) {
+                    console.log('⚠️  [Magic Mirror] Dashboard is disabled');
                     return;
                 }
                 
                 // Build widget grid with area-based layout
                 const widgets = config.widgets || {};
+                console.log('🎛️  [Magic Mirror] Building widgets:', 
+                    Object.entries(widgets)
+                        .filter(([_, w]) => (typeof w === 'boolean' ? w : (w && w.enabled)))
+                        .map(([name, _]) => name)
+                        .join(', ') || 'none'
+                );
                 
                 // Initialize widget grid with all areas
                 let widgetsHtml = '<div class="widget-grid">';
@@ -710,16 +733,28 @@ function generateDefaultHTML() {
                         area = widgetConfig.area || 'upper-left';
                         size = widgetConfig.size || 'box';
                     } else {
+                        console.warn('⚠️  [Magic Mirror] Invalid widget config for', widgetName, ':', widgetConfig);
                         continue;
                     }
                     
-                    if (!enabled) continue;
+                    if (!enabled) {
+                        console.log('⏭️  [Magic Mirror] Skipping disabled widget:', widgetName);
+                        continue;
+                    }
                     
                     const template = widgetTemplates[widgetName];
-                    if (!template) continue;
+                    if (!template) {
+                        console.error('❌ [Magic Mirror] No template found for widget:', widgetName);
+                        continue;
+                    }
                     
                     const areaElement = document.getElementById('area-' + area);
-                    if (!areaElement) continue;
+                    if (!areaElement) {
+                        console.error('❌ [Magic Mirror] Area element not found for widget', widgetName, '- area:', area);
+                        continue;
+                    }
+                    
+                    console.log('✅ [Magic Mirror] Placing widget:', widgetName, 'in area:', area, 'size:', size);
                     
                     const widgetHtml = \`
                         <div class="widget size-\${size}" id="\${widgetName}-widget">
@@ -861,15 +896,23 @@ function generateDefaultHTML() {
         async function updateForecast() {
             const content = document.getElementById('forecast-content');
             
+            if (!content) {
+                console.error('❌ [Magic Mirror] Forecast content element not found');
+                return;
+            }
+            
             try {
+                console.log('🌦️  [Magic Mirror] Updating forecast...');
                 const response = await fetch('/api/magicmirror/forecast');
                 
                 if (!response.ok) {
                     const error = await response.json();
+                    console.error('❌ [Magic Mirror] Forecast API error:', error);
                     throw new Error(error.error || 'Failed to fetch forecast');
                 }
                 
                 const data = await response.json();
+                console.log('✅ [Magic Mirror] Forecast data received:', data.forecast?.length || 0, 'days');
                 
                 if (data.forecast && data.forecast.length > 0) {
                     const weatherIconMap = {
@@ -981,18 +1024,23 @@ function generateDefaultHTML() {
 
         async function updateMedia() {
             const content = document.getElementById('media-content');
-            if (!content) return;
+            if (!content) {
+                console.error('❌ [Magic Mirror] Media content element not found');
+                return;
+            }
             
             try {
                 const response = await fetch('/api/media-streaming');
                 
                 if (!response.ok) {
                     const error = await response.json();
+                    console.error('❌ [Magic Mirror] Media API error:', error);
                     throw new Error(error.error || 'Failed to fetch media data');
                 }
                 
                 const result = await response.json();
                 const data = result.data;
+                console.log('🎵 [Magic Mirror] Media data received:', data.hasActiveMedia ? 'active' : 'inactive');
                 
                 if (!result.success || !data.hasActiveMedia || data.players.length === 0) {
                     content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No active media players</div>';
@@ -1052,7 +1100,7 @@ function generateDefaultHTML() {
                 
                 content.innerHTML = mediaHtml;
             } catch (error) {
-                console.error('Error updating media:', error);
+                console.error('❌ [Magic Mirror] Error updating media widget:', error);
                 content.innerHTML = '<div style="text-align: center; padding: 1rem; color: #ff6b6b; font-size: 0.9rem;">' + error.message + '</div>';
             }
         }
