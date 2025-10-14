@@ -3440,7 +3440,12 @@
                 <div style="margin-top: 1.5rem;">
                     <button class="btn btn-primary" onclick="saveMagicMirrorConfig()">Save Configuration</button>
                     <button class="btn btn-secondary" onclick="openMagicMirrorDisplay()">Open Dashboard</button>
+                    <button class="btn btn-secondary" onclick="regenerateMagicMirrorDashboard()" title="Force all open dashboards to reload with the latest configuration">🔄 Regenerate Dashboard</button>
                     <button class="btn btn-secondary" onclick="loadMagicMirrorConfig()">Refresh</button>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
+                    <strong>💡 Tip:</strong> After making changes, click "Save Configuration" first, then click "🔄 Regenerate Dashboard" to notify all open dashboard pages to reload automatically.
                 </div>
 
                 <div id="magicMirrorAlert" class="alert"></div>
@@ -9828,6 +9833,30 @@
             window.open('/magic-mirror', '_blank');
         }
 
+        async function regenerateMagicMirrorDashboard() {
+            try {
+                showMagicMirrorAlert('Regenerating dashboard...', 'success');
+                
+                const response = await fetch('/admin/api/magicmirror/regenerate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMagicMirrorAlert('✅ Dashboard regenerated! All open dashboards will reload automatically.', 'success');
+                } else {
+                    showMagicMirrorAlert('Error: ' + (result.error || 'Failed to regenerate dashboard'), 'error');
+                }
+            } catch (error) {
+                console.error('Error regenerating Magic Mirror dashboard:', error);
+                showMagicMirrorAlert('Error regenerating dashboard: ' + error.message, 'error');
+            }
+        }
+
         function showMagicMirrorAlert(message, type) {
             const alertDiv = document.getElementById('magicMirrorAlert');
             alertDiv.textContent = message;
@@ -9836,7 +9865,7 @@
             
             setTimeout(() => {
                 alertDiv.style.display = 'none';
-            }, 3000);
+            }, 5000);
         }
 
         // Test connection functions for widgets

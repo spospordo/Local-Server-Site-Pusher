@@ -4596,6 +4596,36 @@ app.post('/admin/api/magicmirror/config', requireAuth, (req, res) => {
   }
 });
 
+// Regenerate Magic Mirror dashboard
+app.post('/admin/api/magicmirror/regenerate', requireAuth, (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🔄 [Magic Mirror] ${timestamp} - Admin ${clientIp} triggered dashboard regeneration`);
+  logger.info(logger.categories.MAGIC_MIRROR, `Admin ${clientIp} triggered dashboard regeneration`);
+  
+  try {
+    const result = magicMirror.regenerateDashboard();
+    
+    if (result.success) {
+      console.log(`✅ [Magic Mirror] ${timestamp} - Dashboard regenerated successfully`);
+      logger.success(logger.categories.MAGIC_MIRROR, `Dashboard regenerated successfully (version: ${result.configVersion})`);
+      res.json(result);
+    } else {
+      console.error(`❌ [Magic Mirror] ${timestamp} - Failed to regenerate dashboard: ${result.error}`);
+      logger.error(logger.categories.MAGIC_MIRROR, `Failed to regenerate dashboard: ${result.error}`);
+      res.status(500).json(result);
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror] ${timestamp} - Error regenerating dashboard:`, err.message);
+    logger.error(logger.categories.MAGIC_MIRROR, `Error regenerating dashboard: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to regenerate dashboard: ' + err.message 
+    });
+  }
+});
+
 // Generate magic-mirror.html if missing
 app.post('/api/magicmirror/generate', (req, res) => {
   const timestamp = new Date().toISOString();

@@ -14,6 +14,7 @@ if (!fs.existsSync(CONFIG_DIR)) {
 // Default configuration
 const DEFAULT_CONFIG = {
     enabled: false,
+    configVersion: Date.now(), // Track when config was last updated
     widgets: {
         clock: {
             enabled: true,
@@ -199,6 +200,7 @@ function updateConfig(newConfig) {
         const updatedConfig = {
             ...currentConfig,
             ...newConfig,
+            configVersion: Date.now(), // Update version timestamp when config changes
             weather: {
                 ...currentConfig.weather,
                 ...newConfig.weather
@@ -229,6 +231,7 @@ function updateConfig(newConfig) {
         // Log configuration update for debugging
         console.log('✅ [Magic Mirror] Configuration updated successfully');
         console.log('   Enabled:', updatedConfig.enabled);
+        console.log('   Config Version:', updatedConfig.configVersion);
         console.log('   Widgets:', Object.keys(updatedConfig.widgets || {})
             .filter(w => updatedConfig.widgets[w]?.enabled)
             .join(', ') || 'none');
@@ -1140,11 +1143,36 @@ function generateDefaultHTML() {
     }
 }
 
+// Force dashboard regeneration by updating config version
+function regenerateDashboard() {
+    try {
+        const currentConfig = loadConfig();
+        currentConfig.configVersion = Date.now();
+        const result = saveConfig(currentConfig);
+        
+        if (result.success) {
+            console.log('🔄 [Magic Mirror] Dashboard regeneration triggered');
+            console.log('   New Config Version:', currentConfig.configVersion);
+            return { 
+                success: true, 
+                message: 'Dashboard regenerated successfully. Open dashboards will reload automatically.',
+                configVersion: currentConfig.configVersion
+            };
+        } else {
+            return result;
+        }
+    } catch (error) {
+        console.error('❌ [Magic Mirror] Error regenerating dashboard:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 module.exports = {
     loadConfig,
     saveConfig,
     getConfig,
     updateConfig,
     getFullConfig,
-    generateDefaultHTML
+    generateDefaultHTML,
+    regenerateDashboard
 };
