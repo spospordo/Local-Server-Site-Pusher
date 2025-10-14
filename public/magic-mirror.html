@@ -445,6 +445,55 @@
     <script>
         let config = null;
         let updateIntervals = {};
+        let configCheckInterval = null;
+        let currentConfigVersion = null;
+
+        // Check for configuration updates
+        async function checkForConfigUpdates() {
+            try {
+                const response = await fetch('/api/magicmirror/data');
+                
+                if (!response.ok) {
+                    console.log('Config check failed, status:', response.status);
+                    return;
+                }
+                
+                const newConfig = await response.json();
+                
+                // Check if configuration version has changed
+                if (currentConfigVersion && newConfig.configVersion && 
+                    newConfig.configVersion !== currentConfigVersion) {
+                    console.log('🔄 Configuration updated! Reloading dashboard...', {
+                        old: currentConfigVersion,
+                        new: newConfig.configVersion
+                    });
+                    
+                    // Show notification before reload
+                    const notification = document.createElement('div');
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #4CAF50;
+                        color: white;
+                        padding: 1rem 1.5rem;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        animation: slideIn 0.3s ease-out;
+                    `;
+                    notification.textContent = '🔄 Configuration updated! Reloading...';
+                    document.body.appendChild(notification);
+                    
+                    // Reload after short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+            } catch (error) {
+                console.error('Error checking for config updates:', error);
+            }
+        }
 
         // Initialize dashboard
         async function initDashboard() {
@@ -464,6 +513,9 @@
                 }
                 
                 config = await response.json();
+                currentConfigVersion = config.configVersion;
+                
+                console.log('📊 Dashboard initialized with config version:', currentConfigVersion);
                 
                 // Show dashboard
                 document.getElementById('dashboard-container').style.display = 'block';
@@ -471,6 +523,12 @@
                 
                 // Create widgets based on configuration
                 createWidgets();
+                
+                // Start checking for configuration updates every 30 seconds
+                if (configCheckInterval) {
+                    clearInterval(configCheckInterval);
+                }
+                configCheckInterval = setInterval(checkForConfigUpdates, 30000);
                 
                 // Initialize clock (always visible if enabled)
                 const clockConfig = config.widgets.clock;
