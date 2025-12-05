@@ -3676,6 +3676,97 @@
             </div>
         </div>
 
+        <!-- Backup & Restore - Settings Sub-tab -->
+        <div class="card admin-section settings-section settings-general-section">
+            <div class="card-header">
+                <h2>💾 Backup & Restore</h2>
+            </div>
+            <div class="card-body">
+                <p>Export all your site configurations and data to a backup file, or restore from a previously exported backup.</p>
+                
+                <!-- Export Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📤 Export Data
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <div class="warning-box" style="margin-bottom: 1rem;">
+                            <strong>⚠️ Security Note:</strong>
+                            <p style="margin: 0.5rem 0 0 0;">For security, sensitive credentials (API keys, tokens, passwords) are NOT included in exports. You will need to re-enter these after importing.</p>
+                        </div>
+                        
+                        <h4 style="margin-bottom: 0.5rem;">The export will include:</h4>
+                        <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: #555;">
+                            <li>Magic Mirror configuration (widget settings, layout)</li>
+                            <li>Server settings and preferences</li>
+                            <li>Vidiots configuration (excluding GitHub token)</li>
+                            <li>Espresso configuration and data</li>
+                            <li>Finance data (accounts, demographics, settings)</li>
+                            <li>Useful links</li>
+                            <li>Connected devices</li>
+                            <li>Drink mixer recipes and ingredients</li>
+                            <li>Tournament data</li>
+                            <li>Client configurations</li>
+                        </ul>
+                        
+                        <button onclick="exportBackup()" class="btn btn-primary">
+                            📥 Download Backup File
+                        </button>
+                        
+                        <div id="exportAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Import Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📥 Import Data
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <div class="warning-box" style="margin-bottom: 1rem; background: #fff3cd;">
+                            <strong>⚠️ Warning:</strong>
+                            <p style="margin: 0.5rem 0 0 0;">Importing a backup will overwrite existing configurations. Existing API keys and passwords will be preserved if they are not included in the import file.</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="backupFileInput">Select Backup File</label>
+                            <input type="file" id="backupFileInput" accept=".json" onchange="previewBackup(event)" style="width: 100%; padding: 0.75rem; border: 2px dashed #ddd; border-radius: 5px; cursor: pointer;">
+                            <small style="color: #666;">Select a .json backup file previously exported from this system</small>
+                        </div>
+                        
+                        <!-- Preview Section -->
+                        <div id="backupPreview" style="display: none; margin-top: 1rem;">
+                            <h4 style="margin-bottom: 0.5rem;">📋 Backup Preview</h4>
+                            <div id="backupPreviewContent" style="background: #f8f9fa; padding: 1rem; border-radius: 5px; border: 1px solid #ddd;">
+                                <!-- Preview content will be populated here -->
+                            </div>
+                            
+                            <div id="backupValidation" style="margin-top: 1rem;"></div>
+                            
+                            <div style="margin-top: 1rem;">
+                                <button onclick="performImport()" class="btn btn-success" id="importBtn" disabled>
+                                    ✅ Confirm Import
+                                </button>
+                                <button onclick="cancelImport()" class="btn btn-secondary">
+                                    ❌ Cancel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="importAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- System Logs - Settings Sub-tab -->
         <div class="card admin-section settings-section settings-logs-section hidden">
             <div class="card-header">
@@ -9812,6 +9903,311 @@
             setTimeout(() => {
                 alertDiv.remove();
             }, 3000);
+        }
+
+        // Backup and Restore Functions
+        let pendingBackupData = null;
+        
+        async function exportBackup() {
+            const exportAlert = document.getElementById('exportAlert');
+            exportAlert.style.display = 'none';
+            
+            try {
+                exportAlert.textContent = 'Preparing export...';
+                exportAlert.className = 'alert';
+                exportAlert.style.display = 'block';
+                exportAlert.style.background = '#e7f3ff';
+                exportAlert.style.color = '#004085';
+                exportAlert.style.border = '1px solid #b6d4fe';
+                
+                const response = await fetch('/admin/api/backup/export');
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Export failed');
+                }
+                
+                // Get the backup data
+                const backupData = await response.json();
+                
+                // Create a downloadable file
+                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // Generate filename with timestamp
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `site-backup-${timestamp}.json`;
+                
+                // Create download link and trigger it
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                exportAlert.textContent = `✅ Backup exported successfully! File: ${filename}`;
+                exportAlert.className = 'alert alert-success';
+                exportAlert.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Export failed:', error);
+                exportAlert.textContent = `❌ Export failed: ${error.message}`;
+                exportAlert.className = 'alert alert-error';
+                exportAlert.style.display = 'block';
+            }
+        }
+        
+        async function previewBackup(event) {
+            const file = event.target.files[0];
+            const importAlert = document.getElementById('importAlert');
+            const previewSection = document.getElementById('backupPreview');
+            const previewContent = document.getElementById('backupPreviewContent');
+            const validationDiv = document.getElementById('backupValidation');
+            const importBtn = document.getElementById('importBtn');
+            
+            importAlert.style.display = 'none';
+            previewSection.style.display = 'none';
+            importBtn.disabled = true;
+            pendingBackupData = null;
+            
+            if (!file) {
+                return;
+            }
+            
+            if (!file.name.endsWith('.json')) {
+                importAlert.textContent = '❌ Please select a .json backup file';
+                importAlert.className = 'alert alert-error';
+                importAlert.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const reader = new FileReader();
+                
+                reader.onload = async function(e) {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        
+                        // Send to server for validation and preview
+                        const response = await fetch('/admin/api/backup/preview', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(backupData)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.error || 'Preview failed');
+                        }
+                        
+                        // Store the backup data for import
+                        pendingBackupData = backupData;
+                        
+                        // Build preview HTML
+                        let previewHtml = '';
+                        
+                        // Metadata
+                        if (result.summary && result.summary.metadata) {
+                            const meta = result.summary.metadata;
+                            previewHtml += `
+                                <div style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #ddd;">
+                                    <strong>📅 Export Date:</strong> ${new Date(meta.exportedAt).toLocaleString()}<br>
+                                    <strong>📦 Backup Version:</strong> ${meta.version}<br>
+                                    <strong>🖥️ App Version:</strong> ${meta.applicationVersion || 'Unknown'}
+                                </div>
+                            `;
+                        }
+                        
+                        // Contents summary
+                        if (result.summary && result.summary.contents) {
+                            const contents = result.summary.contents;
+                            
+                            previewHtml += '<strong>📋 Backup Contents:</strong><ul style="margin: 0.5rem 0 0 1.5rem;">';
+                            
+                            if (contents.mainConfig) {
+                                const mc = contents.mainConfig;
+                                previewHtml += `<li>Main Configuration
+                                    <ul style="margin-left: 1rem; color: #666; font-size: 0.9rem;">
+                                        ${mc.usefulLinksCount > 0 ? `<li>Useful Links: ${mc.usefulLinksCount}</li>` : ''}
+                                        ${mc.connectedDevicesCount > 0 ? `<li>Connected Devices: ${mc.connectedDevicesCount}</li>` : ''}
+                                        ${mc.alcoholsCount > 0 || mc.mixersCount > 0 || mc.recipesCount > 0 ? 
+                                            `<li>Drink Mixer: ${mc.alcoholsCount} alcohols, ${mc.mixersCount} mixers, ${mc.recipesCount} recipes</li>` : ''}
+                                        ${mc.tournamentsCount > 0 ? `<li>Tournaments: ${mc.tournamentsCount}</li>` : ''}
+                                        ${mc.hasVidiots ? '<li>Vidiots Settings</li>' : ''}
+                                        ${mc.hasEspresso ? '<li>Espresso Settings</li>' : ''}
+                                        ${mc.hasClient ? '<li>Client Settings</li>' : ''}
+                                    </ul>
+                                </li>`;
+                            }
+                            
+                            if (contents.magicMirror) {
+                                previewHtml += `<li>Magic Mirror (${contents.magicMirror.enabled ? 'Enabled' : 'Disabled'}, ${contents.magicMirror.widgetsEnabled} widgets)</li>`;
+                            }
+                            
+                            if (contents.espressoData && contents.espressoData.hasData) {
+                                previewHtml += `<li>Espresso Data (${contents.espressoData.fieldsCount} fields)</li>`;
+                            }
+                            
+                            if (contents.finance) {
+                                const fin = contents.finance;
+                                previewHtml += `<li>Finance Data
+                                    <ul style="margin-left: 1rem; color: #666; font-size: 0.9rem;">
+                                        <li>Accounts: ${fin.accountsCount}</li>
+                                        ${fin.hasDemographics ? '<li>Demographics</li>' : ''}
+                                        ${fin.hasAdvancedSettings ? '<li>Advanced Settings</li>' : ''}
+                                        ${fin.historyEntriesCount > 0 ? `<li>History Entries: ${fin.historyEntriesCount}</li>` : ''}
+                                    </ul>
+                                </li>`;
+                            }
+                            
+                            previewHtml += '</ul>';
+                        }
+                        
+                        previewContent.innerHTML = previewHtml;
+                        
+                        // Show validation results
+                        let validationHtml = '';
+                        
+                        if (result.valid) {
+                            validationHtml = '<div style="background: #d4edda; color: #155724; padding: 0.75rem; border-radius: 5px; border: 1px solid #c3e6cb;">✅ Backup file is valid and ready to import</div>';
+                            importBtn.disabled = false;
+                        } else {
+                            validationHtml = `<div style="background: #f8d7da; color: #721c24; padding: 0.75rem; border-radius: 5px; border: 1px solid #f5c6cb;">
+                                ❌ Validation Errors:<br>
+                                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                                    ${result.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+                                </ul>
+                            </div>`;
+                            importBtn.disabled = true;
+                        }
+                        
+                        if (result.warnings && result.warnings.length > 0) {
+                            validationHtml += `<div style="background: #fff3cd; color: #856404; padding: 0.75rem; border-radius: 5px; border: 1px solid #ffeaa7; margin-top: 0.5rem;">
+                                ⚠️ Warnings:<br>
+                                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                                    ${result.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}
+                                </ul>
+                            </div>`;
+                        }
+                        
+                        validationDiv.innerHTML = validationHtml;
+                        previewSection.style.display = 'block';
+                        
+                    } catch (parseError) {
+                        importAlert.textContent = `❌ Invalid backup file: ${parseError.message}`;
+                        importAlert.className = 'alert alert-error';
+                        importAlert.style.display = 'block';
+                    }
+                };
+                
+                reader.onerror = function() {
+                    importAlert.textContent = '❌ Error reading file';
+                    importAlert.className = 'alert alert-error';
+                    importAlert.style.display = 'block';
+                };
+                
+                reader.readAsText(file);
+                
+            } catch (error) {
+                console.error('Preview failed:', error);
+                importAlert.textContent = `❌ Preview failed: ${error.message}`;
+                importAlert.className = 'alert alert-error';
+                importAlert.style.display = 'block';
+            }
+        }
+        
+        async function performImport() {
+            if (!pendingBackupData) {
+                alert('No backup data to import. Please select a file first.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to import this backup? This will overwrite existing configurations. Sensitive credentials will be preserved.')) {
+                return;
+            }
+            
+            const importAlert = document.getElementById('importAlert');
+            const importBtn = document.getElementById('importBtn');
+            
+            importBtn.disabled = true;
+            importAlert.textContent = 'Importing data...';
+            importAlert.className = 'alert';
+            importAlert.style.display = 'block';
+            importAlert.style.background = '#e7f3ff';
+            importAlert.style.color = '#004085';
+            importAlert.style.border = '1px solid #b6d4fe';
+            
+            try {
+                const response = await fetch('/admin/api/backup/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(pendingBackupData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let successMsg = `✅ Import completed successfully!<br><strong>Imported:</strong> ${result.results.imported.join(', ')}`;
+                    
+                    if (result.results.skipped && result.results.skipped.length > 0) {
+                        successMsg += `<br><strong>Skipped:</strong> ${result.results.skipped.join(', ')}`;
+                    }
+                    
+                    if (result.warnings && result.warnings.length > 0) {
+                        successMsg += `<br><strong>Warnings:</strong> ${result.warnings.join(', ')}`;
+                    }
+                    
+                    importAlert.innerHTML = successMsg;
+                    importAlert.className = 'alert alert-success';
+                    
+                    // Reset the form
+                    document.getElementById('backupFileInput').value = '';
+                    document.getElementById('backupPreview').style.display = 'none';
+                    pendingBackupData = null;
+                    
+                    // Recommend page reload
+                    setTimeout(() => {
+                        if (confirm('Import completed! It is recommended to reload the page to see all changes. Reload now?')) {
+                            window.location.reload();
+                        }
+                    }, 1000);
+                    
+                } else {
+                    let errorMsg = `❌ Import failed: ${result.error}`;
+                    
+                    if (result.results && result.results.errors && result.results.errors.length > 0) {
+                        errorMsg += `<br><strong>Errors:</strong><ul style="margin: 0.5rem 0 0 1.5rem;">${result.results.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
+                    }
+                    
+                    if (result.results && result.results.imported && result.results.imported.length > 0) {
+                        errorMsg += `<br><strong>Partially imported:</strong> ${result.results.imported.join(', ')}`;
+                    }
+                    
+                    importAlert.innerHTML = errorMsg;
+                    importAlert.className = 'alert alert-error';
+                    importBtn.disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Import failed:', error);
+                importAlert.textContent = `❌ Import failed: ${error.message}`;
+                importAlert.className = 'alert alert-error';
+                importBtn.disabled = false;
+            }
+        }
+        
+        function cancelImport() {
+            pendingBackupData = null;
+            document.getElementById('backupFileInput').value = '';
+            document.getElementById('backupPreview').style.display = 'none';
+            document.getElementById('importAlert').style.display = 'none';
         }
 
         // Magic Mirror Configuration Functions
