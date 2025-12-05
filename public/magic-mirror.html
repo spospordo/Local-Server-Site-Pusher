@@ -16,22 +16,24 @@
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: #ffffff;
             overflow-x: hidden;
+            min-height: 100vh;
         }
 
         .container {
-            padding: 2rem;
-            max-width: 1400px;
+            padding: 1.5rem;
+            max-width: 100%;
             margin: 0 auto;
+            min-height: 100vh;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 2rem;
-            padding: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem;
         }
 
         .header h1 {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 300;
             letter-spacing: 2px;
             text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
@@ -57,6 +59,17 @@
             line-height: 1.6;
         }
 
+        /* New flexible 12-column grid layout */
+        .widget-grid-flexible {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: repeat(6, minmax(100px, auto));
+            gap: 1rem;
+            min-height: calc(100vh - 150px);
+            padding: 0.5rem;
+        }
+
+        /* Legacy 3x3 grid layout for backward compatibility */
         .widget-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -65,7 +78,7 @@
                 "upper-left upper-center upper-right"
                 "middle-left middle-center middle-right"
                 "bottom-left bottom-center bottom-right";
-            gap: 2rem;
+            gap: 1.5rem;
             min-height: 70vh;
         }
 
@@ -94,10 +107,11 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
         }
 
         .widget:hover {
-            transform: translateY(-5px);
+            transform: translateY(-3px);
             box-shadow: 0 12px 40px rgba(74, 144, 226, 0.2);
         }
 
@@ -383,12 +397,17 @@
             text-align: center;
             color: #666;
             font-size: 0.85rem;
-            margin-top: 2rem;
-            padding: 1rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
         }
 
-        /* Portrait orientation - single column layout */
+        /* Portrait orientation - responsive grid */
         @media (orientation: portrait) {
+            .widget-grid-flexible {
+                grid-template-columns: repeat(6, 1fr);
+                grid-template-rows: repeat(12, minmax(80px, auto));
+            }
+            
             .widget-grid {
                 grid-template-columns: 1fr;
                 grid-template-areas:
@@ -405,6 +424,11 @@
         }
 
         @media (max-width: 768px) {
+            .widget-grid-flexible {
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: auto;
+            }
+            
             .widget-grid {
                 grid-template-columns: 1fr;
                 grid-template-areas:
@@ -426,6 +450,38 @@
             .weather-temp {
                 font-size: 2.5rem;
             }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .widget-grid-flexible {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+            
+            .widget {
+                padding: 1rem;
+            }
+            
+            .widget-header {
+                margin-bottom: 0.75rem;
+                padding-bottom: 0.75rem;
+            }
+            
+            .widget-icon {
+                font-size: 1.5rem;
+            }
+            
+            .widget-title {
+                font-size: 1.2rem;
+            }
         }
     </style>
 </head>
@@ -444,18 +500,8 @@
         </div>
 
         <div id="dashboard-container">
-            <div class="widget-grid">
-                <!-- Widget areas will be dynamically populated -->
-                <div class="widget-area upper-left" id="area-upper-left"></div>
-                <div class="widget-area upper-center" id="area-upper-center"></div>
-                <div class="widget-area upper-right" id="area-upper-right"></div>
-                <div class="widget-area middle-left" id="area-middle-left"></div>
-                <div class="widget-area middle-center" id="area-middle-center"></div>
-                <div class="widget-area middle-right" id="area-middle-right"></div>
-                <div class="widget-area bottom-left" id="area-bottom-left"></div>
-                <div class="widget-area bottom-center" id="area-bottom-center"></div>
-                <div class="widget-area bottom-right" id="area-bottom-right"></div>
-            </div>
+            <!-- Grid container - will be populated with either legacy or flexible grid -->
+            <div id="widget-grid-container"></div>
 
             <div class="last-update" id="last-update"></div>
         </div>
@@ -466,6 +512,7 @@
         let updateIntervals = {};
         let configCheckInterval = null;
         let currentConfigVersion = null;
+        let useFlexibleGrid = false;
 
         // Check for configuration updates
         async function checkForConfigUpdates() {
@@ -635,36 +682,116 @@
                 }
             };
 
-            // Place widgets in their configured areas
-            for (const [widgetName, widgetConfig] of Object.entries(config.widgets)) {
-                if (!widgetConfig || !widgetConfig.enabled) continue;
-                
-                const template = widgetTemplates[widgetName];
-                if (!template) continue;
-                
-                const area = widgetConfig.area || 'upper-left';
-                const size = widgetConfig.size || 'box';
-                
-                const areaElement = document.getElementById('area-' + area);
-                if (!areaElement) {
-                    console.warn(`Area not found: ${area}`);
-                    continue;
-                }
-                
-                const widgetElement = document.createElement('div');
-                widgetElement.className = `widget size-${size}`;
-                widgetElement.id = `${widgetName}-widget`;
-                widgetElement.innerHTML = `
-                    <div class="widget-header">
-                        <div class="widget-icon">${template.icon}</div>
-                        <div class="widget-title">${template.title}</div>
-                    </div>
-                    <div class="widget-content">
-                        ${template.content}
-                    </div>
+            const gridContainer = document.getElementById('widget-grid-container');
+            
+            // Check if using flexible grid layout
+            useFlexibleGrid = config.gridLayout && config.gridLayout.enabled;
+            
+            if (useFlexibleGrid) {
+                // Create flexible 12-column grid
+                const gridLayout = config.gridLayout || { columns: 12, rows: 6, gap: 16 };
+                const gridElement = document.createElement('div');
+                gridElement.className = 'widget-grid-flexible';
+                gridElement.style.cssText = `
+                    grid-template-columns: repeat(${gridLayout.columns || 12}, 1fr);
+                    grid-template-rows: repeat(${gridLayout.rows || 6}, minmax(100px, auto));
+                    gap: ${gridLayout.gap || 16}px;
                 `;
                 
-                areaElement.appendChild(widgetElement);
+                // Place widgets using grid positions
+                for (const [widgetName, widgetConfig] of Object.entries(config.widgets)) {
+                    if (!widgetConfig || !widgetConfig.enabled) continue;
+                    
+                    const template = widgetTemplates[widgetName];
+                    if (!template) continue;
+                    
+                    const gridPos = widgetConfig.gridPosition || {
+                        col: 1,
+                        row: 1,
+                        colSpan: 4,
+                        rowSpan: 2
+                    };
+                    
+                    const widgetElement = document.createElement('div');
+                    widgetElement.className = 'widget';
+                    widgetElement.id = `${widgetName}-widget`;
+                    
+                    // Set grid position using CSS Grid placement
+                    widgetElement.style.gridColumn = `${gridPos.col} / span ${gridPos.colSpan}`;
+                    widgetElement.style.gridRow = `${gridPos.row} / span ${gridPos.rowSpan}`;
+                    
+                    widgetElement.innerHTML = `
+                        <div class="widget-header">
+                            <div class="widget-icon">${template.icon}</div>
+                            <div class="widget-title">${template.title}</div>
+                        </div>
+                        <div class="widget-content">
+                            ${template.content}
+                        </div>
+                    `;
+                    
+                    gridElement.appendChild(widgetElement);
+                }
+                
+                gridContainer.innerHTML = '';
+                gridContainer.appendChild(gridElement);
+                
+                console.log('✅ Using flexible grid layout');
+            } else {
+                // Create legacy 3x3 area-based grid
+                const gridElement = document.createElement('div');
+                gridElement.className = 'widget-grid';
+                
+                // Create all 9 area containers
+                const areas = [
+                    'upper-left', 'upper-center', 'upper-right',
+                    'middle-left', 'middle-center', 'middle-right',
+                    'bottom-left', 'bottom-center', 'bottom-right'
+                ];
+                
+                areas.forEach(area => {
+                    const areaElement = document.createElement('div');
+                    areaElement.className = `widget-area ${area}`;
+                    areaElement.id = `area-${area}`;
+                    gridElement.appendChild(areaElement);
+                });
+                
+                gridContainer.innerHTML = '';
+                gridContainer.appendChild(gridElement);
+                
+                // Place widgets in their configured areas
+                for (const [widgetName, widgetConfig] of Object.entries(config.widgets)) {
+                    if (!widgetConfig || !widgetConfig.enabled) continue;
+                    
+                    const template = widgetTemplates[widgetName];
+                    if (!template) continue;
+                    
+                    const area = widgetConfig.area || 'upper-left';
+                    const size = widgetConfig.size || 'box';
+                    
+                    const areaElement = document.getElementById('area-' + area);
+                    if (!areaElement) {
+                        console.warn(`Area not found: ${area}`);
+                        continue;
+                    }
+                    
+                    const widgetElement = document.createElement('div');
+                    widgetElement.className = `widget size-${size}`;
+                    widgetElement.id = `${widgetName}-widget`;
+                    widgetElement.innerHTML = `
+                        <div class="widget-header">
+                            <div class="widget-icon">${template.icon}</div>
+                            <div class="widget-title">${template.title}</div>
+                        </div>
+                        <div class="widget-content">
+                            ${template.content}
+                        </div>
+                    `;
+                    
+                    areaElement.appendChild(widgetElement);
+                }
+                
+                console.log('✅ Using legacy area-based layout');
             }
         }
 
