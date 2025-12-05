@@ -9918,6 +9918,17 @@
                 showMagicMirrorAlert('Error loading configuration: ' + error.message, 'error');
             }
         }
+        
+        // Helper function to get grid position from form inputs
+        function getGridPositionFromInputs(widgetName) {
+            const capitalizedWidget = widgetName.charAt(0).toUpperCase() + widgetName.slice(1);
+            return {
+                col: parseInt(document.getElementById(`widget${capitalizedWidget}Col`)?.value) || 1,
+                row: parseInt(document.getElementById(`widget${capitalizedWidget}Row`)?.value) || 1,
+                colSpan: parseInt(document.getElementById(`widget${capitalizedWidget}ColSpan`)?.value) || 4,
+                rowSpan: parseInt(document.getElementById(`widget${capitalizedWidget}RowSpan`)?.value) || 2
+            };
+        }
 
         async function saveMagicMirrorConfig() {
             try {
@@ -9931,12 +9942,7 @@
                         enabled: document.getElementById(`widget${capitalizedWidget}`).checked,
                         area: document.getElementById(`widget${capitalizedWidget}Area`).value,
                         size: document.getElementById(`widget${capitalizedWidget}Size`).value,
-                        gridPosition: {
-                            col: parseInt(document.getElementById(`widget${capitalizedWidget}Col`)?.value) || 1,
-                            row: parseInt(document.getElementById(`widget${capitalizedWidget}Row`)?.value) || 1,
-                            colSpan: parseInt(document.getElementById(`widget${capitalizedWidget}ColSpan`)?.value) || 4,
-                            rowSpan: parseInt(document.getElementById(`widget${capitalizedWidget}RowSpan`)?.value) || 2
-                        }
+                        gridPosition: getGridPositionFromInputs(widget)
                     };
                 });
                 

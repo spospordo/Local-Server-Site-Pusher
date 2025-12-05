@@ -245,13 +245,27 @@ function gridPositionToArea(gridPosition) {
     const { col, row } = gridPosition;
     
     // Map grid position to closest legacy area
+    // Grid is divided into 3 column regions:
+    //   - Columns 1-4: left region
+    //   - Columns 5-8: center region  
+    //   - Columns 9-12: right region
+    const LEFT_REGION_END = 4;
+    const CENTER_REGION_END = 8;
+    
     let colArea = 'left';
-    if (col >= 5 && col <= 8) colArea = 'center';
-    else if (col >= 9) colArea = 'right';
+    if (col > LEFT_REGION_END && col <= CENTER_REGION_END) colArea = 'center';
+    else if (col > CENTER_REGION_END) colArea = 'right';
+    
+    // Grid is divided into 3 row regions:
+    //   - Rows 1-2: upper region
+    //   - Rows 3-4: middle region
+    //   - Rows 5-6: bottom region
+    const UPPER_REGION_END = 2;
+    const MIDDLE_REGION_END = 4;
     
     let rowArea = 'upper';
-    if (row >= 3 && row <= 4) rowArea = 'middle';
-    else if (row >= 5) rowArea = 'bottom';
+    if (row > UPPER_REGION_END && row <= MIDDLE_REGION_END) rowArea = 'middle';
+    else if (row > MIDDLE_REGION_END) rowArea = 'bottom';
     
     return `${rowArea}-${colArea}`;
 }
