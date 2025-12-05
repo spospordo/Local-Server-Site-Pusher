@@ -10578,7 +10578,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showMagicMirrorAlert('✅ Dashboard regenerated successfully! All open <code>/magic-mirror</code> pages will reload within 10 seconds with the latest layout changes.', 'success');
+                    showMagicMirrorAlert('✅ Dashboard regenerated successfully! All open /magic-mirror pages will reload within 10 seconds with the latest layout changes.', 'success');
                 } else {
                     showMagicMirrorAlert('Error: ' + (result.error || 'Failed to regenerate dashboard'), 'error');
                 }
@@ -10588,14 +10588,18 @@
             }
         }
 
+        // Alert display timeout constants (in milliseconds)
+        const MAGIC_MIRROR_ALERT_TIMEOUT_SUCCESS = 8000;
+        const MAGIC_MIRROR_ALERT_TIMEOUT_ERROR = 5000;
+
         function showMagicMirrorAlert(message, type) {
             const alertDiv = document.getElementById('magicMirrorAlert');
-            alertDiv.innerHTML = message; // Changed to innerHTML to support HTML content
+            alertDiv.textContent = message; // Use textContent to prevent XSS
             alertDiv.className = 'alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
             alertDiv.style.display = 'block';
             
             // Keep success messages visible longer so users can read them
-            const timeout = type === 'success' ? 8000 : 5000;
+            const timeout = type === 'success' ? MAGIC_MIRROR_ALERT_TIMEOUT_SUCCESS : MAGIC_MIRROR_ALERT_TIMEOUT_ERROR;
             setTimeout(() => {
                 alertDiv.style.display = 'none';
             }, timeout);
