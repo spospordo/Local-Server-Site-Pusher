@@ -3604,8 +3604,13 @@
                     <button class="btn btn-secondary" onclick="loadMagicMirrorConfig()">Refresh</button>
                 </div>
                 
-                <div style="margin-top: 1rem; padding: 0.75rem; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
-                    <strong>💡 Tip:</strong> After making changes, click "Save Configuration" first, then click "🔄 Regenerate Dashboard" to notify all open dashboard pages to reload automatically.
+                <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                    <strong>⚠️ Important - Dashboard Update Behavior:</strong>
+                    <ul style="margin: 0.5rem 0 0 1rem; color: #856404; font-size: 0.95rem;">
+                        <li>When you save changes, all open <code>/magic-mirror</code> dashboards will <strong>automatically reload within 10 seconds</strong>.</li>
+                        <li>For <strong>immediate updates</strong>, click the "🔄 Regenerate Dashboard" button after saving.</li>
+                        <li>If changes are still not visible, try manually refreshing the dashboard page.</li>
+                    </ul>
                 </div>
 
                 <div id="magicMirrorAlert" class="alert"></div>
@@ -10377,7 +10382,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showMagicMirrorAlert('Configuration saved successfully', 'success');
+                    showMagicMirrorAlert('✅ Configuration saved successfully! Open dashboards will automatically reload within 10 seconds. Click "🔄 Regenerate Dashboard" for immediate update.', 'success');
                     // Reload to update URL display and grid preview
                     await loadMagicMirrorConfig();
                 } else {
@@ -10561,7 +10566,7 @@
 
         async function regenerateMagicMirrorDashboard() {
             try {
-                showMagicMirrorAlert('Regenerating dashboard...', 'success');
+                showMagicMirrorAlert('🔄 Triggering dashboard regeneration...', 'success');
                 
                 const response = await fetch('/admin/api/magicmirror/regenerate', {
                     method: 'POST',
@@ -10573,7 +10578,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showMagicMirrorAlert('✅ Dashboard regenerated! All open dashboards will reload automatically.', 'success');
+                    showMagicMirrorAlert('✅ Dashboard regenerated successfully! All open /magic-mirror pages will reload within 10 seconds with the latest layout changes.', 'success');
                 } else {
                     showMagicMirrorAlert('Error: ' + (result.error || 'Failed to regenerate dashboard'), 'error');
                 }
@@ -10583,15 +10588,21 @@
             }
         }
 
+        // Alert display timeout constants (in milliseconds)
+        const MAGIC_MIRROR_ALERT_TIMEOUT_SUCCESS = 8000;
+        const MAGIC_MIRROR_ALERT_TIMEOUT_ERROR = 5000;
+
         function showMagicMirrorAlert(message, type) {
             const alertDiv = document.getElementById('magicMirrorAlert');
-            alertDiv.textContent = message;
+            alertDiv.textContent = message; // Use textContent to prevent XSS
             alertDiv.className = 'alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
             alertDiv.style.display = 'block';
             
+            // Keep success messages visible longer so users can read them
+            const timeout = type === 'success' ? MAGIC_MIRROR_ALERT_TIMEOUT_SUCCESS : MAGIC_MIRROR_ALERT_TIMEOUT_ERROR;
             setTimeout(() => {
                 alertDiv.style.display = 'none';
-            }, 5000);
+            }, timeout);
         }
 
         // Test connection functions for widgets
