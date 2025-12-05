@@ -14,6 +14,7 @@ const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
 const magicMirror = require('./modules/magicmirror');
+const backup = require('./modules/backup');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -4468,6 +4469,116 @@ app.post('/admin/api/finance/advanced-settings', requireAuth, (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update advanced settings: ' + err.message });
+  }
+});
+
+// Backup and Export/Import API Endpoints
+// Export all site configurations and data
+app.get('/admin/api/backup/export', requireAuth, (req, res) => {
+  try {
+    const timestamp = new Date().toISOString();
+    logger.info(logger.categories.SYSTEM, 'Admin initiated data export');
+    
+    const result = backup.exportAllData(config);
+    
+    if (result.success) {
+      logger.success(logger.categories.SYSTEM, 'Data export completed successfully');
+      
+      // Set headers for file download
+      const filename = `site-backup-${timestamp.replace(/[:.]/g, '-')}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      res.json(result.backup);
+    } else {
+      logger.error(logger.categories.SYSTEM, `Data export failed: ${result.error}`);
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Data export error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to export data: ' + err.message });
+  }
+});
+
+// Get backup summary (preview) from uploaded file
+app.post('/admin/api/backup/preview', requireAuth, (req, res) => {
+  try {
+    const backupData = req.body;
+    
+    if (!backupData) {
+      return res.status(400).json({ error: 'No backup data provided' });
+    }
+    
+    // Validate the backup
+    const validation = backup.validateBackup(backupData);
+    
+    // Get summary of backup contents
+    const summary = backup.getBackupSummary(backupData);
+    
+    res.json({
+      success: true,
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      summary: summary
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to preview backup: ' + err.message });
+  }
+});
+
+// Import all site configurations and data from backup
+app.post('/admin/api/backup/import', requireAuth, (req, res) => {
+  try {
+    const backupData = req.body;
+    const timestamp = new Date().toISOString();
+    
+    if (!backupData) {
+      return res.status(400).json({ error: 'No backup data provided' });
+    }
+    
+    logger.info(logger.categories.SYSTEM, 'Admin initiated data import');
+    
+    // Perform the import
+    const result = backup.importAllData(backupData, config);
+    
+    if (result.success) {
+      logger.success(logger.categories.SYSTEM, `Data import completed: ${result.results.imported.join(', ')}`);
+      
+      // Reload the configuration after import
+      try {
+        const newConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        // Update the in-memory config
+        Object.assign(config, newConfig);
+        
+        // Re-initialize modules with new config
+        vidiots.init(config);
+        espresso.init(config);
+        finance.init(config);
+        
+        logger.info(logger.categories.SYSTEM, 'Configuration reloaded after import');
+      } catch (reloadErr) {
+        logger.warning(logger.categories.SYSTEM, `Config reload warning: ${reloadErr.message}`);
+      }
+      
+      res.json({
+        success: true,
+        message: result.message,
+        results: result.results,
+        warnings: result.warnings
+      });
+    } else {
+      logger.error(logger.categories.SYSTEM, `Data import failed: ${result.error}`);
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        results: result.results,
+        warnings: result.warnings
+      });
+    }
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Data import error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to import data: ' + err.message });
   }
 });
 
