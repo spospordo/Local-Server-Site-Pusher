@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const logger = require('./logger');
 
 // Import other modules to access their data functions
 const magicMirror = require('./magicmirror');
@@ -15,6 +16,15 @@ const finance = require('./finance');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const BACKUP_VERSION = '1.0.0';
+
+// Load application version once at module initialization for performance
+let APP_VERSION = '2.2.4';
+try {
+  const packageJson = require('../package.json');
+  APP_VERSION = packageJson.version || APP_VERSION;
+} catch (e) {
+  // Use default if package.json not found
+}
 
 /**
  * Get the current timestamp in ISO format
@@ -49,7 +59,7 @@ function loadMainConfig() {
       return JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
   } catch (error) {
-    console.error('[Backup] Error loading main config:', error.message);
+    logger.error(logger.categories.SYSTEM, `[Backup] Error loading main config: ${error.message}`);
   }
   return null;
 }
@@ -64,7 +74,7 @@ function loadEspressoData() {
       return JSON.parse(fs.readFileSync(espressoPath, 'utf8'));
     }
   } catch (error) {
-    console.error('[Backup] Error loading espresso data:', error.message);
+    logger.error(logger.categories.SYSTEM, `[Backup] Error loading espresso data: ${error.message}`);
   }
   return null;
 }
@@ -80,7 +90,7 @@ function loadOllamaConfig() {
       return fs.readFileSync(ollamaPath, 'utf8');
     }
   } catch (error) {
-    console.error('[Backup] Error loading Ollama config:', error.message);
+    logger.error(logger.categories.SYSTEM, `[Backup] Error loading Ollama config: ${error.message}`);
   }
   return null;
 }
@@ -90,13 +100,13 @@ function loadOllamaConfig() {
  * Returns a structured backup object
  */
 function exportAllData(config) {
-  console.log('📦 [Backup] Starting data export...');
+  logger.info(logger.categories.SYSTEM, '[Backup] Starting data export...');
   
   const backup = {
     metadata: {
       version: BACKUP_VERSION,
       exportedAt: getTimestamp(),
-      applicationVersion: require('../package.json').version
+      applicationVersion: APP_VERSION
     },
     data: {}
   };
@@ -128,7 +138,7 @@ function exportAllData(config) {
       }
       
       backup.data.mainConfig = sanitizedConfig;
-      console.log('  ✅ Main configuration exported');
+      logger.info(logger.categories.SYSTEM, '[Backup] Main configuration exported');
     }
     
     // 2. Magic Mirror configuration
@@ -141,17 +151,17 @@ function exportAllData(config) {
           sanitizedMM.weather.apiKey = '';
         }
         backup.data.magicMirror = sanitizedMM;
-        console.log('  ✅ Magic Mirror configuration exported');
+        logger.info(logger.categories.SYSTEM, '[Backup] Magic Mirror configuration exported');
       }
     } catch (error) {
-      console.warn('  ⚠️ Magic Mirror config export skipped:', error.message);
+      logger.warning(logger.categories.SYSTEM, `[Backup] Magic Mirror config export skipped: ${error.message}`);
     }
     
     // 3. Espresso data
     const espressoData = loadEspressoData();
     if (espressoData) {
       backup.data.espressoData = espressoData;
-      console.log('  ✅ Espresso data exported');
+      logger.info(logger.categories.SYSTEM, '[Backup] Espresso data exported');
     }
     
     // 4. Finance data (using finance module - returns decrypted data)
@@ -167,15 +177,15 @@ function exportAllData(config) {
         advancedSettings: financeAdvancedSettings,
         history: financeHistory
       };
-      console.log('  ✅ Finance data exported');
+      logger.info(logger.categories.SYSTEM, '[Backup] Finance data exported');
     } catch (error) {
-      console.warn('  ⚠️ Finance data export skipped:', error.message);
+      logger.warning(logger.categories.SYSTEM, `[Backup] Finance data export skipped: ${error.message}`);
     }
     
     // Generate checksum for data integrity
     backup.metadata.checksum = generateChecksum(backup.data);
     
-    console.log('📦 [Backup] Export completed successfully');
+    logger.success(logger.categories.SYSTEM, '[Backup] Export completed successfully');
     
     return {
       success: true,
@@ -184,7 +194,7 @@ function exportAllData(config) {
     };
     
   } catch (error) {
-    console.error('❌ [Backup] Export failed:', error.message);
+    logger.error(logger.categories.SYSTEM, `[Backup] Export failed: ${error.message}`);
     return {
       success: false,
       error: 'Export failed: ' + error.message
@@ -255,12 +265,12 @@ function validateBackup(backup) {
  * Import all site configurations and data from backup
  */
 function importAllData(backup, currentConfig) {
-  console.log('📥 [Backup] Starting data import...');
+  logger.info(logger.categories.SYSTEM, '[Backup] Starting data import...');
   
   // Validate backup first
   const validation = validateBackup(backup);
   if (!validation.valid) {
-    console.error('❌ [Backup] Validation failed:', validation.errors);
+    logger.error(logger.categories.SYSTEM, `[Backup] Validation failed: ${validation.errors.join(', ')}`);
     return {
       success: false,
       error: 'Backup validation failed: ' + validation.errors.join(', '),
@@ -269,7 +279,7 @@ function importAllData(backup, currentConfig) {
   }
   
   if (validation.warnings.length > 0) {
-    console.warn('⚠️ [Backup] Validation warnings:', validation.warnings);
+    logger.warning(logger.categories.SYSTEM, `[Backup] Validation warnings: ${validation.warnings.join(', ')}`);
   }
   
   const results = {
@@ -294,10 +304,14 @@ function importAllData(backup, currentConfig) {
           if (!mergedConfig.server.admin) mergedConfig.server.admin = {};
           mergedConfig.server.admin.password = existingConfig.server.admin.password;
         } else {
-          // Set default password if none exists
+          // Generate a random password if none exists - user will need to reset via server restart
           if (!mergedConfig.server) mergedConfig.server = {};
           if (!mergedConfig.server.admin) mergedConfig.server.admin = {};
-          mergedConfig.server.admin.password = mergedConfig.server.admin.password || 'admin123';
+          if (!mergedConfig.server.admin.password) {
+            // Generate a secure random password using URL-safe base64 (20 chars)
+            mergedConfig.server.admin.password = crypto.randomBytes(15).toString('base64url');
+            logger.warning(logger.categories.SYSTEM, '[Backup] Generated new admin password - please check config.json');
+          }
         }
         
         // Preserve existing GitHub tokens if not in backup
@@ -324,10 +338,10 @@ function importAllData(backup, currentConfig) {
         
         fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
         results.imported.push('Main configuration');
-        console.log('  ✅ Main configuration imported');
+        logger.info(logger.categories.SYSTEM, '[Backup] Main configuration imported');
       } catch (error) {
         results.errors.push('Main configuration: ' + error.message);
-        console.error('  ❌ Main config import failed:', error.message);
+        logger.error(logger.categories.SYSTEM, `[Backup] Main config import failed: ${error.message}`);
       }
     }
     
@@ -347,13 +361,13 @@ function importAllData(backup, currentConfig) {
         const result = magicMirror.updateConfig(mergedMM);
         if (result.success) {
           results.imported.push('Magic Mirror configuration');
-          console.log('  ✅ Magic Mirror configuration imported');
+          logger.info(logger.categories.SYSTEM, '[Backup] Magic Mirror configuration imported');
         } else {
           throw new Error(result.error);
         }
       } catch (error) {
         results.errors.push('Magic Mirror: ' + error.message);
-        console.error('  ❌ Magic Mirror import failed:', error.message);
+        logger.error(logger.categories.SYSTEM, `[Backup] Magic Mirror import failed: ${error.message}`);
       }
     }
     
@@ -363,10 +377,10 @@ function importAllData(backup, currentConfig) {
         const espressoPath = path.join(CONFIG_DIR, 'espresso-data.json');
         fs.writeFileSync(espressoPath, JSON.stringify(backup.data.espressoData, null, 2));
         results.imported.push('Espresso data');
-        console.log('  ✅ Espresso data imported');
+        logger.info(logger.categories.SYSTEM, '[Backup] Espresso data imported');
       } catch (error) {
         results.errors.push('Espresso data: ' + error.message);
-        console.error('  ❌ Espresso data import failed:', error.message);
+        logger.error(logger.categories.SYSTEM, `[Backup] Espresso data import failed: ${error.message}`);
       }
     }
     
@@ -404,19 +418,23 @@ function importAllData(backup, currentConfig) {
             }
           }
           
-          console.log(`    - Accounts: ${importedCount} new, ${updatedCount} updated`);
+          logger.info(logger.categories.SYSTEM, `[Backup] Accounts: ${importedCount} new, ${updatedCount} updated`);
         }
         
         results.imported.push('Finance data');
-        console.log('  ✅ Finance data imported');
+        logger.info(logger.categories.SYSTEM, '[Backup] Finance data imported');
       } catch (error) {
         results.errors.push('Finance data: ' + error.message);
-        console.error('  ❌ Finance data import failed:', error.message);
+        logger.error(logger.categories.SYSTEM, `[Backup] Finance data import failed: ${error.message}`);
       }
     }
     
     const success = results.errors.length === 0;
-    console.log(`📥 [Backup] Import ${success ? 'completed successfully' : 'completed with errors'}`);
+    if (success) {
+      logger.success(logger.categories.SYSTEM, '[Backup] Import completed successfully');
+    } else {
+      logger.warning(logger.categories.SYSTEM, '[Backup] Import completed with errors');
+    }
     
     return {
       success,
@@ -428,7 +446,7 @@ function importAllData(backup, currentConfig) {
     };
     
   } catch (error) {
-    console.error('❌ [Backup] Import failed:', error.message);
+    logger.error(logger.categories.SYSTEM, `[Backup] Import failed: ${error.message}`);
     return {
       success: false,
       error: 'Import failed: ' + error.message,
