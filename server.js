@@ -4715,27 +4715,35 @@ app.get('/api/magicmirror/weather', async (req, res) => {
       
       console.log(`✅ [Magic Mirror Weather] ${timestamp} - Successfully fetched weather for ${data.name}`);
       
+      // Calculate temperature in both Celsius and Fahrenheit
+      const tempCelsius = Math.round(data.main.temp);
+      const tempFahrenheit = Math.round((data.main.temp * 9/5) + 32);
+      
       res.json({
-        temperature: Math.round(data.main.temp),
+        temperature: tempFahrenheit, // Primary temperature in Fahrenheit
+        temperatureF: tempFahrenheit,
+        temperatureC: tempCelsius,
         description: data.weather[0].description,
         condition: data.weather[0].main, // Main weather condition (Clear, Clouds, Rain, etc.)
         icon: data.weather[0].icon,
         location: data.name,
         humidity: data.main.humidity,
         windSpeed: data.wind.speed,
-        unit: 'C' // Using metric units
+        unit: 'F' // Primary unit is now Fahrenheit
       });
     } else {
       console.log(`⚠️  [Magic Mirror Weather] ${timestamp} - Returning placeholder (no API key configured)`);
       // Return placeholder data if no API key
       res.json({
         temperature: '--',
+        temperatureF: '--',
+        temperatureC: '--',
         description: 'API key required',
         condition: 'N/A',
         location: config.weather.location,
         humidity: '--',
         windSpeed: '--',
-        unit: 'C',
+        unit: 'F',
         placeholder: true
       });
     }
@@ -4800,13 +4808,19 @@ app.get('/api/magicmirror/weather/test', async (req, res) => {
       
       console.log(`✅ [Magic Mirror Weather Test] ${timestamp} - Connection successful for ${data.name}`);
       
+      // Calculate temperature in both Celsius and Fahrenheit
+      const tempCelsius = Math.round(data.main.temp);
+      const tempFahrenheit = Math.round((data.main.temp * 9/5) + 32);
+      
       res.json({
         success: true,
         message: 'Weather API connection successful',
         details: {
           location: data.name,
           country: data.sys?.country,
-          temperature: Math.round(data.main.temp),
+          temperature: tempFahrenheit, // Primary temperature in Fahrenheit
+          temperatureF: tempFahrenheit,
+          temperatureC: tempCelsius,
           description: data.weather[0].description,
           coordinates: {
             lat: data.coord.lat,
@@ -4924,9 +4938,14 @@ app.get('/api/magicmirror/forecast', async (req, res) => {
       
       // Calculate daily averages and select most common condition
       const forecast = Object.values(forecastByDay).slice(0, daysToFetch).map(day => {
-        const avgTemp = Math.round(day.temps.reduce((a, b) => a + b, 0) / day.temps.length);
-        const maxTemp = Math.round(Math.max(...day.temps));
-        const minTemp = Math.round(Math.min(...day.temps));
+        const avgTempC = day.temps.reduce((a, b) => a + b, 0) / day.temps.length;
+        const maxTempC = Math.max(...day.temps);
+        const minTempC = Math.min(...day.temps);
+        
+        // Calculate Fahrenheit values
+        const avgTempF = Math.round((avgTempC * 9/5) + 32);
+        const maxTempF = Math.round((maxTempC * 9/5) + 32);
+        const minTempF = Math.round((minTempC * 9/5) + 32);
         
         // Find most common condition
         const conditionCount = {};
@@ -4942,9 +4961,15 @@ app.get('/api/magicmirror/forecast', async (req, res) => {
         
         return {
           date: day.date,
-          temperature: avgTemp,
-          maxTemp,
-          minTemp,
+          temperature: avgTempF, // Primary temperature in Fahrenheit
+          temperatureF: avgTempF,
+          temperatureC: Math.round(avgTempC),
+          maxTemp: maxTempF, // Primary max temperature in Fahrenheit
+          maxTempF: maxTempF,
+          maxTempC: Math.round(maxTempC),
+          minTemp: minTempF, // Primary min temperature in Fahrenheit
+          minTempF: minTempF,
+          minTempC: Math.round(minTempC),
           condition,
           humidity: avgHumidity,
           windSpeed: avgWindSpeed,
@@ -4955,7 +4980,7 @@ app.get('/api/magicmirror/forecast', async (req, res) => {
       res.json({
         location: data.city.name,
         forecast,
-        unit: 'C'
+        unit: 'F' // Primary unit is now Fahrenheit
       });
     } else {
       console.log(`⚠️  [Magic Mirror Forecast] ${timestamp} - Returning placeholder (no API key configured)`);
@@ -4963,7 +4988,7 @@ app.get('/api/magicmirror/forecast', async (req, res) => {
       res.json({
         location: config.weather.location,
         forecast: [],
-        unit: 'C',
+        unit: 'F',
         placeholder: true
       });
     }
