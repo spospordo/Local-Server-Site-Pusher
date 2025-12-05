@@ -590,11 +590,11 @@
                 // Create widgets based on configuration
                 createWidgets();
                 
-                // Start checking for configuration updates every 30 seconds
+                // Start checking for configuration updates every 10 seconds for more responsive updates
                 if (configCheckInterval) {
                     clearInterval(configCheckInterval);
                 }
-                configCheckInterval = setInterval(checkForConfigUpdates, 30000);
+                configCheckInterval = setInterval(checkForConfigUpdates, 10000);
                 
                 // Initialize clock (always visible if enabled)
                 const clockConfig = config.widgets.clock;
