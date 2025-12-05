@@ -9878,11 +9878,15 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Display both Fahrenheit (primary) and Celsius (secondary)
+                    const tempF = result.details.temperatureF !== undefined ? result.details.temperatureF : result.details.temperature;
+                    const tempC = result.details.temperatureC !== undefined ? result.details.temperatureC : '--';
+                    
                     resultDiv.innerHTML = `
                         <div style="padding: 0.75rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;">
                             <strong>✅ Connection Successful!</strong><br>
                             <small>Location: ${result.details.location}, ${result.details.country}<br>
-                            Temperature: ${result.details.temperature}°C<br>
+                            Temperature: <strong style="font-size: 1.1em;">${tempF}°F</strong> <span style="color: #666;">(${tempC}°C)</span><br>
                             Conditions: ${result.details.description}</small>
                         </div>
                     `;

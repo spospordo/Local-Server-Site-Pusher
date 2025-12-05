@@ -418,6 +418,25 @@ function generateDefaultHTML() {
             margin: 1rem 0;
         }
 
+        /* Dual temperature display styles */
+        .temperature-display {
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .temp-primary {
+            font-size: 3rem;
+            font-weight: 500;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.3);
+        }
+
+        .temp-secondary {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-top: 0.25rem;
+        }
+
         .weather-details {
             display: flex;
             justify-content: space-around;
@@ -867,11 +886,18 @@ function generateDefaultHTML() {
                     
                     const icon = weatherIconMap[data.condition] || '🌤️';
                     
+                    // Display both Fahrenheit (large) and Celsius (small)
+                    const tempF = data.temperatureF !== undefined ? data.temperatureF : data.temperature;
+                    const tempC = data.temperatureC !== undefined ? data.temperatureC : '--';
+                    
                     content.innerHTML = \`
                         <div style="text-align: center; margin-bottom: 1rem;">
                             <div style="font-size: 3rem;">\${icon}</div>
                         </div>
-                        <div class="weather-temp">\${data.temperature}°\${data.unit}</div>
+                        <div class="temperature-display">
+                            <div class="temp-primary">\${tempF}°F</div>
+                            <div class="temp-secondary">\${tempC}°C</div>
+                        </div>
                         <div style="text-align: center; margin-bottom: 1rem;">
                             <div style="font-size: 1.2rem;">\${data.condition}</div>
                             <div style="color: #aaa; font-size: 0.9rem;">\${data.location}</div>
@@ -931,6 +957,12 @@ function generateDefaultHTML() {
                     
                     const forecastHtml = data.forecast.map(day => {
                         const icon = weatherIconMap[day.condition] || '🌤️';
+                        // Get Fahrenheit and Celsius temperatures
+                        const maxF = day.maxTempF !== undefined ? day.maxTempF : day.maxTemp;
+                        const minF = day.minTempF !== undefined ? day.minTempF : day.minTemp;
+                        const maxC = day.maxTempC !== undefined ? day.maxTempC : '--';
+                        const minC = day.minTempC !== undefined ? day.minTempC : '--';
+                        
                         return \`
                             <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 0.8rem 0;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -940,7 +972,8 @@ function generateDefaultHTML() {
                                     </div>
                                     <div style="font-size: 2rem; margin: 0 1rem;">\${icon}</div>
                                     <div style="text-align: right;">
-                                        <div style="font-size: 1.2rem; font-weight: 500;">\${day.maxTemp}°/\${day.minTemp}°</div>
+                                        <div style="font-size: 1.2rem; font-weight: 500;">\${maxF}°F / \${minF}°F</div>
+                                        <div style="font-size: 0.9rem; color: #aaa; margin-top: 0.1rem;">\${maxC}°C / \${minC}°C</div>
                                         <div style="font-size: 0.8rem; color: #888; margin-top: 0.2rem;">\${day.humidity}% • \${day.windSpeed}m/s</div>
                                     </div>
                                 </div>
