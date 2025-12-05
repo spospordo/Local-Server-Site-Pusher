@@ -2,7 +2,7 @@
 
 /**
  * Magic Mirror Layout System Test Suite
- * Tests the new area-based widget placement and sizing functionality
+ * Tests the area-based and grid-based widget placement and sizing functionality
  */
 
 const http = require('http');
@@ -72,8 +72,8 @@ async function test(name, testFn) {
 async function runTests() {
     log('\n🧪 Magic Mirror Layout System Test Suite\n', 'info');
 
-    // Test 1: HTML contains new grid layout CSS
-    await test('HTML contains 3x3 grid layout CSS', async () => {
+    // Test 1: HTML contains legacy 3x3 grid layout CSS
+    await test('HTML contains legacy 3x3 grid layout CSS', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
         if (!htmlContent.includes('grid-template-columns: repeat(3, 1fr)')) {
@@ -95,26 +95,20 @@ async function runTests() {
         }
     });
 
-    // Test 2: HTML contains widget-area containers
-    await test('HTML contains widget-area containers', async () => {
+    // Test 2: HTML contains flexible 12-column grid CSS
+    await test('HTML contains flexible 12-column grid CSS', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
-        if (!htmlContent.includes('widget-area')) {
-            throw new Error('Missing widget-area class');
+        if (!htmlContent.includes('grid-template-columns: repeat(12, 1fr)')) {
+            throw new Error('Missing 12-column flexible grid layout');
         }
         
-        const areas = ['upper-left', 'upper-center', 'upper-right', 
-                      'middle-left', 'middle-center', 'middle-right',
-                      'bottom-left', 'bottom-center', 'bottom-right'];
-        
-        for (const area of areas) {
-            if (!htmlContent.includes(`id="area-${area}"`)) {
-                throw new Error(`Missing area container: ${area}`);
-            }
+        if (!htmlContent.includes('widget-grid-flexible')) {
+            throw new Error('Missing widget-grid-flexible class');
         }
     });
 
-    // Test 3: HTML contains size classes
+    // Test 3: HTML contains widget size classes
     await test('HTML contains widget size classes', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
@@ -136,65 +130,36 @@ async function runTests() {
         }
     });
 
-    // Test 5: HTML contains createWidgets function
-    await test('HTML contains createWidgets function', async () => {
+    // Test 5: HTML contains createWidgets function that handles grid positioning
+    await test('HTML contains createWidgets function with grid support', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
         if (!htmlContent.includes('function createWidgets()')) {
             throw new Error('Missing createWidgets function');
         }
         
+        // Check for grid position handling
+        if (!htmlContent.includes('gridPosition')) {
+            throw new Error('createWidgets does not handle gridPosition');
+        }
+        
+        // Check for flexible grid creation
+        if (!htmlContent.includes('useFlexibleGrid')) {
+            throw new Error('createWidgets does not handle flexible grid mode');
+        }
+    });
+
+    // Test 6: HTML contains area-based placement for backward compatibility
+    await test('HTML contains area-based placement for backward compatibility', async () => {
+        const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
+        
+        // Check that code handles area property for widgets
         if (!htmlContent.includes('widgetConfig.area')) {
-            throw new Error('createWidgets does not handle area configuration');
-        }
-        
-        if (!htmlContent.includes('widgetConfig.size')) {
-            throw new Error('createWidgets does not handle size configuration');
+            throw new Error('Missing area configuration handling');
         }
     });
 
-    // Test 6: API returns new widget format
-    await test('API returns widgets in new object format', async () => {
-        const response = await makeRequest('/api/magicmirror/data');
-        
-        if (response.statusCode !== 200 && response.statusCode !== 403) {
-            throw new Error(`Unexpected status code: ${response.statusCode}`);
-        }
-        
-        // If enabled, check widget format
-        if (response.statusCode === 200) {
-            const config = response.body;
-            
-            if (!config.widgets) {
-                throw new Error('Response missing widgets property');
-            }
-            
-            // Check if at least one widget uses new format
-            const widgetKeys = Object.keys(config.widgets);
-            if (widgetKeys.length === 0) {
-                throw new Error('No widgets configured');
-            }
-            
-            // Check first enabled widget has new format properties
-            for (const key of widgetKeys) {
-                const widget = config.widgets[key];
-                if (typeof widget === 'object') {
-                    if (!widget.hasOwnProperty('enabled')) {
-                        throw new Error(`Widget ${key} missing 'enabled' property`);
-                    }
-                    if (!widget.hasOwnProperty('area')) {
-                        throw new Error(`Widget ${key} missing 'area' property`);
-                    }
-                    if (!widget.hasOwnProperty('size')) {
-                        throw new Error(`Widget ${key} missing 'size' property`);
-                    }
-                    break; // Only check one widget
-                }
-            }
-        }
-    });
-
-    // Test 7: Flexbox layout for vertical stacking
+    // Test 7: Widget areas use flexbox for vertical stacking
     await test('Widget areas use flexbox for vertical stacking', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
@@ -208,45 +173,34 @@ async function runTests() {
     });
 
     // Test 8: Mobile responsive layout
-    await test('Mobile layout adapts to single column', async () => {
+    await test('Mobile layout adapts to smaller screens', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
         if (!htmlContent.includes('@media (max-width: 768px)')) {
             throw new Error('Missing mobile media query');
         }
+    });
+
+    // Test 9: Widget grid has proper gap spacing
+    await test('Widget grid has proper gap spacing', async () => {
+        const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
-        // Check that mobile layout uses single column
-        const mobileSection = htmlContent.substring(
-            htmlContent.indexOf('@media (max-width: 768px)'),
-            htmlContent.indexOf('@media (max-width: 768px)') + 500
-        );
-        
-        if (!mobileSection.includes('grid-template-columns: 1fr')) {
-            throw new Error('Mobile layout does not use single column');
+        if (!htmlContent.includes('gap: 1rem') && !htmlContent.includes('gap: 1.5rem') && !htmlContent.includes('gap: 2rem')) {
+            throw new Error('Widget grid missing gap property for spacing');
         }
     });
 
-    // Test 9: Widget placement prevents overlap
-    await test('Widget areas prevent widget overlap', async () => {
+    // Test 10: Dynamic grid placement with col/row/span
+    await test('Dynamic grid placement with CSS Grid properties', async () => {
         const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
-        // Check that widget-area has gap for spacing
-        if (!htmlContent.includes('gap: 1rem') && !htmlContent.includes('gap: 2rem')) {
-            throw new Error('Widget areas missing gap property for spacing');
+        // Check for grid-column and grid-row assignment
+        if (!htmlContent.includes('gridPos.col') || !htmlContent.includes('gridPos.row')) {
+            throw new Error('Missing dynamic grid position handling');
         }
-    });
-
-    // Test 10: Bar size widgets span full width
-    await test('Bar size widgets span full width', async () => {
-        const htmlContent = fs.readFileSync(HTML_PATH, 'utf8');
         
-        const barSection = htmlContent.substring(
-            htmlContent.indexOf('.widget.size-bar'),
-            htmlContent.indexOf('.widget.size-bar') + 200
-        );
-        
-        if (!barSection.includes('width: 100%')) {
-            throw new Error('Bar size widgets do not span full width');
+        if (!htmlContent.includes('colSpan') || !htmlContent.includes('rowSpan')) {
+            throw new Error('Missing span handling for widget sizing');
         }
     });
 

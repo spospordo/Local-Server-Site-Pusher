@@ -3132,6 +3132,66 @@
                     </div>
                 </div>
 
+                <!-- Grid Layout Mode Selection -->
+                <div style="margin-top: 1.5rem; padding: 1rem; background: #e8f4f8; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                    <h3 style="color: #17a2b8; margin-bottom: 0.75rem;">📐 Grid Layout Mode</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gridLayoutEnabled">Layout System</label>
+                            <select id="gridLayoutEnabled" onchange="toggleGridLayoutMode()">
+                                <option value="false">Legacy (9-Area Grid)</option>
+                                <option value="true">Flexible (12-Column Grid)</option>
+                            </select>
+                            <small style="display: block; color: #666; margin-top: 0.5rem;">
+                                Flexible grid allows precise widget placement and resizing. Legacy mode uses fixed 3×3 areas.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual Grid Editor (for flexible grid mode) -->
+                <div id="visualGridEditor" style="margin-top: 1.5rem; display: none;">
+                    <h3>🎯 Visual Grid Editor</h3>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+                        Drag widgets to position them on the grid. Drag corners to resize. Changes are saved automatically.
+                    </p>
+                    
+                    <div id="gridEditorContainer" style="position: relative; background: #1a1a2e; border-radius: 10px; padding: 1rem; overflow: hidden;">
+                        <!-- Grid Preview -->
+                        <div id="gridPreview" style="
+                            display: grid;
+                            grid-template-columns: repeat(12, 1fr);
+                            grid-template-rows: repeat(6, 60px);
+                            gap: 4px;
+                            min-height: 400px;
+                            position: relative;
+                        ">
+                            <!-- Grid cells will be generated dynamically -->
+                        </div>
+                        
+                        <!-- Widget placeholders -->
+                        <div id="widgetPlacements" style="
+                            position: absolute;
+                            top: 1rem;
+                            left: 1rem;
+                            right: 1rem;
+                            bottom: 1rem;
+                            display: grid;
+                            grid-template-columns: repeat(12, 1fr);
+                            grid-template-rows: repeat(6, 60px);
+                            gap: 4px;
+                            pointer-events: none;
+                        ">
+                            <!-- Widget previews will be rendered here -->
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="resetGridToDefaults()">Reset to Defaults</button>
+                        <button class="btn" onclick="applyGridChanges()">Apply Changes</button>
+                    </div>
+                </div>
+
                 <!-- Widget Configuration -->
                 <div id="magicMirrorWidgets" style="margin-top: 1.5rem;">
                     <h3>Widget Configuration</h3>
@@ -3140,16 +3200,17 @@
                     </p>
                     
                     <!-- Clock Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="clock">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetClock" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>Clock & Date</strong>
+                                    <strong>🕐 Clock & Date</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size (for area-based layout) -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetClockArea">Position
                                     <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
@@ -3176,23 +3237,41 @@
                                 </select>
                             </div>
                         </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetClockCol">Column</label>
+                                <input type="number" id="widgetClockCol" min="1" max="12" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetClockRow">Row</label>
+                                <input type="number" id="widgetClockRow" min="1" max="6" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetClockColSpan">Width</label>
+                                <input type="number" id="widgetClockColSpan" min="1" max="12" value="4" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetClockRowSpan">Height</label>
+                                <input type="number" id="widgetClockRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Weather Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="weather">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetWeather" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>Weather</strong>
+                                    <strong>🌤️ Weather</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
-                                <label for="widgetWeatherArea">Position
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
-                                </label>
+                                <label for="widgetWeatherArea">Position</label>
                                 <select id="widgetWeatherArea" onchange="saveMagicMirrorConfig()">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
@@ -3206,32 +3285,48 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="widgetWeatherSize">Size
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
-                                </label>
+                                <label for="widgetWeatherSize">Size</label>
                                 <select id="widgetWeatherSize" onchange="saveMagicMirrorConfig()">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
                             </div>
                         </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetWeatherCol">Column</label>
+                                <input type="number" id="widgetWeatherCol" min="1" max="12" value="5" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetWeatherRow">Row</label>
+                                <input type="number" id="widgetWeatherRow" min="1" max="6" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetWeatherColSpan">Width</label>
+                                <input type="number" id="widgetWeatherColSpan" min="1" max="12" value="4" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetWeatherRowSpan">Height</label>
+                                <input type="number" id="widgetWeatherRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Forecast Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="forecast">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetForecast" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>Forecast</strong>
+                                    <strong>🌦️ Forecast</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
-                                <label for="widgetForecastArea">Position
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
-                                </label>
+                                <label for="widgetForecastArea">Position</label>
                                 <select id="widgetForecastArea" onchange="saveMagicMirrorConfig()">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
@@ -3245,32 +3340,48 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="widgetForecastSize">Size
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
-                                </label>
+                                <label for="widgetForecastSize">Size</label>
                                 <select id="widgetForecastSize" onchange="saveMagicMirrorConfig()">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
                             </div>
                         </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetForecastCol">Column</label>
+                                <input type="number" id="widgetForecastCol" min="1" max="12" value="9" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetForecastRow">Row</label>
+                                <input type="number" id="widgetForecastRow" min="1" max="6" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetForecastColSpan">Width</label>
+                                <input type="number" id="widgetForecastColSpan" min="1" max="12" value="4" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetForecastRowSpan">Height</label>
+                                <input type="number" id="widgetForecastRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Calendar Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="calendar">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetCalendar" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>Calendar</strong>
+                                    <strong>📅 Calendar</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
-                                <label for="widgetCalendarArea">Position
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
-                                </label>
+                                <label for="widgetCalendarArea">Position</label>
                                 <select id="widgetCalendarArea" onchange="saveMagicMirrorConfig()">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
@@ -3284,32 +3395,48 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="widgetCalendarSize">Size
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
-                                </label>
+                                <label for="widgetCalendarSize">Size</label>
                                 <select id="widgetCalendarSize" onchange="saveMagicMirrorConfig()">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
                             </div>
                         </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetCalendarCol">Column</label>
+                                <input type="number" id="widgetCalendarCol" min="1" max="12" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetCalendarRow">Row</label>
+                                <input type="number" id="widgetCalendarRow" min="1" max="6" value="3" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetCalendarColSpan">Width</label>
+                                <input type="number" id="widgetCalendarColSpan" min="1" max="12" value="4" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetCalendarRowSpan">Height</label>
+                                <input type="number" id="widgetCalendarRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- News Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="news">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetNews" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>News Feed</strong>
+                                    <strong>📰 News Feed</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
-                                <label for="widgetNewsArea">Position
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
-                                </label>
+                                <label for="widgetNewsArea">Position</label>
                                 <select id="widgetNewsArea" onchange="saveMagicMirrorConfig()">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
@@ -3323,32 +3450,48 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="widgetNewsSize">Size
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
-                                </label>
+                                <label for="widgetNewsSize">Size</label>
                                 <select id="widgetNewsSize" onchange="saveMagicMirrorConfig()">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
                             </div>
                         </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetNewsCol">Column</label>
+                                <input type="number" id="widgetNewsCol" min="1" max="12" value="1" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetNewsRow">Row</label>
+                                <input type="number" id="widgetNewsRow" min="1" max="6" value="5" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetNewsColSpan">Width</label>
+                                <input type="number" id="widgetNewsColSpan" min="1" max="12" value="12" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetNewsRowSpan">Height</label>
+                                <input type="number" id="widgetNewsRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Media Widget -->
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;" data-widget="media">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="widgetMedia" onchange="saveMagicMirrorConfig()"> 
-                                    <strong>Media Player</strong>
+                                    <strong>🎵 Media Player</strong>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <!-- Legacy Position/Size -->
+                        <div class="form-row legacy-grid-controls">
                             <div class="form-group">
-                                <label for="widgetMediaArea">Position
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
-                                </label>
+                                <label for="widgetMediaArea">Position</label>
                                 <select id="widgetMediaArea" onchange="saveMagicMirrorConfig()">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
@@ -3362,13 +3505,30 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="widgetMediaSize">Size
-                                    <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
-                                </label>
+                                <label for="widgetMediaSize">Size</label>
                                 <select id="widgetMediaSize" onchange="saveMagicMirrorConfig()">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
+                            </div>
+                        </div>
+                        <!-- Flexible Grid Position Controls -->
+                        <div class="form-row flexible-grid-controls" style="display: none;">
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetMediaCol">Column</label>
+                                <input type="number" id="widgetMediaCol" min="1" max="12" value="9" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetMediaRow">Row</label>
+                                <input type="number" id="widgetMediaRow" min="1" max="6" value="3" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetMediaColSpan">Width</label>
+                                <input type="number" id="widgetMediaColSpan" min="1" max="12" value="4" onchange="saveMagicMirrorConfig()" style="width: 60px;">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 70px;">
+                                <label for="widgetMediaRowSpan">Height</label>
+                                <input type="number" id="widgetMediaRowSpan" min="1" max="6" value="2" onchange="saveMagicMirrorConfig()" style="width: 60px;">
                             </div>
                         </div>
                     </div>
@@ -9655,6 +9815,8 @@
         }
 
         // Magic Mirror Configuration Functions
+        let magicMirrorGridLayoutEnabled = false;
+        
         async function loadMagicMirrorConfig() {
             try {
                 const response = await fetch('/admin/api/magicmirror/config');
@@ -9672,42 +9834,46 @@
                     urlElement.textContent = 'Dashboard disabled';
                 }
                 
-                // Set widget checkboxes, areas, and sizes
-                // Clock widget
-                const clockWidget = config.widgets?.clock;
-                document.getElementById('widgetClock').checked = clockWidget?.enabled || false;
-                document.getElementById('widgetClockArea').value = clockWidget?.area || 'upper-left';
-                document.getElementById('widgetClockSize').value = clockWidget?.size || 'box';
+                // Set grid layout mode
+                magicMirrorGridLayoutEnabled = config.gridLayout?.enabled || false;
+                document.getElementById('gridLayoutEnabled').value = magicMirrorGridLayoutEnabled ? 'true' : 'false';
+                updateGridLayoutControls();
                 
-                // Weather widget
-                const weatherWidget = config.widgets?.weather;
-                document.getElementById('widgetWeather').checked = weatherWidget?.enabled || false;
-                document.getElementById('widgetWeatherArea').value = weatherWidget?.area || 'upper-center';
-                document.getElementById('widgetWeatherSize').value = weatherWidget?.size || 'box';
+                // Set widget checkboxes, areas, sizes, and grid positions
+                const widgets = ['clock', 'weather', 'forecast', 'calendar', 'news', 'media'];
+                const widgetDefaults = {
+                    clock: { area: 'upper-left', size: 'box', col: 1, row: 1, colSpan: 4, rowSpan: 2 },
+                    weather: { area: 'upper-center', size: 'box', col: 5, row: 1, colSpan: 4, rowSpan: 2 },
+                    forecast: { area: 'upper-right', size: 'box', col: 9, row: 1, colSpan: 4, rowSpan: 2 },
+                    calendar: { area: 'middle-left', size: 'box', col: 1, row: 3, colSpan: 4, rowSpan: 2 },
+                    news: { area: 'bottom-left', size: 'bar', col: 1, row: 5, colSpan: 12, rowSpan: 2 },
+                    media: { area: 'middle-right', size: 'box', col: 9, row: 3, colSpan: 4, rowSpan: 2 }
+                };
                 
-                // Forecast widget
-                const forecastWidget = config.widgets?.forecast;
-                document.getElementById('widgetForecast').checked = forecastWidget?.enabled || false;
-                document.getElementById('widgetForecastArea').value = forecastWidget?.area || 'upper-right';
-                document.getElementById('widgetForecastSize').value = forecastWidget?.size || 'box';
-                
-                // Calendar widget
-                const calendarWidget = config.widgets?.calendar;
-                document.getElementById('widgetCalendar').checked = calendarWidget?.enabled || false;
-                document.getElementById('widgetCalendarArea').value = calendarWidget?.area || 'middle-left';
-                document.getElementById('widgetCalendarSize').value = calendarWidget?.size || 'box';
-                
-                // News widget
-                const newsWidget = config.widgets?.news;
-                document.getElementById('widgetNews').checked = newsWidget?.enabled || false;
-                document.getElementById('widgetNewsArea').value = newsWidget?.area || 'bottom-left';
-                document.getElementById('widgetNewsSize').value = newsWidget?.size || 'bar';
-                
-                // Media widget
-                const mediaWidget = config.widgets?.media;
-                document.getElementById('widgetMedia').checked = mediaWidget?.enabled || false;
-                document.getElementById('widgetMediaArea').value = mediaWidget?.area || 'middle-right';
-                document.getElementById('widgetMediaSize').value = mediaWidget?.size || 'box';
+                widgets.forEach(widget => {
+                    const widgetConfig = config.widgets?.[widget];
+                    const defaults = widgetDefaults[widget];
+                    const capitalizedWidget = widget.charAt(0).toUpperCase() + widget.slice(1);
+                    
+                    // Set checkbox
+                    document.getElementById(`widget${capitalizedWidget}`).checked = widgetConfig?.enabled || false;
+                    
+                    // Set legacy area/size
+                    document.getElementById(`widget${capitalizedWidget}Area`).value = widgetConfig?.area || defaults.area;
+                    document.getElementById(`widget${capitalizedWidget}Size`).value = widgetConfig?.size || defaults.size;
+                    
+                    // Set grid position controls
+                    const gridPos = widgetConfig?.gridPosition || defaults;
+                    const colEl = document.getElementById(`widget${capitalizedWidget}Col`);
+                    const rowEl = document.getElementById(`widget${capitalizedWidget}Row`);
+                    const colSpanEl = document.getElementById(`widget${capitalizedWidget}ColSpan`);
+                    const rowSpanEl = document.getElementById(`widget${capitalizedWidget}RowSpan`);
+                    
+                    if (colEl) colEl.value = gridPos.col || defaults.col;
+                    if (rowEl) rowEl.value = gridPos.row || defaults.row;
+                    if (colSpanEl) colSpanEl.value = gridPos.colSpan || defaults.colSpan;
+                    if (rowSpanEl) rowSpanEl.value = gridPos.rowSpan || defaults.rowSpan;
+                });
                 
                 // Set weather config
                 document.getElementById('weatherLocation').value = config.weather?.location || '';
@@ -9738,6 +9904,9 @@
                     apiKeyField.value = '';
                 }
                 
+                // Update visual grid editor
+                updateGridPreview();
+                
                 // Set calendar config
                 document.getElementById('calendarUrl').value = config.calendar?.url || '';
                 
@@ -9752,40 +9921,34 @@
 
         async function saveMagicMirrorConfig() {
             try {
+                const widgets = ['clock', 'weather', 'forecast', 'calendar', 'news', 'media'];
+                const widgetsConfig = {};
+                
+                widgets.forEach(widget => {
+                    const capitalizedWidget = widget.charAt(0).toUpperCase() + widget.slice(1);
+                    
+                    widgetsConfig[widget] = {
+                        enabled: document.getElementById(`widget${capitalizedWidget}`).checked,
+                        area: document.getElementById(`widget${capitalizedWidget}Area`).value,
+                        size: document.getElementById(`widget${capitalizedWidget}Size`).value,
+                        gridPosition: {
+                            col: parseInt(document.getElementById(`widget${capitalizedWidget}Col`)?.value) || 1,
+                            row: parseInt(document.getElementById(`widget${capitalizedWidget}Row`)?.value) || 1,
+                            colSpan: parseInt(document.getElementById(`widget${capitalizedWidget}ColSpan`)?.value) || 4,
+                            rowSpan: parseInt(document.getElementById(`widget${capitalizedWidget}RowSpan`)?.value) || 2
+                        }
+                    };
+                });
+                
                 const config = {
                     enabled: document.getElementById('magicMirrorEnabled').value === 'true',
-                    widgets: {
-                        clock: {
-                            enabled: document.getElementById('widgetClock').checked,
-                            area: document.getElementById('widgetClockArea').value,
-                            size: document.getElementById('widgetClockSize').value
-                        },
-                        weather: {
-                            enabled: document.getElementById('widgetWeather').checked,
-                            area: document.getElementById('widgetWeatherArea').value,
-                            size: document.getElementById('widgetWeatherSize').value
-                        },
-                        forecast: {
-                            enabled: document.getElementById('widgetForecast').checked,
-                            area: document.getElementById('widgetForecastArea').value,
-                            size: document.getElementById('widgetForecastSize').value
-                        },
-                        calendar: {
-                            enabled: document.getElementById('widgetCalendar').checked,
-                            area: document.getElementById('widgetCalendarArea').value,
-                            size: document.getElementById('widgetCalendarSize').value
-                        },
-                        news: {
-                            enabled: document.getElementById('widgetNews').checked,
-                            area: document.getElementById('widgetNewsArea').value,
-                            size: document.getElementById('widgetNewsSize').value
-                        },
-                        media: {
-                            enabled: document.getElementById('widgetMedia').checked,
-                            area: document.getElementById('widgetMediaArea').value,
-                            size: document.getElementById('widgetMediaSize').value
-                        }
+                    gridLayout: {
+                        enabled: document.getElementById('gridLayoutEnabled').value === 'true',
+                        columns: 12,
+                        rows: 6,
+                        gap: 16
                     },
+                    widgets: widgetsConfig,
                     weather: {
                         location: document.getElementById('weatherLocation').value,
                         apiKey: document.getElementById('weatherApiKey').value
@@ -9813,7 +9976,7 @@
                 
                 if (result.success) {
                     showMagicMirrorAlert('Configuration saved successfully', 'success');
-                    // Reload to update URL display
+                    // Reload to update URL display and grid preview
                     await loadMagicMirrorConfig();
                 } else {
                     showMagicMirrorAlert('Error: ' + (result.error || 'Failed to save configuration'), 'error');
@@ -9831,6 +9994,167 @@
                 return;
             }
             window.open('/magic-mirror', '_blank');
+        }
+
+        // Grid Layout Helper Functions
+        function toggleGridLayoutMode() {
+            magicMirrorGridLayoutEnabled = document.getElementById('gridLayoutEnabled').value === 'true';
+            updateGridLayoutControls();
+            saveMagicMirrorConfig();
+        }
+        
+        function updateGridLayoutControls() {
+            // Toggle visibility of legacy vs flexible grid controls
+            const legacyControls = document.querySelectorAll('.legacy-grid-controls');
+            const flexibleControls = document.querySelectorAll('.flexible-grid-controls');
+            const visualEditor = document.getElementById('visualGridEditor');
+            
+            if (magicMirrorGridLayoutEnabled) {
+                legacyControls.forEach(el => el.style.display = 'none');
+                flexibleControls.forEach(el => el.style.display = 'flex');
+                if (visualEditor) visualEditor.style.display = 'block';
+            } else {
+                legacyControls.forEach(el => el.style.display = 'flex');
+                flexibleControls.forEach(el => el.style.display = 'none');
+                if (visualEditor) visualEditor.style.display = 'none';
+            }
+            
+            updateGridPreview();
+        }
+        
+        function updateGridPreview() {
+            const gridPreview = document.getElementById('gridPreview');
+            const widgetPlacements = document.getElementById('widgetPlacements');
+            
+            if (!gridPreview || !widgetPlacements) return;
+            
+            // Create grid cells
+            gridPreview.innerHTML = '';
+            for (let row = 1; row <= 6; row++) {
+                for (let col = 1; col <= 12; col++) {
+                    const cell = document.createElement('div');
+                    cell.style.cssText = `
+                        background: rgba(255, 255, 255, 0.05);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border-radius: 4px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.7rem;
+                        color: rgba(255, 255, 255, 0.3);
+                    `;
+                    cell.textContent = `${col},${row}`;
+                    cell.dataset.col = col;
+                    cell.dataset.row = row;
+                    gridPreview.appendChild(cell);
+                }
+            }
+            
+            // Render widget placements
+            widgetPlacements.innerHTML = '';
+            
+            const widgetColors = {
+                clock: 'rgba(74, 144, 226, 0.8)',
+                weather: 'rgba(255, 193, 7, 0.8)',
+                forecast: 'rgba(40, 167, 69, 0.8)',
+                calendar: 'rgba(220, 53, 69, 0.8)',
+                news: 'rgba(111, 66, 193, 0.8)',
+                media: 'rgba(23, 162, 184, 0.8)'
+            };
+            
+            const widgetIcons = {
+                clock: '🕐',
+                weather: '🌤️',
+                forecast: '🌦️',
+                calendar: '📅',
+                news: '📰',
+                media: '🎵'
+            };
+            
+            const widgets = ['clock', 'weather', 'forecast', 'calendar', 'news', 'media'];
+            
+            widgets.forEach(widget => {
+                const capitalizedWidget = widget.charAt(0).toUpperCase() + widget.slice(1);
+                const isEnabled = document.getElementById(`widget${capitalizedWidget}`)?.checked;
+                
+                if (!isEnabled) return;
+                
+                const col = parseInt(document.getElementById(`widget${capitalizedWidget}Col`)?.value) || 1;
+                const row = parseInt(document.getElementById(`widget${capitalizedWidget}Row`)?.value) || 1;
+                const colSpan = parseInt(document.getElementById(`widget${capitalizedWidget}ColSpan`)?.value) || 4;
+                const rowSpan = parseInt(document.getElementById(`widget${capitalizedWidget}RowSpan`)?.value) || 2;
+                
+                const widgetPreview = document.createElement('div');
+                widgetPreview.style.cssText = `
+                    grid-column: ${col} / span ${colSpan};
+                    grid-row: ${row} / span ${rowSpan};
+                    background: ${widgetColors[widget]};
+                    border-radius: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    pointer-events: auto;
+                    cursor: move;
+                    user-select: none;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    border: 2px solid rgba(255, 255, 255, 0.2);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                `;
+                widgetPreview.innerHTML = `
+                    <div style="font-size: 1.5rem;">${widgetIcons[widget]}</div>
+                    <div style="font-size: 0.8rem; font-weight: 500; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${capitalizedWidget}</div>
+                    <div style="font-size: 0.65rem; color: rgba(255,255,255,0.8);">${colSpan}×${rowSpan}</div>
+                `;
+                widgetPreview.dataset.widget = widget;
+                
+                // Add hover effect
+                widgetPreview.addEventListener('mouseenter', () => {
+                    widgetPreview.style.transform = 'scale(1.02)';
+                    widgetPreview.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+                });
+                widgetPreview.addEventListener('mouseleave', () => {
+                    widgetPreview.style.transform = 'scale(1)';
+                    widgetPreview.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                });
+                
+                widgetPlacements.appendChild(widgetPreview);
+            });
+        }
+        
+        function resetGridToDefaults() {
+            const widgetDefaults = {
+                clock: { col: 1, row: 1, colSpan: 4, rowSpan: 2 },
+                weather: { col: 5, row: 1, colSpan: 4, rowSpan: 2 },
+                forecast: { col: 9, row: 1, colSpan: 4, rowSpan: 2 },
+                calendar: { col: 1, row: 3, colSpan: 4, rowSpan: 2 },
+                news: { col: 1, row: 5, colSpan: 12, rowSpan: 2 },
+                media: { col: 9, row: 3, colSpan: 4, rowSpan: 2 }
+            };
+            
+            const widgets = ['clock', 'weather', 'forecast', 'calendar', 'news', 'media'];
+            
+            widgets.forEach(widget => {
+                const capitalizedWidget = widget.charAt(0).toUpperCase() + widget.slice(1);
+                const defaults = widgetDefaults[widget];
+                
+                const colEl = document.getElementById(`widget${capitalizedWidget}Col`);
+                const rowEl = document.getElementById(`widget${capitalizedWidget}Row`);
+                const colSpanEl = document.getElementById(`widget${capitalizedWidget}ColSpan`);
+                const rowSpanEl = document.getElementById(`widget${capitalizedWidget}RowSpan`);
+                
+                if (colEl) colEl.value = defaults.col;
+                if (rowEl) rowEl.value = defaults.row;
+                if (colSpanEl) colSpanEl.value = defaults.colSpan;
+                if (rowSpanEl) rowSpanEl.value = defaults.rowSpan;
+            });
+            
+            updateGridPreview();
+            showMagicMirrorAlert('Grid reset to default positions', 'success');
+        }
+        
+        function applyGridChanges() {
+            saveMagicMirrorConfig();
         }
 
         async function regenerateMagicMirrorDashboard() {

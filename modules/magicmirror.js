@@ -11,40 +11,91 @@ if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
+// Grid layout configuration
+const GRID_CONFIG = {
+    columns: 12, // 12-column grid for flexible layouts
+    rows: 6,     // 6 rows
+    gap: 16      // Gap between grid cells in pixels
+};
+
 // Default configuration
 const DEFAULT_CONFIG = {
     enabled: false,
     configVersion: Date.now(), // Track when config was last updated
+    gridLayout: {
+        enabled: true,         // Use new grid layout system
+        columns: GRID_CONFIG.columns,
+        rows: GRID_CONFIG.rows,
+        gap: GRID_CONFIG.gap
+    },
     widgets: {
         clock: {
             enabled: true,
+            // Legacy area-based placement (backward compatibility)
             area: 'upper-left',
-            size: 'box'
+            size: 'box',
+            // New grid-based placement
+            gridPosition: {
+                col: 1,      // Grid column start (1-based)
+                row: 1,      // Grid row start (1-based)
+                colSpan: 4,  // Number of columns to span
+                rowSpan: 2   // Number of rows to span
+            }
         },
         weather: {
             enabled: false,
             area: 'upper-center',
-            size: 'box'
+            size: 'box',
+            gridPosition: {
+                col: 5,
+                row: 1,
+                colSpan: 4,
+                rowSpan: 2
+            }
         },
         forecast: {
             enabled: false,
             area: 'upper-right',
-            size: 'box'
+            size: 'box',
+            gridPosition: {
+                col: 9,
+                row: 1,
+                colSpan: 4,
+                rowSpan: 2
+            }
         },
         calendar: {
             enabled: false,
             area: 'middle-left',
-            size: 'box'
+            size: 'box',
+            gridPosition: {
+                col: 1,
+                row: 3,
+                colSpan: 4,
+                rowSpan: 2
+            }
         },
         news: {
             enabled: false,
             area: 'bottom-left',
-            size: 'bar'
+            size: 'bar',
+            gridPosition: {
+                col: 1,
+                row: 5,
+                colSpan: 12,
+                rowSpan: 2
+            }
         },
         media: {
             enabled: false,
             area: 'middle-right',
-            size: 'box'
+            size: 'box',
+            gridPosition: {
+                col: 9,
+                row: 3,
+                colSpan: 4,
+                rowSpan: 2
+            }
         }
     },
     weather: {
@@ -60,6 +111,25 @@ const DEFAULT_CONFIG = {
     news: {
         source: ''
     }
+};
+
+// Map legacy area names to grid positions
+const AREA_TO_GRID = {
+    'upper-left':     { col: 1, row: 1, colSpan: 4, rowSpan: 2 },
+    'upper-center':   { col: 5, row: 1, colSpan: 4, rowSpan: 2 },
+    'upper-right':    { col: 9, row: 1, colSpan: 4, rowSpan: 2 },
+    'middle-left':    { col: 1, row: 3, colSpan: 4, rowSpan: 2 },
+    'middle-center':  { col: 5, row: 3, colSpan: 4, rowSpan: 2 },
+    'middle-right':   { col: 9, row: 3, colSpan: 4, rowSpan: 2 },
+    'bottom-left':    { col: 1, row: 5, colSpan: 4, rowSpan: 2 },
+    'bottom-center':  { col: 5, row: 5, colSpan: 4, rowSpan: 2 },
+    'bottom-right':   { col: 9, row: 5, colSpan: 4, rowSpan: 2 }
+};
+
+// Map size to grid spans for legacy compatibility
+const SIZE_TO_SPANS = {
+    'box': { colSpan: 4, rowSpan: 2 },
+    'bar': { colSpan: 12, rowSpan: 2 }
 };
 
 // Encryption key management
@@ -155,6 +225,37 @@ function saveConfig(config) {
     }
 }
 
+// Helper function to convert legacy area to grid position
+function areaToGridPosition(area, size) {
+    const basePosition = AREA_TO_GRID[area] || AREA_TO_GRID['upper-left'];
+    const sizeSpans = SIZE_TO_SPANS[size] || SIZE_TO_SPANS['box'];
+    
+    return {
+        col: basePosition.col,
+        row: basePosition.row,
+        colSpan: size === 'bar' ? sizeSpans.colSpan : basePosition.colSpan,
+        rowSpan: sizeSpans.rowSpan
+    };
+}
+
+// Helper function to convert grid position to legacy area (for backward compatibility)
+function gridPositionToArea(gridPosition) {
+    if (!gridPosition) return 'upper-left';
+    
+    const { col, row } = gridPosition;
+    
+    // Map grid position to closest legacy area
+    let colArea = 'left';
+    if (col >= 5 && col <= 8) colArea = 'center';
+    else if (col >= 9) colArea = 'right';
+    
+    let rowArea = 'upper';
+    if (row >= 3 && row <= 4) rowArea = 'middle';
+    else if (row >= 5) rowArea = 'bottom';
+    
+    return `${rowArea}-${colArea}`;
+}
+
 // Get configuration (sanitized for client)
 function getConfig() {
     const config = loadConfig();
@@ -164,24 +265,36 @@ function getConfig() {
     for (const [key, value] of Object.entries(config.widgets || {})) {
         if (typeof value === 'boolean') {
             // Old format: { clock: true, weather: false }
+            const defaultWidget = DEFAULT_CONFIG.widgets[key] || {};
             widgets[key] = {
                 enabled: value,
-                area: DEFAULT_CONFIG.widgets[key]?.area || 'upper-left',
-                size: DEFAULT_CONFIG.widgets[key]?.size || 'box'
+                area: defaultWidget.area || 'upper-left',
+                size: defaultWidget.size || 'box',
+                gridPosition: defaultWidget.gridPosition || areaToGridPosition(defaultWidget.area || 'upper-left', defaultWidget.size || 'box')
             };
         } else if (typeof value === 'object') {
-            // New format: { clock: { enabled: true, area: 'upper-left', size: 'box' } }
+            // New format: { clock: { enabled: true, area: 'upper-left', size: 'box', gridPosition: {...} } }
+            const defaultWidget = DEFAULT_CONFIG.widgets[key] || {};
+            const area = value.area || defaultWidget.area || 'upper-left';
+            const size = value.size || defaultWidget.size || 'box';
+            
             widgets[key] = {
                 enabled: value.enabled !== undefined ? value.enabled : true,
-                area: value.area || DEFAULT_CONFIG.widgets[key]?.area || 'upper-left',
-                size: value.size || DEFAULT_CONFIG.widgets[key]?.size || 'box'
+                area: area,
+                size: size,
+                // Use existing gridPosition or derive from area/size
+                gridPosition: value.gridPosition || areaToGridPosition(area, size)
             };
         }
     }
     
+    // Ensure gridLayout config exists
+    const gridLayout = config.gridLayout || DEFAULT_CONFIG.gridLayout;
+    
     // Don't send API keys to client (just indicate if they exist)
     return {
         ...config,
+        gridLayout,
         widgets,
         weather: {
             ...config.weather,
@@ -196,11 +309,43 @@ function updateConfig(newConfig) {
     try {
         const currentConfig = loadConfig();
         
+        // Deep merge widgets with grid position support
+        const mergedWidgets = {};
+        const allWidgetKeys = new Set([
+            ...Object.keys(currentConfig.widgets || {}),
+            ...Object.keys(newConfig.widgets || {})
+        ]);
+        
+        for (const key of allWidgetKeys) {
+            const currentWidget = currentConfig.widgets?.[key] || {};
+            const newWidget = newConfig.widgets?.[key] || {};
+            
+            // If new widget config is provided, merge it
+            if (newConfig.widgets?.[key]) {
+                mergedWidgets[key] = {
+                    enabled: newWidget.enabled !== undefined ? newWidget.enabled : currentWidget.enabled,
+                    area: newWidget.area || currentWidget.area || DEFAULT_CONFIG.widgets[key]?.area || 'upper-left',
+                    size: newWidget.size || currentWidget.size || DEFAULT_CONFIG.widgets[key]?.size || 'box',
+                    gridPosition: newWidget.gridPosition || currentWidget.gridPosition || 
+                                 areaToGridPosition(newWidget.area || currentWidget.area || 'upper-left', 
+                                                  newWidget.size || currentWidget.size || 'box')
+                };
+            } else {
+                // Keep existing widget config
+                mergedWidgets[key] = currentWidget;
+            }
+        }
+        
         // Merge configurations, preserving API key if not provided
         const updatedConfig = {
             ...currentConfig,
             ...newConfig,
             configVersion: Date.now(), // Update version timestamp when config changes
+            gridLayout: {
+                ...DEFAULT_CONFIG.gridLayout,
+                ...currentConfig.gridLayout,
+                ...newConfig.gridLayout
+            },
             weather: {
                 ...currentConfig.weather,
                 ...newConfig.weather
@@ -217,10 +362,7 @@ function updateConfig(newConfig) {
                 ...currentConfig.news,
                 ...newConfig.news
             },
-            widgets: {
-                ...currentConfig.widgets,
-                ...newConfig.widgets
-            }
+            widgets: mergedWidgets
         };
         
         // Preserve API key if new one is not provided or is empty
@@ -232,6 +374,7 @@ function updateConfig(newConfig) {
         console.log('✅ [Magic Mirror] Configuration updated successfully');
         console.log('   Enabled:', updatedConfig.enabled);
         console.log('   Config Version:', updatedConfig.configVersion);
+        console.log('   Grid Layout:', updatedConfig.gridLayout?.enabled ? 'enabled' : 'disabled');
         console.log('   Widgets:', Object.keys(updatedConfig.widgets || {})
             .filter(w => updatedConfig.widgets[w]?.enabled)
             .join(', ') || 'none');
@@ -1207,5 +1350,11 @@ module.exports = {
     updateConfig,
     getFullConfig,
     generateDefaultHTML,
-    regenerateDashboard
+    regenerateDashboard,
+    // Export grid configuration and helpers
+    GRID_CONFIG,
+    AREA_TO_GRID,
+    SIZE_TO_SPANS,
+    areaToGridPosition,
+    gridPositionToArea
 };
