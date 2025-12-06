@@ -526,6 +526,15 @@
         let currentConfigVersion = null;
         let useFlexibleGrid = false;
 
+        // Helper function to show error screen (reduces code duplication)
+        function showErrorScreen(message, details) {
+            document.getElementById('dashboard-container').style.display = 'none';
+            document.getElementById('disabled-container').style.display = 'none';
+            document.getElementById('config-error-container').style.display = 'block';
+            document.getElementById('config-error-message').textContent = message;
+            document.getElementById('config-error-details').textContent = details;
+        }
+
         // Check for configuration updates
         async function checkForConfigUpdates() {
             try {
@@ -621,18 +630,15 @@
                     console.error('   Admin configuration issue detected. Displaying error screen instead of defaults.');
                     
                     // Show error screen instead of defaults
-                    document.getElementById('dashboard-container').style.display = 'none';
-                    document.getElementById('disabled-container').style.display = 'none';
-                    document.getElementById('config-error-container').style.display = 'block';
-                    document.getElementById('config-error-message').textContent = 
-                        'No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.';
-                    document.getElementById('config-error-details').textContent = 
+                    showErrorScreen(
+                        'No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.',
                         `Configuration loaded successfully but no widgets are enabled.\n\n` +
                         `Config Version: ${currentConfigVersion || 'not set'}\n` +
                         `Last Clear: ${config.lastClearTimestamp || 'never'}\n` +
                         `Total Widgets: ${Object.keys(config.widgets || {}).length}\n` +
                         `Enabled: ${enabledWidgets.length}\n\n` +
-                        `Available widgets: ${Object.keys(config.widgets || {}).join(', ')}`;
+                        `Available widgets: ${Object.keys(config.widgets || {}).join(', ')}`
+                    );
                     return;
                 }
                 
@@ -656,14 +662,12 @@
                     console.error('   This should not happen - we already verified widgets are enabled.');
                     console.error('   This indicates a bug in createWidgets() function.');
                     // Show error screen
-                    document.getElementById('dashboard-container').style.display = 'none';
-                    document.getElementById('config-error-container').style.display = 'block';
-                    document.getElementById('config-error-message').textContent = 
-                        'Internal error: Widget creation failed despite having enabled widgets. Please report this bug.';
-                    document.getElementById('config-error-details').textContent = 
+                    showErrorScreen(
+                        'Internal error: Widget creation failed despite having enabled widgets. Please report this bug.',
                         `Expected ${enabledWidgets.length} widgets to be created but got 0.\n` +
                         `Enabled widgets: ${enabledWidgets.join(', ')}\n\n` +
-                        `This is likely a bug in the createWidgets() function.`;
+                        `This is likely a bug in the createWidgets() function.`
+                    );
                     return;
                 }
                 
@@ -739,16 +743,13 @@
                 console.error('   Stack trace:', error.stack);
                 
                 // Show error screen
-                document.getElementById('dashboard-container').style.display = 'none';
-                document.getElementById('disabled-container').style.display = 'none';
-                document.getElementById('config-error-container').style.display = 'block';
-                document.getElementById('config-error-message').textContent = 
-                    'Failed to initialize dashboard: ' + error.message;
-                document.getElementById('config-error-details').textContent = 
+                showErrorScreen(
+                    'Failed to initialize dashboard: ' + error.message,
                     `Error Type: ${error.name}\n` +
                     `Message: ${error.message}\n\n` +
                     `Stack Trace:\n${error.stack}\n\n` +
-                    `Please check the browser console (F12) for more details.`;
+                    `Please check the browser console (F12) for more details.`
+                );
             }
         }
 
