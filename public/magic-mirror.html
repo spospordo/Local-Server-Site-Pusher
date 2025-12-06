@@ -520,7 +520,12 @@
                 const response = await fetch('/api/magicmirror/data');
                 
                 if (!response.ok) {
-                    console.log('Config check failed, status:', response.status);
+                    console.log('⚠️ Config check failed, status:', response.status);
+                    // If we get 403, Magic Mirror was disabled
+                    if (response.status === 403) {
+                        console.log('🚫 Magic Mirror has been disabled - reloading to show disabled message');
+                        setTimeout(() => window.location.reload(), 1000);
+                    }
                     return;
                 }
                 
@@ -530,8 +535,9 @@
                 if (currentConfigVersion && newConfig.configVersion && 
                     newConfig.configVersion !== currentConfigVersion) {
                     console.log('🔄 Configuration updated! Reloading dashboard...', {
-                        old: currentConfigVersion,
-                        new: newConfig.configVersion
+                        oldVersion: currentConfigVersion,
+                        newVersion: newConfig.configVersion,
+                        clearTimestamp: newConfig.lastClearTimestamp || 'not set'
                     });
                     
                     // Show notification before reload
@@ -551,43 +557,54 @@
                     notification.textContent = '🔄 Configuration updated! Reloading...';
                     document.body.appendChild(notification);
                     
-                    // Reload after short delay
+                    // Reload immediately (no delay) to apply changes faster
                     setTimeout(() => {
+                        // Reload the page to get fresh content
                         window.location.reload();
-                    }, 1500);
+                    }, 500);
                 }
             } catch (error) {
-                console.error('Error checking for config updates:', error);
+                console.error('❌ Error checking for config updates:', error);
             }
         }
 
         // Initialize dashboard
         async function initDashboard() {
             try {
+                console.log('🪞 [Magic Mirror] Initializing dashboard...');
+                
                 // Fetch Magic Mirror configuration
                 const response = await fetch('/api/magicmirror/data');
                 
                 if (response.status === 403) {
                     // Magic Mirror is disabled
+                    console.log('🚫 [Magic Mirror] Dashboard is disabled');
                     document.getElementById('dashboard-container').style.display = 'none';
                     document.getElementById('disabled-container').style.display = 'block';
                     return;
                 }
                 
                 if (!response.ok) {
-                    throw new Error('Failed to load configuration');
+                    throw new Error(`Failed to load configuration (status: ${response.status})`);
                 }
                 
                 config = await response.json();
                 currentConfigVersion = config.configVersion;
                 
-                console.log('📊 Dashboard initialized with config version:', currentConfigVersion);
+                console.log('📊 [Magic Mirror] Dashboard initialized');
+                console.log('   Config Version:', currentConfigVersion);
+                console.log('   Last Clear Timestamp:', config.lastClearTimestamp || 'never');
+                console.log('   Grid Layout:', config.gridLayout?.enabled ? 'flexible' : 'legacy');
+                console.log('   Enabled Widgets:', Object.keys(config.widgets || {})
+                    .filter(w => config.widgets[w]?.enabled)
+                    .join(', ') || 'none');
                 
                 // Show dashboard
                 document.getElementById('dashboard-container').style.display = 'block';
                 document.getElementById('disabled-container').style.display = 'none';
                 
                 // Create widgets based on configuration
+                console.log('🎨 [Magic Mirror] Creating widgets...');
                 createWidgets();
                 
                 // Start checking for configuration updates every 10 seconds for more responsive updates
@@ -599,6 +616,7 @@
                 // Initialize clock (always visible if enabled)
                 const clockConfig = config.widgets.clock;
                 if (clockConfig && clockConfig.enabled) {
+                    console.log('⏰ [Magic Mirror] Starting clock widget');
                     updateClock();
                     setInterval(updateClock, 1000);
                 }
@@ -606,30 +624,35 @@
                 // Initialize enabled widgets
                 const weatherConfig = config.widgets.weather;
                 if (weatherConfig && weatherConfig.enabled) {
+                    console.log('🌤️ [Magic Mirror] Starting weather widget');
                     updateWeather();
                     updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000); // 10 minutes
                 }
                 
                 const forecastConfig = config.widgets.forecast;
                 if (forecastConfig && forecastConfig.enabled) {
+                    console.log('🌦️ [Magic Mirror] Starting forecast widget');
                     updateForecast();
                     updateIntervals.forecast = setInterval(updateForecast, 10 * 60 * 1000); // 10 minutes
                 }
                 
                 const calendarConfig = config.widgets.calendar;
                 if (calendarConfig && calendarConfig.enabled) {
+                    console.log('📅 [Magic Mirror] Starting calendar widget');
                     updateCalendar();
                     updateIntervals.calendar = setInterval(updateCalendar, 60 * 60 * 1000); // 1 hour
                 }
                 
                 const newsConfig = config.widgets.news;
                 if (newsConfig && newsConfig.enabled) {
+                    console.log('📰 [Magic Mirror] Starting news widget');
                     updateNews();
                     updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000); // 15 minutes
                 }
                 
                 const mediaConfig = config.widgets.media;
                 if (mediaConfig && mediaConfig.enabled) {
+                    console.log('🎵 [Magic Mirror] Starting media widget');
                     updateMedia();
                     updateIntervals.media = setInterval(updateMedia, 5000); // 5 seconds for real-time updates
                 }
@@ -637,10 +660,14 @@
                 updateLastUpdateTime();
                 setInterval(updateLastUpdateTime, 60000); // Update every minute
                 
+                console.log('✅ [Magic Mirror] Dashboard initialization complete');
+                
             } catch (error) {
-                console.error('Error initializing dashboard:', error);
+                console.error('❌ [Magic Mirror] Error initializing dashboard:', error);
+                console.error('   Error details:', error.message);
+                console.error('   Stack trace:', error.stack);
                 document.getElementById('dashboard-container').innerHTML = 
-                    '<div class="error-message">Error loading dashboard: ' + error.message + '</div>';
+                    '<div class="error-message">Error loading dashboard: ' + error.message + '<br><br>Check browser console (F12) for more details.</div>';
             }
         }
 

@@ -4737,6 +4737,36 @@ app.post('/admin/api/magicmirror/regenerate', requireAuth, (req, res) => {
   }
 });
 
+// Clear and completely refresh Magic Mirror dashboard - removes cached/stale state
+app.post('/admin/api/magicmirror/clear-and-refresh', requireAuth, (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🗑️ [Magic Mirror] ${timestamp} - Admin ${clientIp} triggered dashboard clear and refresh`);
+  logger.info(logger.categories.MAGIC_MIRROR, `Admin ${clientIp} triggered dashboard clear and complete refresh`);
+  
+  try {
+    const result = magicMirror.clearAndRefreshDashboard();
+    
+    if (result.success) {
+      console.log(`✅ [Magic Mirror] ${timestamp} - Dashboard cleared and regenerated successfully`);
+      logger.success(logger.categories.MAGIC_MIRROR, `Dashboard cleared and regenerated (version: ${result.configVersion}, clear timestamp: ${result.clearTimestamp})`);
+      res.json(result);
+    } else {
+      console.error(`❌ [Magic Mirror] ${timestamp} - Failed to clear and refresh dashboard: ${result.error}`);
+      logger.error(logger.categories.MAGIC_MIRROR, `Failed to clear and refresh dashboard: ${result.error}`);
+      res.status(500).json(result);
+    }
+  } catch (err) {
+    console.error(`❌ [Magic Mirror] ${timestamp} - Error clearing and refreshing dashboard:`, err.message);
+    logger.error(logger.categories.MAGIC_MIRROR, `Error clearing and refreshing dashboard: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to clear and refresh dashboard: ' + err.message 
+    });
+  }
+});
+
 // Generate magic-mirror.html if missing
 app.post('/api/magicmirror/generate', (req, res) => {
   const timestamp = new Date().toISOString();
@@ -4784,16 +4814,31 @@ app.get('/api/magicmirror/data', (req, res) => {
   try {
     const config = magicMirror.getConfig(); // Use getConfig() for backward compatibility conversion
     
+    // Enhanced logging for troubleshooting
+    console.log(`   Config file loaded successfully`);
+    console.log(`   Config Version: ${config.configVersion || 'not set'}`);
+    console.log(`   Last Clear Timestamp: ${config.lastClearTimestamp || 'never'}`);
+    
     // Only return data if Magic Mirror is enabled
     if (!config.enabled) {
       console.log(`⚠️  [Magic Mirror API] ${timestamp} - Access denied: Magic Mirror is disabled`);
       return res.status(403).json({ error: 'Magic Mirror is not enabled' });
     }
     
-    console.log(`✅ [Magic Mirror API] ${timestamp} - Returning config data (enabled: ${config.enabled}, widgets: ${Object.keys(config.widgets || {}).join(', ')})`);
+    // Log enabled widgets for debugging
+    const enabledWidgets = Object.keys(config.widgets || {})
+      .filter(w => config.widgets[w]?.enabled)
+      .join(', ') || 'none';
+    
+    console.log(`✅ [Magic Mirror API] ${timestamp} - Returning config data`);
+    console.log(`   Enabled: ${config.enabled}`);
+    console.log(`   Grid Layout: ${config.gridLayout?.enabled ? 'flexible' : 'legacy'}`);
+    console.log(`   Enabled Widgets: ${enabledWidgets}`);
+    
     res.json(config);
   } catch (err) {
     console.error(`❌ [Magic Mirror API] ${timestamp} - Error:`, err.message);
+    console.error(`   Stack trace:`, err.stack);
     res.status(500).json({ error: 'Failed to get Magic Mirror data: ' + err.message });
   }
 });

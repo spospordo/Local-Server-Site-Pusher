@@ -3601,6 +3601,7 @@
                     <button class="btn btn-primary" onclick="saveMagicMirrorConfig()">Save Configuration</button>
                     <button class="btn btn-secondary" onclick="openMagicMirrorDisplay()">Open Dashboard</button>
                     <button class="btn btn-secondary" onclick="regenerateMagicMirrorDashboard()" title="Force all open dashboards to reload with the latest configuration">🔄 Regenerate Dashboard</button>
+                    <button class="btn btn-danger" onclick="clearAndRefreshDashboard()" title="Clear all dashboard state and force complete regeneration from current admin settings">🗑️ Clear & Refresh Dashboard</button>
                     <button class="btn btn-secondary" onclick="loadMagicMirrorConfig()">Refresh</button>
                 </div>
                 
@@ -3609,7 +3610,8 @@
                     <ul style="margin: 0.5rem 0 0 1rem; color: #856404; font-size: 0.95rem;">
                         <li>When you save changes, all open <code>/magic-mirror</code> dashboards will <strong>automatically reload within 10 seconds</strong>.</li>
                         <li>For <strong>immediate updates</strong>, click the "🔄 Regenerate Dashboard" button after saving.</li>
-                        <li>If changes are still not visible, try manually refreshing the dashboard page.</li>
+                        <li><strong>If changes are still not visible</strong>, click the "🗑️ Clear & Refresh Dashboard" button to force a complete rebuild from your current admin settings with NO fallback widgets.</li>
+                        <li>This will clear any cached or stale dashboard state and regenerate everything from scratch.</li>
                     </ul>
                 </div>
 
@@ -10647,6 +10649,34 @@
             } catch (error) {
                 console.error('Error regenerating Magic Mirror dashboard:', error);
                 showMagicMirrorAlert('Error regenerating dashboard: ' + error.message, 'error');
+            }
+        }
+
+        async function clearAndRefreshDashboard() {
+            if (!confirm('⚠️ This will completely clear the dashboard and rebuild it from your current admin settings, removing all cached state and any fallback widgets. Continue?')) {
+                return;
+            }
+            
+            try {
+                showMagicMirrorAlert('🗑️ Clearing dashboard and forcing complete regeneration...', 'success');
+                
+                const response = await fetch('/admin/api/magicmirror/clear-and-refresh', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMagicMirrorAlert('✅ Dashboard cleared and regenerated! All open /magic-mirror pages will reload immediately with ONLY your configured widgets (no fallbacks). If the issue persists, check browser console for errors.', 'success');
+                } else {
+                    showMagicMirrorAlert('Error: ' + (result.error || 'Failed to clear and refresh dashboard'), 'error');
+                }
+            } catch (error) {
+                console.error('Error clearing and refreshing Magic Mirror dashboard:', error);
+                showMagicMirrorAlert('Error clearing dashboard: ' + error.message, 'error');
             }
         }
 
