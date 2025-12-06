@@ -77,8 +77,8 @@ test('clearAndRefreshDashboard bumps version by 1000ms+', () => {
     const timestampBefore = Date.now();
     const result = magicMirror.clearAndRefreshDashboard();
     
-    // The clear function adds 1000ms to ensure it's seen as newer
-    assertGreaterThan(result.configVersion, timestampBefore, 
+    // The clear function adds 1000ms to current time to ensure it's seen as newer
+    assertGreaterThan(result.configVersion, timestampBefore + 999, 
         'Config version should be at least current time + 1000ms');
 });
 

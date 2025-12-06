@@ -559,8 +559,8 @@
                     
                     // Reload immediately (no delay) to apply changes faster
                     setTimeout(() => {
-                        // Force reload without cache to ensure fresh content
-                        window.location.reload(true);
+                        // Reload the page to get fresh content
+                        window.location.reload();
                     }, 500);
                 }
             } catch (error) {
