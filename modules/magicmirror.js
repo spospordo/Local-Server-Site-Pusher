@@ -1357,6 +1357,50 @@ function regenerateDashboard() {
     }
 }
 
+// Clear and completely refresh dashboard - removes any cached/stale state
+function clearAndRefreshDashboard() {
+    try {
+        console.log('🗑️ [Magic Mirror] Clearing dashboard state and forcing complete regeneration...');
+        
+        // Load current config
+        const currentConfig = loadConfig();
+        
+        // Force a new config version with a much larger timestamp to ensure it's seen as newer
+        // Add a marker to indicate this was a forced clear
+        const newVersion = Date.now() + 1000; // Add 1 second to ensure it's newer
+        currentConfig.configVersion = newVersion;
+        currentConfig.lastClearTimestamp = newVersion;
+        
+        // Log what we're doing
+        console.log('   Current enabled state:', currentConfig.enabled);
+        console.log('   Enabled widgets:', Object.keys(currentConfig.widgets || {})
+            .filter(w => currentConfig.widgets[w]?.enabled)
+            .join(', ') || 'none');
+        console.log('   New Config Version:', currentConfig.configVersion);
+        
+        // Save the config with new version
+        const result = saveConfig(currentConfig);
+        
+        if (result.success) {
+            console.log('✅ [Magic Mirror] Dashboard cleared and regenerated successfully');
+            console.log('   All open dashboards will now reload with ONLY configured widgets');
+            console.log('   No fallback widgets will be displayed');
+            return { 
+                success: true, 
+                message: 'Dashboard cleared and regenerated. All open dashboards will reload immediately with only your configured widgets.',
+                configVersion: currentConfig.configVersion,
+                clearTimestamp: currentConfig.lastClearTimestamp
+            };
+        } else {
+            console.error('❌ [Magic Mirror] Failed to save cleared config:', result.error);
+            return result;
+        }
+    } catch (error) {
+        console.error('❌ [Magic Mirror] Error clearing and refreshing dashboard:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 module.exports = {
     loadConfig,
     saveConfig,
@@ -1365,6 +1409,7 @@ module.exports = {
     getFullConfig,
     generateDefaultHTML,
     regenerateDashboard,
+    clearAndRefreshDashboard,
     // Export grid configuration and helpers
     GRID_CONFIG,
     AREA_TO_GRID,
