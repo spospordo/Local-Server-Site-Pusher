@@ -3215,7 +3215,7 @@
                                 <label for="widgetClockArea">Position
                                     <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Choose where on the 3×3 grid to display this widget">ⓘ</span>
                                 </label>
-                                <select id="widgetClockArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetClockArea" onchange="handleAreaChange('clock')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3231,7 +3231,7 @@
                                 <label for="widgetClockSize">Size
                                     <span style="color: #666; font-weight: normal; font-size: 0.9rem;" title="Box: standard size, Bar: full-width">ⓘ</span>
                                 </label>
-                                <select id="widgetClockSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetClockSize" onchange="handleSizeChange('clock')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -3272,7 +3272,7 @@
                         <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetWeatherArea">Position</label>
-                                <select id="widgetWeatherArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetWeatherArea" onchange="handleAreaChange('weather')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3286,7 +3286,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="widgetWeatherSize">Size</label>
-                                <select id="widgetWeatherSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetWeatherSize" onchange="handleSizeChange('weather')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -3327,7 +3327,7 @@
                         <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetForecastArea">Position</label>
-                                <select id="widgetForecastArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetForecastArea" onchange="handleAreaChange('forecast')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3341,7 +3341,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="widgetForecastSize">Size</label>
-                                <select id="widgetForecastSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetForecastSize" onchange="handleSizeChange('forecast')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -3382,7 +3382,7 @@
                         <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetCalendarArea">Position</label>
-                                <select id="widgetCalendarArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetCalendarArea" onchange="handleAreaChange('calendar')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3396,7 +3396,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="widgetCalendarSize">Size</label>
-                                <select id="widgetCalendarSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetCalendarSize" onchange="handleSizeChange('calendar')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -3437,7 +3437,7 @@
                         <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetNewsArea">Position</label>
-                                <select id="widgetNewsArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetNewsArea" onchange="handleAreaChange('news')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3451,7 +3451,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="widgetNewsSize">Size</label>
-                                <select id="widgetNewsSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetNewsSize" onchange="handleSizeChange('news')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -3492,7 +3492,7 @@
                         <div class="form-row legacy-grid-controls">
                             <div class="form-group">
                                 <label for="widgetMediaArea">Position</label>
-                                <select id="widgetMediaArea" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetMediaArea" onchange="handleAreaChange('media')">
                                     <option value="upper-left">Upper Left</option>
                                     <option value="upper-center">Upper Center</option>
                                     <option value="upper-right">Upper Right</option>
@@ -3506,7 +3506,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="widgetMediaSize">Size</label>
-                                <select id="widgetMediaSize" onchange="saveMagicMirrorConfig()">
+                                <select id="widgetMediaSize" onchange="handleSizeChange('media')">
                                     <option value="box">Box (Standard)</option>
                                     <option value="bar">Bar (Full Width)</option>
                                 </select>
@@ -10217,6 +10217,68 @@
 
         // Magic Mirror Configuration Functions
         let magicMirrorGridLayoutEnabled = false;
+        
+        // Map area names to grid positions 
+        // IMPORTANT: This must stay in sync with modules/magicmirror.js AREA_TO_GRID
+        const AREA_TO_GRID = {
+            'upper-left':     { col: 1, row: 1, colSpan: 4, rowSpan: 2 },
+            'upper-center':   { col: 5, row: 1, colSpan: 4, rowSpan: 2 },
+            'upper-right':    { col: 9, row: 1, colSpan: 4, rowSpan: 2 },
+            'middle-left':    { col: 1, row: 3, colSpan: 4, rowSpan: 2 },
+            'middle-center':  { col: 5, row: 3, colSpan: 4, rowSpan: 2 },
+            'middle-right':   { col: 9, row: 3, colSpan: 4, rowSpan: 2 },
+            'bottom-left':    { col: 1, row: 5, colSpan: 4, rowSpan: 2 },
+            'bottom-center':  { col: 5, row: 5, colSpan: 4, rowSpan: 2 },
+            'bottom-right':   { col: 9, row: 5, colSpan: 4, rowSpan: 2 }
+        };
+        
+        // Map size to grid spans
+        const SIZE_TO_SPANS = {
+            'box': { colSpan: 4, rowSpan: 2 },
+            'bar': { colSpan: 12, rowSpan: 2 }
+        };
+        
+        // Sync grid position inputs when area or size changes
+        function syncGridPositionFromArea(widgetName) {
+            const capitalizedWidget = widgetName.charAt(0).toUpperCase() + widgetName.slice(1);
+            const areaSelect = document.getElementById(`widget${capitalizedWidget}Area`);
+            const sizeSelect = document.getElementById(`widget${capitalizedWidget}Size`);
+            
+            if (!areaSelect || !sizeSelect) return;
+            
+            const area = areaSelect.value;
+            const size = sizeSelect.value;
+            
+            const basePosition = AREA_TO_GRID[area] || AREA_TO_GRID['upper-left'];
+            const sizeSpans = SIZE_TO_SPANS[size] || SIZE_TO_SPANS['box'];
+            
+            // Update grid position inputs
+            const colEl = document.getElementById(`widget${capitalizedWidget}Col`);
+            const rowEl = document.getElementById(`widget${capitalizedWidget}Row`);
+            const colSpanEl = document.getElementById(`widget${capitalizedWidget}ColSpan`);
+            const rowSpanEl = document.getElementById(`widget${capitalizedWidget}RowSpan`);
+            
+            if (colEl) colEl.value = basePosition.col;
+            if (rowEl) rowEl.value = basePosition.row;
+            // For bar size, use full width (12 columns)
+            if (colSpanEl) colSpanEl.value = size === 'bar' ? sizeSpans.colSpan : basePosition.colSpan;
+            if (rowSpanEl) rowSpanEl.value = sizeSpans.rowSpan;
+            
+            // Update the grid preview
+            updateGridPreview();
+        }
+        
+        // Handle area change - sync grid position and save
+        function handleAreaChange(widgetName) {
+            syncGridPositionFromArea(widgetName);
+            saveMagicMirrorConfig();
+        }
+        
+        // Handle size change - sync grid position and save
+        function handleSizeChange(widgetName) {
+            syncGridPositionFromArea(widgetName);
+            saveMagicMirrorConfig();
+        }
         
         async function loadMagicMirrorConfig() {
             try {
