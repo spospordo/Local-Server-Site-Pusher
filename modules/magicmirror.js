@@ -294,7 +294,9 @@ function getConfig() {
             
             widgets[key] = {
                 // CRITICAL FIX: Default to false to prevent unwanted widgets from appearing
-                // Only show widgets that are explicitly enabled by admin
+                // BREAKING CHANGE: Previously defaulted to true, causing all widgets to appear
+                // Now only widgets with explicit enabled=true will be displayed
+                // This fixes the bug where admin-disabled widgets were still showing on dashboard
                 enabled: value.enabled === true,
                 area: area,
                 size: size,

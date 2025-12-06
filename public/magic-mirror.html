@@ -655,8 +655,9 @@
                 const createdWidgets = document.querySelectorAll('.widget');
                 console.log(`   Created ${createdWidgets.length} widget element(s)`);
                 
-                // This should never happen since we already validated enabledWidgets.length > 0
-                // But keep this as a sanity check for unexpected bugs
+                // SANITY CHECK: This should never happen since we already validated enabledWidgets.length > 0
+                // However, we keep this check to catch potential bugs in createWidgets() function
+                // (e.g., if createWidgets() has a logic error or exception that prevents DOM creation)
                 if (createdWidgets.length === 0) {
                     console.error('❌ [Magic Mirror] CRITICAL ERROR: No widget elements were created!');
                     console.error('   This should not happen - we already verified widgets are enabled.');
