@@ -645,14 +645,31 @@
                 console.log('🎨 [Magic Mirror] Creating widgets...');
                 createWidgets();
                 
-                // Verify widgets were actually created
+                // Verify widgets were created (should match enabledWidgets count)
                 const createdWidgets = document.querySelectorAll('.widget');
                 console.log(`   Created ${createdWidgets.length} widget element(s)`);
                 
+                // This should never happen since we already validated enabledWidgets.length > 0
+                // But keep this as a sanity check for unexpected bugs
                 if (createdWidgets.length === 0) {
                     console.error('❌ [Magic Mirror] CRITICAL ERROR: No widget elements were created!');
+                    console.error('   This should not happen - we already verified widgets are enabled.');
                     console.error('   This indicates a bug in createWidgets() function.');
-                    throw new Error('Widget creation failed - no elements created');
+                    // Show error screen
+                    document.getElementById('dashboard-container').style.display = 'none';
+                    document.getElementById('config-error-container').style.display = 'block';
+                    document.getElementById('config-error-message').textContent = 
+                        'Internal error: Widget creation failed despite having enabled widgets. Please report this bug.';
+                    document.getElementById('config-error-details').textContent = 
+                        `Expected ${enabledWidgets.length} widgets to be created but got 0.\n` +
+                        `Enabled widgets: ${enabledWidgets.join(', ')}\n\n` +
+                        `This is likely a bug in the createWidgets() function.`;
+                    return;
+                }
+                
+                // Verify the count matches expectations
+                if (createdWidgets.length !== enabledWidgets.length) {
+                    console.warn(`⚠️  [Magic Mirror] Widget count mismatch: expected ${enabledWidgets.length}, created ${createdWidgets.length}`);
                 }
                 
                 // Log each created widget for debugging
