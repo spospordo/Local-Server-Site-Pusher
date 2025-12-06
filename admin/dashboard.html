@@ -10218,7 +10218,8 @@
         // Magic Mirror Configuration Functions
         let magicMirrorGridLayoutEnabled = false;
         
-        // Map area names to grid positions (must match backend AREA_TO_GRID)
+        // Map area names to grid positions 
+        // IMPORTANT: This must stay in sync with modules/magicmirror.js AREA_TO_GRID
         const AREA_TO_GRID = {
             'upper-left':     { col: 1, row: 1, colSpan: 4, rowSpan: 2 },
             'upper-center':   { col: 5, row: 1, colSpan: 4, rowSpan: 2 },
