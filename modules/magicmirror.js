@@ -293,7 +293,9 @@ function getConfig() {
             const size = value.size || defaultWidget.size || 'box';
             
             widgets[key] = {
-                enabled: value.enabled !== undefined ? value.enabled : true,
+                // CRITICAL FIX: Default to false to prevent unwanted widgets from appearing
+                // Only show widgets that are explicitly enabled by admin
+                enabled: value.enabled === true,
                 area: area,
                 size: size,
                 // Use existing gridPosition or derive from area/size
@@ -304,6 +306,24 @@ function getConfig() {
     
     // Ensure gridLayout config exists
     const gridLayout = config.gridLayout || DEFAULT_CONFIG.gridLayout;
+    
+    // Add diagnostic logging to help troubleshoot configuration issues
+    const enabledWidgets = Object.keys(widgets).filter(key => widgets[key]?.enabled);
+    const disabledWidgets = Object.keys(widgets).filter(key => !widgets[key]?.enabled);
+    
+    console.log('📊 [Magic Mirror Config] getConfig() called:');
+    console.log(`   Total widgets in config: ${Object.keys(widgets).length}`);
+    console.log(`   Enabled widgets (${enabledWidgets.length}): ${enabledWidgets.join(', ') || 'NONE'}`);
+    console.log(`   Disabled widgets (${disabledWidgets.length}): ${disabledWidgets.join(', ') || 'NONE'}`);
+    console.log(`   Config Version: ${config.configVersion || 'not set'}`);
+    console.log(`   Last Clear: ${config.lastClearTimestamp || 'never'}`);
+    
+    // IMPORTANT: Log warning if no widgets are enabled but dashboard is enabled
+    if (config.enabled && enabledWidgets.length === 0) {
+        console.warn('⚠️  [Magic Mirror Config] WARNING: Dashboard is enabled but NO widgets are enabled!');
+        console.warn('   This will result in an empty dashboard.');
+        console.warn('   Admin should enable at least one widget in settings.');
+    }
     
     // Don't send API keys to client (just indicate if they exist)
     return {

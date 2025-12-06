@@ -499,6 +499,18 @@
             </p>
         </div>
 
+        <div id="config-error-container" class="disabled-message" style="display: none;">
+            <h2>⚠️ Configuration Error</h2>
+            <p id="config-error-message">There was an error loading your dashboard configuration.</p>
+            <p style="margin-top: 1rem;">
+                <a href="/admin" style="color: #4a90e2; text-decoration: none;">Go to Admin Settings →</a>
+            </p>
+            <details style="margin-top: 1rem; cursor: pointer;">
+                <summary style="font-weight: bold;">Technical Details</summary>
+                <pre id="config-error-details" style="margin-top: 0.5rem; padding: 1rem; background: rgba(0,0,0,0.1); border-radius: 5px; overflow-x: auto; font-size: 0.9rem;"></pre>
+            </details>
+        </div>
+
         <div id="dashboard-container">
             <!-- Grid container - will be populated with either legacy or flexible grid -->
             <div id="widget-grid-container"></div>
@@ -580,6 +592,7 @@
                     // Magic Mirror is disabled
                     console.log('🚫 [Magic Mirror] Dashboard is disabled');
                     document.getElementById('dashboard-container').style.display = 'none';
+                    document.getElementById('config-error-container').style.display = 'none';
                     document.getElementById('disabled-container').style.display = 'block';
                     return;
                 }
@@ -595,17 +608,57 @@
                 console.log('   Config Version:', currentConfigVersion);
                 console.log('   Last Clear Timestamp:', config.lastClearTimestamp || 'never');
                 console.log('   Grid Layout:', config.gridLayout?.enabled ? 'flexible' : 'legacy');
-                console.log('   Enabled Widgets:', Object.keys(config.widgets || {})
-                    .filter(w => config.widgets[w]?.enabled)
-                    .join(', ') || 'none');
+                
+                // Count enabled widgets
+                const enabledWidgets = Object.keys(config.widgets || {})
+                    .filter(w => config.widgets[w]?.enabled);
+                
+                console.log('   Enabled Widgets:', enabledWidgets.join(', ') || 'NONE');
+                
+                // CRITICAL VALIDATION: Check if ANY widgets are enabled
+                if (enabledWidgets.length === 0) {
+                    console.error('❌ [Magic Mirror] CONFIGURATION ERROR: No widgets are enabled!');
+                    console.error('   Admin configuration issue detected. Displaying error screen instead of defaults.');
+                    
+                    // Show error screen instead of defaults
+                    document.getElementById('dashboard-container').style.display = 'none';
+                    document.getElementById('disabled-container').style.display = 'none';
+                    document.getElementById('config-error-container').style.display = 'block';
+                    document.getElementById('config-error-message').textContent = 
+                        'No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.';
+                    document.getElementById('config-error-details').textContent = 
+                        `Configuration loaded successfully but no widgets are enabled.\n\n` +
+                        `Config Version: ${currentConfigVersion || 'not set'}\n` +
+                        `Last Clear: ${config.lastClearTimestamp || 'never'}\n` +
+                        `Total Widgets: ${Object.keys(config.widgets || {}).length}\n` +
+                        `Enabled: ${enabledWidgets.length}\n\n` +
+                        `Available widgets: ${Object.keys(config.widgets || {}).join(', ')}`;
+                    return;
+                }
                 
                 // Show dashboard
                 document.getElementById('dashboard-container').style.display = 'block';
                 document.getElementById('disabled-container').style.display = 'none';
+                document.getElementById('config-error-container').style.display = 'none';
                 
                 // Create widgets based on configuration
                 console.log('🎨 [Magic Mirror] Creating widgets...');
                 createWidgets();
+                
+                // Verify widgets were actually created
+                const createdWidgets = document.querySelectorAll('.widget');
+                console.log(`   Created ${createdWidgets.length} widget element(s)`);
+                
+                if (createdWidgets.length === 0) {
+                    console.error('❌ [Magic Mirror] CRITICAL ERROR: No widget elements were created!');
+                    console.error('   This indicates a bug in createWidgets() function.');
+                    throw new Error('Widget creation failed - no elements created');
+                }
+                
+                // Log each created widget for debugging
+                createdWidgets.forEach((widget, index) => {
+                    console.log(`   Widget ${index + 1}: ${widget.id || 'unknown'}`);
+                });
                 
                 // Start checking for configuration updates every 10 seconds for more responsive updates
                 if (configCheckInterval) {
@@ -661,13 +714,24 @@
                 setInterval(updateLastUpdateTime, 60000); // Update every minute
                 
                 console.log('✅ [Magic Mirror] Dashboard initialization complete');
+                console.log('   If you expected different widgets, check admin configuration.');
                 
             } catch (error) {
                 console.error('❌ [Magic Mirror] Error initializing dashboard:', error);
                 console.error('   Error details:', error.message);
                 console.error('   Stack trace:', error.stack);
-                document.getElementById('dashboard-container').innerHTML = 
-                    '<div class="error-message">Error loading dashboard: ' + error.message + '<br><br>Check browser console (F12) for more details.</div>';
+                
+                // Show error screen
+                document.getElementById('dashboard-container').style.display = 'none';
+                document.getElementById('disabled-container').style.display = 'none';
+                document.getElementById('config-error-container').style.display = 'block';
+                document.getElementById('config-error-message').textContent = 
+                    'Failed to initialize dashboard: ' + error.message;
+                document.getElementById('config-error-details').textContent = 
+                    `Error Type: ${error.name}\n` +
+                    `Message: ${error.message}\n\n` +
+                    `Stack Trace:\n${error.stack}\n\n` +
+                    `Please check the browser console (F12) for more details.`;
             }
         }
 
