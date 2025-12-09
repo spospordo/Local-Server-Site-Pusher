@@ -535,22 +535,43 @@
             document.getElementById('config-error-details').textContent = details;
         }
 
+        // Helper function to load Magic Mirror config from API
+        async function loadMagicMirrorConfig() {
+            const response = await fetch('/api/magic-mirror/config', { cache: 'no-store' });
+            
+            if (!response.ok) {
+                // Try to get error details from response
+                let errorMessage = `Failed to load Magic Mirror config: ${response.status}`;
+                let errorDetails = null;
+                
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorData.message || errorMessage;
+                    errorDetails = errorData.details || null;
+                } catch (e) {
+                    // Response body is not JSON
+                }
+                
+                const error = new Error(errorMessage);
+                error.status = response.status;
+                error.details = errorDetails;
+                throw error;
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || data.message || 'Failed to load configuration');
+            }
+            
+            return data.config;
+        }
+
         // Check for configuration updates
         async function checkForConfigUpdates() {
             try {
-                const response = await fetch('/api/magicmirror/data');
-                
-                if (!response.ok) {
-                    console.log('⚠️ Config check failed, status:', response.status);
-                    // If we get 403, Magic Mirror was disabled
-                    if (response.status === 403) {
-                        console.log('🚫 Magic Mirror has been disabled - reloading to show disabled message');
-                        setTimeout(() => window.location.reload(), 1000);
-                    }
-                    return;
-                }
-                
-                const newConfig = await response.json();
+                const newConfig = await loadMagicMirrorConfig();
+                const newConfig = await loadMagicMirrorConfig();
                 
                 // Check if configuration version has changed
                 if (currentConfigVersion && newConfig.configVersion && 
@@ -586,18 +607,203 @@
                 }
             } catch (error) {
                 console.error('❌ Error checking for config updates:', error);
+                // If we get 403, Magic Mirror was disabled
+                if (error.status === 403) {
+                    console.log('🚫 Magic Mirror has been disabled - reloading to show disabled message');
+                    setTimeout(() => window.location.reload(), 1000);
+                }
             }
         }
 
+        // Render Magic Mirror dashboard from config
+        function renderMagicMirrorDashboard(config) {
+            // Count enabled widgets
+            const enabledWidgets = Object.keys(config.widgets || {})
+                .filter(w => config.widgets[w]?.enabled);
+            
+            console.log('   Enabled Widgets:', enabledWidgets.join(', ') || 'NONE');
+            
+            // CRITICAL VALIDATION: Check if ANY widgets are enabled
+            if (enabledWidgets.length === 0) {
+                console.error('❌ [Magic Mirror] CONFIGURATION ERROR: No widgets are enabled!');
+                console.error('   Admin configuration issue detected. Displaying error screen instead of defaults.');
+                
+                // Show error screen instead of defaults
+                showMagicMirrorErrorScreen(
+                    new Error('No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.'),
+                    {
+                        configVersion: currentConfigVersion || 'not set',
+                        lastClear: config.lastClearTimestamp || 'never',
+                        totalWidgets: Object.keys(config.widgets || {}).length,
+                        enabled: enabledWidgets.length,
+                        available: Object.keys(config.widgets || {}).join(', ')
+                    }
+                );
+                return;
+            }
+            
+            // Show dashboard
+            document.getElementById('dashboard-container').style.display = 'block';
+            document.getElementById('disabled-container').style.display = 'none';
+            document.getElementById('config-error-container').style.display = 'none';
+            
+            // Create widgets based on configuration
+            console.log('🎨 [Magic Mirror] Creating widgets...');
+            createWidgets();
+            
+            // Verify widgets were created (should match enabledWidgets count)
+            const createdWidgets = document.querySelectorAll('.widget');
+            console.log(`   Created ${createdWidgets.length} widget element(s)`);
+            
+            // SANITY CHECK: This should never happen since we already validated enabledWidgets.length > 0
+            // However, we keep this check to catch potential bugs in createWidgets() function
+            // (e.g., if createWidgets() has a logic error or exception that prevents DOM creation)
+            if (createdWidgets.length === 0) {
+                console.error('❌ [Magic Mirror] CRITICAL ERROR: No widget elements were created!');
+                console.error('   This should not happen - we already verified widgets are enabled.');
+                console.error('   This indicates a bug in createWidgets() function.');
+                // Show error screen
+                showMagicMirrorErrorScreen(
+                    new Error('Internal error: Widget creation failed despite having enabled widgets. Please report this bug.'),
+                    {
+                        expectedWidgets: enabledWidgets.length,
+                        createdWidgets: 0,
+                        enabledWidgets: enabledWidgets.join(', '),
+                        note: 'This is likely a bug in the createWidgets() function.'
+                    }
+                );
+                return;
+            }
+            
+            // Verify the count matches expectations
+            if (createdWidgets.length !== enabledWidgets.length) {
+                console.warn(`⚠️  [Magic Mirror] Widget count mismatch: expected ${enabledWidgets.length}, created ${createdWidgets.length}`);
+            }
+            
+            // Log each created widget for debugging
+            createdWidgets.forEach((widget, index) => {
+                console.log(`   Widget ${index + 1}: ${widget.id || 'unknown'}`);
+            });
+            
+            // Start checking for configuration updates every 10 seconds for more responsive updates
+            if (configCheckInterval) {
+                clearInterval(configCheckInterval);
+            }
+            configCheckInterval = setInterval(checkForConfigUpdates, 10000);
+            
+            // Initialize clock (always visible if enabled)
+            const clockConfig = config.widgets.clock;
+            if (clockConfig && clockConfig.enabled) {
+                console.log('⏰ [Magic Mirror] Starting clock widget');
+                updateClock();
+                setInterval(updateClock, 1000);
+            }
+            
+            // Initialize enabled widgets
+            const weatherConfig = config.widgets.weather;
+            if (weatherConfig && weatherConfig.enabled) {
+                console.log('🌤️ [Magic Mirror] Starting weather widget');
+                updateWeather();
+                updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000); // 10 minutes
+            }
+            
+            const forecastConfig = config.widgets.forecast;
+            if (forecastConfig && forecastConfig.enabled) {
+                console.log('🌦️ [Magic Mirror] Starting forecast widget');
+                updateForecast();
+                updateIntervals.forecast = setInterval(updateForecast, 10 * 60 * 1000); // 10 minutes
+            }
+            
+            const calendarConfig = config.widgets.calendar;
+            if (calendarConfig && calendarConfig.enabled) {
+                console.log('📅 [Magic Mirror] Starting calendar widget');
+                updateCalendar();
+                updateIntervals.calendar = setInterval(updateCalendar, 60 * 60 * 1000); // 1 hour
+            }
+            
+            const newsConfig = config.widgets.news;
+            if (newsConfig && newsConfig.enabled) {
+                console.log('📰 [Magic Mirror] Starting news widget');
+                updateNews();
+                updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000); // 15 minutes
+            }
+            
+            const mediaConfig = config.widgets.media;
+            if (mediaConfig && mediaConfig.enabled) {
+                console.log('🎵 [Magic Mirror] Starting media widget');
+                updateMedia();
+                updateIntervals.media = setInterval(updateMedia, 5000); // 5 seconds for real-time updates
+            }
+            
+            updateLastUpdateTime();
+            setInterval(updateLastUpdateTime, 60000); // Update every minute
+            
+            console.log('✅ [Magic Mirror] Dashboard initialization complete');
+            console.log('   If you expected different widgets, check admin configuration.');
+        }
+
+        // Show error screen when config cannot be loaded
+        function showMagicMirrorErrorScreen(error, debugInfo = null) {
+            console.error('❌ [Magic Mirror] Showing error screen:', error);
+            
+            document.getElementById('dashboard-container').style.display = 'none';
+            document.getElementById('disabled-container').style.display = 'none';
+            document.getElementById('config-error-container').style.display = 'block';
+            
+            const errorMessage = error.message || 'An unknown error occurred';
+            document.getElementById('config-error-message').textContent = errorMessage;
+            
+            let detailsText = `Error Type: ${error.name || 'Error'}\n`;
+            detailsText += `Message: ${errorMessage}\n\n`;
+            
+            if (error.status) {
+                detailsText += `HTTP Status: ${error.status}\n\n`;
+            }
+            
+            if (debugInfo) {
+                detailsText += `Debug Information:\n`;
+                for (const [key, value] of Object.entries(debugInfo)) {
+                    detailsText += `  ${key}: ${value}\n`;
+                }
+                detailsText += `\n`;
+            }
+            
+            if (error.stack) {
+                detailsText += `Stack Trace:\n${error.stack}\n\n`;
+            }
+            
+            detailsText += `Timestamp: ${new Date().toISOString()}\n`;
+            detailsText += `Please check the browser console (F12) for more details.`;
+            
+            document.getElementById('config-error-details').textContent = detailsText;
+        }
+
         // Initialize dashboard
-        async function initDashboard() {
+        async function initMagicMirrorDashboard() {
             try {
                 console.log('🪞 [Magic Mirror] Initializing dashboard...');
                 
-                // Fetch Magic Mirror configuration
-                const response = await fetch('/api/magicmirror/data');
+                // Fetch Magic Mirror configuration using new API
+                config = await loadMagicMirrorConfig();
+                currentConfigVersion = config.configVersion;
                 
-                if (response.status === 403) {
+                console.log('📊 [Magic Mirror] Dashboard initialized');
+                console.log('   Config Version:', currentConfigVersion);
+                console.log('   Last Clear Timestamp:', config.lastClearTimestamp || 'never');
+                console.log('   Grid Layout:', config.gridLayout?.enabled ? 'flexible' : 'legacy');
+                
+                // Render the dashboard from config
+                renderMagicMirrorDashboard(config);
+                
+            } catch (error) {
+                console.error('❌ [Magic Mirror] Error initializing dashboard:', error);
+                console.error('   Error details:', error.message);
+                if (error.stack) {
+                    console.error('   Stack trace:', error.stack);
+                }
+                
+                // Handle specific error cases
+                if (error.status === 403) {
                     // Magic Mirror is disabled
                     console.log('🚫 [Magic Mirror] Dashboard is disabled');
                     document.getElementById('dashboard-container').style.display = 'none';
@@ -606,151 +812,8 @@
                     return;
                 }
                 
-                if (!response.ok) {
-                    throw new Error(`Failed to load configuration (status: ${response.status})`);
-                }
-                
-                config = await response.json();
-                currentConfigVersion = config.configVersion;
-                
-                console.log('📊 [Magic Mirror] Dashboard initialized');
-                console.log('   Config Version:', currentConfigVersion);
-                console.log('   Last Clear Timestamp:', config.lastClearTimestamp || 'never');
-                console.log('   Grid Layout:', config.gridLayout?.enabled ? 'flexible' : 'legacy');
-                
-                // Count enabled widgets
-                const enabledWidgets = Object.keys(config.widgets || {})
-                    .filter(w => config.widgets[w]?.enabled);
-                
-                console.log('   Enabled Widgets:', enabledWidgets.join(', ') || 'NONE');
-                
-                // CRITICAL VALIDATION: Check if ANY widgets are enabled
-                if (enabledWidgets.length === 0) {
-                    console.error('❌ [Magic Mirror] CONFIGURATION ERROR: No widgets are enabled!');
-                    console.error('   Admin configuration issue detected. Displaying error screen instead of defaults.');
-                    
-                    // Show error screen instead of defaults
-                    showErrorScreen(
-                        'No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.',
-                        `Configuration loaded successfully but no widgets are enabled.\n\n` +
-                        `Config Version: ${currentConfigVersion || 'not set'}\n` +
-                        `Last Clear: ${config.lastClearTimestamp || 'never'}\n` +
-                        `Total Widgets: ${Object.keys(config.widgets || {}).length}\n` +
-                        `Enabled: ${enabledWidgets.length}\n\n` +
-                        `Available widgets: ${Object.keys(config.widgets || {}).join(', ')}`
-                    );
-                    return;
-                }
-                
-                // Show dashboard
-                document.getElementById('dashboard-container').style.display = 'block';
-                document.getElementById('disabled-container').style.display = 'none';
-                document.getElementById('config-error-container').style.display = 'none';
-                
-                // Create widgets based on configuration
-                console.log('🎨 [Magic Mirror] Creating widgets...');
-                createWidgets();
-                
-                // Verify widgets were created (should match enabledWidgets count)
-                const createdWidgets = document.querySelectorAll('.widget');
-                console.log(`   Created ${createdWidgets.length} widget element(s)`);
-                
-                // SANITY CHECK: This should never happen since we already validated enabledWidgets.length > 0
-                // However, we keep this check to catch potential bugs in createWidgets() function
-                // (e.g., if createWidgets() has a logic error or exception that prevents DOM creation)
-                if (createdWidgets.length === 0) {
-                    console.error('❌ [Magic Mirror] CRITICAL ERROR: No widget elements were created!');
-                    console.error('   This should not happen - we already verified widgets are enabled.');
-                    console.error('   This indicates a bug in createWidgets() function.');
-                    // Show error screen
-                    showErrorScreen(
-                        'Internal error: Widget creation failed despite having enabled widgets. Please report this bug.',
-                        `Expected ${enabledWidgets.length} widgets to be created but got 0.\n` +
-                        `Enabled widgets: ${enabledWidgets.join(', ')}\n\n` +
-                        `This is likely a bug in the createWidgets() function.`
-                    );
-                    return;
-                }
-                
-                // Verify the count matches expectations
-                if (createdWidgets.length !== enabledWidgets.length) {
-                    console.warn(`⚠️  [Magic Mirror] Widget count mismatch: expected ${enabledWidgets.length}, created ${createdWidgets.length}`);
-                }
-                
-                // Log each created widget for debugging
-                createdWidgets.forEach((widget, index) => {
-                    console.log(`   Widget ${index + 1}: ${widget.id || 'unknown'}`);
-                });
-                
-                // Start checking for configuration updates every 10 seconds for more responsive updates
-                if (configCheckInterval) {
-                    clearInterval(configCheckInterval);
-                }
-                configCheckInterval = setInterval(checkForConfigUpdates, 10000);
-                
-                // Initialize clock (always visible if enabled)
-                const clockConfig = config.widgets.clock;
-                if (clockConfig && clockConfig.enabled) {
-                    console.log('⏰ [Magic Mirror] Starting clock widget');
-                    updateClock();
-                    setInterval(updateClock, 1000);
-                }
-                
-                // Initialize enabled widgets
-                const weatherConfig = config.widgets.weather;
-                if (weatherConfig && weatherConfig.enabled) {
-                    console.log('🌤️ [Magic Mirror] Starting weather widget');
-                    updateWeather();
-                    updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000); // 10 minutes
-                }
-                
-                const forecastConfig = config.widgets.forecast;
-                if (forecastConfig && forecastConfig.enabled) {
-                    console.log('🌦️ [Magic Mirror] Starting forecast widget');
-                    updateForecast();
-                    updateIntervals.forecast = setInterval(updateForecast, 10 * 60 * 1000); // 10 minutes
-                }
-                
-                const calendarConfig = config.widgets.calendar;
-                if (calendarConfig && calendarConfig.enabled) {
-                    console.log('📅 [Magic Mirror] Starting calendar widget');
-                    updateCalendar();
-                    updateIntervals.calendar = setInterval(updateCalendar, 60 * 60 * 1000); // 1 hour
-                }
-                
-                const newsConfig = config.widgets.news;
-                if (newsConfig && newsConfig.enabled) {
-                    console.log('📰 [Magic Mirror] Starting news widget');
-                    updateNews();
-                    updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000); // 15 minutes
-                }
-                
-                const mediaConfig = config.widgets.media;
-                if (mediaConfig && mediaConfig.enabled) {
-                    console.log('🎵 [Magic Mirror] Starting media widget');
-                    updateMedia();
-                    updateIntervals.media = setInterval(updateMedia, 5000); // 5 seconds for real-time updates
-                }
-                
-                updateLastUpdateTime();
-                setInterval(updateLastUpdateTime, 60000); // Update every minute
-                
-                console.log('✅ [Magic Mirror] Dashboard initialization complete');
-                console.log('   If you expected different widgets, check admin configuration.');
-                
-            } catch (error) {
-                console.error('❌ [Magic Mirror] Error initializing dashboard:', error);
-                console.error('   Error details:', error.message);
-                console.error('   Stack trace:', error.stack);
-                
-                // Show error screen
-                showErrorScreen(
-                    'Failed to initialize dashboard: ' + error.message,
-                    `Error Type: ${error.name}\n` +
-                    `Message: ${error.message}\n\n` +
-                    `Stack Trace:\n${error.stack}\n\n` +
-                    `Please check the browser console (F12) for more details.`
-                );
+                // Show error screen for other errors
+                showMagicMirrorErrorScreen(error, error.details);
             }
         }
 
@@ -1200,7 +1263,7 @@
         }
 
         // Initialize on page load
-        window.addEventListener('DOMContentLoaded', initDashboard);
+        document.addEventListener('DOMContentLoaded', initMagicMirrorDashboard);
     </script>
 </body>
 </html>

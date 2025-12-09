@@ -4707,6 +4707,69 @@ app.post('/admin/api/magicmirror/config', requireAuth, (req, res) => {
   }
 });
 
+// Public read-only API endpoint for Magic Mirror config (for dashboard page load)
+app.get('/api/magic-mirror/config', (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`📊 [Magic Mirror Config API] ${timestamp} - Request from ${clientIp}`);
+  
+  try {
+    // Load the full config (same as admin uses)
+    const config = magicMirror.getFullConfig();
+    
+    // Check if Magic Mirror is enabled
+    if (!config.enabled) {
+      console.log(`⚠️  [Magic Mirror Config API] ${timestamp} - Access denied: Magic Mirror is disabled`);
+      logger.warning(logger.categories.MAGIC_MIRROR, `Config API access denied from ${clientIp}: Magic Mirror is disabled`);
+      return res.status(403).json({ 
+        success: false,
+        error: 'Magic Mirror is not enabled',
+        message: 'Please enable Magic Mirror in the admin settings'
+      });
+    }
+    
+    // Count widgets for logging
+    const widgets = config.widgets || {};
+    const allWidgets = Object.keys(widgets);
+    const enabledWidgets = allWidgets.filter(w => widgets[w]?.enabled === true);
+    const disabledWidgets = allWidgets.filter(w => widgets[w]?.enabled !== true);
+    
+    console.log(`✅ [Magic Mirror Config API] ${timestamp} - Config loaded successfully`);
+    console.log(`   Total widgets: ${allWidgets.length}`);
+    console.log(`   Enabled (${enabledWidgets.length}): ${enabledWidgets.join(', ') || 'NONE'}`);
+    console.log(`   Disabled (${disabledWidgets.length}): ${disabledWidgets.join(', ') || 'NONE'}`);
+    
+    logger.success(logger.categories.MAGIC_MIRROR, 
+      `Config API: Loaded config for ${clientIp} - ${enabledWidgets.length} enabled, ${disabledWidgets.length} disabled widgets`);
+    
+    // Return success response with full config
+    res.json({
+      success: true,
+      config: config
+    });
+    
+  } catch (err) {
+    const configPath = require('path').join(__dirname, 'config', 'magicmirror-config.json.enc');
+    console.error(`❌ [Magic Mirror Config API] ${timestamp} - Error loading config:`, err.message);
+    console.error(`   Config path: ${configPath}`);
+    console.error(`   Error details:`, err.stack);
+    
+    logger.error(logger.categories.MAGIC_MIRROR, 
+      `Config API error for ${clientIp}: ${err.message} (path: ${configPath})`);
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to load Magic Mirror configuration',
+      message: err.message,
+      details: {
+        path: configPath,
+        timestamp: timestamp
+      }
+    });
+  }
+});
+
 // Regenerate Magic Mirror dashboard
 app.post('/admin/api/magicmirror/regenerate', requireAuth, (req, res) => {
   const timestamp = new Date().toISOString();
