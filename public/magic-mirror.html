@@ -571,7 +571,6 @@
         async function checkForConfigUpdates() {
             try {
                 const newConfig = await loadMagicMirrorConfig();
-                const newConfig = await loadMagicMirrorConfig();
                 
                 // Check if configuration version has changed
                 if (currentConfigVersion && newConfig.configVersion && 
@@ -629,16 +628,15 @@
                 console.error('   Admin configuration issue detected. Displaying error screen instead of defaults.');
                 
                 // Show error screen instead of defaults
-                showMagicMirrorErrorScreen(
-                    new Error('No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.'),
-                    {
-                        configVersion: currentConfigVersion || 'not set',
-                        lastClear: config.lastClearTimestamp || 'never',
-                        totalWidgets: Object.keys(config.widgets || {}).length,
-                        enabled: enabledWidgets.length,
-                        available: Object.keys(config.widgets || {}).join(', ')
-                    }
-                );
+                const noWidgetsError = new Error('No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.');
+                const debugInfo = {
+                    configVersion: currentConfigVersion || 'not set',
+                    lastClear: config.lastClearTimestamp || 'never',
+                    totalWidgets: Object.keys(config.widgets || {}).length,
+                    enabled: enabledWidgets.length,
+                    available: Object.keys(config.widgets || {}).join(', ')
+                };
+                showMagicMirrorErrorScreen(noWidgetsError, debugInfo);
                 return;
             }
             
@@ -663,15 +661,14 @@
                 console.error('   This should not happen - we already verified widgets are enabled.');
                 console.error('   This indicates a bug in createWidgets() function.');
                 // Show error screen
-                showMagicMirrorErrorScreen(
-                    new Error('Internal error: Widget creation failed despite having enabled widgets. Please report this bug.'),
-                    {
-                        expectedWidgets: enabledWidgets.length,
-                        createdWidgets: 0,
-                        enabledWidgets: enabledWidgets.join(', '),
-                        note: 'This is likely a bug in the createWidgets() function.'
-                    }
-                );
+                const widgetCreationError = new Error('Internal error: Widget creation failed despite having enabled widgets. Please report this bug.');
+                const creationDebugInfo = {
+                    expectedWidgets: enabledWidgets.length,
+                    createdWidgets: 0,
+                    enabledWidgets: enabledWidgets.join(', '),
+                    note: 'This is likely a bug in the createWidgets() function.'
+                };
+                showMagicMirrorErrorScreen(widgetCreationError, creationDebugInfo);
                 return;
             }
             
