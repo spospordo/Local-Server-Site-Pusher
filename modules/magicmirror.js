@@ -868,14 +868,21 @@ function generateDefaultHTML() {
         async function initDashboard() {
             try {
                 console.log('🪞 [Magic Mirror] Initializing dashboard...');
-                const response = await fetch('/api/magicmirror/data');
+                const response = await fetch('/api/magic-mirror/config');
                 
                 if (!response.ok) {
-                    console.error('❌ [Magic Mirror] Failed to fetch Magic Mirror data. Status:', response.status);
+                    console.error('❌ [Magic Mirror] Failed to fetch Magic Mirror config. Status:', response.status);
                     return;
                 }
                 
-                const config = await response.json();
+                const data = await response.json();
+                
+                if (!data.success) {
+                    console.error('❌ [Magic Mirror] Config request failed:', data.error || data.message);
+                    return;
+                }
+                
+                const config = data.config;
                 console.log('📊 [Magic Mirror] Config loaded:', {
                     enabled: config.enabled,
                     widgets: Object.keys(config.widgets || {})
