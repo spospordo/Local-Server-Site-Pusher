@@ -91,7 +91,7 @@ async function runTests() {
         
         if (response.statusCode === 403) {
             // If disabled, check for proper error structure
-            if (!response.body.success === false) {
+            if (response.body.success !== false) {
                 throw new Error('Missing success=false in disabled response');
             }
             if (!response.body.error) {
