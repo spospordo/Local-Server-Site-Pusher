@@ -420,7 +420,7 @@
             document.getElementById('dashboard-container').style.display = 'block';
         }
 
-        // Load Magic Mirror configuration from API
+        // Load Smart Mirror configuration from API
         async function loadConfig() {
             try {
                 const response = await fetch('/api/magic-mirror/config', { cache: 'no-store' });
@@ -565,6 +565,7 @@
             if (!container) return;
             
             try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
                 const response = await fetch('/api/magicmirror/weather');
                 if (!response.ok) {
                     throw new Error('Failed to fetch weather');
@@ -612,6 +613,7 @@
             if (!container) return;
             
             try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
                 const response = await fetch('/api/magicmirror/forecast');
                 if (!response.ok) {
                     throw new Error('Failed to fetch forecast');
@@ -659,6 +661,7 @@
             if (!container) return;
             
             try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
                 const response = await fetch('/api/magicmirror/calendar');
                 if (!response.ok) {
                     throw new Error('Failed to fetch calendar');
@@ -689,6 +692,7 @@
             if (!container) return;
             
             try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
                 const response = await fetch('/api/magicmirror/news');
                 if (!response.ok) {
                     throw new Error('Failed to fetch news');
