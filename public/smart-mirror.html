@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Mirror Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .container {
+            padding: 1.5rem;
+            max-width: 100%;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        .error-container {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(255, 59, 48, 0.1);
+            border: 2px solid rgba(255, 59, 48, 0.3);
+            border-radius: 10px;
+            margin: 2rem auto;
+            max-width: 600px;
+        }
+
+        .error-container h2 {
+            color: #ff3b30;
+            margin-bottom: 1rem;
+        }
+
+        .error-container p {
+            color: #ddd;
+            line-height: 1.6;
+        }
+
+        .loading-container {
+            text-align: center;
+            padding: 3rem;
+            color: #aaa;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(74, 144, 226, 0.3);
+            border-radius: 50%;
+            border-top-color: #4a90e2;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Dynamic grid layout */
+        .widget-grid {
+            display: grid;
+            min-height: calc(100vh - 150px);
+            padding: 0.5rem;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
+        }
+
+        .widget:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(74, 144, 226, 0.2);
+        }
+
+        .widget-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .widget-icon {
+            font-size: 2rem;
+            margin-right: 1rem;
+        }
+
+        .widget-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
+
+        .widget-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        /* Clock widget styles */
+        .clock-time {
+            font-size: 4rem;
+            font-weight: 300;
+            text-align: center;
+            margin: 1rem 0;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        .clock-date {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #aaa;
+        }
+
+        /* Weather widget styles */
+        .weather-icon {
+            text-align: center;
+            font-size: 4rem;
+            margin: 1rem 0;
+        }
+
+        .temperature-display {
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .temp-primary {
+            font-size: 3rem;
+            font-weight: 500;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.3);
+        }
+
+        .temp-secondary {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-top: 0.25rem;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .weather-detail {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        /* Calendar widget styles */
+        .calendar-event {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #4a90e2;
+        }
+
+        .event-time {
+            color: #4a90e2;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .event-title {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* News widget styles */
+        .news-item {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #ff6b6b;
+        }
+
+        .news-title {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .news-time {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        /* Media widget styles */
+        .media-player-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .media-album-art {
+            flex-shrink: 0;
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .media-album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .media-title {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-artist {
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-bottom: 0.3rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-state {
+            font-size: 0.9rem;
+            color: #4a90e2;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        .widget-loading {
+            text-align: center;
+            padding: 2rem;
+            color: #aaa;
+        }
+
+        .widget-error {
+            padding: 1rem;
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            border-radius: 8px;
+            color: #ff6b6b;
+            text-align: center;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .widget-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .widget {
+                grid-column: 1 !important;
+                grid-row: auto !important;
+            }
+            
+            .clock-time {
+                font-size: 3rem;
+            }
+            
+            .temp-primary {
+                font-size: 2.5rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Smart Mirror Dashboard</h1>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loading-container" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 1rem;">Loading dashboard...</p>
+        </div>
+
+        <!-- Error state -->
+        <div id="error-container" class="error-container" style="display: none;">
+            <h2 id="error-title">⚠️ Error</h2>
+            <p id="error-message"></p>
+        </div>
+
+        <!-- Dashboard content -->
+        <div id="dashboard-container" style="display: none;">
+            <div id="widget-grid" class="widget-grid"></div>
+            <div class="last-update" id="last-update"></div>
+        </div>
+    </div>
+
+    <script>
+        // Application state
+        let config = null;
+        let updateIntervals = {};
+        let configCheckInterval = null;
+        let currentConfigVersion = null;
+
+        // Widget templates with icons and basic structure
+        const WIDGET_TEMPLATES = {
+            clock: {
+                icon: '🕐',
+                title: 'Clock',
+                render: () => `
+                    <div class="clock-time" data-widget-content="clock-time">--:--</div>
+                    <div class="clock-date" data-widget-content="clock-date">Loading...</div>
+                `
+            },
+            weather: {
+                icon: '🌤️',
+                title: 'Current Weather',
+                render: () => '<div data-widget-content="weather"><div class="widget-loading">Loading weather data...</div></div>'
+            },
+            forecast: {
+                icon: '🌦️',
+                title: 'Forecast',
+                render: () => '<div data-widget-content="forecast"><div class="widget-loading">Loading forecast...</div></div>'
+            },
+            calendar: {
+                icon: '📅',
+                title: 'Calendar',
+                render: () => '<div data-widget-content="calendar"><div class="widget-loading">Loading calendar events...</div></div>'
+            },
+            news: {
+                icon: '📰',
+                title: 'News',
+                render: () => '<div data-widget-content="news"><div class="widget-loading">Loading news...</div></div>'
+            },
+            media: {
+                icon: '🎵',
+                title: 'Now Playing',
+                render: () => '<div data-widget-content="media"><div class="widget-loading">Loading media data...</div></div>'
+            }
+        };
+
+        // Weather icon mapping
+        const WEATHER_ICONS = {
+            'Clear': '☀️',
+            'Clouds': '☁️',
+            'Rain': '🌧️',
+            'Snow': '❄️',
+            'Thunderstorm': '⛈️',
+            'Drizzle': '🌦️',
+            'Mist': '🌫️',
+            'Fog': '🌫️'
+        };
+
+        // Utility functions
+        function showError(title, message) {
+            document.getElementById('loading-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'none';
+            document.getElementById('error-container').style.display = 'block';
+            document.getElementById('error-title').textContent = title;
+            document.getElementById('error-message').textContent = message;
+        }
+
+        function showDashboard() {
+            document.getElementById('loading-container').style.display = 'none';
+            document.getElementById('error-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'block';
+        }
+
+        // Load Smart Mirror configuration from API
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/magic-mirror/config', { cache: 'no-store' });
+                
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Magic Mirror is not enabled. Please enable it in the admin settings.');
+                    }
+                    throw new Error(`Failed to load configuration: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || data.message || 'Failed to load configuration');
+                }
+                
+                return data.config;
+            } catch (error) {
+                console.error('Error loading config:', error);
+                throw error;
+            }
+        }
+
+        // Check for configuration updates
+        async function checkForConfigUpdates() {
+            try {
+                const newConfig = await loadConfig();
+                
+                if (currentConfigVersion && newConfig.configVersion && 
+                    newConfig.configVersion !== currentConfigVersion) {
+                    console.log('Configuration updated! Reloading dashboard...');
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error checking for config updates:', error);
+                if (error.message.includes('not enabled')) {
+                    // Magic Mirror was disabled, reload to show error
+                    window.location.reload();
+                }
+            }
+        }
+
+        // Build and render the widget grid
+        function renderWidgetGrid(config) {
+            const gridContainer = document.getElementById('widget-grid');
+            gridContainer.innerHTML = '';
+
+            // Get grid layout configuration
+            const gridLayout = config.gridLayout || { columns: 12, rows: 6, gap: 16 };
+            
+            // Apply grid CSS
+            gridContainer.style.gridTemplateColumns = `repeat(${gridLayout.columns || 12}, 1fr)`;
+            gridContainer.style.gridTemplateRows = `repeat(${gridLayout.rows || 6}, minmax(100px, auto))`;
+            gridContainer.style.gap = `${gridLayout.gap || 16}px`;
+
+            // Iterate through all widgets in config
+            let widgetCount = 0;
+            for (const [widgetName, widgetConfig] of Object.entries(config.widgets || {})) {
+                // CRITICAL: Only render widgets that have enabled === true
+                if (!widgetConfig || widgetConfig.enabled !== true) {
+                    console.log(`Skipping widget '${widgetName}': enabled=${widgetConfig?.enabled}`);
+                    continue;
+                }
+
+                // Get template for this widget type
+                const template = WIDGET_TEMPLATES[widgetName];
+                if (!template) {
+                    console.warn(`No template found for widget: ${widgetName}`);
+                    continue;
+                }
+
+                // Get grid position from config
+                const gridPosition = widgetConfig.gridPosition || {
+                    col: 1,
+                    row: 1,
+                    colSpan: 4,
+                    rowSpan: 2
+                };
+
+                // Create widget element
+                const widgetElement = document.createElement('div');
+                widgetElement.className = 'widget';
+                widgetElement.id = `widget-${widgetName}`;
+                widgetElement.dataset.widgetType = widgetName;
+                
+                // Set grid position
+                widgetElement.style.gridColumn = `${gridPosition.col} / span ${gridPosition.colSpan}`;
+                widgetElement.style.gridRow = `${gridPosition.row} / span ${gridPosition.rowSpan}`;
+                
+                // Render widget content
+                widgetElement.innerHTML = `
+                    <div class="widget-header">
+                        <div class="widget-icon">${template.icon}</div>
+                        <div class="widget-title">${template.title}</div>
+                    </div>
+                    <div class="widget-content">
+                        ${template.render()}
+                    </div>
+                `;
+                
+                gridContainer.appendChild(widgetElement);
+                widgetCount++;
+            }
+
+            console.log(`Rendered ${widgetCount} widgets`);
+            
+            if (widgetCount === 0) {
+                showError(
+                    '⚠️ No Widgets Enabled',
+                    'No widgets are enabled in your dashboard configuration. Please go to Admin → Server → Magic Mirror and enable at least one widget.'
+                );
+                return false;
+            }
+
+            return true;
+        }
+
+        // Widget update functions
+        function updateClock() {
+            const timeElement = document.querySelector('[data-widget-content="clock-time"]');
+            const dateElement = document.querySelector('[data-widget-content="clock-date"]');
+            
+            if (!timeElement || !dateElement) return;
+            
+            const now = new Date();
+            timeElement.textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            dateElement.textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        async function updateWeather() {
+            const container = document.querySelector('[data-widget-content="weather"]');
+            if (!container) return;
+            
+            try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
+                const response = await fetch('/api/magicmirror/weather');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch weather');
+                }
+                
+                const data = await response.json();
+                
+                if (data.location) {
+                    const icon = WEATHER_ICONS[data.condition] || '🌤️';
+                    const tempF = data.temperatureF !== undefined ? data.temperatureF : data.temperature;
+                    const tempC = data.temperatureC !== undefined ? data.temperatureC : '--';
+                    
+                    container.innerHTML = `
+                        <div class="weather-icon">${icon}</div>
+                        <div class="temperature-display">
+                            <div class="temp-primary">${tempF}°F</div>
+                            <div class="temp-secondary">${tempC}°C</div>
+                        </div>
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <div style="font-size: 1.2rem;">${data.condition}</div>
+                            <div style="color: #aaa; font-size: 0.9rem;">${data.location}</div>
+                        </div>
+                        <div class="weather-details">
+                            <div class="weather-detail">
+                                <div style="color: #aaa; font-size: 0.9rem;">Humidity</div>
+                                <div style="font-size: 1.2rem;">${data.humidity}%</div>
+                            </div>
+                            <div class="weather-detail">
+                                <div style="color: #aaa; font-size: 0.9rem;">Wind</div>
+                                <div style="font-size: 1.2rem;">${data.windSpeed} m/s</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="widget-error">Weather data not available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating weather:', error);
+                container.innerHTML = '<div class="widget-error">' + error.message + '</div>';
+            }
+        }
+
+        async function updateForecast() {
+            const container = document.querySelector('[data-widget-content="forecast"]');
+            if (!container) return;
+            
+            try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
+                const response = await fetch('/api/magicmirror/forecast');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch forecast');
+                }
+                
+                const data = await response.json();
+                
+                if (data.forecast && data.forecast.length > 0) {
+                    const forecastHtml = data.forecast.map(day => {
+                        const icon = WEATHER_ICONS[day.condition] || '🌤️';
+                        const maxF = day.maxTempF !== undefined ? day.maxTempF : day.maxTemp;
+                        const minF = day.minTempF !== undefined ? day.minTempF : day.minTemp;
+                        const maxC = day.maxTempC !== undefined ? day.maxTempC : '--';
+                        const minC = day.minTempC !== undefined ? day.minTempC : '--';
+                        
+                        return `
+                            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 0.8rem 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div style="font-size: 0.9rem; color: #aaa;">${day.date}</div>
+                                        <div style="font-size: 0.85rem; color: #888; margin-top: 0.2rem;">${day.condition}</div>
+                                    </div>
+                                    <div style="font-size: 2rem; margin: 0 1rem;">${icon}</div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.2rem; font-weight: 500;">${maxF}°F / ${minF}°F</div>
+                                        <div style="font-size: 0.9rem; color: #aaa; margin-top: 0.1rem;">${maxC}°C / ${minC}°C</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    container.innerHTML = forecastHtml;
+                } else {
+                    container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No forecast data available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating forecast:', error);
+                container.innerHTML = '<div class="widget-error">' + error.message + '</div>';
+            }
+        }
+
+        async function updateCalendar() {
+            const container = document.querySelector('[data-widget-content="calendar"]');
+            if (!container) return;
+            
+            try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
+                const response = await fetch('/api/magicmirror/calendar');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch calendar');
+                }
+                
+                const data = await response.json();
+                
+                if (data.events && data.events.length > 0) {
+                    const eventsHtml = data.events.map(event => `
+                        <div class="calendar-event">
+                            <div class="event-time">${event.date} at ${event.time}</div>
+                            <div class="event-title">${event.title}</div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = eventsHtml;
+                } else {
+                    container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No upcoming events</div>';
+                }
+            } catch (error) {
+                console.error('Error updating calendar:', error);
+                container.innerHTML = '<div class="widget-error">' + error.message + '</div>';
+            }
+        }
+
+        async function updateNews() {
+            const container = document.querySelector('[data-widget-content="news"]');
+            if (!container) return;
+            
+            try {
+                // Note: Using legacy Magic Mirror API endpoint for compatibility
+                const response = await fetch('/api/magicmirror/news');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch news');
+                }
+                
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    const newsHtml = data.items.map(item => `
+                        <div class="news-item">
+                            <div class="news-title">${item.title}</div>
+                            <div class="news-time">${item.date}</div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = newsHtml;
+                } else {
+                    container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No news items available</div>';
+                }
+            } catch (error) {
+                console.error('Error updating news:', error);
+                container.innerHTML = '<div class="widget-error">' + error.message + '</div>';
+            }
+        }
+
+        async function updateMedia() {
+            const container = document.querySelector('[data-widget-content="media"]');
+            if (!container) return;
+            
+            try {
+                const response = await fetch('/api/media-streaming');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch media data');
+                }
+                
+                const result = await response.json();
+                const data = result.data;
+                
+                if (!result.success || !data.hasActiveMedia || data.players.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No active media players</div>';
+                    return;
+                }
+                
+                const activePlayer = data.players.find(p => p.isActive);
+                if (!activePlayer) {
+                    container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #aaa;">No media playing</div>';
+                    return;
+                }
+                
+                let mediaHtml = `
+                    <div class="media-player-info">
+                        ${activePlayer.entity_picture ? 
+                            `<div class="media-album-art">
+                                <img src="${activePlayer.entity_picture}" alt="Album Art" />
+                            </div>` : ''}
+                        <div class="media-details">
+                            <div class="media-title">${activePlayer.media_title || 'Unknown Track'}</div>
+                            ${activePlayer.media_artist ? `<div class="media-artist">${activePlayer.media_artist}</div>` : ''}
+                            <div class="media-state">${activePlayer.state === 'playing' ? '▶ Playing' : activePlayer.state === 'paused' ? '⏸ Paused' : activePlayer.state}</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = mediaHtml;
+            } catch (error) {
+                console.error('Error updating media:', error);
+                container.innerHTML = '<div class="widget-error">' + error.message + '</div>';
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const element = document.getElementById('last-update');
+            if (!element) return;
+            
+            const now = new Date();
+            element.textContent = 'Last updated: ' + now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+        }
+
+        // Initialize widgets based on config
+        function initializeWidgets(config) {
+            const widgets = config.widgets || {};
+            
+            // Initialize each enabled widget
+            for (const [widgetName, widgetConfig] of Object.entries(widgets)) {
+                if (widgetConfig?.enabled !== true) continue;
+                
+                switch (widgetName) {
+                    case 'clock':
+                        updateClock();
+                        updateIntervals.clock = setInterval(updateClock, 1000);
+                        break;
+                    case 'weather':
+                        updateWeather();
+                        updateIntervals.weather = setInterval(updateWeather, 10 * 60 * 1000);
+                        break;
+                    case 'forecast':
+                        updateForecast();
+                        updateIntervals.forecast = setInterval(updateForecast, 10 * 60 * 1000);
+                        break;
+                    case 'calendar':
+                        updateCalendar();
+                        updateIntervals.calendar = setInterval(updateCalendar, 60 * 60 * 1000);
+                        break;
+                    case 'news':
+                        updateNews();
+                        updateIntervals.news = setInterval(updateNews, 15 * 60 * 1000);
+                        break;
+                    case 'media':
+                        updateMedia();
+                        updateIntervals.media = setInterval(updateMedia, 5000);
+                        break;
+                }
+            }
+            
+            // Update last update time
+            updateLastUpdateTime();
+            setInterval(updateLastUpdateTime, 60000);
+            
+            // Check for config updates every 10 seconds
+            configCheckInterval = setInterval(checkForConfigUpdates, 10000);
+        }
+
+        // Main initialization function
+        async function initialize() {
+            try {
+                console.log('Smart Mirror: Loading configuration...');
+                
+                // Load configuration from API
+                config = await loadConfig();
+                currentConfigVersion = config.configVersion;
+                
+                console.log('Smart Mirror: Configuration loaded', {
+                    version: currentConfigVersion,
+                    enabled: config.enabled,
+                    widgets: Object.keys(config.widgets || {})
+                });
+                
+                // Render widget grid
+                const rendered = renderWidgetGrid(config);
+                if (!rendered) {
+                    return; // Error already shown
+                }
+                
+                // Show dashboard
+                showDashboard();
+                
+                // Initialize widgets
+                initializeWidgets(config);
+                
+                console.log('Smart Mirror: Dashboard initialized successfully');
+                
+            } catch (error) {
+                console.error('Smart Mirror: Initialization error:', error);
+                showError(
+                    '⚠️ Failed to Load Dashboard',
+                    error.message || 'An unknown error occurred while loading the dashboard.'
+                );
+            }
+        }
+
+        // Start initialization when page loads
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
