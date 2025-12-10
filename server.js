@@ -4714,6 +4714,13 @@ app.get('/api/magic-mirror/config', (req, res) => {
   
   console.log(`📊 [Magic Mirror Config API] ${timestamp} - Request from ${clientIp}`);
   
+  // CRITICAL FIX: Prevent browser caching of config API responses
+  // This ensures dashboard always gets the latest config without stale data
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  
   try {
     // Load the full config (same as admin uses)
     const config = magicMirror.getFullConfig();
@@ -5645,6 +5652,14 @@ app.get('/magic-mirror', (req, res) => {
   const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
   
   console.log(`🪞 [Magic Mirror] ${timestamp} - Request from ${clientIp} for /magic-mirror`);
+  
+  // CRITICAL FIX: Prevent browser caching of Magic Mirror HTML
+  // This ensures dashboard HTML is never served from cache
+  // Combined with config API cache headers, this prevents stale dashboard state
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
   
   const htmlPath = path.join(__dirname, 'public', 'magic-mirror.html');
   
