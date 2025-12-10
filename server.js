@@ -4722,8 +4722,10 @@ app.get('/api/magic-mirror/config', (req, res) => {
   res.setHeader('Surrogate-Control', 'no-store');
   
   try {
-    // Load the full config (same as admin uses)
-    const config = magicMirror.getFullConfig();
+    // Fix: Use getConfig() instead of getFullConfig() to return processed/normalized config
+    // This ensures widgets are properly converted to { enabled: true/false } format
+    // and matches the behavior of the legacy /api/magicmirror/data endpoint
+    const config = magicMirror.getConfig();
     
     // Check if Magic Mirror is enabled
     if (!config.enabled) {
