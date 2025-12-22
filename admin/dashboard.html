@@ -3116,6 +3116,21 @@
             <div class="card-body">
                 <p>Configure and manage your Magic Mirror information dashboard:</p>
                 
+                <!-- Health Status Section -->
+                <div id="magicMirrorHealthSection" style="margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <h3 style="color: #28a745; margin: 0;">🏥 Configuration Health</h3>
+                        <button class="btn btn-sm" onclick="refreshMagicMirrorHealth()" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                    <div id="magicMirrorHealthContent">
+                        <div style="text-align: center; padding: 1rem; color: #666;">
+                            Click refresh to check configuration health...
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="form-row">
                     <div class="form-group">
                         <label for="magicMirrorEnabled">Magic Mirror Dashboard</label>
@@ -10282,6 +10297,92 @@
             saveMagicMirrorConfig();
         }
         
+        // Refresh Magic Mirror health status
+        async function refreshMagicMirrorHealth() {
+            const healthContent = document.getElementById('magicMirrorHealthContent');
+            const healthSection = document.getElementById('magicMirrorHealthSection');
+            
+            // Show loading state
+            healthContent.innerHTML = '<div style="text-align: center; padding: 1rem; color: #666;"><span class="spinner"></span> Checking health...</div>';
+            
+            try {
+                const response = await fetch('/admin/api/magicmirror/health');
+                const result = await response.json();
+                
+                if (result.success && result.health) {
+                    const health = result.health;
+                    const isHealthy = health.status === 'healthy';
+                    
+                    // Update section border color based on health
+                    healthSection.style.borderLeftColor = isHealthy ? '#28a745' : '#dc3545';
+                    const titleColor = isHealthy ? '#28a745' : '#dc3545';
+                    healthSection.querySelector('h3').style.color = titleColor;
+                    
+                    // Build health display
+                    let html = '<div style="font-size: 0.9rem;">';
+                    
+                    // Overall status
+                    html += '<div style="margin-bottom: 0.75rem;">';
+                    html += `<strong>Status:</strong> <span style="color: ${isHealthy ? '#28a745' : '#dc3545'}; font-weight: 600;">`;
+                    html += isHealthy ? '✅ Healthy' : '❌ Unhealthy';
+                    html += '</span></div>';
+                    
+                    // Config file status
+                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">';
+                    html += '<div>';
+                    html += `<strong>Config File:</strong> ${health.configFile.exists ? '✅ Exists' : '❌ Missing'}`;
+                    html += '</div>';
+                    html += '<div>';
+                    html += `<strong>Encryption Key:</strong> ${health.keyFile.exists ? '✅ Exists' : '❌ Missing'}`;
+                    html += '</div>';
+                    html += '<div>';
+                    html += `<strong>Can Decrypt:</strong> ${health.canDecrypt ? '✅ Yes' : '❌ No'}`;
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    // Version info (if available)
+                    if (health.configVersion || health.lastClear || health.enabledWidgets.length > 0) {
+                        html += '<div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #dee2e6;">';
+                        html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">';
+                        
+                        if (health.configVersion) {
+                            const versionDate = new Date(health.configVersion);
+                            html += `<div><strong>Config Version:</strong><br><code style="font-size: 0.85rem;">${versionDate.toLocaleString()}</code></div>`;
+                        }
+                        
+                        if (health.lastClear) {
+                            const clearDate = new Date(health.lastClear);
+                            html += `<div><strong>Last Clear:</strong><br><code style="font-size: 0.85rem;">${clearDate.toLocaleString()}</code></div>`;
+                        }
+                        
+                        if (health.enabledWidgets.length > 0) {
+                            html += `<div><strong>Enabled Widgets:</strong><br>${health.enabledWidgets.length} (${health.enabledWidgets.join(', ')})</div>`;
+                        } else {
+                            html += `<div><strong>Enabled Widgets:</strong><br><span style="color: #ffc107;">⚠️ None</span></div>`;
+                        }
+                        
+                        html += '</div>';
+                        html += '</div>';
+                    }
+                    
+                    // Error info (if any)
+                    if (health.error) {
+                        html += '<div style="margin-top: 0.75rem; padding: 0.5rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">';
+                        html += `<strong>⚠️ Warning:</strong> ${health.error}`;
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                    healthContent.innerHTML = html;
+                } else {
+                    healthContent.innerHTML = '<div style="color: #dc3545; padding: 1rem;">Failed to fetch health status</div>';
+                }
+            } catch (error) {
+                console.error('Error fetching Magic Mirror health:', error);
+                healthContent.innerHTML = `<div style="color: #dc3545; padding: 1rem;">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
         async function loadMagicMirrorConfig() {
             try {
                 const response = await fetch('/admin/api/magicmirror/config');
@@ -10377,6 +10478,9 @@
                 
                 // Set news config
                 document.getElementById('newsSource').value = config.news?.source || '';
+                
+                // Load health status
+                refreshMagicMirrorHealth();
                 
             } catch (error) {
                 console.error('Error loading Magic Mirror config:', error);
