@@ -427,8 +427,62 @@ function getFullConfig() {
     return loadConfig();
 }
 
-// Generate default magic-mirror.html file
+// Check health of configuration persistence
+function checkHealth() {
+    try {
+        const health = {
+            configFile: {
+                exists: fs.existsSync(CONFIG_FILE),
+                path: CONFIG_FILE
+            },
+            keyFile: {
+                exists: fs.existsSync(KEY_FILE),
+                path: KEY_FILE
+            },
+            canDecrypt: false,
+            configVersion: null,
+            lastClear: null,
+            enabledWidgets: []
+        };
+        
+        // Try to load and decrypt config
+        if (health.configFile.exists && health.keyFile.exists) {
+            try {
+                const config = loadConfig();
+                health.canDecrypt = true;
+                health.configVersion = config.configVersion || null;
+                health.lastClear = config.lastClearTimestamp || null;
+                health.enabledWidgets = Object.keys(config.widgets || {})
+                    .filter(w => config.widgets[w]?.enabled);
+            } catch (error) {
+                health.canDecrypt = false;
+                health.error = error.message;
+            }
+        }
+        
+        health.status = health.configFile.exists && health.keyFile.exists && health.canDecrypt 
+            ? 'healthy' 
+            : 'unhealthy';
+        
+        return health;
+    } catch (error) {
+        console.error('❌ [Magic Mirror] Health check error:', error);
+        return {
+            status: 'error',
+            error: error.message
+        };
+    }
+}
+
+// DEPRECATED: Generate default magic-mirror.html file
+// This function is deprecated and should not be used for production.
+// The canonical dashboard file is public/magic-mirror.html which should be 
+// maintained in source control. This function remains only for backwards compatibility.
 function generateDefaultHTML() {
+    console.warn('⚠️  [Magic Mirror] generateDefaultHTML() is DEPRECATED and should not be used.');
+    console.warn('   The canonical dashboard is public/magic-mirror.html in source control.');
+    console.warn('   If the file is missing, restore it from git or deploy a fresh copy.');
+    
     try {
         const htmlPath = path.join(__dirname, '..', 'public', 'magic-mirror.html');
         
@@ -1436,7 +1490,8 @@ module.exports = {
     getConfig,
     updateConfig,
     getFullConfig,
-    generateDefaultHTML,
+    checkHealth,
+    generateDefaultHTML, // DEPRECATED - kept for backwards compatibility only
     regenerateDashboard,
     clearAndRefreshDashboard,
     // Export grid configuration and helpers

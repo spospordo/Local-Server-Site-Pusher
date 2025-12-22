@@ -4780,6 +4780,34 @@ app.get('/api/magic-mirror/config', (req, res) => {
 });
 
 // Regenerate Magic Mirror dashboard
+// Health check endpoint for Magic Mirror configuration
+app.get('/admin/api/magicmirror/health', requireAuth, (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  
+  console.log(`🏥 [Magic Mirror] ${timestamp} - Admin ${clientIp} requested health check`);
+  logger.info(logger.categories.MAGIC_MIRROR, `Admin ${clientIp} requested health check`);
+  
+  try {
+    const health = magicMirror.checkHealth();
+    
+    console.log(`✅ [Magic Mirror] ${timestamp} - Health check completed: ${health.status}`);
+    logger.info(logger.categories.MAGIC_MIRROR, `Health check completed: ${health.status}`);
+    
+    res.json({
+      success: true,
+      health
+    });
+  } catch (err) {
+    console.error(`❌ [Magic Mirror] ${timestamp} - Health check error:`, err.message);
+    logger.error(logger.categories.MAGIC_MIRROR, `Health check error: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Health check failed: ' + err.message 
+    });
+  }
+});
+
 app.post('/admin/api/magicmirror/regenerate', requireAuth, (req, res) => {
   const timestamp = new Date().toISOString();
   const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
@@ -4839,13 +4867,16 @@ app.post('/admin/api/magicmirror/clear-and-refresh', requireAuth, (req, res) => 
   }
 });
 
-// Generate magic-mirror.html if missing
+// DEPRECATED: Generate magic-mirror.html if missing
+// This endpoint is deprecated and should not be used.
+// The canonical dashboard file is public/magic-mirror.html maintained in source control.
 app.post('/api/magicmirror/generate', (req, res) => {
   const timestamp = new Date().toISOString();
   const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
   
-  console.log(`⚡ [Magic Mirror] ${timestamp} - User ${clientIp} triggered generation of magic-mirror.html`);
-  logger.info(logger.categories.MAGIC_MIRROR, `User ${clientIp} triggered generation of missing magic-mirror.html`);
+  console.warn(`⚠️  [Magic Mirror] ${timestamp} - DEPRECATED: User ${clientIp} triggered generation endpoint`);
+  console.warn('   This endpoint is deprecated. Restore public/magic-mirror.html from source control instead.');
+  logger.warn(logger.categories.MAGIC_MIRROR, `DEPRECATED: User ${clientIp} used deprecated /api/magicmirror/generate endpoint`);
   
   try {
     const result = magicMirror.generateDefaultHTML();
@@ -4855,7 +4886,8 @@ app.post('/api/magicmirror/generate', (req, res) => {
       logger.success(logger.categories.MAGIC_MIRROR, `magic-mirror.html generated successfully at ${result.path}`);
       res.json({ 
         success: true, 
-        message: 'magic-mirror.html generated successfully',
+        message: 'magic-mirror.html generated successfully (using deprecated method)',
+        warning: 'This endpoint is deprecated. Restore public/magic-mirror.html from source control instead.',
         path: result.path 
       });
     } else {
@@ -5668,6 +5700,7 @@ app.get('/magic-mirror', (req, res) => {
   // Check if file exists before serving
   if (!fs.existsSync(htmlPath)) {
     console.error(`❌ [Magic Mirror] ${timestamp} - ERROR: magic-mirror.html not found at ${htmlPath}`);
+    logger.error(logger.categories.MAGIC_MIRROR, `magic-mirror.html not found at ${htmlPath}`);
     return res.status(404).send(`
       <!DOCTYPE html>
       <html lang="en">
@@ -5689,7 +5722,7 @@ app.get('/magic-mirror', (req, res) => {
           }
           .container {
             text-align: center;
-            max-width: 600px;
+            max-width: 700px;
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border-radius: 15px;
@@ -5717,6 +5750,31 @@ app.get('/magic-mirror', (req, res) => {
             word-break: break-all;
             margin: 1rem 0;
           }
+          .recovery-steps {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1.5rem 0;
+          }
+          .recovery-steps h3 {
+            margin-top: 0;
+            color: #4a90e2;
+          }
+          .recovery-steps ol {
+            margin: 0.5rem 0 0 1.2rem;
+            padding: 0;
+          }
+          .recovery-steps li {
+            margin-bottom: 0.5rem;
+            color: #ddd;
+          }
+          .recovery-steps code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+          }
           .button {
             display: inline-block;
             background: #4a90e2;
@@ -5725,7 +5783,7 @@ app.get('/magic-mirror', (req, res) => {
             border-radius: 5px;
             text-decoration: none;
             font-weight: 500;
-            margin-top: 1rem;
+            margin: 0.5rem;
             cursor: pointer;
             border: none;
             font-size: 1rem;
@@ -5737,6 +5795,12 @@ app.get('/magic-mirror', (req, res) => {
           .button:disabled {
             background: #666;
             cursor: not-allowed;
+          }
+          .button.secondary {
+            background: #666;
+          }
+          .button.secondary:hover {
+            background: #555;
           }
           .message {
             margin-top: 1rem;
@@ -5754,6 +5818,15 @@ app.get('/magic-mirror', (req, res) => {
             border: 1px solid rgba(255, 59, 48, 0.3);
             color: #ff3b30;
           }
+          .warning-box {
+            background: rgba(255, 149, 0, 0.1);
+            border: 1px solid rgba(255, 149, 0, 0.3);
+            color: #ff9500;
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+          }
           .loading {
             display: inline-block;
             width: 1rem;
@@ -5770,13 +5843,30 @@ app.get('/magic-mirror', (req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>🪞 Magic Mirror Not Found</h1>
-          <p>The magic-mirror.html file is missing from the server.</p>
+          <h1>🪞 Magic Mirror Dashboard Not Found</h1>
+          <p><strong>The Magic Mirror dashboard file is missing from the server.</strong></p>
           <div class="path">Expected location: ${htmlPath}</div>
-          <p>Click the button below to generate a default Magic Mirror page.</p>
-          <button id="generateBtn" class="button" onclick="generateFile()">
-            Generate Magic Mirror Page
-          </button>
+          
+          <div class="recovery-steps">
+            <h3>📋 How to Recover:</h3>
+            <ol>
+              <li><strong>Restore from Git:</strong> Run <code>git checkout public/magic-mirror.html</code> to restore the canonical file</li>
+              <li><strong>Or redeploy:</strong> Deploy a fresh copy of the application from your repository</li>
+              <li><strong>Or use fallback:</strong> Click the button below to generate a basic version (not recommended for production)</li>
+            </ol>
+          </div>
+          
+          <div class="warning-box">
+            <strong>⚠️ Note:</strong> The dashboard file should be maintained in source control. Generating a new file is a temporary workaround and any customizations will be lost.
+          </div>
+          
+          <div>
+            <button id="generateBtn" class="button secondary" onclick="generateFile()">
+              Generate Fallback Dashboard (Temporary)
+            </button>
+            <a href="/admin" class="button">Go to Admin Panel</a>
+          </div>
+          
           <div id="message"></div>
         </div>
 
@@ -5800,19 +5890,51 @@ app.get('/magic-mirror', (req, res) => {
               const result = await response.json();
               
               if (result.success) {
-                messageDiv.innerHTML = '<div class="message success">✅ ' + result.message + '</div>';
+                let message = '✅ Dashboard generated successfully.';
+                if (result.warning) {
+                  message += '<br><small>' + result.warning + '</small>';
+                }
+                messageDiv.innerHTML = '<div class="message success">' + message + '</div>';
                 setTimeout(() => {
                   window.location.reload();
                 }, 2000);
               } else {
                 messageDiv.innerHTML = '<div class="message error">❌ ' + result.error + '</div>';
                 btn.disabled = false;
-                btn.innerHTML = 'Generate Magic Mirror Page';
+                btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
               }
             } catch (error) {
               messageDiv.innerHTML = '<div class="message error">❌ Error: ' + error.message + '</div>';
               btn.disabled = false;
-              btn.innerHTML = 'Generate Magic Mirror Page';
+              btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
+            }
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  }
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                let message = '✅ Dashboard generated successfully.';
+                if (result.warning) {
+                  message += '<br><small>' + result.warning + '</small>';
+                }
+                messageDiv.innerHTML = '<div class="message success">' + message + '</div>';
+                setTimeout(() => {
+                  window.location.reload();
+                }, 2000);
+              } else {
+                messageDiv.innerHTML = '<div class="message error">❌ ' + result.error + '</div>';
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
+              }
+            } catch (error) {
+              messageDiv.innerHTML = '<div class="message error">❌ Error: ' + error.message + '</div>';
+              btn.disabled = false;
+              btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
             }
           }
         </script>
