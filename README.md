@@ -9,7 +9,7 @@ A containerized web application with admin interface for serving web content and
 📊 **Status Monitoring**: Integration with Home Assistant and Cockpit  
 🐳 **Containerized**: Easy deployment with Docker  
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
-🪞 **Magic Mirror**: Customizable information dashboard for displaying time, weather, calendar, and news  
+🪞 **Magic Mirror**: Customizable information dashboard for displaying time, weather, calendar, and news (rebuilt as modern SPA)  
 
 ## Quick Start
 
@@ -90,7 +90,35 @@ The container automatically handles permission fixes for volume mounts and build
 
 For detailed troubleshooting, see [PORTAINER.md](PORTAINER.md).
 
-### Local Development
+## Magic Mirror Dashboard
+
+The Magic Mirror is a customizable information dashboard accessible at `/magic-mirror`. It displays real-time information including:
+
+- 🕐 **Clock**: Current time and date
+- 🌤️ **Weather**: Current conditions (requires API key)
+- 📅 **Forecast**: 5-day weather forecast
+- 📆 **Calendar**: Upcoming events from iCal feeds
+- 📰 **News**: RSS news headlines
+- 🎬 **Media**: Embedded media player
+
+### Features
+- **Modern SPA**: Built with vanilla JavaScript ES6 modules
+- **Real-time Updates**: Auto-refreshes every 30 seconds
+- **Responsive**: Works on desktop, tablet, and mobile
+- **Configurable**: Easy widget management via admin panel
+- **Grid Layout**: Flexible 12-column positioning system
+
+### Quick Setup
+1. Go to Admin Panel → Magic Mirror section
+2. Enable "Magic Mirror Dashboard"
+3. Enable desired widgets (Clock, Weather, etc.)
+4. Configure API keys if needed (weather requires OpenWeatherMap key)
+5. Save configuration
+6. Access dashboard at `http://localhost:3000/magic-mirror/`
+
+For detailed information, see [MAGIC_MIRROR_SPA_ARCHITECTURE.md](MAGIC_MIRROR_SPA_ARCHITECTURE.md).
+
+## Troubleshooting
 
 ```bash
 # Install dependencies
