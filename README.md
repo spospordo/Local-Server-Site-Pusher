@@ -337,6 +337,42 @@ The Magic Mirror uses the following API endpoints for data:
 - Settings persist across container restarts via volume mounts
 - API keys stored securely and never exposed to frontend
 
+### Health Monitoring & Dashboard Recovery
+
+The Magic Mirror dashboard now includes built-in health monitoring and recovery features:
+
+#### Health Check
+- Access the **Configuration Health** section in Admin → Server → Magic Mirror
+- Click "🔄 Refresh" to check:
+  - Configuration file status
+  - Encryption key availability
+  - Config decryption capability
+  - Current version timestamp
+  - Enabled widgets count
+- Health status updates automatically when you save configuration changes
+
+#### Dashboard Recovery
+If the Magic Mirror dashboard file (`public/magic-mirror.html`) is missing:
+
+1. **Preferred Method**: Restore from source control
+   ```bash
+   git checkout public/magic-mirror.html
+   ```
+
+2. **Alternative**: Redeploy the application from your repository
+
+3. **Fallback**: The system will show a recovery page with a button to generate a basic fallback version
+   - ⚠️ **Note**: This is temporary and should only be used as a last resort
+   - Any customizations will be lost
+   - The canonical dashboard should always be maintained in source control
+
+#### Static Dashboard Architecture
+The Magic Mirror dashboard is now served as a static Single Page Application (SPA):
+- **No runtime HTML generation** - the dashboard HTML file is a static asset
+- **Configuration loaded via API** - widgets and settings fetched from `/api/magic-mirror/config`
+- **Live updates** - changes in admin panel automatically reload the dashboard within 10 seconds
+- **Version tracking** - config includes version timestamps for change detection
+
 ### Testing
 
 Run the magic mirror test suite to validate the implementation:
