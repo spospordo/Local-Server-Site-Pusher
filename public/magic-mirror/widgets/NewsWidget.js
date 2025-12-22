@@ -38,7 +38,7 @@ export class NewsWidget extends BaseWidget {
                 return;
             }
             
-            const newsHTML = data.articles.slice(0, 10).map(article => {
+            const newsHTML = data.articles.slice(0, 10).map((article, index) => {
                 const pubDate = article.pubDate ? new Date(article.pubDate) : null;
                 const dateString = pubDate ? pubDate.toLocaleDateString('en-US', { 
                     month: 'short', 
@@ -48,7 +48,7 @@ export class NewsWidget extends BaseWidget {
                 }) : '';
                 
                 return `
-                    <div class="news-item" onclick="window.open('${this.escapeHtml(article.link)}', '_blank')">
+                    <div class="news-item" data-news-url="${this.escapeHtml(article.link)}" data-news-index="${index}">
                         <div class="news-title">${this.escapeHtml(article.title || 'Untitled')}</div>
                         ${dateString ? `<div class="news-date">${dateString}</div>` : ''}
                     </div>
@@ -56,6 +56,16 @@ export class NewsWidget extends BaseWidget {
             }).join('');
             
             contentElement.innerHTML = `<div class="news-list">${newsHTML}</div>`;
+            
+            // Add click handlers safely with addEventListener
+            contentElement.querySelectorAll('.news-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const url = item.getAttribute('data-news-url');
+                    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                    }
+                });
+            });
         } catch (error) {
             console.error('News widget error:', error);
             this.showError(contentElement, error.message || 'Failed to load news');

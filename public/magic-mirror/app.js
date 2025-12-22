@@ -15,7 +15,9 @@ class MagicMirrorApp {
         this.config = null;
         this.configVersion = null;
         this.pollInterval = null;
-        this.pollIntervalMs = 10000; // Poll every 10 seconds for config changes
+        // Configurable polling interval - 30 seconds default to reduce server load
+        // Can be overridden by setting window.MAGIC_MIRROR_POLL_INTERVAL_MS
+        this.pollIntervalMs = (typeof window !== 'undefined' && window.MAGIC_MIRROR_POLL_INTERVAL_MS) || 30000;
     }
 
     async init() {

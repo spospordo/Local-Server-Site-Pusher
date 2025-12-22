@@ -770,9 +770,10 @@ if (isProduction && !suppressWarnings) {
 // Static files for public web content
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// Serve Magic Mirror static assets (CSS, JS, etc.) - must be before HTML route
+// Serve Magic Mirror static assets (CSS, JS, etc.)
+// The static middleware will automatically serve index.html when accessing /magic-mirror/
 app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mirror'), {
-    index: false  // Don't auto-serve index.html - we handle that with a specific route
+    index: false  // Don't auto-serve index.html for the root path without trailing slash
 }));
 
 // Authentication middleware
@@ -5706,13 +5707,13 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n${'='.repeat(80)}\n`);
   
   // Magic Mirror status check
-  const magicMirrorHtmlPath = path.join(__dirname, 'public', 'magic-mirror.html');
-  if (fs.existsSync(magicMirrorHtmlPath)) {
-    console.log('✅ Magic Mirror page ready and available');
-    logger.success(logger.categories.MAGIC_MIRROR, 'Magic Mirror page ready and available');
+  const magicMirrorIndexPath = path.join(__dirname, 'public', 'magic-mirror', 'index.html');
+  if (fs.existsSync(magicMirrorIndexPath)) {
+    console.log('✅ Magic Mirror SPA ready and available at /magic-mirror');
+    logger.success(logger.categories.MAGIC_MIRROR, 'Magic Mirror SPA ready and available');
   } else {
-    console.error('❌ WARNING: magic-mirror.html not found!');
-    logger.error(logger.categories.MAGIC_MIRROR, 'magic-mirror.html not found at expected path');
+    console.error('❌ WARNING: Magic Mirror SPA files not found!');
+    logger.error(logger.categories.MAGIC_MIRROR, 'Magic Mirror SPA files not found at expected path');
   }
   
   console.log('📝 Magic Mirror request logging is enabled');
