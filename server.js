@@ -770,6 +770,11 @@ if (isProduction && !suppressWarnings) {
 // Static files for public web content
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+// Serve Magic Mirror static assets (CSS, JS, etc.) - must be before HTML route
+app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mirror'), {
+    index: false  // Don't auto-serve index.html - we handle that with a specific route
+}));
+
 // Authentication middleware
 const requireAuth = (req, res, next) => {
   if (req.session.authenticated) {
@@ -5544,99 +5549,9 @@ app.get('/api/magicmirror/news/test', async (req, res) => {
 });
 
 // Magic Mirror display page - New SPA Implementation
+// Redirect to trailing slash so static middleware serves index.html properly
 app.get('/magic-mirror', (req, res) => {
-  const timestamp = new Date().toISOString();
-  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-  
-  console.log(`🪞 [Magic Mirror] ${timestamp} - Request from ${clientIp} for /magic-mirror`);
-  logger.info(logger.categories.MAGIC_MIRROR, `Dashboard request from ${clientIp}`);
-  
-  // Prevent browser caching of dashboard
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Surrogate-Control', 'no-store');
-  
-  const htmlPath = path.join(__dirname, 'public', 'magic-mirror', 'index.html');
-  
-  // Check if file exists
-  if (!fs.existsSync(htmlPath)) {
-    console.error(`❌ [Magic Mirror] ${timestamp} - ERROR: index.html not found at ${htmlPath}`);
-    logger.error(logger.categories.MAGIC_MIRROR, `index.html not found at ${htmlPath}`);
-    return res.status(404).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Magic Mirror Not Found</title>
-        <style>
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 1rem;
-          }
-          .container {
-            text-align: center;
-            max-width: 700px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-          }
-          h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ff3b30;
-          }
-          p {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #ddd;
-            margin-bottom: 1rem;
-          }
-          code {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🪞 Magic Mirror Dashboard Not Found</h1>
-          <p>The Magic Mirror dashboard files are missing.</p>
-          <p>Expected location: <code>${htmlPath}</code></p>
-          <p>Please contact your system administrator.</p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-  
-  console.log(`✅ [Magic Mirror] ${timestamp} - Serving dashboard to ${clientIp}`);
-  logger.success(logger.categories.MAGIC_MIRROR, `Dashboard served to ${clientIp}`);
-  
-  res.sendFile(htmlPath, (err) => {
-    if (err) {
-      console.error(`❌ [Magic Mirror] ${timestamp} - Error serving file to ${clientIp}:`, err.message);
-      logger.error(logger.categories.MAGIC_MIRROR, `Error serving file to ${clientIp}: ${err.message}`);
-      if (!res.headersSent) {
-        res.status(500).send('Error loading Magic Mirror dashboard');
-      }
-    } else {
-      console.log(`✅ [Magic Mirror] ${timestamp} - File delivered successfully to ${clientIp}`);
-    }
-  });
+  res.redirect(301, '/magic-mirror/');
 });
 
 // Magic Mirror display page
