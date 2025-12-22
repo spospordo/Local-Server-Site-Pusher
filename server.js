@@ -4876,7 +4876,7 @@ app.post('/api/magicmirror/generate', (req, res) => {
   
   console.warn(`⚠️  [Magic Mirror] ${timestamp} - DEPRECATED: User ${clientIp} triggered generation endpoint`);
   console.warn('   This endpoint is deprecated. Restore public/magic-mirror.html from source control instead.');
-  logger.warn(logger.categories.MAGIC_MIRROR, `DEPRECATED: User ${clientIp} used deprecated /api/magicmirror/generate endpoint`);
+  logger.warning(logger.categories.MAGIC_MIRROR, `DEPRECATED: User ${clientIp} used deprecated /api/magicmirror/generate endpoint`);
   
   try {
     const result = magicMirror.generateDefaultHTML();
