@@ -5914,34 +5914,6 @@ app.get('/magic-mirror', (req, res) => {
       </html>
     `);
   }
-              
-              const result = await response.json();
-              
-              if (result.success) {
-                let message = '✅ Dashboard generated successfully.';
-                if (result.warning) {
-                  message += '<br><small>' + result.warning + '</small>';
-                }
-                messageDiv.innerHTML = '<div class="message success">' + message + '</div>';
-                setTimeout(() => {
-                  window.location.reload();
-                }, 2000);
-              } else {
-                messageDiv.innerHTML = '<div class="message error">❌ ' + result.error + '</div>';
-                btn.disabled = false;
-                btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
-              }
-            } catch (error) {
-              messageDiv.innerHTML = '<div class="message error">❌ Error: ' + error.message + '</div>';
-              btn.disabled = false;
-              btn.innerHTML = 'Generate Fallback Dashboard (Temporary)';
-            }
-          }
-        </script>
-      </body>
-      </html>
-    `);
-  }
   
   console.log(`✅ [Magic Mirror] ${timestamp} - Successfully serving magic-mirror.html to ${clientIp}`);
   
