@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Mirror Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div class="loading-screen" id="loadingScreen">
+            <div class="loading-spinner"></div>
+            <p>Loading Magic Mirror...</p>
+        </div>
+        
+        <div id="error" class="error-screen" style="display: none;">
+            <div class="error-container">
+                <h1>⚠️ Dashboard Error</h1>
+                <p id="errorMessage"></p>
+                <button onclick="location.reload()" class="retry-button">Retry</button>
+            </div>
+        </div>
+        
+        <div id="disabled" class="disabled-screen" style="display: none;">
+            <div class="disabled-container">
+                <h1>🪞 Magic Mirror Disabled</h1>
+                <p>The Magic Mirror dashboard is currently disabled.</p>
+                <p>Please contact your administrator to enable it.</p>
+            </div>
+        </div>
+        
+        <div id="dashboard" class="dashboard" style="display: none;">
+            <header class="dashboard-header">
+                <h1>Magic Mirror Dashboard</h1>
+                <div class="header-info">
+                    <span id="lastUpdate" class="last-update"></span>
+                    <span id="healthStatus" class="health-status">●</span>
+                </div>
+            </header>
+            
+            <main id="widgetContainer" class="widget-container">
+                <!-- Widgets will be dynamically rendered here -->
+            </main>
+        </div>
+    </div>
+    
+    <script type="module" src="app.js"></script>
+</body>
+</html>
