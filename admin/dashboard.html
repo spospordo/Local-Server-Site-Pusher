@@ -3615,19 +3615,14 @@
                 <div style="margin-top: 1.5rem;">
                     <button class="btn btn-primary" onclick="saveMagicMirrorConfig()">Save Configuration</button>
                     <button class="btn btn-secondary" onclick="openMagicMirrorDisplay()">Open Dashboard</button>
-                    <button class="btn btn-secondary" onclick="regenerateMagicMirrorDashboard()" title="Force all open dashboards to reload with the latest configuration">🔄 Regenerate Dashboard</button>
-                    <button class="btn btn-danger" onclick="clearAndRefreshDashboard()" title="Clear all dashboard state and force complete regeneration from current admin settings">🗑️ Clear & Refresh Dashboard</button>
                     <button class="btn btn-secondary" onclick="loadMagicMirrorConfig()">Refresh</button>
                 </div>
                 
-                <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-                    <strong>⚠️ Important - Dashboard Update Behavior:</strong>
-                    <ul style="margin: 0.5rem 0 0 1rem; color: #856404; font-size: 0.95rem;">
-                        <li>When you save changes, all open <code>/magic-mirror</code> dashboards will <strong>automatically reload within 10 seconds</strong>.</li>
-                        <li>For <strong>immediate updates</strong>, click the "🔄 Regenerate Dashboard" button after saving.</li>
-                        <li><strong>If changes are still not visible</strong>, click the "🗑️ Clear & Refresh Dashboard" button to force a complete rebuild from your current admin settings with NO fallback widgets.</li>
-                        <li>This will clear any cached or stale dashboard state and regenerate everything from scratch.</li>
-                    </ul>
+                <div style="margin-top: 1rem; padding: 1rem; background: #d1ecf1; border-left: 4px solid #17a2b8; border-radius: 4px;">
+                    <strong>ℹ️ Dashboard Updates:</strong>
+                    <p style="margin: 0.5rem 0 0 0; color: #0c5460; font-size: 0.95rem;">
+                        Configuration changes are saved immediately. The dashboard will automatically fetch the latest config when you reload the page.
+                    </p>
                 </div>
 
                 <div id="magicMirrorAlert" class="alert"></div>
@@ -10550,7 +10545,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showMagicMirrorAlert('✅ Configuration saved successfully! Open dashboards will automatically reload within 10 seconds. Click "🔄 Regenerate Dashboard" for immediate update.', 'success');
+                    showMagicMirrorAlert('✅ Configuration saved successfully!', 'success');
                     // Reload to update URL display and grid preview
                     await loadMagicMirrorConfig();
                 } else {
@@ -10730,58 +10725,6 @@
         
         function applyGridChanges() {
             saveMagicMirrorConfig();
-        }
-
-        async function regenerateMagicMirrorDashboard() {
-            try {
-                showMagicMirrorAlert('🔄 Triggering dashboard regeneration...', 'success');
-                
-                const response = await fetch('/admin/api/magicmirror/regenerate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    showMagicMirrorAlert('✅ Dashboard regenerated successfully! All open /magic-mirror pages will reload within 10 seconds with the latest layout changes.', 'success');
-                } else {
-                    showMagicMirrorAlert('Error: ' + (result.error || 'Failed to regenerate dashboard'), 'error');
-                }
-            } catch (error) {
-                console.error('Error regenerating Magic Mirror dashboard:', error);
-                showMagicMirrorAlert('Error regenerating dashboard: ' + error.message, 'error');
-            }
-        }
-
-        async function clearAndRefreshDashboard() {
-            if (!confirm('⚠️ This will completely clear the dashboard and rebuild it from your current admin settings, removing all cached state and any fallback widgets. Continue?')) {
-                return;
-            }
-            
-            try {
-                showMagicMirrorAlert('🗑️ Clearing dashboard and forcing complete regeneration...', 'success');
-                
-                const response = await fetch('/admin/api/magicmirror/clear-and-refresh', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    showMagicMirrorAlert('✅ Dashboard cleared and regenerated! All open /magic-mirror pages will reload immediately with ONLY your configured widgets (no fallbacks). If the issue persists, check browser console for errors.', 'success');
-                } else {
-                    showMagicMirrorAlert('Error: ' + (result.error || 'Failed to clear and refresh dashboard'), 'error');
-                }
-            } catch (error) {
-                console.error('Error clearing and refreshing Magic Mirror dashboard:', error);
-                showMagicMirrorAlert('Error clearing dashboard: ' + error.message, 'error');
-            }
         }
 
         // Alert display timeout constants (in milliseconds)
