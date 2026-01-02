@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const logger = require('./logger');
 
 // Import other modules to access their data functions
-const magicMirror = require('./magicmirror');
 const finance = require('./finance');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
@@ -141,23 +140,7 @@ function exportAllData(config) {
       logger.info(logger.categories.SYSTEM, '[Backup] Main configuration exported');
     }
     
-    // 2. Magic Mirror configuration
-    try {
-      const magicMirrorConfig = magicMirror.getFullConfig();
-      if (magicMirrorConfig) {
-        // Sanitize weather API key
-        const sanitizedMM = JSON.parse(JSON.stringify(magicMirrorConfig));
-        if (sanitizedMM.weather?.apiKey) {
-          sanitizedMM.weather.apiKey = '';
-        }
-        backup.data.magicMirror = sanitizedMM;
-        logger.info(logger.categories.SYSTEM, '[Backup] Magic Mirror configuration exported');
-      }
-    } catch (error) {
-      logger.warning(logger.categories.SYSTEM, `[Backup] Magic Mirror config export skipped: ${error.message}`);
-    }
-    
-    // 3. Espresso data
+    // 2. Espresso data
     const espressoData = loadEspressoData();
     if (espressoData) {
       backup.data.espressoData = espressoData;
@@ -345,33 +328,7 @@ function importAllData(backup, currentConfig) {
       }
     }
     
-    // 2. Import Magic Mirror configuration
-    if (backup.data.magicMirror) {
-      try {
-        // Get existing config to preserve API key if not in backup
-        const existingMM = magicMirror.getFullConfig();
-        const mergedMM = JSON.parse(JSON.stringify(backup.data.magicMirror));
-        
-        // Preserve existing weather API key if not provided in backup
-        if (existingMM.weather?.apiKey && (!mergedMM.weather?.apiKey)) {
-          if (!mergedMM.weather) mergedMM.weather = {};
-          mergedMM.weather.apiKey = existingMM.weather.apiKey;
-        }
-        
-        const result = magicMirror.updateConfig(mergedMM);
-        if (result.success) {
-          results.imported.push('Magic Mirror configuration');
-          logger.info(logger.categories.SYSTEM, '[Backup] Magic Mirror configuration imported');
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        results.errors.push('Magic Mirror: ' + error.message);
-        logger.error(logger.categories.SYSTEM, `[Backup] Magic Mirror import failed: ${error.message}`);
-      }
-    }
-    
-    // 3. Import Espresso data
+    // 2. Import Espresso data
     if (backup.data.espressoData) {
       try {
         const espressoPath = path.join(CONFIG_DIR, 'espresso-data.json');
@@ -483,15 +440,6 @@ function getBackupSummary(backup) {
       hasEspresso: !!backup.data.mainConfig.espresso,
       hasClient: !!backup.data.mainConfig.client,
       tournamentsCount: backup.data.mainConfig.tournaments?.length || 0
-    };
-  }
-  
-  // Magic Mirror summary
-  if (backup.data.magicMirror) {
-    summary.contents.magicMirror = {
-      enabled: backup.data.magicMirror.enabled,
-      widgetsEnabled: Object.keys(backup.data.magicMirror.widgets || {})
-        .filter(w => backup.data.magicMirror.widgets[w]?.enabled).length
     };
   }
   
