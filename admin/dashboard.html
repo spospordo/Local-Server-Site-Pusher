@@ -9693,4 +9693,17 @@
             document.getElementById('importAlert').style.display = 'none';
         }
 
+        // Diagnostic error handling - catches missing function errors
+        window.addEventListener('error', function(event) {
+            if (event.message && (event.message.includes('showMainTab') || event.message.includes('showSubTab'))) {
+                console.error('❌ Tab navigation function error detected:', event.message);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 5px; border: 1px solid #f5c6cb; z-index: 10000; max-width: 500px;';
+                errorDiv.textContent = '⚠️ Tab navigation error: ' + event.message + '. Please refresh the page.';
+                document.body.appendChild(errorDiv);
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
+        });
+    </script>
+</body>
 </html>
