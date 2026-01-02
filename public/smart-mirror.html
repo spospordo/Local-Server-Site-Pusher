@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Mirror Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        body.theme-light {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 20px;
+            padding: 20px;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-light .widget {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .widget-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+
+        .widget-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Clock Widget */
+        .clock-time {
+            font-size: 4rem;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+        }
+
+        .clock-date {
+            font-size: 1.5rem;
+            margin-top: 10px;
+            opacity: 0.7;
+        }
+
+        /* Calendar Widget */
+        .calendar-container {
+            width: 100%;
+        }
+
+        .calendar-header {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            text-align: center;
+        }
+
+        .calendar-day-name {
+            font-weight: 600;
+            padding: 5px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .calendar-day {
+            padding: 10px 5px;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .calendar-day.today {
+            background: rgba(102, 126, 234, 0.6);
+            font-weight: 700;
+        }
+
+        .calendar-day.other-month {
+            opacity: 0.3;
+        }
+
+        .calendar-events {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .calendar-event {
+            background: rgba(102, 126, 234, 0.2);
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .calendar-event-time {
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        /* Weather Widget */
+        .weather-temp {
+            font-size: 3rem;
+            font-weight: 300;
+        }
+
+        .weather-condition {
+            font-size: 1.5rem;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .weather-details {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* News Widget */
+        .news-items {
+            width: 100%;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+
+        .news-item {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-light .news-item {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .news-item:last-child {
+            border-bottom: none;
+        }
+
+        .news-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .news-source {
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+
+        /* Error message */
+        .error-message {
+            color: #ff6b6b;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.6;
+        }
+
+        /* Responsive grid positioning */
+        .widget[data-grid-x="0"] { grid-column: 1; }
+        .widget[data-grid-x="1"] { grid-column: 2; }
+        .widget[data-grid-x="2"] { grid-column: 3; }
+        .widget[data-grid-x="3"] { grid-column: 4; }
+
+        .widget[data-grid-y="0"] { grid-row: 1; }
+        .widget[data-grid-y="1"] { grid-row: 2; }
+        .widget[data-grid-y="2"] { grid-row: 3; }
+
+        .widget[data-grid-width="1"] { grid-column: span 1; }
+        .widget[data-grid-width="2"] { grid-column: span 2; }
+        .widget[data-grid-width="3"] { grid-column: span 3; }
+        .widget[data-grid-width="4"] { grid-column: span 4; }
+
+        .widget[data-grid-height="1"] { grid-row: span 1; }
+        .widget[data-grid-height="2"] { grid-row: span 2; }
+        .widget[data-grid-height="3"] { grid-row: span 3; }
+
+        /* Scrollbar styling for dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        body.theme-light ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.theme-light ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        body.theme-light ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container" id="dashboardContainer">
+        <div class="loading">Loading Smart Mirror Dashboard...</div>
+    </div>
+
+    <script>
+        let config = null;
+        let refreshInterval = null;
+
+        // Load configuration and initialize dashboard
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/smart-mirror/config');
+                const data = await response.json();
+                
+                if (data.success && data.config) {
+                    config = data.config;
+                    console.log('Smart Mirror config loaded:', config);
+                    
+                    // Apply theme
+                    if (config.theme === 'light') {
+                        document.body.classList.add('theme-light');
+                    }
+                    
+                    // Check if dashboard is enabled
+                    if (config.enabled === false) {
+                        showError('Smart Mirror Dashboard is currently disabled. Please enable it in the admin panel.');
+                        return;
+                    }
+                    
+                    // Render dashboard
+                    renderDashboard();
+                    
+                    // Set up refresh interval
+                    if (config.refreshInterval && config.refreshInterval > 0) {
+                        refreshInterval = setInterval(updateWidgets, config.refreshInterval);
+                    }
+                } else {
+                    showError('Failed to load Smart Mirror configuration.');
+                }
+            } catch (error) {
+                console.error('Error loading config:', error);
+                showError('Error connecting to server. Please check your connection.');
+            }
+        }
+
+        // Render the dashboard with configured widgets
+        function renderDashboard() {
+            const container = document.getElementById('dashboardContainer');
+            container.innerHTML = '';
+
+            if (!config || !config.widgets) {
+                showError('No widgets configured.');
+                return;
+            }
+
+            // Create widgets based on configuration
+            Object.keys(config.widgets).forEach(widgetKey => {
+                const widgetConfig = config.widgets[widgetKey];
+                
+                // Only render enabled widgets
+                if (widgetConfig && widgetConfig.enabled === true) {
+                    const widget = createWidget(widgetKey, widgetConfig);
+                    if (widget) {
+                        container.appendChild(widget);
+                    }
+                }
+            });
+
+            // Start updating dynamic content
+            updateWidgets();
+        }
+
+        // Create a widget element
+        function createWidget(type, widgetConfig) {
+            const widget = document.createElement('div');
+            widget.className = 'widget';
+            widget.dataset.type = type;
+            
+            // Set grid position
+            const pos = widgetConfig.gridPosition || {};
+            widget.dataset.gridX = pos.x || 0;
+            widget.dataset.gridY = pos.y || 0;
+            widget.dataset.gridWidth = pos.width || 1;
+            widget.dataset.gridHeight = pos.height || 1;
+
+            // Create widget header
+            const header = document.createElement('div');
+            header.className = 'widget-header';
+            header.textContent = getWidgetTitle(type);
+            widget.appendChild(header);
+
+            // Create widget content container
+            const content = document.createElement('div');
+            content.className = 'widget-content';
+            content.id = `widget-${type}`;
+            widget.appendChild(content);
+
+            return widget;
+        }
+
+        // Get widget title
+        function getWidgetTitle(type) {
+            const titles = {
+                clock: '🕐 Time',
+                calendar: '📅 Calendar',
+                weather: '🌤️ Weather',
+                news: '📰 News'
+            };
+            return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
+        }
+
+        // Update all dynamic widgets
+        function updateWidgets() {
+            if (!config || !config.widgets) return;
+
+            Object.keys(config.widgets).forEach(widgetKey => {
+                const widgetConfig = config.widgets[widgetKey];
+                if (widgetConfig && widgetConfig.enabled === true) {
+                    updateWidget(widgetKey, widgetConfig);
+                }
+            });
+        }
+
+        // Update individual widget
+        function updateWidget(type, widgetConfig) {
+            const content = document.getElementById(`widget-${type}`);
+            if (!content) return;
+
+            switch (type) {
+                case 'clock':
+                    updateClockWidget(content);
+                    break;
+                case 'calendar':
+                    updateCalendarWidget(content, widgetConfig);
+                    break;
+                case 'weather':
+                    updateWeatherWidget(content, widgetConfig);
+                    break;
+                case 'news':
+                    updateNewsWidget(content, widgetConfig);
+                    break;
+            }
+        }
+
+        // Update clock widget
+        function updateClockWidget(content) {
+            const now = new Date();
+            
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            
+            const dateStr = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            content.innerHTML = `
+                <div class="clock-time">${timeStr}</div>
+                <div class="clock-date">${dateStr}</div>
+            `;
+        }
+
+        // Update calendar widget
+        function updateCalendarWidget(content, widgetConfig) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const today = now.getDate();
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+            let calendarHTML = `
+                <div class="calendar-container">
+                    <div class="calendar-header">${monthNames[month]} ${year}</div>
+                    <div class="calendar-grid">
+            `;
+
+            // Day names
+            dayNames.forEach(day => {
+                calendarHTML += `<div class="calendar-day-name">${day}</div>`;
+            });
+
+            // Previous month days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const isToday = day === today ? 'today' : '';
+                calendarHTML += `<div class="calendar-day ${isToday}">${day}</div>`;
+            }
+
+            // Next month days to fill grid
+            const remainingCells = 42 - (firstDay + daysInMonth); // 6 rows × 7 days
+            for (let day = 1; day <= remainingCells; day++) {
+                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+
+            calendarHTML += `</div></div>`;
+
+            content.innerHTML = calendarHTML;
+        }
+
+        // Update weather widget
+        function updateWeatherWidget(content, widgetConfig) {
+            // Placeholder for weather - would need API integration
+            content.innerHTML = `
+                <div class="weather-temp">--°</div>
+                <div class="weather-condition">Weather data not configured</div>
+                <div class="weather-details">
+                    <div>Humidity: --%</div>
+                    <div>Wind: -- mph</div>
+                </div>
+            `;
+        }
+
+        // Update news widget
+        function updateNewsWidget(content, widgetConfig) {
+            // Placeholder for news - would need API/RSS integration
+            content.innerHTML = `
+                <div class="news-items">
+                    <div class="news-item">
+                        <div class="news-title">News feed not configured</div>
+                        <div class="news-source">Configure RSS feed URL in admin panel</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Show error message
+        function showError(message) {
+            const container = document.getElementById('dashboardContainer');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(errorDiv);
+        }
+
+        // Initialize dashboard on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            
+            // Update clock every second
+            setInterval(() => {
+                if (config && config.widgets && config.widgets.clock && config.widgets.clock.enabled) {
+                    updateClockWidget(document.getElementById('widget-clock'));
+                }
+            }, 1000);
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>
