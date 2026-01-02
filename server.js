@@ -772,15 +772,11 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Serve Magic Mirror static assets (CSS, JS, etc.)
 // The static middleware will automatically serve index.html when accessing /magic-mirror/
-app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mirror'), {
-    index: false  // Don't auto-serve index.html for the root path without trailing slash
-}));
+app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mirror')));
 
 // Serve Smart Mirror static assets (CSS, JS, etc.)
 // The static middleware will automatically serve index.html when accessing /smart-mirror/
-app.use('/smart-mirror', express.static(path.join(__dirname, 'public', 'smart-mirror'), {
-    index: false  // Don't auto-serve index.html for the root path without trailing slash
-}));
+app.use('/smart-mirror', express.static(path.join(__dirname, 'public', 'smart-mirror')));
 
 // Authentication middleware
 const requireAuth = (req, res, next) => {
