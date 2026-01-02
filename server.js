@@ -1206,10 +1206,59 @@ app.get('/kiosk', (req, res) => {
 
 // Smart Mirror dashboard route (no authentication required)
 app.get('/smart-mirror', (req, res) => {
+  // Check if Smart Mirror is enabled
+  const smartMirrorConfig = smartMirror.loadConfig();
+  
+  if (!smartMirrorConfig.enabled) {
+    console.log('⚠️  [Smart Mirror] Access denied - feature is disabled');
+    logger.warning(logger.categories.SYSTEM, 'Smart Mirror access attempt while disabled');
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Smart Mirror Not Available</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a1a;
+            color: #fff;
+          }
+          .message {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          h1 { margin: 0 0 20px 0; font-size: 24px; }
+          p { margin: 10px 0; color: #aaa; }
+          a { color: #4a9eff; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div class="message">
+          <h1>📱 Smart Mirror Dashboard</h1>
+          <p>The Smart Mirror dashboard is currently disabled.</p>
+          <p>Please enable it in the <a href="/admin">admin settings</a>.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  
   // Set cache-control headers to prevent browser caching
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+  
+  console.log('📱 [Smart Mirror] Dashboard accessed - feature is enabled');
+  logger.info(logger.categories.SYSTEM, 'Smart Mirror dashboard accessed');
   
   res.sendFile(path.join(__dirname, 'public', 'smart-mirror.html'));
 });
