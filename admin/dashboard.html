@@ -1612,6 +1612,7 @@
                 <button class="sub-tab active" onclick="showSubTab('server-vidiots')">Vidiots</button>
                 <button class="sub-tab" onclick="showSubTab('server-espresso')">Espresso</button>
                 <button class="sub-tab" onclick="showSubTab('server-github')">GitHub</button>
+                <button class="sub-tab" onclick="showSubTab('server-smartmirror')">Smart Mirror</button>
             </div>
             
             <!-- Sub-tabs for Finance -->
@@ -3104,6 +3105,267 @@
                     <button class="btn btn-secondary" onclick="refreshRepositoryBrowser()">Refresh</button>
                     <button class="btn btn-secondary" onclick="goToParentDirectory()">📁 Up One Level</button>
                 </div>
+            </div>
+        </div>
+
+
+        <!-- Smart Mirror Dashboard Configuration - Server Sub-tab -->
+        <div class="card admin-section server-section server-smartmirror-section">
+            <div class="card-header">
+                <h2>📱 Smart Mirror Dashboard</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure the Smart Mirror dashboard accessible at <a href="/smart-mirror" target="_blank">/smart-mirror</a> for display on home network devices:</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="smartMirrorEnabled">Smart Mirror Dashboard</label>
+                        <select id="smartMirrorEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="smartMirrorTheme">Theme</label>
+                        <select id="smartMirrorTheme">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <h3>Widget Configuration</h3>
+                <p style="margin-bottom: 15px;">Enable and configure widgets for the Smart Mirror dashboard. Widgets are displayed in a 4×3 grid layout.</p>
+
+                <!-- Clock Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🕐 Clock Widget
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clockEnabled">Clock Widget</label>
+                                <select id="clockEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="clockSize">Size</label>
+                                <select id="clockSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clockGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="clockGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="clockGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="clockGridY" min="0" max="2" value="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clockGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="clockGridWidth" min="1" max="4" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="clockGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="clockGridHeight" min="1" max="3" value="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📅 Calendar Widget
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="calendarEnabled">Calendar Widget</label>
+                                <select id="calendarEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="calendarSize">Size</label>
+                                <select id="calendarSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="calendarGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="calendarGridX" min="0" max="3" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="calendarGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="calendarGridY" min="0" max="2" value="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="calendarGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="calendarGridWidth" min="1" max="4" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="calendarGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="calendarGridHeight" min="1" max="3" value="2">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="calendarUrl">Calendar URL (iCal/ICS feed - optional)</label>
+                            <input type="url" id="calendarUrl" placeholder="https://calendar.google.com/calendar/ical/...">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Import events from Google Calendar, Outlook, or other iCal-compatible services
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🌤️ Weather Widget (Coming Soon)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weatherEnabled">Weather Widget</label>
+                                <select id="weatherEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="weatherSize">Size</label>
+                                <select id="weatherSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weatherGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="weatherGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="weatherGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="weatherGridY" min="0" max="2" value="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weatherGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="weatherGridWidth" min="1" max="4" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="weatherGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="weatherGridHeight" min="1" max="3" value="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="weatherLocation">Location</label>
+                            <input type="text" id="weatherLocation" placeholder="City, State or Zip Code">
+                        </div>
+                        <div class="form-group">
+                            <label for="weatherApiKey">Weather API Key</label>
+                            <input type="password" id="weatherApiKey" placeholder="Enter weather service API key">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Weather API integration coming in future update
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- News Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📰 News Widget (Coming Soon)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsEnabled">News Widget</label>
+                                <select id="newsEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newsSize">Size</label>
+                                <select id="newsSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="newsGridX" min="0" max="3" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="newsGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="newsGridY" min="0" max="2" value="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="newsGridWidth" min="1" max="4" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="newsGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="newsGridHeight" min="1" max="3" value="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="newsFeedUrl">RSS Feed URL</label>
+                            <input type="url" id="newsFeedUrl" placeholder="https://example.com/rss">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                RSS feed integration coming in future update
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <button onclick="saveSmartMirrorConfig()" class="btn btn-primary">Save Smart Mirror Configuration</button>
+                <button onclick="previewSmartMirror()" class="btn btn-secondary" style="margin-left: 10px;">Preview Dashboard</button>
+                
+                <div id="smartMirrorAlert" class="alert"></div>
             </div>
         </div>
 
@@ -6110,6 +6372,7 @@
                 else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
                 else if (subTabName === 'server-espresso') targetTabText = 'Espresso';
                 else if (subTabName === 'server-github') targetTabText = 'GitHub';
+                else if (subTabName === 'server-smartmirror') targetTabText = 'Smart Mirror';
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
@@ -6182,6 +6445,13 @@
                 if (shouldLoadData) {
                     loadVidiotsConfig(); // Still need to load config for GitHub settings
                     initializeGitHubSection(); // Initialize GitHub logging and load git identity
+                }
+            } else if (subTabName === 'server-smartmirror') {
+                const smartMirrorSections = document.querySelectorAll('.server-smartmirror-section');
+                smartMirrorSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadSmartMirrorConfig();
                 }
             } else if (subTabName === 'finance-demo') {
                 const demoSections = document.querySelectorAll('.finance-demo-section');
@@ -7898,6 +8168,169 @@
             if (document.getElementById('githubOperationLog')) {
                 addGitHubLog('INFO', 'GitHub section opened');
                 loadGitIdentity();
+            }
+        }
+        
+        // Smart Mirror Dashboard Functions
+        async function loadSmartMirrorConfig() {
+            try {
+                const response = await fetch('/admin/api/smart-mirror/config');
+                const data = await response.json();
+                
+                if (data.success && data.config) {
+                    const config = data.config;
+                    
+                    // Load main settings
+                    document.getElementById('smartMirrorEnabled').value = config.enabled ? 'true' : 'false';
+                    document.getElementById('smartMirrorTheme').value = config.theme || 'dark';
+                    
+                    // Load clock widget config
+                    const clock = config.widgets?.clock || {};
+                    document.getElementById('clockEnabled').value = clock.enabled === true ? 'true' : 'false';
+                    document.getElementById('clockSize').value = clock.size || 'medium';
+                    document.getElementById('clockGridX').value = clock.gridPosition?.x ?? 0;
+                    document.getElementById('clockGridY').value = clock.gridPosition?.y ?? 0;
+                    document.getElementById('clockGridWidth').value = clock.gridPosition?.width ?? 2;
+                    document.getElementById('clockGridHeight').value = clock.gridPosition?.height ?? 1;
+                    
+                    // Load calendar widget config
+                    const calendar = config.widgets?.calendar || {};
+                    document.getElementById('calendarEnabled').value = calendar.enabled === true ? 'true' : 'false';
+                    document.getElementById('calendarSize').value = calendar.size || 'large';
+                    document.getElementById('calendarGridX').value = calendar.gridPosition?.x ?? 2;
+                    document.getElementById('calendarGridY').value = calendar.gridPosition?.y ?? 0;
+                    document.getElementById('calendarGridWidth').value = calendar.gridPosition?.width ?? 2;
+                    document.getElementById('calendarGridHeight').value = calendar.gridPosition?.height ?? 2;
+                    document.getElementById('calendarUrl').value = calendar.calendarUrl || '';
+                    
+                    // Load weather widget config
+                    const weather = config.widgets?.weather || {};
+                    document.getElementById('weatherEnabled').value = weather.enabled === true ? 'true' : 'false';
+                    document.getElementById('weatherSize').value = weather.size || 'medium';
+                    document.getElementById('weatherGridX').value = weather.gridPosition?.x ?? 0;
+                    document.getElementById('weatherGridY').value = weather.gridPosition?.y ?? 2;
+                    document.getElementById('weatherGridWidth').value = weather.gridPosition?.width ?? 2;
+                    document.getElementById('weatherGridHeight').value = weather.gridPosition?.height ?? 1;
+                    document.getElementById('weatherLocation').value = weather.location || '';
+                    // Don't load API key for security
+                    
+                    // Load news widget config
+                    const news = config.widgets?.news || {};
+                    document.getElementById('newsEnabled').value = news.enabled === true ? 'true' : 'false';
+                    document.getElementById('newsSize').value = news.size || 'medium';
+                    document.getElementById('newsGridX').value = news.gridPosition?.x ?? 2;
+                    document.getElementById('newsGridY').value = news.gridPosition?.y ?? 2;
+                    document.getElementById('newsGridWidth').value = news.gridPosition?.width ?? 2;
+                    document.getElementById('newsGridHeight').value = news.gridPosition?.height ?? 1;
+                    document.getElementById('newsFeedUrl').value = news.feedUrl || '';
+                    
+                    console.log('Smart Mirror configuration loaded');
+                } else {
+                    showSmartMirrorAlert('Failed to load Smart Mirror configuration', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading Smart Mirror config:', error);
+                showSmartMirrorAlert('Error loading configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveSmartMirrorConfig() {
+            try {
+                const config = {
+                    enabled: document.getElementById('smartMirrorEnabled').value === 'true',
+                    theme: document.getElementById('smartMirrorTheme').value,
+                    widgets: {
+                        clock: {
+                            enabled: document.getElementById('clockEnabled').value === 'true',
+                            size: document.getElementById('clockSize').value,
+                            area: 'top-left',
+                            gridPosition: {
+                                x: parseInt(document.getElementById('clockGridX').value),
+                                y: parseInt(document.getElementById('clockGridY').value),
+                                width: parseInt(document.getElementById('clockGridWidth').value),
+                                height: parseInt(document.getElementById('clockGridHeight').value)
+                            }
+                        },
+                        calendar: {
+                            enabled: document.getElementById('calendarEnabled').value === 'true',
+                            size: document.getElementById('calendarSize').value,
+                            area: 'top-right',
+                            gridPosition: {
+                                x: parseInt(document.getElementById('calendarGridX').value),
+                                y: parseInt(document.getElementById('calendarGridY').value),
+                                width: parseInt(document.getElementById('calendarGridWidth').value),
+                                height: parseInt(document.getElementById('calendarGridHeight').value)
+                            },
+                            calendarUrl: document.getElementById('calendarUrl').value
+                        },
+                        weather: {
+                            enabled: document.getElementById('weatherEnabled').value === 'true',
+                            size: document.getElementById('weatherSize').value,
+                            area: 'bottom-left',
+                            gridPosition: {
+                                x: parseInt(document.getElementById('weatherGridX').value),
+                                y: parseInt(document.getElementById('weatherGridY').value),
+                                width: parseInt(document.getElementById('weatherGridWidth').value),
+                                height: parseInt(document.getElementById('weatherGridHeight').value)
+                            },
+                            location: document.getElementById('weatherLocation').value,
+                            apiKey: document.getElementById('weatherApiKey').value.trim() || undefined
+                        },
+                        news: {
+                            enabled: document.getElementById('newsEnabled').value === 'true',
+                            size: document.getElementById('newsSize').value,
+                            area: 'bottom-right',
+                            gridPosition: {
+                                x: parseInt(document.getElementById('newsGridX').value),
+                                y: parseInt(document.getElementById('newsGridY').value),
+                                width: parseInt(document.getElementById('newsGridWidth').value),
+                                height: parseInt(document.getElementById('newsGridHeight').value)
+                            },
+                            feedUrl: document.getElementById('newsFeedUrl').value
+                        }
+                    },
+                    gridSize: {
+                        columns: 4,
+                        rows: 3
+                    },
+                    refreshInterval: 60000
+                };
+                
+                const response = await fetch('/admin/api/smart-mirror/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSmartMirrorAlert('Smart Mirror configuration saved successfully!', 'success');
+                } else {
+                    showSmartMirrorAlert('Failed to save configuration: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error saving Smart Mirror config:', error);
+                showSmartMirrorAlert('Error saving configuration: ' + error.message, 'error');
+            }
+        }
+        
+        function previewSmartMirror() {
+            window.open('/smart-mirror', '_blank');
+        }
+        
+        function showSmartMirrorAlert(message, type) {
+            const alertDiv = document.getElementById('smartMirrorAlert');
+            if (alertDiv) {
+                alertDiv.textContent = message;
+                alertDiv.className = 'alert ' + type;
+                alertDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    alertDiv.style.display = 'none';
+                }, 5000);
             }
         }
         

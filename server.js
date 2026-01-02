@@ -14,6 +14,7 @@ const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
 const backup = require('./modules/backup');
+const smartMirror = require('./modules/smartmirror');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -684,6 +685,9 @@ espresso.init(config);
 // Initialize finance module
 finance.init(config);
 
+// Initialize Smart Mirror module
+smartMirror.init(config);
+
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
 
@@ -1198,6 +1202,16 @@ app.get('/client', (req, res) => {
 // Kiosk dashboard route for large TV displays
 app.get('/kiosk', (req, res) => {
   res.sendFile(path.join(__dirname, 'kiosk.html'));
+});
+
+// Smart Mirror dashboard route (no authentication required)
+app.get('/smart-mirror', (req, res) => {
+  // Set cache-control headers to prevent browser caching
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  res.sendFile(path.join(__dirname, 'public', 'smart-mirror.html'));
 });
 
 // Client API endpoints
@@ -4675,6 +4689,68 @@ app.post('/admin/api/ollama/chat', requireAuth, async (req, res) => {
       success: false, 
       error: 'Failed to send prompt: ' + err.message 
     });
+  }
+});
+
+// Smart Mirror Dashboard API Endpoints
+// Get Smart Mirror configuration (public endpoint - no auth)
+app.get('/api/smart-mirror/config', (req, res) => {
+  try {
+    // Set cache-control headers to prevent browser caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.getPublicConfig();
+    console.log('📱 [Smart Mirror] Public config requested');
+    logger.info(logger.categories.SYSTEM, 'Smart Mirror public config requested');
+    
+    res.json({ success: true, config });
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error getting public config:', err.message);
+    logger.error(logger.categories.SYSTEM, `Smart Mirror config error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get Smart Mirror configuration' });
+  }
+});
+
+// Save Smart Mirror configuration (admin endpoint - auth required)
+app.post('/admin/api/smart-mirror/config', requireAuth, (req, res) => {
+  try {
+    const newConfig = req.body;
+    
+    console.log('📱 [Smart Mirror] Saving configuration...');
+    logger.info(logger.categories.SYSTEM, 'Smart Mirror configuration update requested');
+    
+    const result = smartMirror.saveConfig(newConfig);
+    
+    if (result.success) {
+      console.log('✅ [Smart Mirror] Configuration saved successfully');
+      logger.success(logger.categories.SYSTEM, 'Smart Mirror configuration saved');
+      res.json({ success: true, message: 'Configuration saved successfully', config: result.config });
+    } else {
+      console.error('❌ [Smart Mirror] Failed to save configuration:', result.error);
+      logger.error(logger.categories.SYSTEM, `Smart Mirror config save failed: ${result.error}`);
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error saving config:', err.message);
+    logger.error(logger.categories.SYSTEM, `Smart Mirror config save error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to save Smart Mirror configuration' });
+  }
+});
+
+// Get full Smart Mirror configuration (admin endpoint - auth required)
+app.get('/admin/api/smart-mirror/config', requireAuth, (req, res) => {
+  try {
+    const config = smartMirror.loadConfig();
+    console.log('📱 [Smart Mirror] Admin config requested');
+    logger.info(logger.categories.SYSTEM, 'Smart Mirror admin config requested');
+    
+    res.json({ success: true, config });
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error getting admin config:', err.message);
+    logger.error(logger.categories.SYSTEM, `Smart Mirror admin config error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get Smart Mirror configuration' });
   }
 });
 
