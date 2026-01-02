@@ -107,7 +107,7 @@ async function runLoggingTests() {
     await test('Logger has all required categories', async () => {
         const logger = require('../modules/logger');
         const categories = logger.getCategories();
-        const requiredCategories = ['SYSTEM', 'MAGIC_MIRROR', 'DEPLOYMENT', 'BUILD', 'FINANCE', 'GITHUB', 'SERVER', 'CLIENT'];
+        const requiredCategories = ['SYSTEM', 'DEPLOYMENT', 'BUILD', 'FINANCE', 'GITHUB', 'SERVER', 'CLIENT'];
         
         for (const category of requiredCategories) {
             if (!categories[category]) {
@@ -149,13 +149,13 @@ async function runLoggingTests() {
     // Test 6: Logger can filter by category
     await test('Logger can filter logs by category', async () => {
         const logger = require('../modules/logger');
-        logger.info(logger.categories.MAGIC_MIRROR, 'Magic Mirror test');
         logger.info(logger.categories.GITHUB, 'GitHub test');
+        logger.info(logger.categories.SYSTEM, 'System test');
         
-        const magicMirrorLogs = logger.getLogs(logger.categories.MAGIC_MIRROR);
-        const hasOnlyMagicMirror = magicMirrorLogs.every(log => log.category === logger.categories.MAGIC_MIRROR);
+        const githubLogs = logger.getLogs(logger.categories.GITHUB);
+        const hasOnlyGitHub = githubLogs.every(log => log.category === logger.categories.GITHUB);
         
-        if (!hasOnlyMagicMirror) {
+        if (!hasOnlyGitHub) {
             throw new Error('Filter by category not working correctly');
         }
     });
