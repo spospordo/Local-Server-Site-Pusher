@@ -776,6 +776,12 @@ app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mi
     index: false  // Don't auto-serve index.html for the root path without trailing slash
 }));
 
+// Serve Smart Mirror static assets (CSS, JS, etc.)
+// The static middleware will automatically serve index.html when accessing /smart-mirror/
+app.use('/smart-mirror', express.static(path.join(__dirname, 'public', 'smart-mirror'), {
+    index: false  // Don't auto-serve index.html for the root path without trailing slash
+}));
+
 // Authentication middleware
 const requireAuth = (req, res, next) => {
   if (req.session.authenticated) {
@@ -5555,89 +5561,16 @@ app.get('/magic-mirror', (req, res) => {
   res.redirect(301, '/magic-mirror/');
 });
 
-// Magic Mirror display page
-// Smart Mirror display page - new clean implementation
+// Smart Mirror display page - New SPA Implementation
+// Redirect to trailing slash so static middleware serves index.html properly
 app.get('/smart-mirror', (req, res) => {
   const timestamp = new Date().toISOString();
   const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
   
   console.log(`✨ [Smart Mirror] ${timestamp} - Request from ${clientIp} for /smart-mirror`);
+  console.log(`✅ [Smart Mirror] ${timestamp} - Redirecting to /smart-mirror/ for SPA`);
   
-  // Prevent browser caching
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Surrogate-Control', 'no-store');
-  
-  const htmlPath = path.join(__dirname, 'public', 'smart-mirror.html');
-  
-  // Check if file exists before serving
-  if (!fs.existsSync(htmlPath)) {
-    console.error(`❌ [Smart Mirror] ${timestamp} - ERROR: smart-mirror.html not found at ${htmlPath}`);
-    return res.status(404).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Smart Mirror Not Found</title>
-        <style>
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 1rem;
-          }
-          .container {
-            text-align: center;
-            max-width: 600px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-          }
-          h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ff3b30;
-          }
-          p {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #ddd;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>✨ Smart Mirror Not Found</h1>
-          <p>The smart-mirror.html file is missing from the server.</p>
-          <p style="margin-top: 1rem;"><a href="/magic-mirror" style="color: #4a90e2;">Try the legacy Magic Mirror →</a></p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-  
-  console.log(`✅ [Smart Mirror] ${timestamp} - Successfully serving smart-mirror.html to ${clientIp}`);
-  
-  res.sendFile(htmlPath, (err) => {
-    if (err) {
-      console.error(`❌ [Smart Mirror] ${timestamp} - Error serving file to ${clientIp}:`, err.message);
-      if (!res.headersSent) {
-        res.status(500).send('Error loading Smart Mirror page');
-      }
-    } else {
-      console.log(`✅ [Smart Mirror] ${timestamp} - File delivered successfully to ${clientIp}`);
-    }
-  });
+  res.redirect(301, '/smart-mirror/');
 });
 
 // Default route - serve public content
