@@ -519,7 +519,10 @@
             // Update clock every second
             clockInterval = setInterval(() => {
                 if (config && config.widgets && config.widgets.clock && config.widgets.clock.enabled) {
-                    updateClockWidget(document.getElementById('widget-clock'));
+                    const clockElement = document.getElementById('widget-clock');
+                    if (clockElement) {
+                        updateClockWidget(clockElement);
+                    }
                 }
             }, 1000);
         });
