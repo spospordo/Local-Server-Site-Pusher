@@ -6,6 +6,11 @@ let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
 const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-change-in-production';
 
+// Warn if using default encryption key
+if (!process.env.SMARTMIRROR_KEY) {
+  console.warn('⚠️  [Smart Mirror] Using default encryption key. Set SMARTMIRROR_KEY environment variable for production.');
+}
+
 // Initialize the smart mirror module with server config
 function init(serverConfig) {
   config = serverConfig;

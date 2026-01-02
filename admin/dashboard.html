@@ -8274,7 +8274,7 @@
                                 height: parseInt(document.getElementById('weatherGridHeight').value)
                             },
                             location: document.getElementById('weatherLocation').value,
-                            apiKey: document.getElementById('weatherApiKey').value || undefined
+                            apiKey: document.getElementById('weatherApiKey').value.trim() || undefined
                         },
                         news: {
                             enabled: document.getElementById('newsEnabled').value === 'true',

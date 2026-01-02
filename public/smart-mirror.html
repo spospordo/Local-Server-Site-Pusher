@@ -511,11 +511,13 @@
         }
 
         // Initialize dashboard on page load
+        let clockInterval = null;
+        
         document.addEventListener('DOMContentLoaded', () => {
             loadConfig();
             
             // Update clock every second
-            setInterval(() => {
+            clockInterval = setInterval(() => {
                 if (config && config.widgets && config.widgets.clock && config.widgets.clock.enabled) {
                     updateClockWidget(document.getElementById('widget-clock'));
                 }
@@ -526,6 +528,9 @@
         window.addEventListener('beforeunload', () => {
             if (refreshInterval) {
                 clearInterval(refreshInterval);
+            }
+            if (clockInterval) {
+                clearInterval(clockInterval);
             }
         });
     </script>
