@@ -17,7 +17,9 @@ class SmartMirrorApp {
         this.pollInterval = null;
         // Configurable polling interval - 30 seconds default to reduce server load
         // Can be overridden by setting window.SMART_MIRROR_POLL_INTERVAL_MS
-        this.pollIntervalMs = (typeof window !== 'undefined' && window.SMART_MIRROR_POLL_INTERVAL_MS) || 30000;
+        // Minimum 5 seconds to prevent excessive server load
+        const customInterval = window.SMART_MIRROR_POLL_INTERVAL_MS;
+        this.pollIntervalMs = (customInterval && customInterval >= 5000) ? customInterval : 30000;
     }
 
     async init() {

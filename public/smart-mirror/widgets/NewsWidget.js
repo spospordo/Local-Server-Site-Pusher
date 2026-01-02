@@ -61,8 +61,17 @@ export class NewsWidget extends BaseWidget {
             contentElement.querySelectorAll('.news-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const url = item.getAttribute('data-news-url');
-                    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-                        window.open(url, '_blank', 'noopener,noreferrer');
+                    // Validate URL more robustly
+                    if (url) {
+                        try {
+                            const parsedUrl = new URL(url);
+                            // Only allow http and https protocols
+                            if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                            }
+                        } catch (e) {
+                            console.warn('Invalid news URL:', url);
+                        }
                     }
                 });
             });

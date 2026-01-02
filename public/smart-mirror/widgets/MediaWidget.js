@@ -20,20 +20,44 @@ export class MediaWidget extends BaseWidget {
         const mediaUrl = this.globalConfig?.media?.url;
         
         if (!mediaUrl) {
-            content.innerHTML = '<div style="padding: 1rem; text-align: center; color: #888;">No media source configured</div>';
+            content.textContent = 'No media source configured';
+            content.style.padding = '1rem';
+            content.style.textAlign = 'center';
+            content.style.color = '#888';
             return widget;
         }
         
-        content.innerHTML = `
-            <div class="media-content">
-                <iframe 
-                    class="media-iframe" 
-                    src="${this.escapeHtml(mediaUrl)}" 
-                    allow="autoplay; encrypted-media"
-                    allowfullscreen
-                ></iframe>
-            </div>
-        `;
+        // Validate URL to prevent XSS via javascript: or data: URLs
+        let isValidUrl = false;
+        try {
+            const url = new URL(mediaUrl);
+            // Only allow http and https protocols
+            isValidUrl = url.protocol === 'http:' || url.protocol === 'https:';
+        } catch (e) {
+            isValidUrl = false;
+        }
+        
+        if (!isValidUrl) {
+            content.textContent = 'Invalid media URL - only HTTP/HTTPS URLs are allowed';
+            content.style.padding = '1rem';
+            content.style.textAlign = 'center';
+            content.style.color = '#ff6b6b';
+            return widget;
+        }
+        
+        // Create iframe element safely
+        const mediaContainer = document.createElement('div');
+        mediaContainer.className = 'media-content';
+        
+        const iframe = document.createElement('iframe');
+        iframe.className = 'media-iframe';
+        iframe.src = mediaUrl; // Safe now after validation
+        iframe.setAttribute('allow', 'autoplay; encrypted-media');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+        
+        mediaContainer.appendChild(iframe);
+        content.appendChild(mediaContainer);
         
         return widget;
     }

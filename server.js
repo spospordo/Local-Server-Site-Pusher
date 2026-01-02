@@ -771,11 +771,14 @@ if (isProduction && !suppressWarnings) {
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Serve Magic Mirror static assets (CSS, JS, etc.)
-// The static middleware will automatically serve index.html when accessing /magic-mirror/
+// IMPORTANT: Removed 'index: false' to allow auto-serving of index.html for directory requests.
+// This fixes the issue where /magic-mirror/ was redirecting infinitely.
+// The route handler at line ~5558 still handles /magic-mirror (without slash) by redirecting to /magic-mirror/
+// Then this middleware serves index.html for /magic-mirror/ (with slash)
 app.use('/magic-mirror', express.static(path.join(__dirname, 'public', 'magic-mirror')));
 
 // Serve Smart Mirror static assets (CSS, JS, etc.)
-// The static middleware will automatically serve index.html when accessing /smart-mirror/
+// Same pattern as Magic Mirror - allows auto-serving of index.html for directory requests
 app.use('/smart-mirror', express.static(path.join(__dirname, 'public', 'smart-mirror')));
 
 // Authentication middleware
