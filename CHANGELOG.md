@@ -7,15 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
-- **Magic Mirror Dashboard**: Completely removed all Magic Mirror and Smart Mirror dashboard implementations
-  - Removed `/magic-mirror` and `/smart-mirror` routes and frontend code
-  - Removed all Magic Mirror API endpoints (`/api/magic-mirror/*`, `/api/magicmirror/*`, `/admin/api/magicmirror/*`)
-  - Removed `modules/magicmirror.js` backend module
-  - Removed Magic Mirror configuration from admin dashboard
-  - Removed all Magic Mirror test scripts
-  - Removed all Magic Mirror documentation files
-  - This is a breaking change - all Magic Mirror functionality is no longer available
+### Fixed
+- **Smart Mirror Dashboard 404 Error**: Fixed issue where `/smart-mirror` route would return 404 Not Found after enabling the dashboard in admin settings
+  - Added enabled state check to `/smart-mirror` route
+  - Returns helpful 404 page with link to admin settings when Smart Mirror is disabled
+  - Serves dashboard HTML when Smart Mirror is enabled in configuration
+  - Added proper logging for access attempts (enabled/disabled states)
+  - Resolves production deployment issue where dashboard was inaccessible
 
 ### Added
 - **Magic Mirror - Forecast Widget**: New separate widget for multi-day weather forecasts
