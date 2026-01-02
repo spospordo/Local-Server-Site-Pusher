@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Magic Mirror Dashboard**: Completely removed all Magic Mirror and Smart Mirror dashboard implementations
+  - Removed `/magic-mirror` and `/smart-mirror` routes and frontend code
+  - Removed all Magic Mirror API endpoints (`/api/magic-mirror/*`, `/api/magicmirror/*`, `/admin/api/magicmirror/*`)
+  - Removed `modules/magicmirror.js` backend module
+  - Removed Magic Mirror configuration from admin dashboard
+  - Removed all Magic Mirror test scripts
+  - Removed all Magic Mirror documentation files
+  - This is a breaking change - all Magic Mirror functionality is no longer available
+
 ### Added
 - **Magic Mirror - Forecast Widget**: New separate widget for multi-day weather forecasts
   - Displays weather projections for tomorrow and up to 10 days ahead

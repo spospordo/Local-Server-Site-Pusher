@@ -9,7 +9,6 @@ class Logger {
     // Log categories/modules
     this.categories = {
       SYSTEM: 'System',
-      MAGIC_MIRROR: 'Magic Mirror',
       DEPLOYMENT: 'Deployment',
       BUILD: 'Build',
       FINANCE: 'Finance',
