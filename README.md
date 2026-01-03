@@ -9,6 +9,7 @@ A containerized web application with admin interface for serving web content and
 📊 **Status Monitoring**: Integration with Home Assistant and Cockpit  
 🐳 **Containerized**: Easy deployment with Docker  
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
+🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 
 ## Quick Start
 
@@ -214,6 +215,62 @@ Returns current espresso brewing data in JSON format.
 POST /api/espresso/data
 ```
 Updates espresso brewing data (public endpoint, no authentication required).
+
+## Auto-Regeneration of Public Files
+
+The server includes an auto-regeneration system that ensures critical public files are always present and up-to-date after deployments.
+
+### Features
+
+- **Automatic on Startup**: Regenerates files 5 seconds after server starts (configurable)
+- **Static File Checking**: Ensures `smart-mirror.html`, `index.html`, and `espresso-editor.html` exist
+- **Dynamic Content**: Regenerates Espresso and Vidiots pages from persisted data
+- **Detailed Logging**: All regeneration actions are logged for troubleshooting
+- **Manual Trigger**: Admin API endpoints for manual regeneration
+
+### Configuration
+
+Set the delay via environment variable:
+```bash
+# docker-compose.yml
+environment:
+  - AUTO_REGENERATE_PUBLIC_DELAY=5  # seconds
+```
+
+Or disable in `config/config.json`:
+```json
+{
+  "publicFilesRegeneration": {
+    "enabled": false
+  }
+}
+```
+
+### Admin API Endpoints
+
+```bash
+# Trigger manual regeneration
+POST /admin/api/regenerate-public
+Body: { "force": false }  # true to overwrite all files
+
+# Check regeneration status
+GET /admin/api/regenerate-public/status
+
+# View regeneration logs
+GET /admin/api/regenerate-public/logs
+
+# Clear logs
+POST /admin/api/regenerate-public/logs/clear
+```
+
+### Best Practices
+
+1. Keep auto-regeneration enabled for production deployments
+2. Use volume mounts for `/config` and `/uploads` only
+3. Let auto-regeneration handle `/public` directory
+4. Monitor regeneration logs via admin panel
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed volume mount strategies and troubleshooting.
 
 ## Ollama/Open WebUI Integration
 
