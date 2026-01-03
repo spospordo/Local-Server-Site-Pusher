@@ -3235,10 +3235,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="calendarUrl">Calendar URL (iCal/ICS feed - optional)</label>
-                            <input type="url" id="calendarUrl" placeholder="https://calendar.google.com/calendar/ical/...">
+                            <label for="calendarUrl">Calendar Feed URLs (one per line)</label>
+                            <textarea id="calendarUrl" rows="3" placeholder="https://calendar.google.com/calendar/ical/...&#10;https://outlook.office365.com/owa/calendar/..."></textarea>
                             <small style="color: #666; display: block; margin-top: 4px;">
-                                Import events from Google Calendar, Outlook, or other iCal-compatible services
+                                Import events from Google Calendar, Outlook, Apple Calendar, or other iCal-compatible services. Enter one URL per line.
                             </small>
                         </div>
                     </div>
@@ -3249,7 +3249,7 @@
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
                         <span class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            🌤️ Weather Widget (Coming Soon)
+                            🌤️ Weather Widget (Current Conditions)
                         </span>
                     </div>
                     <div class="collapsible-content">
@@ -3277,7 +3277,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="weatherGridY">Grid Position Y (0-2)</label>
-                                <input type="number" id="weatherGridY" min="0" max="2" value="2">
+                                <input type="number" id="weatherGridY" min="0" max="2" value="1">
                             </div>
                         </div>
                         <div class="form-row">
@@ -3292,14 +3292,91 @@
                         </div>
                         <div class="form-group">
                             <label for="weatherLocation">Location</label>
-                            <input type="text" id="weatherLocation" placeholder="City, State or Zip Code">
+                            <input type="text" id="weatherLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weatherApiKey">OpenWeatherMap API Key</label>
+                                <input type="password" id="weatherApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Get a free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="weatherUnits">Temperature Units</label>
+                                <select id="weatherUnits">
+                                    <option value="imperial">Fahrenheit (°F)</option>
+                                    <option value="metric">Celsius (°C)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🌦️ Weather Forecast Widget
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="forecastEnabled">Forecast Widget</label>
+                                <select id="forecastEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="forecastDays">Forecast Days</label>
+                                <select id="forecastDays">
+                                    <option value="3">3 Days</option>
+                                    <option value="5" selected>5 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="forecastGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="forecastGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="forecastGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="forecastGridY" min="0" max="2" value="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="forecastGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="forecastGridWidth" min="1" max="4" value="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="forecastGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="forecastGridHeight" min="1" max="3" value="1">
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label for="weatherApiKey">Weather API Key</label>
-                            <input type="password" id="weatherApiKey" placeholder="Enter weather service API key">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Weather API integration coming in future update
-                            </small>
+                            <label for="forecastLocation">Location</label>
+                            <input type="text" id="forecastLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="forecastApiKey">OpenWeatherMap API Key</label>
+                                <input type="password" id="forecastApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Uses the same OpenWeatherMap API. Get a free key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="forecastUnits">Temperature Units</label>
+                                <select id="forecastUnits">
+                                    <option value="imperial">Fahrenheit (°F)</option>
+                                    <option value="metric">Celsius (°C)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3309,7 +3386,7 @@
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
                         <span class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
-                            📰 News Widget (Coming Soon)
+                            📰 News Widget
                         </span>
                     </div>
                     <div class="collapsible-content">
@@ -3337,7 +3414,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="newsGridY">Grid Position Y (0-2)</label>
-                                <input type="number" id="newsGridY" min="0" max="2" value="2">
+                                <input type="number" id="newsGridY" min="0" max="2" value="1">
                             </div>
                         </div>
                         <div class="form-row">
@@ -3351,10 +3428,10 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="newsFeedUrl">RSS Feed URL</label>
-                            <input type="url" id="newsFeedUrl" placeholder="https://example.com/rss">
+                            <label for="newsFeedUrl">RSS Feed URLs (one per line)</label>
+                            <textarea id="newsFeedUrl" rows="3" placeholder="https://feeds.bbci.co.uk/news/rss.xml&#10;https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"></textarea>
                             <small style="color: #666; display: block; margin-top: 4px;">
-                                RSS feed integration coming in future update
+                                Enter RSS feed URLs from news sources you want to follow. One URL per line.
                             </small>
                         </div>
                     </div>
@@ -8233,17 +8310,32 @@
                     document.getElementById('calendarGridY').value = calendar.gridPosition?.y ?? 0;
                     document.getElementById('calendarGridWidth').value = calendar.gridPosition?.width ?? 2;
                     document.getElementById('calendarGridHeight').value = calendar.gridPosition?.height ?? 2;
-                    document.getElementById('calendarUrl').value = calendar.calendarUrl || '';
+                    // Handle both old single URL and new multiple URLs
+                    const calendarUrls = calendar.calendarUrls || (calendar.calendarUrl ? [calendar.calendarUrl] : []);
+                    document.getElementById('calendarUrl').value = calendarUrls.join('\n');
                     
                     // Load weather widget config
                     const weather = config.widgets?.weather || {};
                     document.getElementById('weatherEnabled').value = weather.enabled === true ? 'true' : 'false';
                     document.getElementById('weatherSize').value = weather.size || 'medium';
                     document.getElementById('weatherGridX').value = weather.gridPosition?.x ?? 0;
-                    document.getElementById('weatherGridY').value = weather.gridPosition?.y ?? 2;
+                    document.getElementById('weatherGridY').value = weather.gridPosition?.y ?? 1;
                     document.getElementById('weatherGridWidth').value = weather.gridPosition?.width ?? 2;
                     document.getElementById('weatherGridHeight').value = weather.gridPosition?.height ?? 1;
                     document.getElementById('weatherLocation').value = weather.location || '';
+                    document.getElementById('weatherUnits').value = weather.units || 'imperial';
+                    // Don't load API key for security
+                    
+                    // Load forecast widget config
+                    const forecast = config.widgets?.forecast || {};
+                    document.getElementById('forecastEnabled').value = forecast.enabled === true ? 'true' : 'false';
+                    document.getElementById('forecastDays').value = forecast.days || 5;
+                    document.getElementById('forecastGridX').value = forecast.gridPosition?.x ?? 0;
+                    document.getElementById('forecastGridY').value = forecast.gridPosition?.y ?? 2;
+                    document.getElementById('forecastGridWidth').value = forecast.gridPosition?.width ?? 4;
+                    document.getElementById('forecastGridHeight').value = forecast.gridPosition?.height ?? 1;
+                    document.getElementById('forecastLocation').value = forecast.location || '';
+                    document.getElementById('forecastUnits').value = forecast.units || 'imperial';
                     // Don't load API key for security
                     
                     // Load news widget config
@@ -8251,10 +8343,12 @@
                     document.getElementById('newsEnabled').value = news.enabled === true ? 'true' : 'false';
                     document.getElementById('newsSize').value = news.size || 'medium';
                     document.getElementById('newsGridX').value = news.gridPosition?.x ?? 2;
-                    document.getElementById('newsGridY').value = news.gridPosition?.y ?? 2;
+                    document.getElementById('newsGridY').value = news.gridPosition?.y ?? 1;
                     document.getElementById('newsGridWidth').value = news.gridPosition?.width ?? 2;
                     document.getElementById('newsGridHeight').value = news.gridPosition?.height ?? 1;
-                    document.getElementById('newsFeedUrl').value = news.feedUrl || '';
+                    // Handle both old single URL and new multiple URLs
+                    const feedUrls = news.feedUrls || (news.feedUrl ? [news.feedUrl] : []);
+                    document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
                     
                     console.log('Smart Mirror configuration loaded');
                 } else {
@@ -8268,6 +8362,18 @@
         
         async function saveSmartMirrorConfig() {
             try {
+                // Parse calendar URLs from textarea (one per line)
+                const calendarUrlText = document.getElementById('calendarUrl').value;
+                const calendarUrls = calendarUrlText.split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
+                // Parse news feed URLs from textarea (one per line)
+                const newsFeedUrlText = document.getElementById('newsFeedUrl').value;
+                const feedUrls = newsFeedUrlText.split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
                 const config = {
                     enabled: document.getElementById('smartMirrorEnabled').value === 'true',
                     theme: document.getElementById('smartMirrorTheme').value,
@@ -8293,7 +8399,7 @@
                                 width: parseInt(document.getElementById('calendarGridWidth').value),
                                 height: parseInt(document.getElementById('calendarGridHeight').value)
                             },
-                            calendarUrl: document.getElementById('calendarUrl').value
+                            calendarUrls: calendarUrls
                         },
                         weather: {
                             enabled: document.getElementById('weatherEnabled').value === 'true',
@@ -8306,7 +8412,23 @@
                                 height: parseInt(document.getElementById('weatherGridHeight').value)
                             },
                             location: document.getElementById('weatherLocation').value,
-                            apiKey: document.getElementById('weatherApiKey').value.trim() || undefined
+                            apiKey: document.getElementById('weatherApiKey').value.trim() || undefined,
+                            units: document.getElementById('weatherUnits').value
+                        },
+                        forecast: {
+                            enabled: document.getElementById('forecastEnabled').value === 'true',
+                            size: 'large',
+                            area: 'bottom-center',
+                            gridPosition: {
+                                x: parseInt(document.getElementById('forecastGridX').value),
+                                y: parseInt(document.getElementById('forecastGridY').value),
+                                width: parseInt(document.getElementById('forecastGridWidth').value),
+                                height: parseInt(document.getElementById('forecastGridHeight').value)
+                            },
+                            location: document.getElementById('forecastLocation').value,
+                            apiKey: document.getElementById('forecastApiKey').value.trim() || undefined,
+                            days: parseInt(document.getElementById('forecastDays').value),
+                            units: document.getElementById('forecastUnits').value
                         },
                         news: {
                             enabled: document.getElementById('newsEnabled').value === 'true',
@@ -8318,7 +8440,7 @@
                                 width: parseInt(document.getElementById('newsGridWidth').value),
                                 height: parseInt(document.getElementById('newsGridHeight').value)
                             },
-                            feedUrl: document.getElementById('newsFeedUrl').value
+                            feedUrls: feedUrls
                         }
                     },
                     gridSize: {

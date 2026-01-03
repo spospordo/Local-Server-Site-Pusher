@@ -145,11 +145,28 @@
             font-size: 3rem;
             font-weight: 300;
         }
+        
+        .weather-temp-unit {
+            font-size: 1.5rem;
+            opacity: 0.6;
+            margin-left: 5px;
+        }
+        
+        .weather-temp-secondary {
+            font-size: 1.2rem;
+            opacity: 0.5;
+            margin-left: 10px;
+        }
 
         .weather-condition {
             font-size: 1.5rem;
             margin-top: 10px;
             opacity: 0.8;
+        }
+        
+        .weather-icon {
+            font-size: 2.5rem;
+            margin: 10px 0;
         }
 
         .weather-details {
@@ -158,6 +175,63 @@
             gap: 20px;
             font-size: 0.9rem;
             opacity: 0.7;
+            flex-wrap: wrap;
+        }
+        
+        .weather-location {
+            font-size: 1rem;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        /* Forecast Widget */
+        .forecast-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            gap: 10px;
+        }
+        
+        .forecast-day {
+            text-align: center;
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        body.theme-light .forecast-day {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .forecast-day-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        
+        .forecast-icon {
+            font-size: 2rem;
+            margin: 8px 0;
+        }
+        
+        .forecast-temp {
+            font-size: 1.2rem;
+            margin: 5px 0;
+        }
+        
+        .forecast-temp-high {
+            font-weight: 600;
+        }
+        
+        .forecast-temp-low {
+            opacity: 0.6;
+        }
+        
+        .forecast-precip {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 5px;
         }
 
         /* News Widget */
@@ -413,6 +487,7 @@
                 clock: '🕐 Time',
                 calendar: '📅 Calendar',
                 weather: '🌤️ Weather',
+                forecast: '🌦️ Forecast',
                 news: '📰 News'
             };
             return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
@@ -445,6 +520,9 @@
                 case 'weather':
                     updateWeatherWidget(content, widgetConfig);
                     break;
+                case 'forecast':
+                    updateForecastWidget(content, widgetConfig);
+                    break;
                 case 'news':
                     updateNewsWidget(content, widgetConfig);
                     break;
@@ -475,79 +553,301 @@
         }
 
         // Update calendar widget
-        function updateCalendarWidget(content, widgetConfig) {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const today = now.getDate();
-
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'];
-            
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-            let calendarHTML = `
-                <div class="calendar-container">
-                    <div class="calendar-header">${monthNames[month]} ${year}</div>
-                    <div class="calendar-grid">
-            `;
-
-            // Day names
-            dayNames.forEach(day => {
-                calendarHTML += `<div class="calendar-day-name">${day}</div>`;
-            });
-
-            // Previous month days
-            for (let i = firstDay - 1; i >= 0; i--) {
-                const day = daysInPrevMonth - i;
-                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
+        async function updateCalendarWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/calendar');
+                const data = await response.json();
+                
+                if (data.success && data.events && data.events.length > 0) {
+                    let eventsHTML = '<div class="calendar-events">';
+                    data.events.forEach(event => {
+                        const startDate = new Date(event.start);
+                        const timeStr = startDate.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true 
+                        });
+                        const dateStr = startDate.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        
+                        // Create safe text nodes by using textContent
+                        const eventDiv = document.createElement('div');
+                        eventDiv.className = 'calendar-event';
+                        
+                        const mainDiv = document.createElement('div');
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'calendar-event-time';
+                        timeSpan.textContent = `${dateStr} ${timeStr}`;
+                        mainDiv.appendChild(timeSpan);
+                        
+                        const titleStrong = document.createElement('strong');
+                        titleStrong.textContent = event.title || 'Untitled Event';
+                        mainDiv.appendChild(titleStrong);
+                        eventDiv.appendChild(mainDiv);
+                        
+                        if (event.location) {
+                            const locationDiv = document.createElement('div');
+                            locationDiv.style.fontSize = '0.85em';
+                            locationDiv.style.opacity = '0.7';
+                            locationDiv.style.marginTop = '3px';
+                            locationDiv.textContent = '📍 ' + event.location;
+                            eventDiv.appendChild(locationDiv);
+                        }
+                        
+                        eventsHTML += eventDiv.outerHTML;
+                    });
+                    eventsHTML += '</div>';
+                    content.innerHTML = eventsHTML;
+                } else if (data.error) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.opacity = '0.6';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.textContent = '⚠️ ' + data.error;
+                    content.innerHTML = '';
+                    content.appendChild(errorDiv);
+                } else {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.opacity = '0.6';
+                    msgDiv.style.textAlign = 'center';
+                    msgDiv.textContent = 'No upcoming events';
+                    content.innerHTML = '';
+                    content.appendChild(msgDiv);
+                }
+            } catch (error) {
+                console.error('Error fetching calendar:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading calendar';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
             }
+        }
 
-            // Current month days
-            for (let day = 1; day <= daysInMonth; day++) {
-                const isToday = day === today ? 'today' : '';
-                calendarHTML += `<div class="calendar-day ${isToday}">${day}</div>`;
-            }
+        // Helper function to convert Celsius to Fahrenheit
+        function celsiusToFahrenheit(celsius) {
+            return Math.round((celsius * 9/5) + 32);
+        }
 
-            // Next month days to fill grid
-            const remainingCells = 42 - (firstDay + daysInMonth); // 6 rows × 7 days
-            for (let day = 1; day <= remainingCells; day++) {
-                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
-            }
+        // Helper function to convert Fahrenheit to Celsius
+        function fahrenheitToCelsius(fahrenheit) {
+            return Math.round((fahrenheit - 32) * 5/9);
+        }
 
-            calendarHTML += `</div></div>`;
-
-            content.innerHTML = calendarHTML;
+        // Helper function to get weather icon from OpenWeatherMap icon code
+        function getWeatherIcon(iconCode) {
+            const iconMap = {
+                '01d': '☀️', '01n': '🌙',
+                '02d': '⛅', '02n': '☁️',
+                '03d': '☁️', '03n': '☁️',
+                '04d': '☁️', '04n': '☁️',
+                '09d': '🌧️', '09n': '🌧️',
+                '10d': '🌦️', '10n': '🌧️',
+                '11d': '⛈️', '11n': '⛈️',
+                '13d': '🌨️', '13n': '🌨️',
+                '50d': '🌫️', '50n': '🌫️'
+            };
+            return iconMap[iconCode] || '🌤️';
         }
 
         // Update weather widget
-        function updateWeatherWidget(content, widgetConfig) {
-            // Placeholder for weather - would need API integration
-            content.innerHTML = `
-                <div class="weather-temp">--°</div>
-                <div class="weather-condition">Weather data not configured</div>
-                <div class="weather-details">
-                    <div>Humidity: --%</div>
-                    <div>Wind: -- mph</div>
-                </div>
-            `;
+        async function updateWeatherWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/weather');
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    const weather = data.data;
+                    const isImperial = weather.units === 'imperial';
+                    const tempUnit = isImperial ? 'F' : 'C';
+                    const tempSecondary = isImperial ? fahrenheitToCelsius(weather.temp) : celsiusToFahrenheit(weather.temp);
+                    const secondaryUnit = isImperial ? 'C' : 'F';
+                    const windUnit = isImperial ? 'mph' : 'm/s';
+                    
+                    // Create elements safely
+                    content.innerHTML = '';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'weather-icon';
+                    iconDiv.textContent = getWeatherIcon(weather.icon);
+                    content.appendChild(iconDiv);
+                    
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = 'weather-temp';
+                    tempDiv.textContent = weather.temp + '°';
+                    
+                    const tempUnitSpan = document.createElement('span');
+                    tempUnitSpan.className = 'weather-temp-unit';
+                    tempUnitSpan.textContent = tempUnit;
+                    tempDiv.appendChild(tempUnitSpan);
+                    
+                    const tempSecondarySpan = document.createElement('span');
+                    tempSecondarySpan.className = 'weather-temp-secondary';
+                    tempSecondarySpan.textContent = tempSecondary + '°' + secondaryUnit;
+                    tempDiv.appendChild(tempSecondarySpan);
+                    content.appendChild(tempDiv);
+                    
+                    const conditionDiv = document.createElement('div');
+                    conditionDiv.className = 'weather-condition';
+                    conditionDiv.textContent = weather.description || 'Unknown';
+                    content.appendChild(conditionDiv);
+                    
+                    const locationDiv = document.createElement('div');
+                    locationDiv.className = 'weather-location';
+                    locationDiv.textContent = weather.location + (weather.country ? ', ' + weather.country : '');
+                    content.appendChild(locationDiv);
+                    
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'weather-details';
+                    
+                    const humidityDiv = document.createElement('div');
+                    humidityDiv.textContent = '💧 ' + weather.humidity + '%';
+                    detailsDiv.appendChild(humidityDiv);
+                    
+                    const windDiv = document.createElement('div');
+                    windDiv.textContent = '💨 ' + weather.windSpeed + ' ' + windUnit;
+                    detailsDiv.appendChild(windDiv);
+                    
+                    if (weather.feelsLike) {
+                        const feelsLikeDiv = document.createElement('div');
+                        feelsLikeDiv.textContent = 'Feels: ' + weather.feelsLike + '°' + tempUnit;
+                        detailsDiv.appendChild(feelsLikeDiv);
+                    }
+                    
+                    content.appendChild(detailsDiv);
+                } else if (data.error) {
+                    const errorContainer = document.createElement('div');
+                    errorContainer.style.opacity = '0.6';
+                    errorContainer.style.textAlign = 'center';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '⚠️';
+                    errorContainer.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = data.error;
+                    errorContainer.appendChild(msgDiv);
+                    
+                    content.innerHTML = '';
+                    content.appendChild(errorContainer);
+                }
+            } catch (error) {
+                console.error('Error fetching weather:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading weather';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+
+        // Update forecast widget
+        async function updateForecastWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/forecast');
+                const data = await response.json();
+                
+                if (data.success && data.days && data.days.length > 0) {
+                    const isImperial = data.units === 'imperial';
+                    const tempUnit = isImperial ? 'F' : 'C';
+                    
+                    let forecastHTML = '<div class="forecast-container">';
+                    data.days.forEach(day => {
+                        const tempHigh = day.tempHigh;
+                        const tempLow = day.tempLow;
+                        const tempHighSecondary = isImperial ? fahrenheitToCelsius(tempHigh) : celsiusToFahrenheit(tempHigh);
+                        const tempLowSecondary = isImperial ? fahrenheitToCelsius(tempLow) : celsiusToFahrenheit(tempLow);
+                        const secondaryUnit = isImperial ? 'C' : 'F';
+                        
+                        forecastHTML += `
+                            <div class="forecast-day">
+                                <div class="forecast-day-name">${day.dayName}</div>
+                                <div class="forecast-icon">${getWeatherIcon(day.icon)}</div>
+                                <div class="forecast-temp">
+                                    <div class="forecast-temp-high">${tempHigh}°${tempUnit}</div>
+                                    <div class="forecast-temp-low">${tempLow}°${tempUnit}</div>
+                                    <div style="font-size: 0.75rem; opacity: 0.5; margin-top: 3px;">
+                                        ${tempHighSecondary}°/${tempLowSecondary}°${secondaryUnit}
+                                    </div>
+                                </div>
+                                ${day.precipChance > 0 ? `<div class="forecast-precip">💧 ${day.precipChance}%</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    forecastHTML += '</div>';
+                    content.innerHTML = forecastHTML;
+                } else if (data.error) {
+                    content.innerHTML = `<div style="opacity: 0.6; text-align: center;">⚠️ ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error fetching forecast:', error);
+                content.innerHTML = '<div style="opacity: 0.6; text-align: center;">Error loading forecast</div>';
+            }
         }
 
         // Update news widget
-        function updateNewsWidget(content, widgetConfig) {
-            // Placeholder for news - would need API/RSS integration
-            content.innerHTML = `
-                <div class="news-items">
-                    <div class="news-item">
-                        <div class="news-title">News feed not configured</div>
-                        <div class="news-source">Configure RSS feed URL in admin panel</div>
-                    </div>
-                </div>
-            `;
+        async function updateNewsWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/news');
+                const data = await response.json();
+                
+                if (data.success && data.items && data.items.length > 0) {
+                    content.innerHTML = '';
+                    const newsContainer = document.createElement('div');
+                    newsContainer.className = 'news-items';
+                    
+                    data.items.slice(0, 5).forEach(item => {
+                        const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        }) : '';
+                        
+                        const newsItem = document.createElement('div');
+                        newsItem.className = 'news-item';
+                        
+                        const title = document.createElement('div');
+                        title.className = 'news-title';
+                        title.textContent = item.title || 'Untitled';
+                        newsItem.appendChild(title);
+                        
+                        const source = document.createElement('div');
+                        source.className = 'news-source';
+                        source.textContent = item.source + (date ? ' • ' + date : '');
+                        newsItem.appendChild(source);
+                        
+                        newsContainer.appendChild(newsItem);
+                    });
+                    
+                    content.appendChild(newsContainer);
+                } else if (data.error) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.opacity = '0.6';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.textContent = '⚠️ ' + data.error;
+                    content.innerHTML = '';
+                    content.appendChild(errorDiv);
+                } else {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.opacity = '0.6';
+                    msgDiv.style.textAlign = 'center';
+                    msgDiv.textContent = 'No news items available';
+                    content.innerHTML = '';
+                    content.appendChild(msgDiv);
+                }
+            } catch (error) {
+                console.error('Error fetching news:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading news';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
         }
 
         // Show error message

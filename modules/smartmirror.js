@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const logger = require('./logger');
+const axios = require('axios');
+const Parser = require('rss-parser');
+const ical = require('node-ical');
 
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
@@ -46,22 +49,33 @@ function getDefaultConfig() {
         area: 'top-right',
         size: 'large',
         gridPosition: { x: 2, y: 0, width: 2, height: 2 },
-        calendarUrl: ''
+        calendarUrls: [] // Support multiple calendar feeds (breaking change from calendarUrl string)
       },
       weather: {
         enabled: false,
         area: 'bottom-left',
         size: 'medium',
-        gridPosition: { x: 0, y: 2, width: 2, height: 1 },
+        gridPosition: { x: 0, y: 1, width: 2, height: 1 },
         apiKey: '',
-        location: ''
+        location: '',
+        units: 'imperial' // imperial or metric
+      },
+      forecast: {
+        enabled: false,
+        area: 'bottom-center',
+        size: 'large',
+        gridPosition: { x: 0, y: 2, width: 4, height: 1 },
+        apiKey: '',
+        location: '',
+        days: 5, // 3, 5, or 10
+        units: 'imperial' // imperial or metric
       },
       news: {
         enabled: false,
         area: 'bottom-right',
         size: 'medium',
-        gridPosition: { x: 2, y: 2, width: 2, height: 1 },
-        feedUrl: ''
+        gridPosition: { x: 2, y: 1, width: 2, height: 1 },
+        feedUrls: [] // Support multiple RSS feeds
       }
     },
     gridSize: {
@@ -228,15 +242,22 @@ function getPublicConfig() {
     };
     
     // Add non-sensitive widget-specific data
-    if (widgetKey === 'calendar' && widget.calendarUrl) {
-      publicConfig.widgets[widgetKey].calendarUrl = widget.calendarUrl;
+    if (widgetKey === 'calendar' && widget.calendarUrls) {
+      publicConfig.widgets[widgetKey].calendarUrls = widget.calendarUrls;
     }
     if (widgetKey === 'weather' && widget.location) {
       publicConfig.widgets[widgetKey].location = widget.location;
+      publicConfig.widgets[widgetKey].units = widget.units || 'imperial';
       // Don't include API key
     }
-    if (widgetKey === 'news' && widget.feedUrl) {
-      publicConfig.widgets[widgetKey].feedUrl = widget.feedUrl;
+    if (widgetKey === 'forecast') {
+      publicConfig.widgets[widgetKey].location = widget.location;
+      publicConfig.widgets[widgetKey].days = widget.days || 5;
+      publicConfig.widgets[widgetKey].units = widget.units || 'imperial';
+      // Don't include API key
+    }
+    if (widgetKey === 'news' && widget.feedUrls) {
+      publicConfig.widgets[widgetKey].feedUrls = widget.feedUrls;
     }
   });
   
@@ -244,10 +265,285 @@ function getPublicConfig() {
   return publicConfig;
 }
 
+// Fetch calendar events from ICS feed
+async function fetchCalendarEvents(calendarUrls) {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching calendar events from ${calendarUrls.length} feeds`);
+  
+  if (!calendarUrls || calendarUrls.length === 0) {
+    logger.warning(logger.categories.SMART_MIRROR, 'No calendar URLs configured');
+    return { success: false, error: 'No calendar URLs configured', events: [] };
+  }
+  
+  const allEvents = [];
+  const errors = [];
+  
+  for (const url of calendarUrls) {
+    if (!url || url.trim() === '') continue;
+    
+    try {
+      logger.info(logger.categories.SMART_MIRROR, `Fetching calendar from: ${url}`);
+      const response = await axios.get(url, { timeout: 10000 });
+      const events = await ical.async.parseICS(response.data);
+      
+      // Process events
+      const now = new Date();
+      const upcomingEvents = [];
+      
+      for (const [key, event] of Object.entries(events)) {
+        if (event.type === 'VEVENT') {
+          const startDate = event.start ? new Date(event.start) : null;
+          const endDate = event.end ? new Date(event.end) : null;
+          
+          // Only include future events (within next 30 days)
+          if (startDate && startDate > now) {
+            const daysFromNow = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
+            if (daysFromNow <= 30) {
+              upcomingEvents.push({
+                title: event.summary || 'Untitled Event',
+                start: startDate.toISOString(),
+                end: endDate ? endDate.toISOString() : null,
+                location: event.location || '',
+                description: event.description || '',
+                daysFromNow
+              });
+            }
+          }
+        }
+      }
+      
+      allEvents.push(...upcomingEvents);
+      logger.success(logger.categories.SMART_MIRROR, `Fetched ${upcomingEvents.length} upcoming events from calendar`);
+    } catch (err) {
+      const errorMsg = `Failed to fetch calendar from ${url}: ${err.message}`;
+      logger.error(logger.categories.SMART_MIRROR, errorMsg);
+      errors.push(errorMsg);
+    }
+  }
+  
+  // Sort events by start date
+  allEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+  
+  // Limit to 10 most recent events
+  const limitedEvents = allEvents.slice(0, 10);
+  
+  return {
+    success: true,
+    events: limitedEvents,
+    errors: errors.length > 0 ? errors : null
+  };
+}
+
+// Fetch news from RSS feeds
+async function fetchNews(feedUrls) {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching news from ${feedUrls.length} feeds`);
+  
+  if (!feedUrls || feedUrls.length === 0) {
+    logger.warning(logger.categories.SMART_MIRROR, 'No news feed URLs configured');
+    return { success: false, error: 'No news feed URLs configured', items: [] };
+  }
+  
+  const parser = new Parser({
+    timeout: 10000,
+    customFields: {
+      item: ['media:content', 'media:thumbnail']
+    }
+  });
+  
+  const allItems = [];
+  const errors = [];
+  
+  for (const url of feedUrls) {
+    if (!url || url.trim() === '') continue;
+    
+    try {
+      logger.info(logger.categories.SMART_MIRROR, `Fetching RSS feed from: ${url}`);
+      const feed = await parser.parseURL(url);
+      
+      const items = feed.items.slice(0, 5).map(item => ({
+        title: item.title || 'Untitled',
+        link: item.link || '',
+        pubDate: item.pubDate || item.isoDate || '',
+        source: feed.title || url,
+        description: item.contentSnippet || item.content || '',
+        image: item['media:thumbnail']?.[0]?.$ || item['media:content']?.[0]?.$ || null
+      }));
+      
+      allItems.push(...items);
+      logger.success(logger.categories.SMART_MIRROR, `Fetched ${items.length} news items from ${feed.title || url}`);
+    } catch (err) {
+      const errorMsg = `Failed to fetch RSS feed from ${url}: ${err.message}`;
+      logger.error(logger.categories.SMART_MIRROR, errorMsg);
+      errors.push(errorMsg);
+    }
+  }
+  
+  // Sort by date (newest first)
+  allItems.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+  
+  // Limit to 15 most recent items
+  const limitedItems = allItems.slice(0, 15);
+  
+  return {
+    success: true,
+    items: limitedItems,
+    errors: errors.length > 0 ? errors : null
+  };
+}
+
+// Fetch current weather from OpenWeatherMap
+async function fetchWeather(apiKey, location, units = 'imperial') {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching current weather (units: ${units})`);
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for weather';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
+    logger.info(logger.categories.SMART_MIRROR, `Fetching weather from OpenWeatherMap API for location: ${location}`);
+    
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    const weatherData = {
+      temp: Math.round(data.main.temp),
+      tempMin: Math.round(data.main.temp_min),
+      tempMax: Math.round(data.main.temp_max),
+      feelsLike: Math.round(data.main.feels_like),
+      condition: data.weather[0]?.main || 'Unknown',
+      description: data.weather[0]?.description || '',
+      icon: data.weather[0]?.icon || '',
+      humidity: data.main.humidity,
+      pressure: data.main.pressure,
+      windSpeed: Math.round(data.wind.speed),
+      windDeg: data.wind.deg,
+      clouds: data.clouds.all,
+      sunrise: data.sys.sunrise ? new Date(data.sys.sunrise * 1000).toISOString() : null,
+      sunset: data.sys.sunset ? new Date(data.sys.sunset * 1000).toISOString() : null,
+      location: data.name,
+      country: data.sys.country,
+      units
+    };
+    
+    logger.success(logger.categories.SMART_MIRROR, `Weather data fetched successfully for ${data.name}`);
+    return { success: true, data: weatherData };
+  } catch (err) {
+    const errorMsg = `Failed to fetch weather: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+// Fetch weather forecast from OpenWeatherMap
+async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching ${days}-day forecast (units: ${units})`);
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for forecast';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  // Validate days parameter (only 3 and 5 supported with free tier)
+  if (![3, 5].includes(days)) {
+    days = 5; // Default to 5 days
+  }
+  
+  try {
+    // Use 5-day forecast endpoint (free tier)
+    const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
+    logger.info(logger.categories.SMART_MIRROR, `Fetching forecast from OpenWeatherMap API for location: ${location}`);
+    
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    // Group forecast by day and get daily summary
+    const dailyForecasts = {};
+    
+    data.list.forEach(item => {
+      const date = new Date(item.dt * 1000);
+      const dateKey = date.toISOString().split('T')[0];
+      
+      if (!dailyForecasts[dateKey]) {
+        dailyForecasts[dateKey] = {
+          date: dateKey,
+          temps: [],
+          conditions: [],
+          humidity: [],
+          windSpeed: [],
+          pop: [], // probability of precipitation
+          icons: []
+        };
+      }
+      
+      dailyForecasts[dateKey].temps.push(item.main.temp);
+      dailyForecasts[dateKey].conditions.push(item.weather[0]?.main);
+      dailyForecasts[dateKey].humidity.push(item.main.humidity);
+      dailyForecasts[dateKey].windSpeed.push(item.wind.speed);
+      dailyForecasts[dateKey].pop.push(item.pop || 0);
+      dailyForecasts[dateKey].icons.push(item.weather[0]?.icon);
+    });
+    
+    // Process daily summaries
+    const forecastDays = Object.keys(dailyForecasts)
+      .sort()
+      .slice(0, days)
+      .map(dateKey => {
+        const day = dailyForecasts[dateKey];
+        const tempMax = Math.round(Math.max(...day.temps));
+        const tempMin = Math.round(Math.min(...day.temps));
+        const avgHumidity = Math.round(day.humidity.reduce((a, b) => a + b, 0) / day.humidity.length);
+        const avgWindSpeed = Math.round(day.windSpeed.reduce((a, b) => a + b, 0) / day.windSpeed.length);
+        const maxPop = Math.round(Math.max(...day.pop) * 100);
+        
+        // Get most common condition and icon
+        const conditionCounts = {};
+        day.conditions.forEach(c => conditionCounts[c] = (conditionCounts[c] || 0) + 1);
+        const condition = Object.keys(conditionCounts).reduce((a, b) => 
+          conditionCounts[a] > conditionCounts[b] ? a : b
+        );
+        
+        // Get icon from most common condition time
+        const icon = day.icons[Math.floor(day.icons.length / 2)] || day.icons[0];
+        
+        return {
+          date: dateKey,
+          dayName: new Date(dateKey).toLocaleDateString('en-US', { weekday: 'short' }),
+          tempHigh: tempMax,
+          tempLow: tempMin,
+          condition,
+          icon,
+          humidity: avgHumidity,
+          windSpeed: avgWindSpeed,
+          precipChance: maxPop
+        };
+      });
+    
+    logger.success(logger.categories.SMART_MIRROR, `Forecast data fetched successfully for ${data.city.name}`);
+    return {
+      success: true,
+      location: data.city.name,
+      country: data.city.country,
+      days: forecastDays,
+      units
+    };
+  } catch (err) {
+    const errorMsg = `Failed to fetch forecast: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
   saveConfig,
   getPublicConfig,
-  getDefaultConfig
+  getDefaultConfig,
+  fetchCalendarEvents,
+  fetchNews,
+  fetchWeather,
+  fetchForecast
 };
