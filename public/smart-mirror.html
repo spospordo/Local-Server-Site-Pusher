@@ -175,6 +175,7 @@
             overflow-x: hidden;
             padding-right: 5px;
             min-height: 0; /* Critical for flex child scrolling */
+            scroll-behavior: smooth;
         }
 
         .calendar-events::-webkit-scrollbar {
@@ -434,6 +435,7 @@
             flex-wrap: nowrap;
             overflow-x: auto;
             overflow-y: hidden;
+            scroll-behavior: smooth;
         }
         
         .forecast-day {
@@ -487,6 +489,7 @@
             /* Remove max-height: 100% which can cause expansion */
             flex: 1;
             min-height: 0;
+            scroll-behavior: smooth;
         }
 
         .news-item {
