@@ -1422,6 +1422,147 @@ app.get('/smart-mirror', (req, res) => {
   res.sendFile(dashboardPath);
 });
 
+// Smart Mirror Dashboard - Landscape Mode Route
+app.get('/smart-mirror-l', (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    userAgent: req.get('user-agent'),
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Dashboard access requested (landscape mode) from ${requestContext.ip}`);
+  logger.logSmartMirrorDiagnostics('Dashboard landscape route accessed', {
+    request: requestContext,
+    method: req.method,
+    url: req.url,
+    headers: {
+      userAgent: req.get('user-agent'),
+      host: req.get('host'),
+      referer: req.get('referer')
+    }
+  });
+  
+  // Check if Smart Mirror is enabled
+  const smartMirrorConfig = smartMirror.loadConfig();
+  
+  if (!smartMirrorConfig.enabled) {
+    console.log('⚠️  [Smart Mirror] Access denied - feature is disabled');
+    logger.warning(logger.categories.SMART_MIRROR, `Access attempt while disabled from ${requestContext.ip}`);
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Smart Mirror Not Available</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a1a;
+            color: #fff;
+          }
+          .message {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          h1 { margin: 0 0 20px 0; font-size: 24px; }
+          p { margin: 10px 0; color: #aaa; }
+          a { color: #4a9eff; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div class="message">
+          <h1>📱 Smart Mirror Dashboard</h1>
+          <p>The Smart Mirror dashboard is currently disabled.</p>
+          <p>Please enable it in the <a href="/admin">admin settings</a>.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  
+  // Check if dashboard HTML file exists
+  const dashboardPath = path.join(__dirname, 'public', 'smart-mirror.html');
+  const fileExists = fs.existsSync(dashboardPath);
+  
+  logger.debug(logger.categories.SMART_MIRROR, `Checking dashboard file: ${dashboardPath}`);
+  logger.logSmartMirrorDiagnostics('Dashboard file check (landscape)', {
+    filePath: dashboardPath,
+    fileExists: fileExists,
+    absolutePath: path.resolve(dashboardPath),
+    workingDirectory: process.cwd()
+  });
+  
+  if (!fileExists) {
+    const errorMsg = `Smart Mirror dashboard file not found at ${dashboardPath}`;
+    console.error('❌ [Smart Mirror]', errorMsg);
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    logger.error(logger.categories.SMART_MIRROR, 
+      `TROUBLESHOOTING: Expected file at: ${path.resolve(dashboardPath)}. ` +
+      `Check if file exists in deployment. Working directory: ${process.cwd()}`
+    );
+    
+    return res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Smart Mirror Dashboard Error</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a1a;
+            color: #fff;
+          }
+          .message {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 50, 50, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 50, 50, 0.3);
+            max-width: 600px;
+          }
+          h1 { margin: 0 0 20px 0; font-size: 24px; color: #ff5555; }
+          p { margin: 10px 0; color: #aaa; }
+          code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px; }
+        </style>
+      </head>
+      <body>
+        <div class="message">
+          <h1>❌ Dashboard File Not Found</h1>
+          <p>The Smart Mirror dashboard file could not be found.</p>
+          <p><strong>Expected location:</strong> <code>${dashboardPath}</code></p>
+          <p>Please check your deployment and ensure all files are properly copied.</p>
+          <p>Check the logs in <a href="/admin" style="color: #4a9eff;">admin dashboard</a> for more details.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  
+  // Set cache-control headers to prevent browser caching
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  console.log('📱 [Smart Mirror] Dashboard accessed (landscape mode) - feature is enabled');
+  logger.success(logger.categories.SMART_MIRROR, `Dashboard file served successfully (landscape) to ${requestContext.ip}`);
+  logger.info(logger.categories.SMART_MIRROR, `Serving: ${dashboardPath}`);
+  
+  res.sendFile(dashboardPath);
+});
+
 // Client API endpoints
 app.get('/api/client/config', (req, res) => {
   // Ensure client config exists with defaults
@@ -4909,7 +5050,10 @@ app.get('/api/smart-mirror/config', (req, res) => {
     timestamp: new Date().toISOString()
   };
   
-  logger.info(logger.categories.SMART_MIRROR, `Public config API requested from ${requestContext.ip}`);
+  // Get optional orientation parameter
+  const orientation = req.query.orientation; // 'portrait', 'landscape', or undefined
+  
+  logger.info(logger.categories.SMART_MIRROR, `Public config API requested from ${requestContext.ip} (orientation: ${orientation || 'all'})`);
   
   try {
     // Set cache-control headers to prevent browser caching
@@ -4919,11 +5063,12 @@ app.get('/api/smart-mirror/config', (req, res) => {
     
     logger.debug(logger.categories.SMART_MIRROR, 'Cache-control headers set for config API');
     
-    const config = smartMirror.getPublicConfig();
+    const config = smartMirror.getPublicConfig(orientation);
     console.log('📱 [Smart Mirror] Public config requested');
-    logger.success(logger.categories.SMART_MIRROR, `Public config returned successfully (enabled: ${config.enabled})`);
+    logger.success(logger.categories.SMART_MIRROR, `Public config returned successfully (enabled: ${config.enabled}, orientation: ${orientation || 'all'})`);
     logger.logSmartMirrorDiagnostics('Public config API response', {
       request: requestContext,
+      orientation: orientation || 'all',
       configEnabled: config.enabled,
       widgetCount: Object.keys(config.widgets || {}).length,
       enabledWidgets: Object.keys(config.widgets || {}).filter(k => config.widgets[k]?.enabled)
