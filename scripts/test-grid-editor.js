@@ -49,7 +49,10 @@ function makeRequest(options, postData = null) {
       res.on('end', () => {
         // Store session cookie if present
         if (res.headers['set-cookie']) {
-          sessionCookie = res.headers['set-cookie'][0].split(';')[0];
+          const cookies = Array.isArray(res.headers['set-cookie']) 
+            ? res.headers['set-cookie'] 
+            : [res.headers['set-cookie']];
+          sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
         }
         
         resolve({
@@ -81,7 +84,7 @@ async function login() {
   const options = {
     hostname: TEST_CONFIG.host,
     port: TEST_CONFIG.port,
-    path: '/login',
+    path: '/admin/login',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
