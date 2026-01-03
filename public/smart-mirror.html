@@ -572,26 +572,57 @@
                             day: 'numeric' 
                         });
                         
-                        eventsHTML += `
-                            <div class="calendar-event">
-                                <div>
-                                    <span class="calendar-event-time">${dateStr} ${timeStr}</span>
-                                    <strong>${event.title}</strong>
-                                </div>
-                                ${event.location ? `<div style="font-size: 0.85em; opacity: 0.7; margin-top: 3px;">📍 ${event.location}</div>` : ''}
-                            </div>
-                        `;
+                        // Create safe text nodes by using textContent
+                        const eventDiv = document.createElement('div');
+                        eventDiv.className = 'calendar-event';
+                        
+                        const mainDiv = document.createElement('div');
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'calendar-event-time';
+                        timeSpan.textContent = `${dateStr} ${timeStr}`;
+                        mainDiv.appendChild(timeSpan);
+                        
+                        const titleStrong = document.createElement('strong');
+                        titleStrong.textContent = event.title || 'Untitled Event';
+                        mainDiv.appendChild(titleStrong);
+                        eventDiv.appendChild(mainDiv);
+                        
+                        if (event.location) {
+                            const locationDiv = document.createElement('div');
+                            locationDiv.style.fontSize = '0.85em';
+                            locationDiv.style.opacity = '0.7';
+                            locationDiv.style.marginTop = '3px';
+                            locationDiv.textContent = '📍 ' + event.location;
+                            eventDiv.appendChild(locationDiv);
+                        }
+                        
+                        eventsHTML += eventDiv.outerHTML;
                     });
                     eventsHTML += '</div>';
                     content.innerHTML = eventsHTML;
                 } else if (data.error) {
-                    content.innerHTML = `<div style="opacity: 0.6; text-align: center;">⚠️ ${data.error}</div>`;
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.opacity = '0.6';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.textContent = '⚠️ ' + data.error;
+                    content.innerHTML = '';
+                    content.appendChild(errorDiv);
                 } else {
-                    content.innerHTML = '<div style="opacity: 0.6; text-align: center;">No upcoming events</div>';
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.opacity = '0.6';
+                    msgDiv.style.textAlign = 'center';
+                    msgDiv.textContent = 'No upcoming events';
+                    content.innerHTML = '';
+                    content.appendChild(msgDiv);
                 }
             } catch (error) {
                 console.error('Error fetching calendar:', error);
-                content.innerHTML = '<div style="opacity: 0.6; text-align: center;">Error loading calendar</div>';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading calendar';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
             }
         }
 

@@ -3294,12 +3294,21 @@
                             <label for="weatherLocation">Location</label>
                             <input type="text" id="weatherLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
                         </div>
-                        <div class="form-group">
-                            <label for="weatherApiKey">OpenWeatherMap API Key</label>
-                            <input type="password" id="weatherApiKey" placeholder="Enter your OpenWeatherMap API key">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Get a free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
-                            </small>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weatherApiKey">OpenWeatherMap API Key</label>
+                                <input type="password" id="weatherApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Get a free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="weatherUnits">Temperature Units</label>
+                                <select id="weatherUnits">
+                                    <option value="imperial">Fahrenheit (°F)</option>
+                                    <option value="metric">Celsius (°C)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3353,12 +3362,21 @@
                             <label for="forecastLocation">Location</label>
                             <input type="text" id="forecastLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
                         </div>
-                        <div class="form-group">
-                            <label for="forecastApiKey">OpenWeatherMap API Key</label>
-                            <input type="password" id="forecastApiKey" placeholder="Enter your OpenWeatherMap API key">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Uses the same OpenWeatherMap API. Get a free key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
-                            </small>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="forecastApiKey">OpenWeatherMap API Key</label>
+                                <input type="password" id="forecastApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Uses the same OpenWeatherMap API. Get a free key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="forecastUnits">Temperature Units</label>
+                                <select id="forecastUnits">
+                                    <option value="imperial">Fahrenheit (°F)</option>
+                                    <option value="metric">Celsius (°C)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -8305,6 +8323,7 @@
                     document.getElementById('weatherGridWidth').value = weather.gridPosition?.width ?? 2;
                     document.getElementById('weatherGridHeight').value = weather.gridPosition?.height ?? 1;
                     document.getElementById('weatherLocation').value = weather.location || '';
+                    document.getElementById('weatherUnits').value = weather.units || 'imperial';
                     // Don't load API key for security
                     
                     // Load forecast widget config
@@ -8316,6 +8335,7 @@
                     document.getElementById('forecastGridWidth').value = forecast.gridPosition?.width ?? 4;
                     document.getElementById('forecastGridHeight').value = forecast.gridPosition?.height ?? 1;
                     document.getElementById('forecastLocation').value = forecast.location || '';
+                    document.getElementById('forecastUnits').value = forecast.units || 'imperial';
                     // Don't load API key for security
                     
                     // Load news widget config
@@ -8393,7 +8413,7 @@
                             },
                             location: document.getElementById('weatherLocation').value,
                             apiKey: document.getElementById('weatherApiKey').value.trim() || undefined,
-                            units: 'imperial'
+                            units: document.getElementById('weatherUnits').value
                         },
                         forecast: {
                             enabled: document.getElementById('forecastEnabled').value === 'true',
@@ -8408,7 +8428,7 @@
                             location: document.getElementById('forecastLocation').value,
                             apiKey: document.getElementById('forecastApiKey').value.trim() || undefined,
                             days: parseInt(document.getElementById('forecastDays').value),
-                            units: 'imperial'
+                            units: document.getElementById('forecastUnits').value
                         },
                         news: {
                             enabled: document.getElementById('newsEnabled').value === 'true',

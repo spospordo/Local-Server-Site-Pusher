@@ -49,7 +49,7 @@ function getDefaultConfig() {
         area: 'top-right',
         size: 'large',
         gridPosition: { x: 2, y: 0, width: 2, height: 2 },
-        calendarUrls: [] // Support multiple calendar feeds
+        calendarUrls: [] // Support multiple calendar feeds (breaking change from calendarUrl string)
       },
       weather: {
         enabled: false,
@@ -392,7 +392,7 @@ async function fetchNews(feedUrls) {
 
 // Fetch current weather from OpenWeatherMap
 async function fetchWeather(apiKey, location, units = 'imperial') {
-  logger.debug(logger.categories.SMART_MIRROR, `Fetching current weather for: ${location}`);
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching current weather (units: ${units})`);
   
   if (!apiKey || !location) {
     const errorMsg = 'API key and location are required for weather';
@@ -402,7 +402,7 @@ async function fetchWeather(apiKey, location, units = 'imperial') {
   
   try {
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
-    logger.info(logger.categories.SMART_MIRROR, `Fetching weather from OpenWeatherMap API`);
+    logger.info(logger.categories.SMART_MIRROR, `Fetching weather from OpenWeatherMap API for location: ${location}`);
     
     const response = await axios.get(url, { timeout: 10000 });
     const data = response.data;
@@ -438,7 +438,7 @@ async function fetchWeather(apiKey, location, units = 'imperial') {
 
 // Fetch weather forecast from OpenWeatherMap
 async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
-  logger.debug(logger.categories.SMART_MIRROR, `Fetching ${days}-day forecast for: ${location}`);
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching ${days}-day forecast (units: ${units})`);
   
   if (!apiKey || !location) {
     const errorMsg = 'API key and location are required for forecast';
@@ -454,7 +454,7 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
   try {
     // Use 5-day forecast endpoint (free tier)
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
-    logger.info(logger.categories.SMART_MIRROR, `Fetching forecast from OpenWeatherMap API`);
+    logger.info(logger.categories.SMART_MIRROR, `Fetching forecast from OpenWeatherMap API for location: ${location}`);
     
     const response = await axios.get(url, { timeout: 10000 });
     const data = response.data;

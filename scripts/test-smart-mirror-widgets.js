@@ -81,7 +81,8 @@ async function testConfigEndpoint() {
       
       // Verify no API keys exposed
       const configStr = JSON.stringify(config);
-      if (configStr.includes('apiKey') && config.widgets?.weather?.apiKey) {
+      const hasApiKeyField = configStr.includes('"apiKey"');
+      if (hasApiKeyField) {
         console.log('   - ❌ API keys are exposed in public config!');
         return false;
       } else {
