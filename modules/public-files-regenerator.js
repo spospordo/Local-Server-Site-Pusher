@@ -117,7 +117,7 @@ function isFileCustomized(filePath, expectedChecksum) {
 }
 
 /**
- * Restore a static file from the repository source to /public
+ * Restore a static file from the backup location to /public
  * @param {string} fileName - Name of the file to restore
  * @param {string} expectedChecksum - Expected checksum for customization detection
  * @param {boolean} force - Force overwrite even if customized
@@ -131,10 +131,6 @@ function restoreStaticFile(fileName, expectedChecksum, force = false) {
   // This location is never volume-mounted and always contains the original files
   const backupDir = path.join(__dirname, '..', '.static-files-backup');
   const sourcePath = path.join(backupDir, fileName);
-  
-  // Fallback: if backup doesn't exist (dev environment), try public directory relative to module
-  // Using __dirname ensures consistent path resolution regardless of working directory
-  const fallbackSourcePath = path.join(__dirname, '..', 'public', fileName);
   
   try {
     // Check if target already exists
@@ -159,33 +155,38 @@ function restoreStaticFile(fileName, expectedChecksum, force = false) {
       }
     }
     
-    // Determine which source to use
-    let actualSourcePath = sourcePath;
+    // Check if backup source exists
     if (!fs.existsSync(sourcePath)) {
-      addLog('info', 'Backup Not Found', `Backup location not found, using fallback source for ${fileName}`);
-      actualSourcePath = fallbackSourcePath;
+      // Backup doesn't exist - this is expected in dev environment
+      // File restoration only works in Docker where backup is created during build
+      addLog('warning', 'Backup Not Found', `Backup not found at ${sourcePath}. File restoration requires Docker deployment with .static-files-backup/ directory.`);
+      return {
+        success: false,
+        action: 'failed',
+        reason: 'backup_not_found',
+        message: `Backup directory not found - restoration only works in Docker deployment`
+      };
     }
     
-    // Check if source exists and is readable
-    if (!fs.existsSync(actualSourcePath)) {
-      addLog('error', 'Restore Failed', `Source file ${fileName} not found at ${actualSourcePath}`);
+    // Verify source file checksum matches expected (or at least exists)
+    const sourceChecksum = calculateChecksum(sourcePath);
+    if (!sourceChecksum) {
+      addLog('error', 'Restore Failed', `Source file ${fileName} not found or unreadable at ${sourcePath}`);
       return {
         success: false,
         action: 'failed',
         reason: 'source_not_found',
-        message: `Source file not found at ${actualSourcePath}`
+        message: `Source file not found at ${sourcePath}`
       };
     }
     
-    // Verify source file checksum matches expected
-    const sourceChecksum = calculateChecksum(actualSourcePath);
     if (sourceChecksum !== expectedChecksum) {
       addLog('warning', 'Checksum Mismatch', `Source file ${fileName} checksum doesn't match expected (expected: ${expectedChecksum}, got: ${sourceChecksum}). This may indicate the file has been updated.`);
       // We'll still copy it, but log the warning - this is expected when files are legitimately updated
     }
     
     // Copy the file
-    fs.copyFileSync(actualSourcePath, targetPath);
+    fs.copyFileSync(sourcePath, targetPath);
     
     // Verify the copy
     const copiedChecksum = calculateChecksum(targetPath);
