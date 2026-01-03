@@ -95,24 +95,26 @@ function getDefaultWidgets() {
 }
 
 // Get default layout configuration for portrait orientation
+// Portrait uses finer vertical granularity (4 cols × 6 rows)
 function getDefaultPortraitLayout() {
   return {
-    clock: { x: 0, y: 0, width: 2, height: 1 },
-    calendar: { x: 2, y: 0, width: 2, height: 2 },
-    weather: { x: 0, y: 1, width: 2, height: 1 },
-    forecast: { x: 0, y: 2, width: 4, height: 1 },
-    news: { x: 2, y: 1, width: 2, height: 1 }
+    clock: { x: 0, y: 0, width: 2, height: 2 },
+    calendar: { x: 2, y: 0, width: 2, height: 4 },
+    weather: { x: 0, y: 2, width: 2, height: 2 },
+    forecast: { x: 0, y: 4, width: 4, height: 2 },
+    news: { x: 2, y: 2, width: 2, height: 2 }
   };
 }
 
 // Get default layout configuration for landscape orientation
+// Landscape uses finer horizontal granularity (8 cols × 4 rows)
 function getDefaultLandscapeLayout() {
   return {
-    clock: { x: 0, y: 0, width: 1, height: 1 },
-    calendar: { x: 1, y: 0, width: 2, height: 2 },
-    weather: { x: 3, y: 0, width: 1, height: 1 },
-    forecast: { x: 0, y: 2, width: 4, height: 1 },
-    news: { x: 0, y: 1, width: 1, height: 1 }
+    clock: { x: 0, y: 0, width: 2, height: 1 },
+    calendar: { x: 2, y: 0, width: 4, height: 3 },
+    weather: { x: 6, y: 0, width: 2, height: 1 },
+    news: { x: 0, y: 1, width: 2, height: 2 },
+    forecast: { x: 0, y: 3, width: 8, height: 1 }
   };
 }
 
@@ -126,11 +128,39 @@ function getDefaultConfig() {
       landscape: getDefaultLandscapeLayout()
     },
     gridSize: {
-      columns: 4,
-      rows: 3
+      portrait: {
+        columns: 4,
+        rows: 6  // Finer vertical granularity for portrait
+      },
+      landscape: {
+        columns: 8,  // Finer horizontal granularity for landscape
+        rows: 4
+      }
     },
     theme: 'dark',
     refreshInterval: 60000 // 1 minute
+  };
+}
+
+// Helper function to scale widget position to new grid size
+function scaleWidgetPosition(position, oldGridSize, newGridSize) {
+  // Calculate scale factors
+  const scaleX = newGridSize.columns / oldGridSize.columns;
+  const scaleY = newGridSize.rows / oldGridSize.rows;
+  
+  // Use floor for position to avoid exceeding grid bounds
+  // Use max(1, round) for size to ensure at least 1 cell
+  const newX = Math.floor(position.x * scaleX);
+  const newY = Math.floor(position.y * scaleY);
+  const newWidth = Math.max(1, Math.round(position.width * scaleX));
+  const newHeight = Math.max(1, Math.round(position.height * scaleY));
+  
+  // Ensure widget doesn't exceed grid bounds
+  return {
+    x: Math.min(newX, newGridSize.columns - 1),
+    y: Math.min(newY, newGridSize.rows - 1),
+    width: Math.min(newWidth, newGridSize.columns - newX),
+    height: Math.min(newHeight, newGridSize.rows - newY)
   };
 }
 
@@ -138,15 +168,67 @@ function getDefaultConfig() {
 function migrateConfig(oldConfig) {
   // Check if config already has layouts structure
   if (oldConfig.layouts) {
+    // Check if gridSize needs migration from single object to per-orientation
+    if (oldConfig.gridSize && !oldConfig.gridSize.portrait && !oldConfig.gridSize.landscape) {
+      logger.info(logger.categories.SMART_MIRROR, 'Migrating gridSize to per-orientation format');
+      
+      const oldGridSize = oldConfig.gridSize;
+      const defaultConfig = getDefaultConfig();
+      const newPortraitGridSize = defaultConfig.gridSize.portrait;
+      const newLandscapeGridSize = defaultConfig.gridSize.landscape;
+      
+      // Scale existing layouts to new grid sizes
+      const scaledPortraitLayout = {};
+      const scaledLandscapeLayout = {};
+      
+      Object.keys(oldConfig.layouts.portrait || {}).forEach(widgetKey => {
+        scaledPortraitLayout[widgetKey] = scaleWidgetPosition(
+          oldConfig.layouts.portrait[widgetKey],
+          oldGridSize,
+          newPortraitGridSize
+        );
+      });
+      
+      Object.keys(oldConfig.layouts.landscape || {}).forEach(widgetKey => {
+        scaledLandscapeLayout[widgetKey] = scaleWidgetPosition(
+          oldConfig.layouts.landscape[widgetKey],
+          oldGridSize,
+          newLandscapeGridSize
+        );
+      });
+      
+      return {
+        ...oldConfig,
+        gridSize: {
+          portrait: newPortraitGridSize,
+          landscape: newLandscapeGridSize
+        },
+        layouts: {
+          portrait: scaledPortraitLayout,
+          landscape: scaledLandscapeLayout
+        }
+      };
+    }
+    
+    // Already in new format
     return oldConfig;
   }
   
   logger.info(logger.categories.SMART_MIRROR, 'Migrating config to dual-layout format');
   
+  // Determine old grid size
+  const oldGridSize = oldConfig.gridSize || { columns: 4, rows: 3 };
+  const defaultConfig = getDefaultConfig();
+  const newPortraitGridSize = defaultConfig.gridSize.portrait;
+  const newLandscapeGridSize = defaultConfig.gridSize.landscape;
+  
   const migratedConfig = {
     enabled: oldConfig.enabled,
     theme: oldConfig.theme || 'dark',
-    gridSize: oldConfig.gridSize || { columns: 4, rows: 3 },
+    gridSize: {
+      portrait: newPortraitGridSize,
+      landscape: newLandscapeGridSize
+    },
     refreshInterval: oldConfig.refreshInterval || 60000,
     widgets: {},
     layouts: {
@@ -183,10 +265,20 @@ function migrateConfig(oldConfig) {
         migratedConfig.widgets[widgetKey].feedUrls = oldWidget.feedUrls;
       }
       
-      // Migrate gridPosition to portrait layout (use as default for both)
+      // Migrate gridPosition to layouts with scaling
       if (oldWidget.gridPosition) {
-        migratedConfig.layouts.portrait[widgetKey] = oldWidget.gridPosition;
-        migratedConfig.layouts.landscape[widgetKey] = oldWidget.gridPosition;
+        // Scale position for portrait
+        migratedConfig.layouts.portrait[widgetKey] = scaleWidgetPosition(
+          oldWidget.gridPosition,
+          oldGridSize,
+          newPortraitGridSize
+        );
+        // Scale position for landscape  
+        migratedConfig.layouts.landscape[widgetKey] = scaleWidgetPosition(
+          oldWidget.gridPosition,
+          oldGridSize,
+          newLandscapeGridSize
+        );
       } else {
         // Use defaults if gridPosition doesn't exist
         const defaultPortrait = getDefaultPortraitLayout();
