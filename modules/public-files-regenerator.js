@@ -132,8 +132,9 @@ function restoreStaticFile(fileName, expectedChecksum, force = false) {
   const backupDir = path.join(__dirname, '..', '.static-files-backup');
   const sourcePath = path.join(backupDir, fileName);
   
-  // Fallback: if backup doesn't exist (dev environment), try public directory
-  const fallbackSourcePath = path.join(process.cwd(), 'public', fileName);
+  // Fallback: if backup doesn't exist (dev environment), try public directory relative to module
+  // Using __dirname ensures consistent path resolution regardless of working directory
+  const fallbackSourcePath = path.join(__dirname, '..', 'public', fileName);
   
   try {
     // Check if target already exists
@@ -179,8 +180,8 @@ function restoreStaticFile(fileName, expectedChecksum, force = false) {
     // Verify source file checksum matches expected
     const sourceChecksum = calculateChecksum(actualSourcePath);
     if (sourceChecksum !== expectedChecksum) {
-      addLog('warning', 'Checksum Mismatch', `Source file ${fileName} checksum doesn't match expected (expected: ${expectedChecksum}, got: ${sourceChecksum})`);
-      // We'll still copy it, but log the warning
+      addLog('warning', 'Checksum Mismatch', `Source file ${fileName} checksum doesn't match expected (expected: ${expectedChecksum}, got: ${sourceChecksum}). This may indicate the file has been updated.`);
+      // We'll still copy it, but log the warning - this is expected when files are legitimately updated
     }
     
     // Copy the file
@@ -188,20 +189,31 @@ function restoreStaticFile(fileName, expectedChecksum, force = false) {
     
     // Verify the copy
     const copiedChecksum = calculateChecksum(targetPath);
-    if (copiedChecksum === expectedChecksum) {
-      addLog('success', 'File Restored', `${fileName} successfully restored to /public`);
-      return {
-        success: true,
-        action: 'restored',
-        message: `File ${fileName} restored successfully`
-      };
+    if (copiedChecksum === sourceChecksum) {
+      // Copy successful and matches source
+      if (copiedChecksum === expectedChecksum) {
+        addLog('success', 'File Restored', `${fileName} successfully restored to /public`);
+        return {
+          success: true,
+          action: 'restored',
+          message: `File ${fileName} restored successfully`
+        };
+      } else {
+        addLog('success', 'File Restored', `${fileName} restored to /public (file may have been updated)`);
+        return {
+          success: true,
+          action: 'restored',
+          warning: 'checksum_updated',
+          message: `File ${fileName} restored but checksum differs from expected (likely file update)`
+        };
+      }
     } else {
-      addLog('warning', 'Restore Partial', `${fileName} copied but checksum verification failed`);
+      addLog('error', 'Restore Failed', `${fileName} copy verification failed - copied file doesn't match source`);
       return {
-        success: true,
-        action: 'restored',
-        warning: 'checksum_mismatch',
-        message: `File ${fileName} restored but checksum differs`
+        success: false,
+        action: 'failed',
+        reason: 'copy_verification_failed',
+        message: `File ${fileName} copy verification failed`
       };
     }
     
