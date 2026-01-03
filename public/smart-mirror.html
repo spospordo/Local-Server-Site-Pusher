@@ -666,31 +666,83 @@
                     const secondaryUnit = isImperial ? 'C' : 'F';
                     const windUnit = isImperial ? 'mph' : 'm/s';
                     
-                    content.innerHTML = `
-                        <div class="weather-icon">${getWeatherIcon(weather.icon)}</div>
-                        <div class="weather-temp">
-                            ${weather.temp}°<span class="weather-temp-unit">${tempUnit}</span>
-                            <span class="weather-temp-secondary">${tempSecondary}°${secondaryUnit}</span>
-                        </div>
-                        <div class="weather-condition">${weather.description}</div>
-                        <div class="weather-location">${weather.location}${weather.country ? ', ' + weather.country : ''}</div>
-                        <div class="weather-details">
-                            <div>💧 ${weather.humidity}%</div>
-                            <div>💨 ${weather.windSpeed} ${windUnit}</div>
-                            ${weather.feelsLike ? `<div>Feels: ${weather.feelsLike}°${tempUnit}</div>` : ''}
-                        </div>
-                    `;
+                    // Create elements safely
+                    content.innerHTML = '';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'weather-icon';
+                    iconDiv.textContent = getWeatherIcon(weather.icon);
+                    content.appendChild(iconDiv);
+                    
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = 'weather-temp';
+                    tempDiv.textContent = weather.temp + '°';
+                    
+                    const tempUnitSpan = document.createElement('span');
+                    tempUnitSpan.className = 'weather-temp-unit';
+                    tempUnitSpan.textContent = tempUnit;
+                    tempDiv.appendChild(tempUnitSpan);
+                    
+                    const tempSecondarySpan = document.createElement('span');
+                    tempSecondarySpan.className = 'weather-temp-secondary';
+                    tempSecondarySpan.textContent = tempSecondary + '°' + secondaryUnit;
+                    tempDiv.appendChild(tempSecondarySpan);
+                    content.appendChild(tempDiv);
+                    
+                    const conditionDiv = document.createElement('div');
+                    conditionDiv.className = 'weather-condition';
+                    conditionDiv.textContent = weather.description || 'Unknown';
+                    content.appendChild(conditionDiv);
+                    
+                    const locationDiv = document.createElement('div');
+                    locationDiv.className = 'weather-location';
+                    locationDiv.textContent = weather.location + (weather.country ? ', ' + weather.country : '');
+                    content.appendChild(locationDiv);
+                    
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'weather-details';
+                    
+                    const humidityDiv = document.createElement('div');
+                    humidityDiv.textContent = '💧 ' + weather.humidity + '%';
+                    detailsDiv.appendChild(humidityDiv);
+                    
+                    const windDiv = document.createElement('div');
+                    windDiv.textContent = '💨 ' + weather.windSpeed + ' ' + windUnit;
+                    detailsDiv.appendChild(windDiv);
+                    
+                    if (weather.feelsLike) {
+                        const feelsLikeDiv = document.createElement('div');
+                        feelsLikeDiv.textContent = 'Feels: ' + weather.feelsLike + '°' + tempUnit;
+                        detailsDiv.appendChild(feelsLikeDiv);
+                    }
+                    
+                    content.appendChild(detailsDiv);
                 } else if (data.error) {
-                    content.innerHTML = `
-                        <div style="opacity: 0.6; text-align: center;">
-                            <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
-                            <div>${data.error}</div>
-                        </div>
-                    `;
+                    const errorContainer = document.createElement('div');
+                    errorContainer.style.opacity = '0.6';
+                    errorContainer.style.textAlign = 'center';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '⚠️';
+                    errorContainer.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = data.error;
+                    errorContainer.appendChild(msgDiv);
+                    
+                    content.innerHTML = '';
+                    content.appendChild(errorContainer);
                 }
             } catch (error) {
                 console.error('Error fetching weather:', error);
-                content.innerHTML = '<div style="opacity: 0.6; text-align: center;">Error loading weather</div>';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading weather';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
             }
         }
 
@@ -745,30 +797,56 @@
                 const data = await response.json();
                 
                 if (data.success && data.items && data.items.length > 0) {
-                    let newsHTML = '<div class="news-items">';
+                    content.innerHTML = '';
+                    const newsContainer = document.createElement('div');
+                    newsContainer.className = 'news-items';
+                    
                     data.items.slice(0, 5).forEach(item => {
                         const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric' 
                         }) : '';
                         
-                        newsHTML += `
-                            <div class="news-item">
-                                <div class="news-title">${item.title}</div>
-                                <div class="news-source">${item.source}${date ? ' • ' + date : ''}</div>
-                            </div>
-                        `;
+                        const newsItem = document.createElement('div');
+                        newsItem.className = 'news-item';
+                        
+                        const title = document.createElement('div');
+                        title.className = 'news-title';
+                        title.textContent = item.title || 'Untitled';
+                        newsItem.appendChild(title);
+                        
+                        const source = document.createElement('div');
+                        source.className = 'news-source';
+                        source.textContent = item.source + (date ? ' • ' + date : '');
+                        newsItem.appendChild(source);
+                        
+                        newsContainer.appendChild(newsItem);
                     });
-                    newsHTML += '</div>';
-                    content.innerHTML = newsHTML;
+                    
+                    content.appendChild(newsContainer);
                 } else if (data.error) {
-                    content.innerHTML = `<div style="opacity: 0.6; text-align: center;">⚠️ ${data.error}</div>`;
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.opacity = '0.6';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.textContent = '⚠️ ' + data.error;
+                    content.innerHTML = '';
+                    content.appendChild(errorDiv);
                 } else {
-                    content.innerHTML = '<div style="opacity: 0.6; text-align: center;">No news items available</div>';
+                    const msgDiv = document.createElement('div');
+                    msgDiv.style.opacity = '0.6';
+                    msgDiv.style.textAlign = 'center';
+                    msgDiv.textContent = 'No news items available';
+                    content.innerHTML = '';
+                    content.appendChild(msgDiv);
                 }
             } catch (error) {
                 console.error('Error fetching news:', error);
-                content.innerHTML = '<div style="opacity: 0.6; text-align: center;">Error loading news</div>';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading news';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
             }
         }
 

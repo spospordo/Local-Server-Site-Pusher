@@ -446,8 +446,8 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
     return { success: false, error: errorMsg };
   }
   
-  // Validate days parameter
-  if (![3, 5, 10].includes(days)) {
+  // Validate days parameter (only 3 and 5 supported with free tier)
+  if (![3, 5].includes(days)) {
     days = 5; // Default to 5 days
   }
   
