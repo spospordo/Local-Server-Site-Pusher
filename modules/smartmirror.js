@@ -33,50 +33,97 @@ function init(serverConfig) {
   });
 }
 
+// Get default widget configuration (shared by both orientations)
+function getDefaultWidgets() {
+  return {
+    clock: {
+      enabled: true,
+      area: 'top-left',
+      size: 'medium',
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      calendarUrls: [],
+      feedUrls: [],
+      days: 5
+    },
+    calendar: {
+      enabled: true,
+      area: 'top-right',
+      size: 'large',
+      calendarUrls: [], // Support multiple calendar feeds (breaking change from calendarUrl string)
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      feedUrls: [],
+      days: 5
+    },
+    weather: {
+      enabled: false,
+      area: 'bottom-left',
+      size: 'medium',
+      apiKey: '',
+      location: '',
+      units: 'imperial', // imperial or metric
+      calendarUrls: [],
+      feedUrls: [],
+      days: 5
+    },
+    forecast: {
+      enabled: false,
+      area: 'bottom-center',
+      size: 'large',
+      apiKey: '',
+      location: '',
+      days: 5, // 3, 5, or 10
+      units: 'imperial', // imperial or metric
+      calendarUrls: [],
+      feedUrls: []
+    },
+    news: {
+      enabled: false,
+      area: 'bottom-right',
+      size: 'medium',
+      feedUrls: [], // Support multiple RSS feeds
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      calendarUrls: [],
+      days: 5
+    }
+  };
+}
+
+// Get default layout configuration for portrait orientation
+function getDefaultPortraitLayout() {
+  return {
+    clock: { x: 0, y: 0, width: 2, height: 1 },
+    calendar: { x: 2, y: 0, width: 2, height: 2 },
+    weather: { x: 0, y: 1, width: 2, height: 1 },
+    forecast: { x: 0, y: 2, width: 4, height: 1 },
+    news: { x: 2, y: 1, width: 2, height: 1 }
+  };
+}
+
+// Get default layout configuration for landscape orientation
+function getDefaultLandscapeLayout() {
+  return {
+    clock: { x: 0, y: 0, width: 1, height: 1 },
+    calendar: { x: 1, y: 0, width: 2, height: 2 },
+    weather: { x: 3, y: 0, width: 1, height: 1 },
+    forecast: { x: 0, y: 2, width: 4, height: 1 },
+    news: { x: 0, y: 1, width: 1, height: 1 }
+  };
+}
+
 // Get default smart mirror configuration
 function getDefaultConfig() {
   return {
     enabled: false,
-    widgets: {
-      clock: {
-        enabled: true,
-        area: 'top-left',
-        size: 'medium',
-        gridPosition: { x: 0, y: 0, width: 2, height: 1 }
-      },
-      calendar: {
-        enabled: true,
-        area: 'top-right',
-        size: 'large',
-        gridPosition: { x: 2, y: 0, width: 2, height: 2 },
-        calendarUrls: [] // Support multiple calendar feeds (breaking change from calendarUrl string)
-      },
-      weather: {
-        enabled: false,
-        area: 'bottom-left',
-        size: 'medium',
-        gridPosition: { x: 0, y: 1, width: 2, height: 1 },
-        apiKey: '',
-        location: '',
-        units: 'imperial' // imperial or metric
-      },
-      forecast: {
-        enabled: false,
-        area: 'bottom-center',
-        size: 'large',
-        gridPosition: { x: 0, y: 2, width: 4, height: 1 },
-        apiKey: '',
-        location: '',
-        days: 5, // 3, 5, or 10
-        units: 'imperial' // imperial or metric
-      },
-      news: {
-        enabled: false,
-        area: 'bottom-right',
-        size: 'medium',
-        gridPosition: { x: 2, y: 1, width: 2, height: 1 },
-        feedUrls: [] // Support multiple RSS feeds
-      }
+    widgets: getDefaultWidgets(),
+    layouts: {
+      portrait: getDefaultPortraitLayout(),
+      landscape: getDefaultLandscapeLayout()
     },
     gridSize: {
       columns: 4,
@@ -85,6 +132,86 @@ function getDefaultConfig() {
     theme: 'dark',
     refreshInterval: 60000 // 1 minute
   };
+}
+
+// Migrate old config format to new dual-layout format
+function migrateConfig(oldConfig) {
+  // Check if config already has layouts structure
+  if (oldConfig.layouts) {
+    return oldConfig;
+  }
+  
+  logger.info(logger.categories.SMART_MIRROR, 'Migrating config to dual-layout format');
+  
+  const migratedConfig = {
+    enabled: oldConfig.enabled,
+    theme: oldConfig.theme || 'dark',
+    gridSize: oldConfig.gridSize || { columns: 4, rows: 3 },
+    refreshInterval: oldConfig.refreshInterval || 60000,
+    widgets: {},
+    layouts: {
+      portrait: {},
+      landscape: {}
+    }
+  };
+  
+  // Migrate widgets and extract gridPosition to layouts
+  if (oldConfig.widgets) {
+    Object.keys(oldConfig.widgets).forEach(widgetKey => {
+      const oldWidget = oldConfig.widgets[widgetKey];
+      
+      // Copy widget properties (without gridPosition)
+      migratedConfig.widgets[widgetKey] = {
+        enabled: oldWidget.enabled,
+        area: oldWidget.area,
+        size: oldWidget.size
+      };
+      
+      // Copy widget-specific properties
+      if (widgetKey === 'calendar' && oldWidget.calendarUrls) {
+        migratedConfig.widgets[widgetKey].calendarUrls = oldWidget.calendarUrls;
+      }
+      if ((widgetKey === 'weather' || widgetKey === 'forecast') && oldWidget.location) {
+        migratedConfig.widgets[widgetKey].location = oldWidget.location;
+        migratedConfig.widgets[widgetKey].apiKey = oldWidget.apiKey || '';
+        migratedConfig.widgets[widgetKey].units = oldWidget.units || 'imperial';
+      }
+      if (widgetKey === 'forecast' && oldWidget.days) {
+        migratedConfig.widgets[widgetKey].days = oldWidget.days;
+      }
+      if (widgetKey === 'news' && oldWidget.feedUrls) {
+        migratedConfig.widgets[widgetKey].feedUrls = oldWidget.feedUrls;
+      }
+      
+      // Migrate gridPosition to portrait layout (use as default for both)
+      if (oldWidget.gridPosition) {
+        migratedConfig.layouts.portrait[widgetKey] = oldWidget.gridPosition;
+        migratedConfig.layouts.landscape[widgetKey] = oldWidget.gridPosition;
+      } else {
+        // Use defaults if gridPosition doesn't exist
+        const defaultPortrait = getDefaultPortraitLayout();
+        const defaultLandscape = getDefaultLandscapeLayout();
+        migratedConfig.layouts.portrait[widgetKey] = defaultPortrait[widgetKey] || { x: 0, y: 0, width: 1, height: 1 };
+        migratedConfig.layouts.landscape[widgetKey] = defaultLandscape[widgetKey] || { x: 0, y: 0, width: 1, height: 1 };
+      }
+    });
+  }
+  
+  // Fill in any missing widgets with defaults
+  const defaultWidgets = getDefaultWidgets();
+  const defaultPortrait = getDefaultPortraitLayout();
+  const defaultLandscape = getDefaultLandscapeLayout();
+  
+  Object.keys(defaultWidgets).forEach(widgetKey => {
+    if (!migratedConfig.widgets[widgetKey]) {
+      migratedConfig.widgets[widgetKey] = defaultWidgets[widgetKey];
+      migratedConfig.layouts.portrait[widgetKey] = defaultPortrait[widgetKey];
+      migratedConfig.layouts.landscape[widgetKey] = defaultLandscape[widgetKey];
+    }
+  });
+  
+  logger.success(logger.categories.SMART_MIRROR, 'Config migration completed');
+  return migratedConfig;
 }
 
 // Encrypt data
@@ -137,7 +264,9 @@ function loadConfig() {
       
       const decryptedData = decrypt(encryptedData);
       if (decryptedData) {
-        const loadedConfig = JSON.parse(decryptedData);
+        const rawConfig = JSON.parse(decryptedData);
+        // Migrate old config format to new dual-layout format
+        const loadedConfig = migrateConfig(rawConfig);
         console.log('📱 [Smart Mirror] Configuration loaded from file');
         logger.success(logger.categories.SMART_MIRROR, `Configuration loaded successfully (enabled: ${loadedConfig.enabled})`);
         logger.logSmartMirrorDiagnostics('Config loaded from file', {
@@ -145,7 +274,8 @@ function loadConfig() {
           enabled: loadedConfig.enabled,
           theme: loadedConfig.theme,
           widgetCount: Object.keys(loadedConfig.widgets || {}).length,
-          enabledWidgets: Object.keys(loadedConfig.widgets || {}).filter(k => loadedConfig.widgets[k]?.enabled)
+          enabledWidgets: Object.keys(loadedConfig.widgets || {}).filter(k => loadedConfig.widgets[k]?.enabled),
+          hasLayouts: !!(loadedConfig.layouts)
         });
         return loadedConfig;
       } else {
@@ -182,13 +312,26 @@ function saveConfig(newConfig) {
       fs.mkdirSync(configDir, { recursive: true });
     }
     
-    // Validate config structure
+    // Migrate and validate config structure
+    const migratedConfig = migrateConfig(newConfig);
+    const defaultConfig = getDefaultConfig();
+    
     const configToSave = {
-      ...getDefaultConfig(),
-      ...newConfig,
+      ...defaultConfig,
+      ...migratedConfig,
       widgets: {
-        ...getDefaultConfig().widgets,
-        ...(newConfig.widgets || {})
+        ...defaultConfig.widgets,
+        ...(migratedConfig.widgets || {})
+      },
+      layouts: {
+        portrait: {
+          ...defaultConfig.layouts.portrait,
+          ...(migratedConfig.layouts?.portrait || {})
+        },
+        landscape: {
+          ...defaultConfig.layouts.landscape,
+          ...(migratedConfig.layouts?.landscape || {})
+        }
       }
     };
     
@@ -221,15 +364,32 @@ function saveConfig(newConfig) {
 }
 
 // Get sanitized config for public API (removes sensitive data)
-function getPublicConfig() {
-  logger.debug(logger.categories.SMART_MIRROR, 'Getting public configuration (sanitized)');
+// orientation parameter: 'portrait', 'landscape', or undefined (returns both)
+function getPublicConfig(orientation = null) {
+  logger.debug(logger.categories.SMART_MIRROR, `Getting public configuration (sanitized, orientation: ${orientation || 'all'})`);
   const fullConfig = loadConfig();
   
   // Remove sensitive data like API keys
   const publicConfig = {
-    ...fullConfig,
+    enabled: fullConfig.enabled,
+    theme: fullConfig.theme,
+    gridSize: fullConfig.gridSize,
+    refreshInterval: fullConfig.refreshInterval,
     widgets: {}
   };
+  
+  // Add layouts based on orientation parameter
+  if (orientation === 'portrait' && fullConfig.layouts?.portrait) {
+    publicConfig.layouts = { portrait: fullConfig.layouts.portrait };
+  } else if (orientation === 'landscape' && fullConfig.layouts?.landscape) {
+    publicConfig.layouts = { landscape: fullConfig.layouts.landscape };
+  } else {
+    // Return both layouts if orientation not specified
+    publicConfig.layouts = fullConfig.layouts || {
+      portrait: getDefaultPortraitLayout(),
+      landscape: getDefaultLandscapeLayout()
+    };
+  }
   
   // Sanitize widgets - remove API keys and other sensitive data
   Object.keys(fullConfig.widgets).forEach(widgetKey => {
@@ -237,8 +397,7 @@ function getPublicConfig() {
     publicConfig.widgets[widgetKey] = {
       enabled: widget.enabled,
       area: widget.area,
-      size: widget.size,
-      gridPosition: widget.gridPosition
+      size: widget.size
     };
     
     // Add non-sensitive widget-specific data
@@ -261,7 +420,7 @@ function getPublicConfig() {
     }
   });
   
-  logger.info(logger.categories.SMART_MIRROR, `Public config generated (API keys removed)`);
+  logger.info(logger.categories.SMART_MIRROR, `Public config generated (API keys removed, orientation: ${orientation || 'all'})`);
   return publicConfig;
 }
 

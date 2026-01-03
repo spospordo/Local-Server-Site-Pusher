@@ -246,6 +246,28 @@
         .grid-editor-controls {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+        
+        .orientation-tabs {
+            display: inline-flex;
+            gap: 5px;
+        }
+        
+        .orientation-tab {
+            padding: 8px 16px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .orientation-tab.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        
+        .orientation-tab:not(.active):hover {
+            background: #e0e0e0;
         }
         
         .grid-editor-main {
@@ -3399,6 +3421,14 @@
                     <div class="grid-editor-header">
                         <h3>🎯 Interactive Grid Layout Editor</h3>
                         <div class="grid-editor-controls">
+                            <div class="orientation-tabs" style="display: inline-flex; gap: 5px; margin-right: 15px;">
+                                <button onclick="switchOrientation('portrait')" id="portraitTab" class="btn btn-secondary orientation-tab active" style="margin: 0;">
+                                    📱 Portrait
+                                </button>
+                                <button onclick="switchOrientation('landscape')" id="landscapeTab" class="btn btn-secondary orientation-tab" style="margin: 0;">
+                                    🖥️ Landscape
+                                </button>
+                            </div>
                             <button onclick="resetGridLayout()" class="btn btn-secondary" style="margin: 0;">
                                 ↺ Reset Layout
                             </button>
@@ -3409,7 +3439,7 @@
                     </div>
                     
                     <p style="color: #666; margin-bottom: 15px;">
-                        Drag and drop widgets to reposition them. Use the resize handles on corners to change widget size. 
+                        <strong id="orientationInfo">Editing Portrait Layout:</strong> Drag and drop widgets to reposition them. Use the resize handles on corners to change widget size. 
                         Only enabled widgets are shown. Changes are applied to the form below when you click "Apply Changes".
                     </p>
                     
@@ -3786,7 +3816,8 @@
                 <div class="section-divider"></div>
 
                 <button onclick="saveSmartMirrorConfig()" class="btn btn-primary">Save Smart Mirror Configuration</button>
-                <button onclick="previewSmartMirror()" class="btn btn-secondary" style="margin-left: 10px;">Preview Dashboard</button>
+                <button onclick="previewSmartMirrorPortrait()" class="btn btn-secondary" style="margin-left: 10px;">📱 Preview Portrait</button>
+                <button onclick="previewSmartMirrorLandscape()" class="btn btn-secondary" style="margin-left: 5px;">🖥️ Preview Landscape</button>
                 
                 <div id="smartMirrorAlert" class="alert"></div>
             </div>
@@ -8607,23 +8638,30 @@
                     document.getElementById('smartMirrorEnabled').value = config.enabled ? 'true' : 'false';
                     document.getElementById('smartMirrorTheme').value = config.theme || 'dark';
                     
+                    // Get layouts (use old format as fallback)
+                    const portraitLayout = config.layouts?.portrait || {};
+                    const landscapeLayout = config.layouts?.landscape || {};
+                    
                     // Load clock widget config
                     const clock = config.widgets?.clock || {};
                     document.getElementById('clockEnabled').value = clock.enabled === true ? 'true' : 'false';
                     document.getElementById('clockSize').value = clock.size || 'medium';
-                    document.getElementById('clockGridX').value = clock.gridPosition?.x ?? 0;
-                    document.getElementById('clockGridY').value = clock.gridPosition?.y ?? 0;
-                    document.getElementById('clockGridWidth').value = clock.gridPosition?.width ?? 2;
-                    document.getElementById('clockGridHeight').value = clock.gridPosition?.height ?? 1;
+                    // Load portrait layout (default)
+                    const clockPortrait = portraitLayout.clock || clock.gridPosition || { x: 0, y: 0, width: 2, height: 1 };
+                    document.getElementById('clockGridX').value = clockPortrait.x ?? 0;
+                    document.getElementById('clockGridY').value = clockPortrait.y ?? 0;
+                    document.getElementById('clockGridWidth').value = clockPortrait.width ?? 2;
+                    document.getElementById('clockGridHeight').value = clockPortrait.height ?? 1;
                     
                     // Load calendar widget config
                     const calendar = config.widgets?.calendar || {};
                     document.getElementById('calendarEnabled').value = calendar.enabled === true ? 'true' : 'false';
                     document.getElementById('calendarSize').value = calendar.size || 'large';
-                    document.getElementById('calendarGridX').value = calendar.gridPosition?.x ?? 2;
-                    document.getElementById('calendarGridY').value = calendar.gridPosition?.y ?? 0;
-                    document.getElementById('calendarGridWidth').value = calendar.gridPosition?.width ?? 2;
-                    document.getElementById('calendarGridHeight').value = calendar.gridPosition?.height ?? 2;
+                    const calendarPortrait = portraitLayout.calendar || calendar.gridPosition || { x: 2, y: 0, width: 2, height: 2 };
+                    document.getElementById('calendarGridX').value = calendarPortrait.x ?? 2;
+                    document.getElementById('calendarGridY').value = calendarPortrait.y ?? 0;
+                    document.getElementById('calendarGridWidth').value = calendarPortrait.width ?? 2;
+                    document.getElementById('calendarGridHeight').value = calendarPortrait.height ?? 2;
                     // Handle both old single URL and new multiple URLs
                     const calendarUrls = calendar.calendarUrls || (calendar.calendarUrl ? [calendar.calendarUrl] : []);
                     document.getElementById('calendarUrl').value = calendarUrls.join('\n');
@@ -8632,10 +8670,11 @@
                     const weather = config.widgets?.weather || {};
                     document.getElementById('weatherEnabled').value = weather.enabled === true ? 'true' : 'false';
                     document.getElementById('weatherSize').value = weather.size || 'medium';
-                    document.getElementById('weatherGridX').value = weather.gridPosition?.x ?? 0;
-                    document.getElementById('weatherGridY').value = weather.gridPosition?.y ?? 1;
-                    document.getElementById('weatherGridWidth').value = weather.gridPosition?.width ?? 2;
-                    document.getElementById('weatherGridHeight').value = weather.gridPosition?.height ?? 1;
+                    const weatherPortrait = portraitLayout.weather || weather.gridPosition || { x: 0, y: 1, width: 2, height: 1 };
+                    document.getElementById('weatherGridX').value = weatherPortrait.x ?? 0;
+                    document.getElementById('weatherGridY').value = weatherPortrait.y ?? 1;
+                    document.getElementById('weatherGridWidth').value = weatherPortrait.width ?? 2;
+                    document.getElementById('weatherGridHeight').value = weatherPortrait.height ?? 1;
                     document.getElementById('weatherLocation').value = weather.location || '';
                     document.getElementById('weatherUnits').value = weather.units || 'imperial';
                     // Don't load API key for security
@@ -8644,10 +8683,11 @@
                     const forecast = config.widgets?.forecast || {};
                     document.getElementById('forecastEnabled').value = forecast.enabled === true ? 'true' : 'false';
                     document.getElementById('forecastDays').value = forecast.days || 5;
-                    document.getElementById('forecastGridX').value = forecast.gridPosition?.x ?? 0;
-                    document.getElementById('forecastGridY').value = forecast.gridPosition?.y ?? 2;
-                    document.getElementById('forecastGridWidth').value = forecast.gridPosition?.width ?? 4;
-                    document.getElementById('forecastGridHeight').value = forecast.gridPosition?.height ?? 1;
+                    const forecastPortrait = portraitLayout.forecast || forecast.gridPosition || { x: 0, y: 2, width: 4, height: 1 };
+                    document.getElementById('forecastGridX').value = forecastPortrait.x ?? 0;
+                    document.getElementById('forecastGridY').value = forecastPortrait.y ?? 2;
+                    document.getElementById('forecastGridWidth').value = forecastPortrait.width ?? 4;
+                    document.getElementById('forecastGridHeight').value = forecastPortrait.height ?? 1;
                     document.getElementById('forecastLocation').value = forecast.location || '';
                     document.getElementById('forecastUnits').value = forecast.units || 'imperial';
                     // Don't load API key for security
@@ -8656,15 +8696,24 @@
                     const news = config.widgets?.news || {};
                     document.getElementById('newsEnabled').value = news.enabled === true ? 'true' : 'false';
                     document.getElementById('newsSize').value = news.size || 'medium';
-                    document.getElementById('newsGridX').value = news.gridPosition?.x ?? 2;
-                    document.getElementById('newsGridY').value = news.gridPosition?.y ?? 1;
-                    document.getElementById('newsGridWidth').value = news.gridPosition?.width ?? 2;
-                    document.getElementById('newsGridHeight').value = news.gridPosition?.height ?? 1;
+                    const newsPortrait = portraitLayout.news || news.gridPosition || { x: 2, y: 1, width: 2, height: 1 };
+                    document.getElementById('newsGridX').value = newsPortrait.x ?? 2;
+                    document.getElementById('newsGridY').value = newsPortrait.y ?? 1;
+                    document.getElementById('newsGridWidth').value = newsPortrait.width ?? 2;
+                    document.getElementById('newsGridHeight').value = newsPortrait.height ?? 1;
                     // Handle both old single URL and new multiple URLs
                     const feedUrls = news.feedUrls || (news.feedUrl ? [news.feedUrl] : []);
                     document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
                     
+                    // Store landscape layouts in a global variable for later use
+                    window.smartMirrorLayouts = {
+                        portrait: portraitLayout,
+                        landscape: landscapeLayout
+                    };
+                    
                     console.log('Smart Mirror configuration loaded');
+                    console.log('Portrait layouts:', portraitLayout);
+                    console.log('Landscape layouts:', landscapeLayout);
                     
                     // Initialize grid editor after loading config
                     initializeGridEditor();
@@ -8705,6 +8754,43 @@
                     .map(url => url.trim())
                     .filter(url => url.length > 0);
                 
+                // Build portrait layout from form fields
+                const portraitLayout = {
+                    clock: {
+                        x: parseInt(document.getElementById('clockGridX').value),
+                        y: parseInt(document.getElementById('clockGridY').value),
+                        width: parseInt(document.getElementById('clockGridWidth').value),
+                        height: parseInt(document.getElementById('clockGridHeight').value)
+                    },
+                    calendar: {
+                        x: parseInt(document.getElementById('calendarGridX').value),
+                        y: parseInt(document.getElementById('calendarGridY').value),
+                        width: parseInt(document.getElementById('calendarGridWidth').value),
+                        height: parseInt(document.getElementById('calendarGridHeight').value)
+                    },
+                    weather: {
+                        x: parseInt(document.getElementById('weatherGridX').value),
+                        y: parseInt(document.getElementById('weatherGridY').value),
+                        width: parseInt(document.getElementById('weatherGridWidth').value),
+                        height: parseInt(document.getElementById('weatherGridHeight').value)
+                    },
+                    forecast: {
+                        x: parseInt(document.getElementById('forecastGridX').value),
+                        y: parseInt(document.getElementById('forecastGridY').value),
+                        width: parseInt(document.getElementById('forecastGridWidth').value),
+                        height: parseInt(document.getElementById('forecastGridHeight').value)
+                    },
+                    news: {
+                        x: parseInt(document.getElementById('newsGridX').value),
+                        y: parseInt(document.getElementById('newsGridY').value),
+                        width: parseInt(document.getElementById('newsGridWidth').value),
+                        height: parseInt(document.getElementById('newsGridHeight').value)
+                    }
+                };
+                
+                // Get landscape layout from stored config (or default if not set)
+                const landscapeLayout = window.smartMirrorLayouts?.landscape || portraitLayout;
+                
                 const config = {
                     enabled: document.getElementById('smartMirrorEnabled').value === 'true',
                     theme: document.getElementById('smartMirrorTheme').value,
@@ -8712,36 +8798,18 @@
                         clock: {
                             enabled: document.getElementById('clockEnabled').value === 'true',
                             size: document.getElementById('clockSize').value,
-                            area: 'top-left',
-                            gridPosition: {
-                                x: parseInt(document.getElementById('clockGridX').value),
-                                y: parseInt(document.getElementById('clockGridY').value),
-                                width: parseInt(document.getElementById('clockGridWidth').value),
-                                height: parseInt(document.getElementById('clockGridHeight').value)
-                            }
+                            area: 'top-left'
                         },
                         calendar: {
                             enabled: document.getElementById('calendarEnabled').value === 'true',
                             size: document.getElementById('calendarSize').value,
                             area: 'top-right',
-                            gridPosition: {
-                                x: parseInt(document.getElementById('calendarGridX').value),
-                                y: parseInt(document.getElementById('calendarGridY').value),
-                                width: parseInt(document.getElementById('calendarGridWidth').value),
-                                height: parseInt(document.getElementById('calendarGridHeight').value)
-                            },
                             calendarUrls: calendarUrls
                         },
                         weather: {
                             enabled: document.getElementById('weatherEnabled').value === 'true',
                             size: document.getElementById('weatherSize').value,
                             area: 'bottom-left',
-                            gridPosition: {
-                                x: parseInt(document.getElementById('weatherGridX').value),
-                                y: parseInt(document.getElementById('weatherGridY').value),
-                                width: parseInt(document.getElementById('weatherGridWidth').value),
-                                height: parseInt(document.getElementById('weatherGridHeight').value)
-                            },
                             location: document.getElementById('weatherLocation').value,
                             apiKey: document.getElementById('weatherApiKey').value.trim() || undefined,
                             units: document.getElementById('weatherUnits').value
@@ -8750,12 +8818,6 @@
                             enabled: document.getElementById('forecastEnabled').value === 'true',
                             size: 'large',
                             area: 'bottom-center',
-                            gridPosition: {
-                                x: parseInt(document.getElementById('forecastGridX').value),
-                                y: parseInt(document.getElementById('forecastGridY').value),
-                                width: parseInt(document.getElementById('forecastGridWidth').value),
-                                height: parseInt(document.getElementById('forecastGridHeight').value)
-                            },
                             location: document.getElementById('forecastLocation').value,
                             apiKey: document.getElementById('forecastApiKey').value.trim() || undefined,
                             days: parseInt(document.getElementById('forecastDays').value),
@@ -8765,14 +8827,12 @@
                             enabled: document.getElementById('newsEnabled').value === 'true',
                             size: document.getElementById('newsSize').value,
                             area: 'bottom-right',
-                            gridPosition: {
-                                x: parseInt(document.getElementById('newsGridX').value),
-                                y: parseInt(document.getElementById('newsGridY').value),
-                                width: parseInt(document.getElementById('newsGridWidth').value),
-                                height: parseInt(document.getElementById('newsGridHeight').value)
-                            },
                             feedUrls: feedUrls
                         }
+                    },
+                    layouts: {
+                        portrait: portraitLayout,
+                        landscape: landscapeLayout
                     },
                     gridSize: {
                         columns: 4,
@@ -8803,7 +8863,17 @@
         }
         
         function previewSmartMirror() {
+            // Open preview in the current orientation being edited
+            const url = gridState.currentOrientation === 'landscape' ? '/smart-mirror-l' : '/smart-mirror';
+            window.open(url, '_blank');
+        }
+        
+        function previewSmartMirrorPortrait() {
             window.open('/smart-mirror', '_blank');
+        }
+        
+        function previewSmartMirrorLandscape() {
+            window.open('/smart-mirror-l', '_blank');
         }
         
         function showSmartMirrorAlert(message, type) {
@@ -8958,7 +9028,8 @@
             resizeHandle: null,
             dragStartX: 0,
             dragStartY: 0,
-            dragStartPos: { x: 0, y: 0, width: 0, height: 0 }
+            dragStartPos: { x: 0, y: 0, width: 0, height: 0 },
+            currentOrientation: 'portrait' // Track which layout we're editing
         };
         
         const WIDGET_ICONS = {
@@ -8968,6 +9039,30 @@
             forecast: '🌦️',
             news: '📰'
         };
+        
+        // Switch between portrait and landscape editing
+        function switchOrientation(orientation) {
+            if (gridState.currentOrientation === orientation) return;
+            
+            // Save current layout state before switching
+            applyGridChanges();
+            
+            // Update state
+            gridState.currentOrientation = orientation;
+            
+            // Update UI
+            document.getElementById('portraitTab').classList.toggle('active', orientation === 'portrait');
+            document.getElementById('landscapeTab').classList.toggle('active', orientation === 'landscape');
+            
+            // Update info text
+            const infoText = orientation === 'portrait' ? 'Editing Portrait Layout:' : 'Editing Landscape Layout:';
+            document.getElementById('orientationInfo').textContent = infoText;
+            
+            // Reload grid with the new orientation's layout
+            loadGridWidgets();
+            
+            console.log(`Switched to ${orientation} layout editing`);
+        }
         
         function initializeGridEditor() {
             const canvas = document.getElementById('gridCanvas');
@@ -9003,12 +9098,28 @@
             const palette = document.getElementById('widgetPalette');
             palette.innerHTML = '';
             
+            // Get the layout for the current orientation
+            const currentLayout = window.smartMirrorLayouts?.[gridState.currentOrientation] || {};
+            
             widgetTypes.forEach(type => {
                 const enabled = document.getElementById(`${type}Enabled`)?.value === 'true';
-                const x = parseInt(document.getElementById(`${type}GridX`)?.value || 0);
-                const y = parseInt(document.getElementById(`${type}GridY`)?.value || 0);
-                const width = parseInt(document.getElementById(`${type}GridWidth`)?.value || 1);
-                const height = parseInt(document.getElementById(`${type}GridHeight`)?.value || 1);
+                
+                // Get position from the current orientation's layout
+                let x, y, width, height;
+                if (gridState.currentOrientation === 'portrait') {
+                    // Use form fields (which contain portrait layout)
+                    x = parseInt(document.getElementById(`${type}GridX`)?.value || 0);
+                    y = parseInt(document.getElementById(`${type}GridY`)?.value || 0);
+                    width = parseInt(document.getElementById(`${type}GridWidth`)?.value || 1);
+                    height = parseInt(document.getElementById(`${type}GridHeight`)?.value || 1);
+                } else {
+                    // Use landscape layout from stored config
+                    const layout = currentLayout[type] || { x: 0, y: 0, width: 1, height: 1 };
+                    x = layout.x;
+                    y = layout.y;
+                    width = layout.width;
+                    height = layout.height;
+                }
                 
                 gridState.widgets[type] = {
                     type,
@@ -9391,18 +9502,34 @@
         }
         
         function applyGridChanges() {
-            // Update form inputs with grid editor values
-            Object.entries(gridState.widgets).forEach(([type, widget]) => {
-                const xInput = document.getElementById(`${type}GridX`);
-                const yInput = document.getElementById(`${type}GridY`);
-                const widthInput = document.getElementById(`${type}GridWidth`);
-                const heightInput = document.getElementById(`${type}GridHeight`);
-                
-                if (xInput) xInput.value = widget.x;
-                if (yInput) yInput.value = widget.y;
-                if (widthInput) widthInput.value = widget.width;
-                if (heightInput) heightInput.value = widget.height;
-            });
+            // Save changes to the appropriate layout
+            if (gridState.currentOrientation === 'portrait') {
+                // Update form inputs (which store portrait layout)
+                Object.entries(gridState.widgets).forEach(([type, widget]) => {
+                    const xInput = document.getElementById(`${type}GridX`);
+                    const yInput = document.getElementById(`${type}GridY`);
+                    const widthInput = document.getElementById(`${type}GridWidth`);
+                    const heightInput = document.getElementById(`${type}GridHeight`);
+                    
+                    if (xInput) xInput.value = widget.x;
+                    if (yInput) yInput.value = widget.y;
+                    if (widthInput) widthInput.value = widget.width;
+                    if (heightInput) heightInput.value = widget.height;
+                });
+            } else {
+                // Update landscape layout in stored layouts
+                if (!window.smartMirrorLayouts) {
+                    window.smartMirrorLayouts = { portrait: {}, landscape: {} };
+                }
+                Object.entries(gridState.widgets).forEach(([type, widget]) => {
+                    window.smartMirrorLayouts.landscape[type] = {
+                        x: widget.x,
+                        y: widget.y,
+                        width: widget.width,
+                        height: widget.height
+                    };
+                });
+            }
             
             // Update original positions to current state
             Object.entries(gridState.widgets).forEach(([type, widget]) => {

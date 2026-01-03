@@ -630,6 +630,41 @@
     <script>
         let config = null;
         let refreshInterval = null;
+        let currentOrientation = 'portrait'; // Track current orientation
+
+        // Detect current orientation from URL or screen
+        function detectOrientation() {
+            // Check URL first
+            if (window.location.pathname === '/smart-mirror-l') {
+                console.log('[Smart Mirror] Orientation: landscape (from URL)');
+                return 'landscape';
+            }
+            
+            // Try to detect from screen orientation
+            try {
+                if (window.matchMedia) {
+                    // Check if screen is wider than tall (landscape)
+                    if (window.matchMedia('(orientation: landscape)').matches) {
+                        console.log('[Smart Mirror] Orientation: landscape (from matchMedia)');
+                        return 'landscape';
+                    } else {
+                        console.log('[Smart Mirror] Orientation: portrait (from matchMedia)');
+                        return 'portrait';
+                    }
+                }
+            } catch (e) {
+                console.warn('[Smart Mirror] matchMedia not available:', e);
+            }
+            
+            // Fallback to comparing dimensions
+            if (window.innerWidth > window.innerHeight) {
+                console.log('[Smart Mirror] Orientation: landscape (from dimensions)');
+                return 'landscape';
+            }
+            
+            console.log('[Smart Mirror] Orientation: portrait (default)');
+            return 'portrait';
+        }
 
         // Load configuration and initialize dashboard
         async function loadConfig() {
@@ -638,11 +673,15 @@
             console.log('[Smart Mirror] User Agent:', navigator.userAgent);
             console.log('[Smart Mirror] Page URL:', window.location.href);
             
+            // Detect orientation
+            currentOrientation = detectOrientation();
+            console.log(`[Smart Mirror] Current orientation: ${currentOrientation}`);
+            
             try {
                 const fetchStart = performance.now();
-                console.log('[Smart Mirror] Fetching config from /api/smart-mirror/config');
+                console.log(`[Smart Mirror] Fetching config from /api/smart-mirror/config?orientation=${currentOrientation}`);
                 
-                const response = await fetch('/api/smart-mirror/config');
+                const response = await fetch(`/api/smart-mirror/config?orientation=${currentOrientation}`);
                 const fetchEnd = performance.now();
                 
                 console.log(`[Smart Mirror] API response received (${Math.round(fetchEnd - fetchStart)}ms)`);
@@ -722,18 +761,23 @@
 
             console.log('[Smart Mirror] Rendering widgets:', Object.keys(config.widgets));
             
+            // Get the layout for current orientation
+            const layout = config.layouts?.[currentOrientation] || {};
+            console.log(`[Smart Mirror] Using ${currentOrientation} layout:`, layout);
+            
             // Create array of widgets with their keys for sorting
             const widgetEntries = Object.keys(config.widgets)
                 .map(widgetKey => ({
                     key: widgetKey,
-                    config: config.widgets[widgetKey]
+                    config: config.widgets[widgetKey],
+                    layout: layout[widgetKey] || { x: 0, y: 0, width: 1, height: 1 }
                 }))
                 .filter(entry => entry.config && entry.config.enabled === true);
             
             // Sort widgets by grid position (y first, then x, then by name as tiebreaker)
             widgetEntries.sort((a, b) => {
-                const posA = a.config.gridPosition || { x: 0, y: 0 };
-                const posB = b.config.gridPosition || { x: 0, y: 0 };
+                const posA = a.layout || { x: 0, y: 0 };
+                const posB = b.layout || { x: 0, y: 0 };
                 
                 // Sort by y coordinate (row) first
                 if (posA.y !== posB.y) {
@@ -750,20 +794,21 @@
             });
             
             console.log('[Smart Mirror] Widget render order:', 
-                widgetEntries.map(e => `${e.key}(${e.config.gridPosition?.x},${e.config.gridPosition?.y})`).join(', ')
+                widgetEntries.map(e => `${e.key}(${e.layout?.x},${e.layout?.y})`).join(', ')
             );
             
             // Create widgets based on sorted configuration
             widgetEntries.forEach(entry => {
                 const widgetKey = entry.key;
                 const widgetConfig = entry.config;
+                const widgetLayout = entry.layout;
                 
                 console.log(`[Smart Mirror] Processing widget: ${widgetKey}`, {
                     enabled: widgetConfig?.enabled,
-                    gridPosition: widgetConfig?.gridPosition
+                    layout: widgetLayout
                 });
                 
-                const widget = createWidget(widgetKey, widgetConfig);
+                const widget = createWidget(widgetKey, widgetConfig, widgetLayout);
                 if (widget) {
                     container.appendChild(widget);
                 }
@@ -774,13 +819,13 @@
         }
 
         // Create a widget element
-        function createWidget(type, widgetConfig) {
+        function createWidget(type, widgetConfig, widgetLayout) {
             const widget = document.createElement('div');
             widget.className = 'widget';
             widget.dataset.type = type;
             
-            // Set grid position
-            const pos = widgetConfig.gridPosition || {};
+            // Set grid position from layout
+            const pos = widgetLayout || { x: 0, y: 0, width: 1, height: 1 };
             widget.dataset.gridX = pos.x || 0;
             widget.dataset.gridY = pos.y || 0;
             widget.dataset.gridWidth = pos.width || 1;
@@ -1342,6 +1387,33 @@
                     }
                 }
             }, 1000);
+            
+            // Listen for orientation changes (only if not using URL-based orientation)
+            if (window.location.pathname !== '/smart-mirror-l' && window.matchMedia) {
+                const portraitMedia = window.matchMedia('(orientation: portrait)');
+                const landscapeMedia = window.matchMedia('(orientation: landscape)');
+                
+                const handleOrientationChange = (e) => {
+                    const newOrientation = detectOrientation();
+                    if (newOrientation !== currentOrientation) {
+                        console.log(`[Smart Mirror] Orientation changed: ${currentOrientation} -> ${newOrientation}`);
+                        currentOrientation = newOrientation;
+                        
+                        // Reload config and re-render dashboard
+                        loadConfig();
+                    }
+                };
+                
+                // Add listeners for both orientations
+                portraitMedia.addEventListener('change', handleOrientationChange);
+                landscapeMedia.addEventListener('change', handleOrientationChange);
+                
+                console.log('[Smart Mirror] Orientation change listeners added');
+            } else if (window.location.pathname === '/smart-mirror-l') {
+                console.log('[Smart Mirror] Using landscape URL - orientation locked to landscape');
+            } else {
+                console.log('[Smart Mirror] Using portrait URL - orientation locked to portrait');
+            }
         });
 
         // Clean up on page unload
