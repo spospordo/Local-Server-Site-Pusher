@@ -5209,7 +5209,7 @@ app.listen(PORT, '0.0.0.0', () => {
   
   if (autoRegenEnabled && runOnStartup) {
     // Get delay from env var or config (default to 5 seconds)
-    const delaySeconds = parseInt(process.env.AUTO_REGENERATE_PUBLIC_DELAY || regenConfig.delaySeconds || 5);
+    const delaySeconds = parseInt(process.env.AUTO_REGENERATE_PUBLIC_DELAY || regenConfig.delaySeconds || 5, 10);
     const forceOverwrite = regenConfig.forceOverwrite || false;
     
     console.log('🔄 Auto-regeneration scheduled:');

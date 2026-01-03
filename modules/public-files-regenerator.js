@@ -13,14 +13,15 @@ const logger = require('./logger');
 let config = null;
 let lastRegenerationTime = null;
 let regenerationLog = [];
+const MAX_LOG_ENTRIES = 500; // Maximum log entries to keep in memory
 
 // Static files that should always be present in /public
 // These are baked into the Docker image and this list is used to verify their presence
 const STATIC_FILES = [
-  { source: 'smart-mirror.html', target: 'smart-mirror.html' },
-  { source: 'index.html', target: 'index.html' },
-  { source: 'espresso-editor.html', target: 'espresso-editor.html' },
-  { source: 'espresso-template.html', target: 'espresso-template.html' }
+  'smart-mirror.html',
+  'index.html',
+  'espresso-editor.html',
+  'espresso-template.html'
 ];
 
 /**
@@ -47,6 +48,11 @@ function addLog(level, action, details) {
     details
   };
   regenerationLog.push(entry);
+  
+  // Trim log to max entries
+  if (regenerationLog.length > MAX_LOG_ENTRIES) {
+    regenerationLog = regenerationLog.slice(-MAX_LOG_ENTRIES);
+  }
   
   // Emit to console with emoji based on level
   const emoji = {
@@ -79,14 +85,14 @@ function checkStaticFiles(force = false) {
   const publicDir = path.join(__dirname, '..', 'public');
   
   for (const file of STATIC_FILES) {
-    const filePath = path.join(publicDir, file.target);
+    const filePath = path.join(publicDir, file);
     
     if (fs.existsSync(filePath)) {
-      addLog('info', 'File Present', `Static file ${file.target} exists`);
+      addLog('info', 'File Present', `Static file ${file} exists`);
       presentCount++;
     } else {
-      addLog('warning', 'File Missing', `Static file ${file.target} is missing from /public`);
-      missingFiles.push(file.target);
+      addLog('warning', 'File Missing', `Static file ${file} is missing from /public`);
+      missingFiles.push(file);
       missingCount++;
     }
   }
@@ -231,8 +237,12 @@ function startAutoRegeneration(delaySeconds = 5, force = false) {
   addLog('info', 'Auto-Regeneration Scheduled', `Will start in ${delaySeconds} seconds`);
   
   setTimeout(async () => {
-    addLog('info', 'Auto-Regeneration Triggered', 'Starting scheduled regeneration');
-    await runRegeneration(force);
+    try {
+      addLog('info', 'Auto-Regeneration Triggered', 'Starting scheduled regeneration');
+      await runRegeneration(force);
+    } catch (error) {
+      addLog('error', 'Auto-Regeneration Error', `Scheduled regeneration failed: ${error.message}`);
+    }
   }, delaySeconds * 1000);
 }
 
