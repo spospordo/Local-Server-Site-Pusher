@@ -5137,6 +5137,125 @@ app.get('/admin/api/smart-mirror/logs/export', requireAuth, (req, res) => {
   }
 });
 
+// Smart Mirror Widget Data API Endpoints (Public - no auth required)
+
+// Fetch calendar events
+app.get('/api/smart-mirror/calendar', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Calendar data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const calendarConfig = config.widgets?.calendar;
+    
+    if (!calendarConfig || !calendarConfig.enabled) {
+      return res.json({ success: false, error: 'Calendar widget not enabled', events: [] });
+    }
+    
+    const result = await smartMirror.fetchCalendarEvents(calendarConfig.calendarUrls || []);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Calendar API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch calendar events', events: [] });
+  }
+});
+
+// Fetch news items
+app.get('/api/smart-mirror/news', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'News data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const newsConfig = config.widgets?.news;
+    
+    if (!newsConfig || !newsConfig.enabled) {
+      return res.json({ success: false, error: 'News widget not enabled', items: [] });
+    }
+    
+    const result = await smartMirror.fetchNews(newsConfig.feedUrls || []);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `News API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch news', items: [] });
+  }
+});
+
+// Fetch current weather
+app.get('/api/smart-mirror/weather', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Weather data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const weatherConfig = config.widgets?.weather;
+    
+    if (!weatherConfig || !weatherConfig.enabled) {
+      return res.json({ success: false, error: 'Weather widget not enabled' });
+    }
+    
+    if (!weatherConfig.apiKey || !weatherConfig.location) {
+      return res.json({ success: false, error: 'Weather API key and location must be configured' });
+    }
+    
+    const result = await smartMirror.fetchWeather(
+      weatherConfig.apiKey,
+      weatherConfig.location,
+      weatherConfig.units || 'imperial'
+    );
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Weather API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch weather data' });
+  }
+});
+
+// Fetch weather forecast
+app.get('/api/smart-mirror/forecast', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Forecast data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const forecastConfig = config.widgets?.forecast;
+    
+    if (!forecastConfig || !forecastConfig.enabled) {
+      return res.json({ success: false, error: 'Forecast widget not enabled' });
+    }
+    
+    if (!forecastConfig.apiKey || !forecastConfig.location) {
+      return res.json({ success: false, error: 'Forecast API key and location must be configured' });
+    }
+    
+    const result = await smartMirror.fetchForecast(
+      forecastConfig.apiKey,
+      forecastConfig.location,
+      forecastConfig.days || 5,
+      forecastConfig.units || 'imperial'
+    );
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Forecast API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch forecast data' });
+  }
+});
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');
