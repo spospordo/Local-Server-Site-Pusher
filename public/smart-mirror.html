@@ -386,9 +386,14 @@
         }
         
         .weather-temp-secondary {
-            font-size: 1.2rem;
+            font-size: 1.8rem; /* 60% of 3rem primary temp */
             opacity: 0.5;
             margin-left: 10px;
+            color: #888; /* Darker gray for better differentiation */
+        }
+        
+        body.theme-light .weather-temp-secondary {
+            color: #666; /* Darker gray for light theme */
         }
 
         .weather-condition {
@@ -479,6 +484,17 @@
             font-size: 0.8rem;
             opacity: 0.7;
             margin-top: 5px;
+        }
+        
+        .forecast-temp-secondary {
+            font-size: 0.75rem; /* 60-65% of forecast temps */
+            opacity: 0.5;
+            margin-top: 3px;
+            color: #888; /* Darker gray for better differentiation */
+        }
+        
+        body.theme-light .forecast-temp-secondary {
+            color: #666; /* Darker gray for light theme */
         }
 
         /* News Widget */
@@ -1144,8 +1160,18 @@
                     detailsDiv.appendChild(windDiv);
                     
                     if (weather.feelsLike) {
+                        const feelsLikeSecondary = isImperial ? fahrenheitToCelsius(weather.feelsLike) : celsiusToFahrenheit(weather.feelsLike);
                         const feelsLikeDiv = document.createElement('div');
                         feelsLikeDiv.textContent = 'Feels: ' + weather.feelsLike + '°' + tempUnit;
+                        
+                        const feelsLikeSecondarySpan = document.createElement('span');
+                        feelsLikeSecondarySpan.style.fontSize = '0.7rem';
+                        feelsLikeSecondarySpan.style.opacity = '0.5';
+                        feelsLikeSecondarySpan.style.marginLeft = '5px';
+                        feelsLikeSecondarySpan.style.color = '#888';
+                        feelsLikeSecondarySpan.textContent = ' (' + feelsLikeSecondary + '°' + secondaryUnit + ')';
+                        feelsLikeDiv.appendChild(feelsLikeSecondarySpan);
+                        
                         detailsDiv.appendChild(feelsLikeDiv);
                     }
                     
@@ -1204,7 +1230,7 @@
                                 <div class="forecast-temp">
                                     <div class="forecast-temp-high">${tempHigh}°${tempUnit}</div>
                                     <div class="forecast-temp-low">${tempLow}°${tempUnit}</div>
-                                    <div style="font-size: 0.75rem; opacity: 0.5; margin-top: 3px;">
+                                    <div class="forecast-temp-secondary">
                                         ${tempHighSecondary}°/${tempLowSecondary}°${secondaryUnit}
                                     </div>
                                 </div>
