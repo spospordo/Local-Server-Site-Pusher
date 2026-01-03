@@ -538,24 +538,31 @@
             opacity: 0.6;
         }
 
-        /* Responsive grid positioning */
-        .widget[data-grid-x="0"] { grid-column: 1; }
-        .widget[data-grid-x="1"] { grid-column: 2; }
-        .widget[data-grid-x="2"] { grid-column: 3; }
-        .widget[data-grid-x="3"] { grid-column: 4; }
+        /* Responsive grid positioning - combined position and span rules */
+        /* Grid column positioning (x + width) */
+        .widget[data-grid-x="0"][data-grid-width="1"] { grid-column: 1 / span 1; }
+        .widget[data-grid-x="0"][data-grid-width="2"] { grid-column: 1 / span 2; }
+        .widget[data-grid-x="0"][data-grid-width="3"] { grid-column: 1 / span 3; }
+        .widget[data-grid-x="0"][data-grid-width="4"] { grid-column: 1 / span 4; }
+        
+        .widget[data-grid-x="1"][data-grid-width="1"] { grid-column: 2 / span 1; }
+        .widget[data-grid-x="1"][data-grid-width="2"] { grid-column: 2 / span 2; }
+        .widget[data-grid-x="1"][data-grid-width="3"] { grid-column: 2 / span 3; }
+        
+        .widget[data-grid-x="2"][data-grid-width="1"] { grid-column: 3 / span 1; }
+        .widget[data-grid-x="2"][data-grid-width="2"] { grid-column: 3 / span 2; }
+        
+        .widget[data-grid-x="3"][data-grid-width="1"] { grid-column: 4 / span 1; }
 
-        .widget[data-grid-y="0"] { grid-row: 1; }
-        .widget[data-grid-y="1"] { grid-row: 2; }
-        .widget[data-grid-y="2"] { grid-row: 3; }
-
-        .widget[data-grid-width="1"] { grid-column: span 1; }
-        .widget[data-grid-width="2"] { grid-column: span 2; }
-        .widget[data-grid-width="3"] { grid-column: span 3; }
-        .widget[data-grid-width="4"] { grid-column: span 4; }
-
-        .widget[data-grid-height="1"] { grid-row: span 1; }
-        .widget[data-grid-height="2"] { grid-row: span 2; }
-        .widget[data-grid-height="3"] { grid-row: span 3; }
+        /* Grid row positioning (y + height) */
+        .widget[data-grid-y="0"][data-grid-height="1"] { grid-row: 1 / span 1; }
+        .widget[data-grid-y="0"][data-grid-height="2"] { grid-row: 1 / span 2; }
+        .widget[data-grid-y="0"][data-grid-height="3"] { grid-row: 1 / span 3; }
+        
+        .widget[data-grid-y="1"][data-grid-height="1"] { grid-row: 2 / span 1; }
+        .widget[data-grid-y="1"][data-grid-height="2"] { grid-row: 2 / span 2; }
+        
+        .widget[data-grid-y="2"][data-grid-height="1"] { grid-row: 3 / span 1; }
 
         /* Scrollbar styling for dark theme */
         ::-webkit-scrollbar {
@@ -688,22 +695,50 @@
 
             console.log('[Smart Mirror] Rendering widgets:', Object.keys(config.widgets));
             
-            // Create widgets based on configuration
-            Object.keys(config.widgets).forEach(widgetKey => {
-                const widgetConfig = config.widgets[widgetKey];
+            // Create array of widgets with their keys for sorting
+            const widgetEntries = Object.keys(config.widgets)
+                .map(widgetKey => ({
+                    key: widgetKey,
+                    config: config.widgets[widgetKey]
+                }))
+                .filter(entry => entry.config && entry.config.enabled === true);
+            
+            // Sort widgets by grid position (y first, then x, then by name as tiebreaker)
+            widgetEntries.sort((a, b) => {
+                const posA = a.config.gridPosition || { x: 0, y: 0 };
+                const posB = b.config.gridPosition || { x: 0, y: 0 };
+                
+                // Sort by y coordinate (row) first
+                if (posA.y !== posB.y) {
+                    return posA.y - posB.y;
+                }
+                
+                // Then by x coordinate (column)
+                if (posA.x !== posB.x) {
+                    return posA.x - posB.x;
+                }
+                
+                // If same position, sort alphabetically by widget key for stable ordering
+                return a.key.localeCompare(b.key);
+            });
+            
+            console.log('[Smart Mirror] Widget render order:', 
+                widgetEntries.map(e => `${e.key}(${e.config.gridPosition?.x},${e.config.gridPosition?.y})`).join(', ')
+            );
+            
+            // Create widgets based on sorted configuration
+            widgetEntries.forEach(entry => {
+                const widgetKey = entry.key;
+                const widgetConfig = entry.config;
                 
                 console.log(`[Smart Mirror] Processing widget: ${widgetKey}`, {
                     enabled: widgetConfig?.enabled,
-                    area: widgetConfig?.area,
-                    size: widgetConfig?.size
+                    gridPosition: widgetConfig?.gridPosition
                 });
                 
-                // Only render enabled widgets
-                if (widgetConfig && widgetConfig.enabled === true) {
-                    const widget = createWidget(widgetKey, widgetConfig);
-                    if (widget) {
-                        container.appendChild(widget);
-                    }
+                const widget = createWidget(widgetKey, widgetConfig);
+                if (widget) {
+                    container.appendChild(widget);
                 }
             });
 
