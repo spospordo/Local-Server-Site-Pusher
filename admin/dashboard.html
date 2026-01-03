@@ -287,13 +287,12 @@
         
         .grid-canvas {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(3, 1fr);
+            /* Grid dimensions set dynamically via JavaScript */
             gap: 10px;
-            aspect-ratio: 4 / 3;
             width: 100%;
             position: relative;
             min-height: 400px;
+            /* Remove fixed aspect ratio to allow different grid sizes */
         }
         
         .grid-cell {
@@ -3481,7 +3480,7 @@
                 <div class="section-divider"></div>
 
                 <h3>Widget Configuration</h3>
-                <p style="margin-bottom: 15px;">Enable and configure widgets for the Smart Mirror dashboard. Widgets are displayed in a 4×3 grid layout.</p>
+                <p style="margin-bottom: 15px;">Enable and configure widgets for the Smart Mirror dashboard. Portrait mode uses a finer 4×6 grid (better vertical control), while landscape mode uses an 8×4 grid (better horizontal control).</p>
 
                 <!-- Clock Widget -->
                 <div class="collapsible-section">
@@ -8705,15 +8704,32 @@
                     const feedUrls = news.feedUrls || (news.feedUrl ? [news.feedUrl] : []);
                     document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
                     
-                    // Store landscape layouts in a global variable for later use
+                    // Store landscape layouts and grid sizes in a global variable for later use
                     window.smartMirrorLayouts = {
                         portrait: portraitLayout,
                         landscape: landscapeLayout
                     };
                     
+                    // Store grid sizes per orientation
+                    window.smartMirrorGridSizes = config.gridSize || {
+                        portrait: { columns: 4, rows: 6 },
+                        landscape: { columns: 8, rows: 4 }
+                    };
+                    
+                    // Handle old format (single gridSize object)
+                    if (window.smartMirrorGridSizes.columns && window.smartMirrorGridSizes.rows) {
+                        // Old format - convert to new format
+                        const oldSize = window.smartMirrorGridSizes;
+                        window.smartMirrorGridSizes = {
+                            portrait: { columns: oldSize.columns, rows: oldSize.rows },
+                            landscape: { columns: oldSize.columns, rows: oldSize.rows }
+                        };
+                    }
+                    
                     console.log('Smart Mirror configuration loaded');
                     console.log('Portrait layouts:', portraitLayout);
                     console.log('Landscape layouts:', landscapeLayout);
+                    console.log('Grid sizes:', window.smartMirrorGridSizes);
                     
                     // Initialize grid editor after loading config
                     initializeGridEditor();
@@ -8834,9 +8850,9 @@
                         portrait: portraitLayout,
                         landscape: landscapeLayout
                     },
-                    gridSize: {
-                        columns: 4,
-                        rows: 3
+                    gridSize: window.smartMirrorGridSizes || {
+                        portrait: { columns: 4, rows: 6 },
+                        landscape: { columns: 8, rows: 4 }
                     },
                     refreshInterval: 60000
                 };
@@ -9008,15 +9024,27 @@
         }
         
         // Interactive Grid Editor Functions
-        // Grid configuration constants
-        const GRID_CONFIG = {
+        // Grid configuration - will be updated dynamically based on orientation
+        let GRID_CONFIG = {
             COLUMNS: 4,
-            ROWS: 3,
+            ROWS: 6,
             MAX_WIDTH: 4,
-            MAX_HEIGHT: 3,
+            MAX_HEIGHT: 6,
             MAX_COL_INDEX: 3, // 0-based indexing
-            MAX_ROW_INDEX: 2  // 0-based indexing
+            MAX_ROW_INDEX: 5  // 0-based indexing
         };
+        
+        // Update GRID_CONFIG based on orientation
+        function updateGridConfig(orientation) {
+            const gridSize = window.smartMirrorGridSizes?.[orientation] || { columns: 4, rows: 6 };
+            GRID_CONFIG.COLUMNS = gridSize.columns;
+            GRID_CONFIG.ROWS = gridSize.rows;
+            GRID_CONFIG.MAX_WIDTH = gridSize.columns;
+            GRID_CONFIG.MAX_HEIGHT = gridSize.rows;
+            GRID_CONFIG.MAX_COL_INDEX = gridSize.columns - 1;
+            GRID_CONFIG.MAX_ROW_INDEX = gridSize.rows - 1;
+            console.log(`Grid config updated for ${orientation}:`, GRID_CONFIG);
+        }
         
         let gridState = {
             widgets: {},
@@ -9050,16 +9078,22 @@
             // Update state
             gridState.currentOrientation = orientation;
             
+            // Update grid config for new orientation
+            updateGridConfig(orientation);
+            
             // Update UI
             document.getElementById('portraitTab').classList.toggle('active', orientation === 'portrait');
             document.getElementById('landscapeTab').classList.toggle('active', orientation === 'landscape');
             
             // Update info text
-            const infoText = orientation === 'portrait' ? 'Editing Portrait Layout:' : 'Editing Landscape Layout:';
+            const gridSize = window.smartMirrorGridSizes?.[orientation] || GRID_CONFIG;
+            const infoText = orientation === 'portrait' 
+                ? `Editing Portrait Layout (${gridSize.columns}×${gridSize.rows} grid):` 
+                : `Editing Landscape Layout (${gridSize.columns}×${gridSize.rows} grid):`;
             document.getElementById('orientationInfo').textContent = infoText;
             
-            // Reload grid with the new orientation's layout
-            loadGridWidgets();
+            // Re-initialize grid editor with new dimensions
+            initializeGridEditor();
             
             console.log(`Switched to ${orientation} layout editing`);
         }
@@ -9067,6 +9101,13 @@
         function initializeGridEditor() {
             const canvas = document.getElementById('gridCanvas');
             if (!canvas) return;
+            
+            // Update grid config for current orientation
+            updateGridConfig(gridState.currentOrientation);
+            
+            // Update canvas grid template to match current orientation's dimensions
+            canvas.style.gridTemplateColumns = `repeat(${GRID_CONFIG.COLUMNS}, 1fr)`;
+            canvas.style.gridTemplateRows = `repeat(${GRID_CONFIG.ROWS}, 1fr)`;
             
             // Clear existing content
             canvas.innerHTML = '';
