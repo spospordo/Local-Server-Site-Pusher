@@ -8716,13 +8716,13 @@
                         landscape: { columns: 8, rows: 4 }
                     };
                     
-                    // Handle old format (single gridSize object)
+                    // Handle old format (single gridSize object) - migrate to new defaults
                     if (window.smartMirrorGridSizes.columns && window.smartMirrorGridSizes.rows) {
-                        // Old format - convert to new format
-                        const oldSize = window.smartMirrorGridSizes;
+                        // Old format - use new orientation-specific defaults instead of duplicating old size
+                        console.log('Migrating old grid size format to new orientation-specific defaults');
                         window.smartMirrorGridSizes = {
-                            portrait: { columns: oldSize.columns, rows: oldSize.rows },
-                            landscape: { columns: oldSize.columns, rows: oldSize.rows }
+                            portrait: { columns: 4, rows: 6 },
+                            landscape: { columns: 8, rows: 4 }
                         };
                     }
                     

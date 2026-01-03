@@ -110,11 +110,11 @@ function getDefaultPortraitLayout() {
 // Landscape uses finer horizontal granularity (8 cols × 4 rows)
 function getDefaultLandscapeLayout() {
   return {
-    clock: { x: 0, y: 0, width: 2, height: 2 },
-    calendar: { x: 2, y: 0, width: 4, height: 4 },
-    weather: { x: 6, y: 0, width: 2, height: 2 },
-    forecast: { x: 0, y: 2, width: 8, height: 2 },
-    news: { x: 0, y: 2, width: 2, height: 2 }
+    clock: { x: 0, y: 0, width: 2, height: 1 },
+    calendar: { x: 2, y: 0, width: 4, height: 3 },
+    weather: { x: 6, y: 0, width: 2, height: 1 },
+    news: { x: 0, y: 1, width: 2, height: 2 },
+    forecast: { x: 0, y: 3, width: 8, height: 1 }
   };
 }
 
@@ -148,11 +148,19 @@ function scaleWidgetPosition(position, oldGridSize, newGridSize) {
   const scaleX = newGridSize.columns / oldGridSize.columns;
   const scaleY = newGridSize.rows / oldGridSize.rows;
   
+  // Use floor for position to avoid exceeding grid bounds
+  // Use max(1, round) for size to ensure at least 1 cell
+  const newX = Math.floor(position.x * scaleX);
+  const newY = Math.floor(position.y * scaleY);
+  const newWidth = Math.max(1, Math.round(position.width * scaleX));
+  const newHeight = Math.max(1, Math.round(position.height * scaleY));
+  
+  // Ensure widget doesn't exceed grid bounds
   return {
-    x: Math.round(position.x * scaleX),
-    y: Math.round(position.y * scaleY),
-    width: Math.max(1, Math.round(position.width * scaleX)),
-    height: Math.max(1, Math.round(position.height * scaleY))
+    x: Math.min(newX, newGridSize.columns - 1),
+    y: Math.min(newY, newGridSize.rows - 1),
+    width: Math.min(newWidth, newGridSize.columns - newX),
+    height: Math.min(newHeight, newGridSize.rows - newY)
   };
 }
 
