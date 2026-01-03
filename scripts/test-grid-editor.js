@@ -21,6 +21,16 @@ const TEST_CONFIG = {
   password: 'admin'
 };
 
+// Grid configuration constants
+const GRID_CONFIG = {
+  COLUMNS: 4,
+  ROWS: 3,
+  MAX_WIDTH: 4,
+  MAX_HEIGHT: 3,
+  MAX_COL_INDEX: 3, // 0-based, so 0-3
+  MAX_ROW_INDEX: 2  // 0-based, so 0-2
+};
+
 let sessionCookie = null;
 
 // ANSI color codes for output
@@ -49,9 +59,10 @@ function makeRequest(options, postData = null) {
       res.on('end', () => {
         // Store session cookie if present
         if (res.headers['set-cookie']) {
-          const cookies = Array.isArray(res.headers['set-cookie']) 
-            ? res.headers['set-cookie'] 
-            : [res.headers['set-cookie']];
+          const cookieHeader = res.headers['set-cookie'];
+          const cookies = Array.isArray(cookieHeader) 
+            ? cookieHeader 
+            : [cookieHeader];
           sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
         }
         
@@ -157,12 +168,12 @@ function testGridPositionValidation(config) {
     const height = pos.height ?? 1;
     
     // Validate position bounds
-    const xValid = x >= 0 && x <= 3;
-    const yValid = y >= 0 && y <= 2;
-    const widthValid = width >= 1 && width <= 4;
-    const heightValid = height >= 1 && height <= 3;
-    const xBoundValid = x + width <= 4;
-    const yBoundValid = y + height <= 3;
+    const xValid = x >= 0 && x <= GRID_CONFIG.MAX_COL_INDEX;
+    const yValid = y >= 0 && y <= GRID_CONFIG.MAX_ROW_INDEX;
+    const widthValid = width >= 1 && width <= GRID_CONFIG.MAX_WIDTH;
+    const heightValid = height >= 1 && height <= GRID_CONFIG.MAX_HEIGHT;
+    const xBoundValid = x + width <= GRID_CONFIG.COLUMNS;
+    const yBoundValid = y + height <= GRID_CONFIG.ROWS;
     
     const valid = xValid && yValid && widthValid && heightValid && xBoundValid && yBoundValid;
     
@@ -170,12 +181,12 @@ function testGridPositionValidation(config) {
       log(`  ✓ ${type}: (${x},${y}) ${width}×${height} - Valid`, 'green');
     } else {
       log(`  ✗ ${type}: (${x},${y}) ${width}×${height} - Invalid`, 'red');
-      if (!xValid) log(`    - X position out of bounds (must be 0-3)`, 'red');
-      if (!yValid) log(`    - Y position out of bounds (must be 0-2)`, 'red');
-      if (!widthValid) log(`    - Width out of bounds (must be 1-4)`, 'red');
-      if (!heightValid) log(`    - Height out of bounds (must be 1-3)`, 'red');
-      if (!xBoundValid) log(`    - Widget extends past right edge (x + width > 4)`, 'red');
-      if (!yBoundValid) log(`    - Widget extends past bottom edge (y + height > 3)`, 'red');
+      if (!xValid) log(`    - X position out of bounds (must be 0-${GRID_CONFIG.MAX_COL_INDEX})`, 'red');
+      if (!yValid) log(`    - Y position out of bounds (must be 0-${GRID_CONFIG.MAX_ROW_INDEX})`, 'red');
+      if (!widthValid) log(`    - Width out of bounds (must be 1-${GRID_CONFIG.MAX_WIDTH})`, 'red');
+      if (!heightValid) log(`    - Height out of bounds (must be 1-${GRID_CONFIG.MAX_HEIGHT})`, 'red');
+      if (!xBoundValid) log(`    - Widget extends past right edge (x + width > ${GRID_CONFIG.COLUMNS})`, 'red');
+      if (!yBoundValid) log(`    - Widget extends past bottom edge (y + height > ${GRID_CONFIG.ROWS})`, 'red');
       allValid = false;
     }
   });
@@ -230,7 +241,7 @@ function testGridCoverage(config) {
   log('\n=== Testing Grid Coverage ===', 'cyan');
   
   const widgets = config.widgets || {};
-  const grid = Array(3).fill(null).map(() => Array(4).fill(null));
+  const grid = Array(GRID_CONFIG.ROWS).fill(null).map(() => Array(GRID_CONFIG.COLUMNS).fill(null));
   
   Object.entries(widgets).forEach(([type, widget]) => {
     if (!widget.enabled) return;
@@ -240,8 +251,8 @@ function testGridCoverage(config) {
     const width = widget.gridPosition?.width ?? 1;
     const height = widget.gridPosition?.height ?? 1;
     
-    for (let row = y; row < y + height && row < 3; row++) {
-      for (let col = x; col < x + width && col < 4; col++) {
+    for (let row = y; row < y + height && row < GRID_CONFIG.ROWS; row++) {
+      for (let col = x; col < x + width && col < GRID_CONFIG.COLUMNS; col++) {
         if (grid[row][col]) {
           grid[row][col] += `, ${type}`;
         } else {
@@ -262,7 +273,7 @@ function testGridCoverage(config) {
     log(`  ${idx} [${cells.join('|')}]`, 'blue');
   });
   
-  const totalCells = 12;
+  const totalCells = GRID_CONFIG.ROWS * GRID_CONFIG.COLUMNS;
   const occupiedCells = grid.flat().filter(cell => cell !== null).length;
   const coverage = (occupiedCells / totalCells * 100).toFixed(1);
   
@@ -387,27 +398,27 @@ async function testEdgeCases() {
   const testCases = [
     {
       name: 'Widget at maximum position',
-      widget: { x: 3, y: 2, width: 1, height: 1 },
+      widget: { x: GRID_CONFIG.MAX_COL_INDEX, y: GRID_CONFIG.MAX_ROW_INDEX, width: 1, height: 1 },
       shouldPass: true
     },
     {
       name: 'Widget spanning full width',
-      widget: { x: 0, y: 0, width: 4, height: 1 },
+      widget: { x: 0, y: 0, width: GRID_CONFIG.COLUMNS, height: 1 },
       shouldPass: true
     },
     {
       name: 'Widget spanning full height',
-      widget: { x: 0, y: 0, width: 1, height: 3 },
+      widget: { x: 0, y: 0, width: 1, height: GRID_CONFIG.ROWS },
       shouldPass: true
     },
     {
       name: 'Widget exceeding right boundary',
-      widget: { x: 3, y: 0, width: 2, height: 1 },
+      widget: { x: GRID_CONFIG.MAX_COL_INDEX, y: 0, width: 2, height: 1 },
       shouldPass: false
     },
     {
       name: 'Widget exceeding bottom boundary',
-      widget: { x: 0, y: 2, width: 1, height: 2 },
+      widget: { x: 0, y: GRID_CONFIG.MAX_ROW_INDEX, width: 1, height: 2 },
       shouldPass: false
     },
     {
@@ -424,12 +435,12 @@ async function testEdgeCases() {
   
   testCases.forEach(test => {
     const { x, y, width, height } = test.widget;
-    const xValid = x >= 0 && x <= 3;
-    const yValid = y >= 0 && y <= 2;
-    const widthValid = width >= 1 && width <= 4;
-    const heightValid = height >= 1 && height <= 3;
-    const xBoundValid = x + width <= 4;
-    const yBoundValid = y + height <= 3;
+    const xValid = x >= 0 && x <= GRID_CONFIG.MAX_COL_INDEX;
+    const yValid = y >= 0 && y <= GRID_CONFIG.MAX_ROW_INDEX;
+    const widthValid = width >= 1 && width <= GRID_CONFIG.MAX_WIDTH;
+    const heightValid = height >= 1 && height <= GRID_CONFIG.MAX_HEIGHT;
+    const xBoundValid = x + width <= GRID_CONFIG.COLUMNS;
+    const yBoundValid = y + height <= GRID_CONFIG.ROWS;
     
     const valid = xValid && yValid && widthValid && heightValid && xBoundValid && yBoundValid;
     const passed = valid === test.shouldPass;

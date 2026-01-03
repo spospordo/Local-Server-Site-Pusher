@@ -8675,6 +8675,7 @@
                         if (enabledSelect) {
                             enabledSelect.addEventListener('change', () => {
                                 // Update grid state and re-render
+                                // Small delay to ensure DOM updates are complete before re-rendering
                                 setTimeout(() => {
                                     loadGridWidgets();
                                 }, 100);
@@ -8937,6 +8938,16 @@
         }
         
         // Interactive Grid Editor Functions
+        // Grid configuration constants
+        const GRID_CONFIG = {
+            COLUMNS: 4,
+            ROWS: 3,
+            MAX_WIDTH: 4,
+            MAX_HEIGHT: 3,
+            MAX_COL_INDEX: 3, // 0-based indexing
+            MAX_ROW_INDEX: 2  // 0-based indexing
+        };
+        
         let gridState = {
             widgets: {},
             selectedWidget: null,
@@ -8966,8 +8977,8 @@
             canvas.innerHTML = '';
             
             // Create grid cells with labels
-            for (let row = 0; row < 3; row++) {
-                for (let col = 0; col < 4; col++) {
+            for (let row = 0; row < GRID_CONFIG.ROWS; row++) {
+                for (let col = 0; col < GRID_CONFIG.COLUMNS; col++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     cell.dataset.col = col;
@@ -9037,8 +9048,8 @@
             
             // Calculate canvas dimensions
             const canvasRect = canvas.getBoundingClientRect();
-            const cellWidth = canvasRect.width / 4;
-            const cellHeight = canvasRect.height / 3;
+            const cellWidth = canvasRect.width / GRID_CONFIG.COLUMNS;
+            const cellHeight = canvasRect.height / GRID_CONFIG.ROWS;
             
             // Detect overlaps
             const overlaps = detectOverlaps();
@@ -9196,8 +9207,8 @@
                 let newY = gridState.dragStartPos.y + cellsMovedY;
                 
                 // Constrain to grid bounds
-                newX = Math.max(0, Math.min(4 - widget.width, newX));
-                newY = Math.max(0, Math.min(3 - widget.height, newY));
+                newX = Math.max(0, Math.min(GRID_CONFIG.COLUMNS - widget.width, newX));
+                newY = Math.max(0, Math.min(GRID_CONFIG.ROWS - widget.height, newY));
                 
                 if (newX !== widget.x || newY !== widget.y) {
                     widget.x = newX;
@@ -9243,12 +9254,12 @@
                 // Constrain to grid bounds
                 newX = Math.max(0, newX);
                 newY = Math.max(0, newY);
-                newWidth = Math.min(4, newWidth);
-                newHeight = Math.min(3, newHeight);
+                newWidth = Math.min(GRID_CONFIG.MAX_WIDTH, newWidth);
+                newHeight = Math.min(GRID_CONFIG.MAX_HEIGHT, newHeight);
                 
                 // Ensure widget doesn't go out of bounds
-                if (newX + newWidth > 4) newWidth = 4 - newX;
-                if (newY + newHeight > 3) newHeight = 3 - newY;
+                if (newX + newWidth > GRID_CONFIG.COLUMNS) newWidth = GRID_CONFIG.COLUMNS - newX;
+                if (newY + newHeight > GRID_CONFIG.ROWS) newHeight = GRID_CONFIG.ROWS - newY;
                 
                 if (newX !== widget.x || newY !== widget.y || 
                     newWidth !== widget.width || newHeight !== widget.height) {
@@ -9305,25 +9316,25 @@
             if (e.key === 'ArrowLeft' && widget.x > 0) {
                 widget.x--;
                 moved = true;
-            } else if (e.key === 'ArrowRight' && widget.x + widget.width < 4) {
+            } else if (e.key === 'ArrowRight' && widget.x + widget.width < GRID_CONFIG.COLUMNS) {
                 widget.x++;
                 moved = true;
             } else if (e.key === 'ArrowUp' && widget.y > 0) {
                 widget.y--;
                 moved = true;
-            } else if (e.key === 'ArrowDown' && widget.y + widget.height < 3) {
+            } else if (e.key === 'ArrowDown' && widget.y + widget.height < GRID_CONFIG.ROWS) {
                 widget.y++;
                 moved = true;
             }
             
             // Shift + Arrow keys for resizing
-            else if (e.shiftKey && e.key === 'ArrowRight' && widget.x + widget.width < 4) {
+            else if (e.shiftKey && e.key === 'ArrowRight' && widget.x + widget.width < GRID_CONFIG.COLUMNS) {
                 widget.width++;
                 moved = true;
             } else if (e.shiftKey && e.key === 'ArrowLeft' && widget.width > 1) {
                 widget.width--;
                 moved = true;
-            } else if (e.shiftKey && e.key === 'ArrowDown' && widget.y + widget.height < 3) {
+            } else if (e.shiftKey && e.key === 'ArrowDown' && widget.y + widget.height < GRID_CONFIG.ROWS) {
                 widget.height++;
                 moved = true;
             } else if (e.shiftKey && e.key === 'ArrowUp' && widget.height > 1) {
