@@ -10,6 +10,7 @@ A containerized web application with admin interface for serving web content and
 🐳 **Containerized**: Easy deployment with Docker  
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
+📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
 
 ## Quick Start
 
