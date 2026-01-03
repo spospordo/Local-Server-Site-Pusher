@@ -186,4 +186,184 @@ services:
       - SESSION_SECRET=your-secure-random-string
       # - SUPPRESS_SESSION_WARNINGS=true  # Uncomment to suppress session warnings
     restart: unless-stopped
+
+## Auto-Regeneration of Public Files
+
+The server automatically regenerates and syncs public files on startup and after redeploy to ensure correct static files and feature-generated dynamic content are always present.
+
+### How It Works
+
+On server startup, the auto-regeneration system:
+
+1. **Checks Static Files**: Verifies that critical files like `smart-mirror.html`, `index.html`, and `espresso-editor.html` exist in `/public` (these are baked into the Docker image)
+2. **Regenerates Dynamic Content**:
+   - **Espresso**: Regenerates `public/espresso/index.html` from persisted config/data
+   - **Vidiots**: Regenerates `public/vidiots/index.html` and poster images
+3. **Logs All Actions**: All checks and generation actions are logged for troubleshooting
+
+**Note**: Static files are baked into the Docker image at `/app/public`. If you mount a volume over `/app/public`, ensure the static files are present in that volume, or don't mount `/public` and let the container use the built-in files.
+
+### Configuration
+
+Auto-regeneration is configured via environment variables or config file:
+
+```yaml
+# docker-compose.yml
+services:
+  local-server:
+    environment:
+      # Auto-regeneration delay in seconds (default: 5)
+      - AUTO_REGENERATE_PUBLIC_DELAY=5
+```
+
+Or in `config/config.json`:
+
+```json
+{
+  "publicFilesRegeneration": {
+    "enabled": true,
+    "delaySeconds": 5,
+    "runOnStartup": true,
+    "forceOverwrite": false
+  }
+}
+```
+
+### Volume Mount Strategies
+
+#### Strategy 1: No Volume Mount (Recommended for Simple Deployments)
+```yaml
+# Public files stay in the container
+services:
+  local-server:
+    volumes:
+      - ./config:/app/config     # Only persist config and uploads
+      - ./uploads:/app/uploads
+```
+
+**Pros**: Auto-regeneration always works correctly  
+**Cons**: Generated files lost on container recreation (but automatically regenerated)
+
+#### Strategy 2: Volume Mount with Auto-Regeneration (Recommended for Portainer)
+```yaml
+# Mount public but let auto-regeneration handle updates
+services:
+  local-server:
+    volumes:
+      - ./public:/app/public
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+    environment:
+      - AUTO_REGENERATE_PUBLIC_DELAY=5
+```
+
+**Pros**: Files persist AND auto-update on deploy  
+**Cons**: Requires auto-regeneration enabled
+
+#### Strategy 3: Manual Management
+```yaml
+# Mount public and disable auto-regeneration
+services:
+  local-server:
+    volumes:
+      - ./public:/app/public
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+```
+
+Then in `config/config.json`:
+```json
+{
+  "publicFilesRegeneration": {
+    "enabled": false
+  }
+}
+```
+
+**Pros**: Full manual control  
+**Cons**: Must manually trigger regeneration via admin panel
+
+### Manual Regeneration
+
+You can manually trigger regeneration via the Admin API:
+
+```bash
+# Trigger regeneration (preserves up-to-date files)
+curl -X POST http://localhost:3000/admin/api/regenerate-public \
+  -H "Content-Type: application/json" \
+  -d '{"force": false}' \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+
+# Force regeneration (overwrites all files)
+curl -X POST http://localhost:3000/admin/api/regenerate-public \
+  -H "Content-Type: application/json" \
+  -d '{"force": true}' \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+
+# Check regeneration status
+curl http://localhost:3000/admin/api/regenerate-public/status \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+
+# View regeneration logs
+curl http://localhost:3000/admin/api/regenerate-public/logs \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+```
+
+### Troubleshooting
+
+**Issue**: Static files missing after deployment
+
+**Solution**: Check auto-regeneration logs:
+```bash
+curl http://localhost:3000/admin/api/regenerate-public/logs \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+```
+
+**Issue**: Files not updating after code changes
+
+**Solution**: Trigger force regeneration:
+```bash
+curl -X POST http://localhost:3000/admin/api/regenerate-public \
+  -H "Content-Type: application/json" \
+  -d '{"force": true}' \
+  --cookie "connect.sid=YOUR_SESSION_COOKIE"
+```
+
+**Issue**: Permission errors during regeneration
+
+**Solution**: Ensure proper permissions on `/app/public`:
+```bash
+# On host
+sudo chown -R $(id -u):$(id -g) ./public
+
+# Or set in docker-compose.yml
+services:
+  local-server:
+    user: "1000:1000"  # Replace with your UID:GID
+```
+
+### Best Practices
+
+1. **Keep Auto-Regeneration Enabled**: It ensures files are always up-to-date after deploys
+2. **Use 5-10 Second Delay**: Gives the server time to fully initialize before regeneration
+3. **Monitor Logs**: Check regeneration logs via admin panel to catch issues early
+4. **Volume Mount `/config` and `/uploads`**: Always persist these directories
+5. **Consider NOT Mounting `/public`**: Let auto-regeneration handle it unless you need persistence
+
+### CI/CD Integration
+
+For automated deployments, ensure:
+
+1. Auto-regeneration is enabled in production config
+2. Delay is appropriate for your deployment time (typically 5-10 seconds)
+3. Health checks wait for regeneration to complete before marking as healthy
+
+Example GitLab CI/CD:
+```yaml
+deploy:
+  script:
+    - docker-compose up -d
+    - sleep 15  # Wait for auto-regeneration
+    - curl http://localhost:3000/api/status  # Health check
+```
 ```

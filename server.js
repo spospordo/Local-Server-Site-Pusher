@@ -15,6 +15,7 @@ const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
 const backup = require('./modules/backup');
 const smartMirror = require('./modules/smartmirror');
+const publicFilesRegenerator = require('./modules/public-files-regenerator');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -483,6 +484,12 @@ const defaultConfig = {
       "imageRemotePath": "espresso/images",
       "commitMessage": "Automated espresso update"
     }
+  },
+  "publicFilesRegeneration": {
+    "enabled": true,
+    "delaySeconds": 5,
+    "runOnStartup": true,
+    "forceOverwrite": false
   }
 };
 
@@ -687,6 +694,9 @@ finance.init(config);
 
 // Initialize Smart Mirror module
 smartMirror.init(config);
+
+// Initialize public files regenerator module
+publicFilesRegenerator.init(config);
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
@@ -1104,6 +1114,73 @@ app.get('/admin/api/logs', requireAuth, (req, res) => {
 app.post('/admin/api/logs/clear', requireAuth, (req, res) => {
   logger.clear();
   res.json({ success: true, message: 'All logs cleared' });
+});
+
+// Public files regeneration endpoints
+app.post('/admin/api/regenerate-public', requireAuth, async (req, res) => {
+  try {
+    const force = req.body.force || false;
+    logger.info(logger.categories.SYSTEM, `Manual public files regeneration triggered (force: ${force})`);
+    
+    const result = await publicFilesRegenerator.runRegeneration(force);
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 'Public files regenerated successfully' : 'Regeneration completed with some failures',
+      result
+    });
+  } catch (error) {
+    logger.error(logger.categories.SYSTEM, `Public files regeneration failed: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.get('/admin/api/regenerate-public/status', requireAuth, (req, res) => {
+  try {
+    const status = publicFilesRegenerator.getStatus();
+    res.json({
+      success: true,
+      status
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.get('/admin/api/regenerate-public/logs', requireAuth, (req, res) => {
+  try {
+    const logs = publicFilesRegenerator.getLogs();
+    res.json({
+      success: true,
+      logs
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/admin/api/regenerate-public/logs/clear', requireAuth, (req, res) => {
+  try {
+    publicFilesRegenerator.clearLogs();
+    res.json({
+      success: true,
+      message: 'Regeneration logs cleared'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Status endpoint for Home Assistant and other tools
@@ -5124,4 +5201,26 @@ app.listen(PORT, '0.0.0.0', () => {
   }
   
   console.log(`\n${'='.repeat(80)}\n`);
+  
+  // Start auto-regeneration of public files if enabled
+  const regenConfig = config.publicFilesRegeneration || {};
+  const autoRegenEnabled = regenConfig.enabled ?? true; // Default to true
+  const runOnStartup = regenConfig.runOnStartup ?? true; // Default to true
+  
+  if (autoRegenEnabled && runOnStartup) {
+    // Get delay from env var or config (default to 5 seconds)
+    const delaySeconds = parseInt(process.env.AUTO_REGENERATE_PUBLIC_DELAY || regenConfig.delaySeconds || 5, 10);
+    const forceOverwrite = regenConfig.forceOverwrite || false;
+    
+    console.log('🔄 Auto-regeneration scheduled:');
+    console.log(`   ⏱️  Delay: ${delaySeconds} seconds`);
+    console.log(`   🔧 Force overwrite: ${forceOverwrite ? 'yes' : 'no'}`);
+    
+    logger.info(logger.categories.SYSTEM, `Auto-regeneration scheduled with ${delaySeconds}s delay`);
+    
+    publicFilesRegenerator.startAutoRegeneration(delaySeconds, forceOverwrite);
+  } else {
+    console.log('⏸️  Auto-regeneration disabled');
+    logger.info(logger.categories.SYSTEM, 'Auto-regeneration disabled');
+  }
 });
