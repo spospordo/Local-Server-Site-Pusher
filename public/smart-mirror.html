@@ -496,6 +496,17 @@
         body.theme-light .forecast-temp-secondary {
             color: #666; /* Darker gray for light theme */
         }
+        
+        .weather-feels-like-secondary {
+            font-size: 0.7rem;
+            opacity: 0.5;
+            margin-left: 5px;
+            color: #888; /* Darker gray for better differentiation */
+        }
+        
+        body.theme-light .weather-feels-like-secondary {
+            color: #666; /* Darker gray for light theme */
+        }
 
         /* News Widget */
         .news-items {
@@ -1165,10 +1176,7 @@
                         feelsLikeDiv.textContent = 'Feels: ' + weather.feelsLike + '°' + tempUnit;
                         
                         const feelsLikeSecondarySpan = document.createElement('span');
-                        feelsLikeSecondarySpan.style.fontSize = '0.7rem';
-                        feelsLikeSecondarySpan.style.opacity = '0.5';
-                        feelsLikeSecondarySpan.style.marginLeft = '5px';
-                        feelsLikeSecondarySpan.style.color = '#888';
+                        feelsLikeSecondarySpan.className = 'weather-feels-like-secondary';
                         feelsLikeSecondarySpan.textContent = ' (' + feelsLikeSecondary + '°' + secondaryUnit + ')';
                         feelsLikeDiv.appendChild(feelsLikeSecondarySpan);
                         
