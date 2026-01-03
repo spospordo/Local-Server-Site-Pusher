@@ -153,9 +153,12 @@ Create a custom app template in Portainer with these settings:
    - **Host Path Volume**: 
      - Host Path: `/mnt/pool1/apps/local-server/config`
      - Mount Path: `/app/config`
+     - Description: Stores admin configuration and settings
    - **Host Path Volume**: 
      - Host Path: `/mnt/pool1/apps/local-server/uploads`
      - Mount Path: `/app/uploads`
+     - Description: Stores uploaded files from clients
+   - **Note:** Static files (smart-mirror.html, etc.) are served from the Docker image
 6. **Environment Variables**:
    - `NODE_ENV=production`
    - `SESSION_SECRET=your-secure-secret-here`

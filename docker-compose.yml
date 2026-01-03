@@ -28,8 +28,8 @@ services:
     
     # Option 3: For systems where you need to fix permissions manually
     # If you get permission errors with Option 1, ensure the host directories have correct ownership:
-    # sudo chown -R $(id -u):$(id -g) ./config ./public
-    # or create them first: mkdir -p config public && chown $(id -u):$(id -g) config public
+    # sudo chown -R $(id -u):$(id -g) ./config ./uploads
+    # or create them first: mkdir -p config uploads && chown $(id -u):$(id -g) config uploads
     
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
