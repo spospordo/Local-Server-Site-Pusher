@@ -43,6 +43,10 @@
             flex-direction: column;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            /* Enforce strict grid sizing - prevent content from expanding widget */
+            overflow: hidden;
+            min-height: 0;
+            min-width: 0;
         }
 
         body.theme-light .widget {
@@ -64,6 +68,10 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            /* Enforce content containment within widget bounds */
+            overflow: hidden;
+            min-height: 0;
+            min-width: 0;
         }
 
         /* Clock Widget */
@@ -72,12 +80,20 @@
             font-weight: 300;
             font-family: 'Courier New', monospace;
             letter-spacing: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         .clock-date {
             font-size: 1.5rem;
             margin-top: 10px;
             opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         /* Calendar Widget */
@@ -88,6 +104,8 @@
             flex-direction: column;
             gap: 10px;
             overflow: hidden;
+            /* Ensure calendar container doesn't expand beyond widget */
+            min-height: 0;
         }
 
         .calendar-month-view {
@@ -156,7 +174,8 @@
             overflow-y: auto;
             overflow-x: hidden;
             padding-right: 5px;
-            min-height: 100px;
+            min-height: 0; /* Critical for flex child scrolling */
+            scroll-behavior: smooth;
         }
 
         .calendar-events::-webkit-scrollbar {
@@ -251,6 +270,23 @@
 
         /* Responsive calendar layout for different widget sizes */
         @media (min-width: 1px) {
+            /* Small widgets - reduce clock size */
+            .widget[data-grid-width="1"] .clock-time {
+                font-size: 2rem;
+            }
+            
+            .widget[data-grid-width="1"] .clock-date {
+                font-size: 0.8rem;
+            }
+            
+            .widget[data-grid-height="1"] .clock-time {
+                font-size: 2.5rem;
+            }
+            
+            .widget[data-grid-height="1"] .clock-date {
+                font-size: 0.9rem;
+            }
+
             /* Small widgets - reduce calendar grid size */
             .widget[data-grid-width="1"] .calendar-grid,
             .widget[data-grid-height="1"] .calendar-grid {
@@ -301,12 +337,46 @@
                 width: 55%;
                 min-height: 0;
             }
+
+            /* Responsive weather widget sizing */
+            .widget[data-grid-width="1"] .weather-temp {
+                font-size: 2rem;
+            }
+            
+            .widget[data-grid-height="1"] .weather-temp {
+                font-size: 2.5rem;
+            }
+            
+            .widget[data-grid-width="1"] .weather-condition,
+            .widget[data-grid-height="1"] .weather-condition {
+                font-size: 1rem;
+            }
+            
+            .widget[data-grid-width="1"] .weather-icon {
+                font-size: 1.5rem;
+            }
+
+            /* Responsive forecast widget sizing */
+            .widget[data-grid-width="2"] .forecast-day-name {
+                font-size: 0.9rem;
+            }
+            
+            .widget[data-grid-height="1"] .forecast-icon {
+                font-size: 1.5rem;
+            }
+            
+            .widget[data-grid-height="1"] .forecast-temp {
+                font-size: 1rem;
+            }
         }
 
         /* Weather Widget */
         .weather-temp {
             font-size: 3rem;
             font-weight: 300;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .weather-temp-unit {
@@ -325,6 +395,10 @@
             font-size: 1.5rem;
             margin-top: 10px;
             opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
         
         .weather-icon {
@@ -345,6 +419,10 @@
             font-size: 1rem;
             opacity: 0.6;
             margin-top: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         /* Forecast Widget */
@@ -353,6 +431,11 @@
             justify-content: space-around;
             width: 100%;
             gap: 10px;
+            /* Use horizontal scroll without wrap for overflow */
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-behavior: smooth;
         }
         
         .forecast-day {
@@ -361,6 +444,7 @@
             padding: 10px;
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.05);
+            min-width: 80px; /* Prevent excessive shrinking */
         }
         
         body.theme-light .forecast-day {
@@ -401,7 +485,11 @@
         .news-items {
             width: 100%;
             overflow-y: auto;
-            max-height: 100%;
+            overflow-x: hidden;
+            /* Remove max-height: 100% which can cause expansion */
+            flex: 1;
+            min-height: 0;
+            scroll-behavior: smooth;
         }
 
         .news-item {
@@ -421,6 +509,13 @@
             font-size: 1rem;
             font-weight: 600;
             margin-bottom: 5px;
+            /* Truncate long titles */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.4;
         }
 
         .news-source {
