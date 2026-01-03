@@ -222,6 +222,264 @@
             margin: 1.5rem 0;
         }
         
+        /* Grid Editor Styles */
+        .grid-editor-container {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .grid-editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .grid-editor-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .grid-editor-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .grid-editor-main {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .grid-canvas-wrapper {
+            flex: 1;
+            min-width: 500px;
+            background: #fff;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .grid-canvas {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            aspect-ratio: 4 / 3;
+            width: 100%;
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .grid-cell {
+            border: 1px dashed #ccc;
+            background: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #999;
+            position: relative;
+        }
+        
+        .grid-cell.hover {
+            background: #e3f2fd;
+            border-color: #2196F3;
+        }
+        
+        .grid-widget {
+            position: absolute;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: box-shadow 0.2s, transform 0.1s;
+            border: 2px solid transparent;
+        }
+        
+        .grid-widget:hover {
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+            transform: translateY(-2px);
+        }
+        
+        .grid-widget.dragging {
+            opacity: 0.7;
+            z-index: 1000;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .grid-widget.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+        }
+        
+        .grid-widget.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: linear-gradient(135deg, #999 0%, #666 100%);
+        }
+        
+        .grid-widget.overlapping {
+            border-color: #ff4444;
+            box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.3);
+        }
+        
+        .widget-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .widget-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .widget-position {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        
+        .resize-handle.se {
+            bottom: -10px;
+            right: -10px;
+            cursor: se-resize;
+        }
+        
+        .resize-handle.ne {
+            top: -10px;
+            right: -10px;
+            cursor: ne-resize;
+        }
+        
+        .resize-handle.sw {
+            bottom: -10px;
+            left: -10px;
+            cursor: sw-resize;
+        }
+        
+        .resize-handle.nw {
+            top: -10px;
+            left: -10px;
+            cursor: nw-resize;
+        }
+        
+        .widget-palette {
+            width: 250px;
+            background: #fff;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .widget-palette h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .palette-widget {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        
+        .palette-widget:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+        
+        .palette-widget.disabled {
+            opacity: 0.5;
+            background: #f1f3f5;
+        }
+        
+        .palette-widget-icon {
+            font-size: 1.5rem;
+        }
+        
+        .palette-widget-info {
+            flex: 1;
+        }
+        
+        .palette-widget-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        
+        .palette-widget-status {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        .grid-legend {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-editor-main {
+                flex-direction: column;
+            }
+            
+            .grid-canvas-wrapper {
+                min-width: 100%;
+            }
+            
+            .widget-palette {
+                width: 100%;
+            }
+        }
+        
         .logs-container {
             max-height: 400px;
             overflow-y: auto;
@@ -3131,6 +3389,62 @@
                             <option value="dark">Dark</option>
                             <option value="light">Light</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Interactive Grid Editor -->
+                <div class="grid-editor-container">
+                    <div class="grid-editor-header">
+                        <h3>🎯 Interactive Grid Layout Editor</h3>
+                        <div class="grid-editor-controls">
+                            <button onclick="resetGridLayout()" class="btn btn-secondary" style="margin: 0;">
+                                ↺ Reset Layout
+                            </button>
+                            <button onclick="applyGridChanges()" class="btn btn-success" style="margin: 0;">
+                                ✓ Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p style="color: #666; margin-bottom: 15px;">
+                        Drag and drop widgets to reposition them. Use the resize handles on corners to change widget size. 
+                        Only enabled widgets are shown. Changes are applied to the form below when you click "Apply Changes".
+                    </p>
+                    
+                    <div class="grid-editor-main">
+                        <div class="grid-canvas-wrapper">
+                            <div class="grid-canvas" id="gridCanvas">
+                                <!-- Grid cells will be generated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="widget-palette">
+                            <h4>📦 Widget Status</h4>
+                            <div id="widgetPalette">
+                                <!-- Widget status items will be generated here -->
+                            </div>
+                            
+                            <div class="grid-legend">
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                                    <span>Enabled Widget</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="background: linear-gradient(135deg, #999 0%, #666 100%);"></div>
+                                    <span>Disabled Widget</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="border: 2px solid #ffd700; background: transparent;"></div>
+                                    <span>Selected</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color" style="border: 2px solid #ff4444; background: transparent;"></div>
+                                    <span>Overlapping</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -8351,6 +8665,22 @@
                     document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
                     
                     console.log('Smart Mirror configuration loaded');
+                    
+                    // Initialize grid editor after loading config
+                    initializeGridEditor();
+                    
+                    // Add event listeners to refresh grid when widgets are enabled/disabled
+                    ['clock', 'calendar', 'weather', 'forecast', 'news'].forEach(type => {
+                        const enabledSelect = document.getElementById(`${type}Enabled`);
+                        if (enabledSelect) {
+                            enabledSelect.addEventListener('change', () => {
+                                // Update grid state and re-render
+                                setTimeout(() => {
+                                    loadGridWidgets();
+                                }, 100);
+                            });
+                        }
+                    });
                 } else {
                     showSmartMirrorAlert('Failed to load Smart Mirror configuration', 'error');
                 }
@@ -8603,6 +8933,486 @@
             } catch (error) {
                 console.error('Error exporting Smart Mirror logs:', error);
                 showSmartMirrorAlert('Error exporting logs: ' + error.message, 'error');
+            }
+        }
+        
+        // Interactive Grid Editor Functions
+        let gridState = {
+            widgets: {},
+            selectedWidget: null,
+            draggedWidget: null,
+            originalPositions: {},
+            isDragging: false,
+            isResizing: false,
+            resizeHandle: null,
+            dragStartX: 0,
+            dragStartY: 0,
+            dragStartPos: { x: 0, y: 0, width: 0, height: 0 }
+        };
+        
+        const WIDGET_ICONS = {
+            clock: '🕐',
+            calendar: '📅',
+            weather: '🌤️',
+            forecast: '🌦️',
+            news: '📰'
+        };
+        
+        function initializeGridEditor() {
+            const canvas = document.getElementById('gridCanvas');
+            if (!canvas) return;
+            
+            // Clear existing content
+            canvas.innerHTML = '';
+            
+            // Create grid cells with labels
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.col = col;
+                    cell.dataset.row = row;
+                    cell.textContent = `${col},${row}`;
+                    canvas.appendChild(cell);
+                }
+            }
+            
+            // Load current widget configuration
+            loadGridWidgets();
+            
+            // Setup event listeners
+            setupGridEventListeners();
+        }
+        
+        function loadGridWidgets() {
+            gridState.widgets = {};
+            gridState.originalPositions = {};
+            
+            const widgetTypes = ['clock', 'calendar', 'weather', 'forecast', 'news'];
+            const palette = document.getElementById('widgetPalette');
+            palette.innerHTML = '';
+            
+            widgetTypes.forEach(type => {
+                const enabled = document.getElementById(`${type}Enabled`)?.value === 'true';
+                const x = parseInt(document.getElementById(`${type}GridX`)?.value || 0);
+                const y = parseInt(document.getElementById(`${type}GridY`)?.value || 0);
+                const width = parseInt(document.getElementById(`${type}GridWidth`)?.value || 1);
+                const height = parseInt(document.getElementById(`${type}GridHeight`)?.value || 1);
+                
+                gridState.widgets[type] = {
+                    type,
+                    enabled,
+                    x,
+                    y,
+                    width,
+                    height
+                };
+                
+                // Store original positions for reset
+                gridState.originalPositions[type] = { x, y, width, height };
+                
+                // Add to palette
+                const paletteItem = document.createElement('div');
+                paletteItem.className = `palette-widget ${!enabled ? 'disabled' : ''}`;
+                paletteItem.innerHTML = `
+                    <div class="palette-widget-icon">${WIDGET_ICONS[type]}</div>
+                    <div class="palette-widget-info">
+                        <div class="palette-widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                        <div class="palette-widget-status">${enabled ? `Position: (${x},${y}) Size: ${width}×${height}` : 'Disabled'}</div>
+                    </div>
+                `;
+                palette.appendChild(paletteItem);
+            });
+            
+            // Render widgets on canvas
+            renderGridWidgets();
+        }
+        
+        function renderGridWidgets() {
+            const canvas = document.getElementById('gridCanvas');
+            if (!canvas) return;
+            
+            // Remove existing widget elements
+            canvas.querySelectorAll('.grid-widget').forEach(el => el.remove());
+            
+            // Calculate canvas dimensions
+            const canvasRect = canvas.getBoundingClientRect();
+            const cellWidth = canvasRect.width / 4;
+            const cellHeight = canvasRect.height / 3;
+            
+            // Detect overlaps
+            const overlaps = detectOverlaps();
+            
+            // Render each enabled widget
+            Object.entries(gridState.widgets).forEach(([type, widget]) => {
+                if (!widget.enabled) return;
+                
+                const widgetEl = document.createElement('div');
+                widgetEl.className = 'grid-widget';
+                widgetEl.dataset.type = type;
+                
+                if (gridState.selectedWidget === type) {
+                    widgetEl.classList.add('selected');
+                }
+                
+                if (overlaps.includes(type)) {
+                    widgetEl.classList.add('overlapping');
+                }
+                
+                // Position and size
+                const left = widget.x * cellWidth;
+                const top = widget.y * cellHeight;
+                const width = widget.width * cellWidth;
+                const height = widget.height * cellHeight;
+                
+                widgetEl.style.left = `${left}px`;
+                widgetEl.style.top = `${top}px`;
+                widgetEl.style.width = `${width - 10}px`; // Account for gap
+                widgetEl.style.height = `${height - 10}px`;
+                
+                widgetEl.innerHTML = `
+                    <div class="widget-icon">${WIDGET_ICONS[type]}</div>
+                    <div class="widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                    <div class="widget-position">(${widget.x},${widget.y}) ${widget.width}×${widget.height}</div>
+                `;
+                
+                // Add resize handles
+                ['nw', 'ne', 'sw', 'se'].forEach(pos => {
+                    const handle = document.createElement('div');
+                    handle.className = `resize-handle ${pos}`;
+                    handle.dataset.handle = pos;
+                    widgetEl.appendChild(handle);
+                });
+                
+                canvas.appendChild(widgetEl);
+            });
+        }
+        
+        function detectOverlaps() {
+            const overlapping = [];
+            const enabledWidgets = Object.entries(gridState.widgets)
+                .filter(([_, widget]) => widget.enabled);
+            
+            for (let i = 0; i < enabledWidgets.length; i++) {
+                for (let j = i + 1; j < enabledWidgets.length; j++) {
+                    const [type1, w1] = enabledWidgets[i];
+                    const [type2, w2] = enabledWidgets[j];
+                    
+                    // Check if rectangles overlap
+                    if (w1.x < w2.x + w2.width &&
+                        w1.x + w1.width > w2.x &&
+                        w1.y < w2.y + w2.height &&
+                        w1.y + w1.height > w2.y) {
+                        if (!overlapping.includes(type1)) overlapping.push(type1);
+                        if (!overlapping.includes(type2)) overlapping.push(type2);
+                    }
+                }
+            }
+            
+            return overlapping;
+        }
+        
+        function setupGridEventListeners() {
+            const canvas = document.getElementById('gridCanvas');
+            if (!canvas) return;
+            
+            // Delegate events for dynamically created widgets
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            
+            document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('touchend', handleTouchEnd);
+            
+            // Keyboard support
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        
+        function handleMouseDown(e) {
+            const widget = e.target.closest('.grid-widget');
+            if (!widget) {
+                gridState.selectedWidget = null;
+                renderGridWidgets();
+                return;
+            }
+            
+            const type = widget.dataset.type;
+            gridState.selectedWidget = type;
+            
+            // Check if clicking on resize handle
+            if (e.target.classList.contains('resize-handle')) {
+                gridState.isResizing = true;
+                gridState.resizeHandle = e.target.dataset.handle;
+                gridState.dragStartX = e.clientX;
+                gridState.dragStartY = e.clientY;
+                gridState.dragStartPos = { ...gridState.widgets[type] };
+                e.preventDefault();
+            } else {
+                gridState.isDragging = true;
+                gridState.draggedWidget = type;
+                gridState.dragStartX = e.clientX;
+                gridState.dragStartY = e.clientY;
+                gridState.dragStartPos = { ...gridState.widgets[type] };
+                widget.classList.add('dragging');
+            }
+            
+            renderGridWidgets();
+        }
+        
+        function handleTouchStart(e) {
+            if (e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                bubbles: true
+            });
+            e.target.dispatchEvent(mouseEvent);
+            e.preventDefault();
+        }
+        
+        function handleMouseMove(e) {
+            if (!gridState.isDragging && !gridState.isResizing) return;
+            
+            const canvas = document.getElementById('gridCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            const cellWidth = canvasRect.width / 4;
+            const cellHeight = canvasRect.height / 3;
+            
+            const deltaX = e.clientX - gridState.dragStartX;
+            const deltaY = e.clientY - gridState.dragStartY;
+            
+            if (gridState.isDragging) {
+                const type = gridState.draggedWidget;
+                const widget = gridState.widgets[type];
+                
+                // Calculate new grid position
+                const cellsMovedX = Math.round(deltaX / cellWidth);
+                const cellsMovedY = Math.round(deltaY / cellHeight);
+                
+                let newX = gridState.dragStartPos.x + cellsMovedX;
+                let newY = gridState.dragStartPos.y + cellsMovedY;
+                
+                // Constrain to grid bounds
+                newX = Math.max(0, Math.min(4 - widget.width, newX));
+                newY = Math.max(0, Math.min(3 - widget.height, newY));
+                
+                if (newX !== widget.x || newY !== widget.y) {
+                    widget.x = newX;
+                    widget.y = newY;
+                    renderGridWidgets();
+                    updatePaletteStatus(type);
+                }
+            } else if (gridState.isResizing) {
+                const type = gridState.selectedWidget;
+                const widget = gridState.widgets[type];
+                const handle = gridState.resizeHandle;
+                
+                const cellsMovedX = Math.round(deltaX / cellWidth);
+                const cellsMovedY = Math.round(deltaY / cellHeight);
+                
+                let newX = gridState.dragStartPos.x;
+                let newY = gridState.dragStartPos.y;
+                let newWidth = gridState.dragStartPos.width;
+                let newHeight = gridState.dragStartPos.height;
+                
+                // Adjust based on which handle is being dragged
+                if (handle.includes('e')) {
+                    newWidth = Math.max(1, gridState.dragStartPos.width + cellsMovedX);
+                }
+                if (handle.includes('w')) {
+                    const widthChange = -cellsMovedX;
+                    newWidth = Math.max(1, gridState.dragStartPos.width + widthChange);
+                    if (newWidth !== widget.width) {
+                        newX = gridState.dragStartPos.x - (newWidth - gridState.dragStartPos.width);
+                    }
+                }
+                if (handle.includes('s')) {
+                    newHeight = Math.max(1, gridState.dragStartPos.height + cellsMovedY);
+                }
+                if (handle.includes('n')) {
+                    const heightChange = -cellsMovedY;
+                    newHeight = Math.max(1, gridState.dragStartPos.height + heightChange);
+                    if (newHeight !== widget.height) {
+                        newY = gridState.dragStartPos.y - (newHeight - gridState.dragStartPos.height);
+                    }
+                }
+                
+                // Constrain to grid bounds
+                newX = Math.max(0, newX);
+                newY = Math.max(0, newY);
+                newWidth = Math.min(4, newWidth);
+                newHeight = Math.min(3, newHeight);
+                
+                // Ensure widget doesn't go out of bounds
+                if (newX + newWidth > 4) newWidth = 4 - newX;
+                if (newY + newHeight > 3) newHeight = 3 - newY;
+                
+                if (newX !== widget.x || newY !== widget.y || 
+                    newWidth !== widget.width || newHeight !== widget.height) {
+                    widget.x = newX;
+                    widget.y = newY;
+                    widget.width = newWidth;
+                    widget.height = newHeight;
+                    renderGridWidgets();
+                    updatePaletteStatus(type);
+                }
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                bubbles: true
+            });
+            document.dispatchEvent(mouseEvent);
+            e.preventDefault();
+        }
+        
+        function handleMouseUp(e) {
+            if (gridState.isDragging) {
+                const widget = document.querySelector(`.grid-widget[data-type="${gridState.draggedWidget}"]`);
+                if (widget) widget.classList.remove('dragging');
+            }
+            
+            gridState.isDragging = false;
+            gridState.isResizing = false;
+            gridState.draggedWidget = null;
+            gridState.resizeHandle = null;
+        }
+        
+        function handleTouchEnd(e) {
+            const mouseEvent = new MouseEvent('mouseup', {
+                bubbles: true
+            });
+            document.dispatchEvent(mouseEvent);
+        }
+        
+        function handleKeyDown(e) {
+            if (!gridState.selectedWidget) return;
+            
+            const widget = gridState.widgets[gridState.selectedWidget];
+            if (!widget || !widget.enabled) return;
+            
+            let moved = false;
+            
+            // Arrow keys for movement
+            if (e.key === 'ArrowLeft' && widget.x > 0) {
+                widget.x--;
+                moved = true;
+            } else if (e.key === 'ArrowRight' && widget.x + widget.width < 4) {
+                widget.x++;
+                moved = true;
+            } else if (e.key === 'ArrowUp' && widget.y > 0) {
+                widget.y--;
+                moved = true;
+            } else if (e.key === 'ArrowDown' && widget.y + widget.height < 3) {
+                widget.y++;
+                moved = true;
+            }
+            
+            // Shift + Arrow keys for resizing
+            else if (e.shiftKey && e.key === 'ArrowRight' && widget.x + widget.width < 4) {
+                widget.width++;
+                moved = true;
+            } else if (e.shiftKey && e.key === 'ArrowLeft' && widget.width > 1) {
+                widget.width--;
+                moved = true;
+            } else if (e.shiftKey && e.key === 'ArrowDown' && widget.y + widget.height < 3) {
+                widget.height++;
+                moved = true;
+            } else if (e.shiftKey && e.key === 'ArrowUp' && widget.height > 1) {
+                widget.height--;
+                moved = true;
+            }
+            
+            if (moved) {
+                e.preventDefault();
+                renderGridWidgets();
+                updatePaletteStatus(gridState.selectedWidget);
+            }
+        }
+        
+        function updatePaletteStatus(type) {
+            const widget = gridState.widgets[type];
+            const palette = document.getElementById('widgetPalette');
+            const items = palette.querySelectorAll('.palette-widget');
+            
+            items.forEach(item => {
+                const name = item.querySelector('.palette-widget-name').textContent.toLowerCase();
+                if (name === type) {
+                    const status = item.querySelector('.palette-widget-status');
+                    if (widget.enabled) {
+                        status.textContent = `Position: (${widget.x},${widget.y}) Size: ${widget.width}×${widget.height}`;
+                    }
+                }
+            });
+        }
+        
+        function resetGridLayout() {
+            if (!confirm('Reset all widgets to their original positions? This will undo any changes made in the grid editor.')) {
+                return;
+            }
+            
+            // Restore original positions
+            Object.entries(gridState.originalPositions).forEach(([type, pos]) => {
+                if (gridState.widgets[type]) {
+                    gridState.widgets[type].x = pos.x;
+                    gridState.widgets[type].y = pos.y;
+                    gridState.widgets[type].width = pos.width;
+                    gridState.widgets[type].height = pos.height;
+                }
+            });
+            
+            renderGridWidgets();
+            
+            // Update palette
+            Object.keys(gridState.widgets).forEach(type => {
+                updatePaletteStatus(type);
+            });
+            
+            showSmartMirrorAlert('Grid layout reset to original configuration', 'success');
+        }
+        
+        function applyGridChanges() {
+            // Update form inputs with grid editor values
+            Object.entries(gridState.widgets).forEach(([type, widget]) => {
+                const xInput = document.getElementById(`${type}GridX`);
+                const yInput = document.getElementById(`${type}GridY`);
+                const widthInput = document.getElementById(`${type}GridWidth`);
+                const heightInput = document.getElementById(`${type}GridHeight`);
+                
+                if (xInput) xInput.value = widget.x;
+                if (yInput) yInput.value = widget.y;
+                if (widthInput) widthInput.value = widget.width;
+                if (heightInput) heightInput.value = widget.height;
+            });
+            
+            // Update original positions to current state
+            Object.entries(gridState.widgets).forEach(([type, widget]) => {
+                gridState.originalPositions[type] = {
+                    x: widget.x,
+                    y: widget.y,
+                    width: widget.width,
+                    height: widget.height
+                };
+            });
+            
+            // Check for overlaps
+            const overlaps = detectOverlaps();
+            if (overlaps.length > 0) {
+                showSmartMirrorAlert(
+                    `Warning: The following widgets are overlapping: ${overlaps.join(', ')}. ` +
+                    'This may cause display issues on the dashboard.',
+                    'error'
+                );
+            } else {
+                showSmartMirrorAlert('Grid changes applied to form! Click "Save Smart Mirror Configuration" to persist changes.', 'success');
             }
         }
         
