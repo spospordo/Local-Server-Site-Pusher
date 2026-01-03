@@ -27,8 +27,7 @@
 
         .dashboard-container {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(3, 1fr);
+            /* Grid dimensions are set dynamically via JavaScript */
             gap: 20px;
             padding: 20px;
             height: 100vh;
@@ -566,30 +565,8 @@
         }
 
         /* Responsive grid positioning - combined position and span rules */
-        /* Grid column positioning (x + width) */
-        .widget[data-grid-x="0"][data-grid-width="1"] { grid-column: 1 / span 1; }
-        .widget[data-grid-x="0"][data-grid-width="2"] { grid-column: 1 / span 2; }
-        .widget[data-grid-x="0"][data-grid-width="3"] { grid-column: 1 / span 3; }
-        .widget[data-grid-x="0"][data-grid-width="4"] { grid-column: 1 / span 4; }
-        
-        .widget[data-grid-x="1"][data-grid-width="1"] { grid-column: 2 / span 1; }
-        .widget[data-grid-x="1"][data-grid-width="2"] { grid-column: 2 / span 2; }
-        .widget[data-grid-x="1"][data-grid-width="3"] { grid-column: 2 / span 3; }
-        
-        .widget[data-grid-x="2"][data-grid-width="1"] { grid-column: 3 / span 1; }
-        .widget[data-grid-x="2"][data-grid-width="2"] { grid-column: 3 / span 2; }
-        
-        .widget[data-grid-x="3"][data-grid-width="1"] { grid-column: 4 / span 1; }
-
-        /* Grid row positioning (y + height) */
-        .widget[data-grid-y="0"][data-grid-height="1"] { grid-row: 1 / span 1; }
-        .widget[data-grid-y="0"][data-grid-height="2"] { grid-row: 1 / span 2; }
-        .widget[data-grid-y="0"][data-grid-height="3"] { grid-row: 1 / span 3; }
-        
-        .widget[data-grid-y="1"][data-grid-height="1"] { grid-row: 2 / span 1; }
-        .widget[data-grid-y="1"][data-grid-height="2"] { grid-row: 2 / span 2; }
-        
-        .widget[data-grid-y="2"][data-grid-height="1"] { grid-row: 3 / span 1; }
+        /* Grid positioning rules are generated dynamically via JavaScript */
+        /* based on the configured grid size for each orientation */
 
         /* Scrollbar styling for dark theme */
         ::-webkit-scrollbar {
@@ -666,6 +643,49 @@
             return 'portrait';
         }
 
+        // Generate and apply dynamic grid CSS based on configuration
+        function applyGridCSS(gridSize) {
+            console.log('[Smart Mirror] Applying grid CSS:', gridSize);
+            
+            const container = document.getElementById('dashboardContainer');
+            if (!container) return;
+            
+            // Set grid template
+            container.style.gridTemplateColumns = `repeat(${gridSize.columns}, 1fr)`;
+            container.style.gridTemplateRows = `repeat(${gridSize.rows}, 1fr)`;
+            
+            // Generate dynamic positioning CSS rules
+            let styleElement = document.getElementById('dynamic-grid-styles');
+            if (!styleElement) {
+                styleElement = document.createElement('style');
+                styleElement.id = 'dynamic-grid-styles';
+                document.head.appendChild(styleElement);
+            }
+            
+            let cssRules = '';
+            
+            // Generate column positioning rules
+            for (let x = 0; x < gridSize.columns; x++) {
+                for (let width = 1; width <= gridSize.columns; width++) {
+                    if (x + width <= gridSize.columns) {
+                        cssRules += `.widget[data-grid-x="${x}"][data-grid-width="${width}"] { grid-column: ${x + 1} / span ${width}; }\n`;
+                    }
+                }
+            }
+            
+            // Generate row positioning rules
+            for (let y = 0; y < gridSize.rows; y++) {
+                for (let height = 1; height <= gridSize.rows; height++) {
+                    if (y + height <= gridSize.rows) {
+                        cssRules += `.widget[data-grid-y="${y}"][data-grid-height="${height}"] { grid-row: ${y + 1} / span ${height}; }\n`;
+                    }
+                }
+            }
+            
+            styleElement.textContent = cssRules;
+            console.log(`[Smart Mirror] Generated ${cssRules.split('\n').length - 1} CSS positioning rules`);
+        }
+
         // Load configuration and initialize dashboard
         async function loadConfig() {
             console.log('[Smart Mirror] Loading configuration from API...');
@@ -723,6 +743,10 @@
                     }
                     
                     console.log('[Smart Mirror] Dashboard is enabled, rendering...');
+                    
+                    // Apply grid CSS based on orientation
+                    const gridSize = config.gridSize?.[currentOrientation] || config.gridSize || { columns: 4, rows: 3 };
+                    applyGridCSS(gridSize);
                     
                     // Render dashboard
                     renderDashboard();
