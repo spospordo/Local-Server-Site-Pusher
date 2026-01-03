@@ -24,6 +24,15 @@ RUN npm rebuild sharp --verbose
 # Copy application files
 COPY . .
 
+# Create backup of static files before /public might be volume-mounted
+# This ensures we always have originals available for restoration
+RUN mkdir -p /app/.static-files-backup && \
+    cp public/smart-mirror.html /app/.static-files-backup/ && \
+    cp public/index.html /app/.static-files-backup/ && \
+    cp public/espresso-editor.html /app/.static-files-backup/ && \
+    cp public/espresso-template.html /app/.static-files-backup/ && \
+    chmod 644 /app/.static-files-backup/*.html
+
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
