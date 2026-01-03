@@ -28,9 +28,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Production data paths
+      # Production data paths - only mount config and uploads
+      # Static files are served from the Docker image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -65,8 +65,8 @@ services:
       - "3001:3000"  # Test container accessible on port 3001
     volumes:
       # Separate test data paths to avoid conflicts with production
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher-test/config:/app/config
-      - /var/lib/local-server-site-pusher-test/public:/app/public
       - /var/lib/local-server-site-pusher-test/uploads:/app/uploads
     environment:
       - NODE_ENV=development  # Or 'staging' for staging environment
@@ -84,21 +84,29 @@ services:
 # ================================
 #
 # 1. Create host directories for BOTH containers:
-#    sudo mkdir -p /var/lib/local-server-site-pusher/{config,public,uploads}
-#    sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,public,uploads}
+#    sudo mkdir -p /var/lib/local-server-site-pusher/{config,uploads}
+#    sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,uploads}
 #    sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
 #    sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
 #
-# 2. Update the branch name in the test container's build context:
+# 2. Static files are served from the Docker image (no /public mount needed)
+#    This ensures static assets update correctly after code changes and redeploy
+#
+# 3. Update the branch name in the test container's build context:
 #    - Replace 'feature/my-test-branch' with your actual branch name
 #    - For main branch, use: https://github.com/spospordo/Local-Server-Site-Pusher.git
 #    - For specific branch: https://github.com/spospordo/Local-Server-Site-Pusher.git#branch-name
 #
-# 3. Set unique SESSION_SECRET values for each container
+# 4. Set unique SESSION_SECRET values for each container
 #
-# 4. Access the containers:
+# 5. Access the containers:
 #    - Production: http://your-server-ip:3000
 #    - Test: http://your-server-ip:3001
+#
+# 6. BACKWARDS COMPATIBILITY NOTE:
+#    If you have custom or generated files in /app/public (e.g., vidiots/espresso outputs),
+#    back them up before updating. Generated content is automatically regenerated from
+#    config/uploads on startup.
 #
 # TROUBLESHOOTING:
 # ================

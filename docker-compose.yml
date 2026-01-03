@@ -4,8 +4,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Mount directories (not files) to avoid mount type errors
-      - ./public:/app/public
+      # Mount only config and uploads for persistence
+      # Static files (smart-mirror.html, etc.) are served from the Docker image
       - ./config:/app/config
       - ./uploads:/app/uploads
     environment:
@@ -47,7 +47,7 @@ services:
 #     ports:
 #       - "3000:3000"
 #     volumes:
-#       - /var/lib/local-server/public:/app/public
+#       # Only mount config and uploads - static files come from the image
 #       - /var/lib/local-server/config:/app/config
 #       - /var/lib/local-server/uploads:/app/uploads
 #     environment:

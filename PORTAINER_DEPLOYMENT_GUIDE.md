@@ -24,7 +24,7 @@ SSH into your Raspberry Pi and create the required directories:
 
 ```bash
 # Create directories for persistent data
-sudo mkdir -p /var/lib/local-server-site-pusher/{config,public,uploads}
+sudo mkdir -p /var/lib/local-server-site-pusher/{config,uploads}
 
 # Set proper ownership (1000:1000 is the default node user in the container)
 sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
@@ -32,6 +32,8 @@ sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
 # Verify directories were created
 ls -la /var/lib/local-server-site-pusher/
 ```
+
+**Note:** We only mount `config` and `uploads` directories. Static files (smart-mirror.html, index.html, etc.) are served directly from the Docker image, ensuring they update correctly after code changes and redeploys.
 
 #### Step 2: Create Stack in Portainer
 
@@ -120,8 +122,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -296,8 +298,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -353,7 +355,7 @@ For testing new features or configurations without affecting your production env
 **Quick Setup:**
 ```bash
 # Create test directories
-sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,public,uploads}
+sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,uploads}
 sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
 ```
 
