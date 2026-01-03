@@ -14,7 +14,8 @@ let config = null;
 let lastRegenerationTime = null;
 let regenerationLog = [];
 
-// Static files that should always be copied from source to /public
+// Static files that should always be present in /public
+// These are baked into the Docker image and this list is used to verify their presence
 const STATIC_FILES = [
   { source: 'smart-mirror.html', target: 'smart-mirror.html' },
   { source: 'index.html', target: 'index.html' },
@@ -64,114 +65,44 @@ function addLog(level, action, details) {
 }
 
 /**
- * Check if a file is outdated by comparing modification times
- * @param {string} sourcePath - Source file path
- * @param {string} targetPath - Target file path
- * @returns {boolean} - True if target is missing or older than source
- */
-function isFileOutdated(sourcePath, targetPath) {
-  try {
-    // If target doesn't exist, it's outdated
-    if (!fs.existsSync(targetPath)) {
-      return true;
-    }
-    
-    // If source doesn't exist, we can't update
-    if (!fs.existsSync(sourcePath)) {
-      return false;
-    }
-    
-    // Compare modification times
-    const sourceStats = fs.statSync(sourcePath);
-    const targetStats = fs.statSync(targetPath);
-    
-    return sourceStats.mtime > targetStats.mtime;
-  } catch (error) {
-    addLog('warning', 'File Check Failed', `Error checking ${targetPath}: ${error.message}`);
-    return false;
-  }
-}
-
-/**
- * Copy a static file from source to target
- * @param {string} sourcePath - Source file path
- * @param {string} targetPath - Target file path
- * @param {boolean} force - Force copy even if not outdated
- * @returns {boolean} - True if copied successfully
- */
-function copyStaticFile(sourcePath, targetPath, force = false) {
-  try {
-    // Check if source exists
-    if (!fs.existsSync(sourcePath)) {
-      addLog('warning', 'Source Missing', `Source file not found: ${sourcePath}`);
-      return false;
-    }
-    
-    // Check if update is needed (unless forced)
-    if (!force && !isFileOutdated(sourcePath, targetPath)) {
-      addLog('info', 'File Up to Date', `Skipping ${path.basename(targetPath)} (already up to date)`);
-      return true;
-    }
-    
-    // Ensure target directory exists
-    const targetDir = path.dirname(targetPath);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-      addLog('info', 'Directory Created', `Created directory: ${targetDir}`);
-    }
-    
-    // Copy file
-    fs.copyFileSync(sourcePath, targetPath);
-    addLog('success', 'File Copied', `Copied ${path.basename(sourcePath)} to ${targetPath}`);
-    return true;
-  } catch (error) {
-    addLog('error', 'Copy Failed', `Failed to copy ${sourcePath}: ${error.message}`);
-    return false;
-  }
-}
-
-/**
- * Copy all static files from source to /public
- * @param {boolean} force - Force copy even if files are up to date
+ * Check all static files and report status
+ * @param {boolean} force - Force verification even if files exist
  * @returns {Object} - Result object with success status and counts
  */
-function copyStaticFiles(force = false) {
-  addLog('info', 'Copy Started', `Starting static files copy (force: ${force})`);
+function checkStaticFiles(force = false) {
+  addLog('info', 'Check Started', `Checking static files (force: ${force})`);
   
-  let copiedCount = 0;
-  let skippedCount = 0;
-  let failedCount = 0;
+  let presentCount = 0;
+  let missingCount = 0;
+  const missingFiles = [];
   
   const publicDir = path.join(__dirname, '..', 'public');
   
   for (const file of STATIC_FILES) {
-    const sourcePath = path.join(publicDir, file.source);
-    const targetPath = path.join(publicDir, file.target);
+    const filePath = path.join(publicDir, file.target);
     
-    // For static files, source and target are the same, so we check against a backup
-    // or skip if file exists and we're not forcing
-    if (!force && fs.existsSync(targetPath)) {
-      addLog('info', 'File Exists', `Static file ${file.target} already exists`);
-      skippedCount++;
-      continue;
-    }
-    
-    // Ensure file exists (in case of volume mount that cleared /public)
-    if (!fs.existsSync(targetPath)) {
-      addLog('warning', 'File Missing', `Static file ${file.target} is missing from /public`);
-      failedCount++;
+    if (fs.existsSync(filePath)) {
+      addLog('info', 'File Present', `Static file ${file.target} exists`);
+      presentCount++;
     } else {
-      copiedCount++;
+      addLog('warning', 'File Missing', `Static file ${file.target} is missing from /public`);
+      missingFiles.push(file.target);
+      missingCount++;
     }
   }
   
-  addLog('info', 'Copy Complete', `Copied: ${copiedCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`);
+  if (missingCount > 0) {
+    addLog('warning', 'Missing Files Detected', `${missingCount} static file(s) missing. This may indicate a volume mount issue. Missing: ${missingFiles.join(', ')}`);
+  } else {
+    addLog('success', 'Check Complete', `All ${presentCount} static files are present`);
+  }
   
   return {
-    success: failedCount === 0,
-    copied: copiedCount,
-    skipped: skippedCount,
-    failed: failedCount
+    success: missingCount === 0,
+    checked: presentCount + missingCount,
+    present: presentCount,
+    missing: missingCount,
+    missingFiles: missingFiles
   };
 }
 
@@ -258,8 +189,8 @@ async function runRegeneration(force = false) {
   };
   
   try {
-    // Step 1: Copy static files
-    results.staticFiles = copyStaticFiles(force);
+    // Step 1: Check static files
+    results.staticFiles = checkStaticFiles(force);
     
     // Step 2: Regenerate espresso
     results.espresso = await regenerateEspresso();
@@ -267,14 +198,14 @@ async function runRegeneration(force = false) {
     // Step 3: Regenerate vidiots
     results.vidiots = await regenerateVidiots();
     
-    // Check overall success
-    results.success = results.staticFiles.success && results.espresso && results.vidiots;
+    // Check overall success (we don't fail on missing static files as they're in the container image)
+    results.success = results.espresso && results.vidiots;
     
     const duration = Date.now() - startTime;
     results.duration = duration;
     
     if (results.success) {
-      addLog('success', 'Regeneration Complete', `All files regenerated successfully in ${duration}ms`);
+      addLog('success', 'Regeneration Complete', `All dynamic content regenerated successfully in ${duration}ms`);
     } else {
       addLog('warning', 'Regeneration Partial', `Regeneration completed with some failures in ${duration}ms`);
     }

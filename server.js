@@ -5204,8 +5204,8 @@ app.listen(PORT, '0.0.0.0', () => {
   
   // Start auto-regeneration of public files if enabled
   const regenConfig = config.publicFilesRegeneration || {};
-  const autoRegenEnabled = regenConfig.enabled !== false; // Default to true
-  const runOnStartup = regenConfig.runOnStartup !== false; // Default to true
+  const autoRegenEnabled = regenConfig.enabled ?? true; // Default to true
+  const runOnStartup = regenConfig.runOnStartup ?? true; // Default to true
   
   if (autoRegenEnabled && runOnStartup) {
     // Get delay from env var or config (default to 5 seconds)

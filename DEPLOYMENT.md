@@ -195,11 +195,13 @@ The server automatically regenerates and syncs public files on startup and after
 
 On server startup, the auto-regeneration system:
 
-1. **Checks Static Files**: Ensures critical files like `smart-mirror.html`, `index.html`, and `espresso-editor.html` exist in `/public`
+1. **Checks Static Files**: Verifies that critical files like `smart-mirror.html`, `index.html`, and `espresso-editor.html` exist in `/public` (these are baked into the Docker image)
 2. **Regenerates Dynamic Content**:
    - **Espresso**: Regenerates `public/espresso/index.html` from persisted config/data
    - **Vidiots**: Regenerates `public/vidiots/index.html` and poster images
-3. **Logs All Actions**: All copy/generation actions are logged for troubleshooting
+3. **Logs All Actions**: All checks and generation actions are logged for troubleshooting
+
+**Note**: Static files are baked into the Docker image at `/app/public`. If you mount a volume over `/app/public`, ensure the static files are present in that volume, or don't mount `/public` and let the container use the built-in files.
 
 ### Configuration
 
