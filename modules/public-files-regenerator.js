@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const logger = require('./logger');
 
 /**
@@ -17,11 +18,24 @@ const MAX_LOG_ENTRIES = 500; // Maximum log entries to keep in memory
 
 // Static files that should always be present in /public
 // These are baked into the Docker image and this list is used to verify their presence
+// Each entry includes the filename and SHA-256 checksum of the original file
 const STATIC_FILES = [
-  'smart-mirror.html',
-  'index.html',
-  'espresso-editor.html',
-  'espresso-template.html'
+  {
+    name: 'smart-mirror.html',
+    checksum: 'fc5046445cf585255ba8a85ac808dee48286ceb73079af7b5958a7502848b949'
+  },
+  {
+    name: 'index.html',
+    checksum: '96f396452ad0634f74adc8c6cc3666bb3b082cc0af6c9dddd523df5c2be7d0a4'
+  },
+  {
+    name: 'espresso-editor.html',
+    checksum: 'e0ef9c6dd5e858555c8e3dbadd0f629eae4f3b9ecbe78c362070100443479d0e'
+  },
+  {
+    name: 'espresso-template.html',
+    checksum: 'b9a7932e8d502f9356c6d559592502d907f569a700a65a1a9d6477699cbd3ea7'
+  }
 ];
 
 /**
@@ -71,8 +85,153 @@ function addLog(level, action, details) {
 }
 
 /**
+ * Calculate SHA-256 checksum of a file
+ * @param {string} filePath - Path to the file
+ * @returns {string|null} - Checksum hex string, or null if file doesn't exist
+ */
+function calculateChecksum(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const content = fs.readFileSync(filePath);
+    return crypto.createHash('sha256').update(content).digest('hex');
+  } catch (error) {
+    addLog('error', 'Checksum Failed', `Failed to calculate checksum for ${filePath}: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Check if a file has been customized by comparing checksums
+ * @param {string} filePath - Path to the file to check
+ * @param {string} expectedChecksum - Expected checksum of the original file
+ * @returns {boolean} - True if file is customized (checksum differs), false if original
+ */
+function isFileCustomized(filePath, expectedChecksum) {
+  const actualChecksum = calculateChecksum(filePath);
+  if (!actualChecksum) {
+    return false; // File doesn't exist, so not customized
+  }
+  return actualChecksum !== expectedChecksum;
+}
+
+/**
+ * Restore a static file from the backup location to /public
+ * @param {string} fileName - Name of the file to restore
+ * @param {string} expectedChecksum - Expected checksum for customization detection
+ * @param {boolean} force - Force overwrite even if customized
+ * @returns {Object} - Result object with success status and action taken
+ */
+function restoreStaticFile(fileName, expectedChecksum, force = false) {
+  const publicDir = path.join(__dirname, '..', 'public');
+  const targetPath = path.join(publicDir, fileName);
+  
+  // The source file should be from the backup location created during Docker build
+  // This location is never volume-mounted and always contains the original files
+  const backupDir = path.join(__dirname, '..', '.static-files-backup');
+  const sourcePath = path.join(backupDir, fileName);
+  
+  try {
+    // Check if target already exists
+    const targetExists = fs.existsSync(targetPath);
+    
+    if (targetExists) {
+      // Check if file is customized
+      const customized = isFileCustomized(targetPath, expectedChecksum);
+      
+      if (customized && !force) {
+        addLog('info', 'Restore Skipped', `${fileName} has been customized, skipping restore (use force=true to overwrite)`);
+        return {
+          success: true,
+          action: 'skipped',
+          reason: 'customized',
+          message: `File ${fileName} is customized and force=false`
+        };
+      }
+      
+      if (customized && force) {
+        addLog('warning', 'Force Restore', `${fileName} is customized but force=true, overwriting with original`);
+      }
+    }
+    
+    // Check if backup source exists
+    if (!fs.existsSync(sourcePath)) {
+      // Backup doesn't exist - this is expected in dev environment
+      // File restoration only works in Docker where backup is created during build
+      addLog('warning', 'Backup Not Found', `Backup not found at ${sourcePath}. File restoration requires Docker deployment with .static-files-backup/ directory.`);
+      return {
+        success: false,
+        action: 'failed',
+        reason: 'backup_not_found',
+        message: `Backup directory not found - restoration only works in Docker deployment`
+      };
+    }
+    
+    // Verify source file checksum matches expected (or at least exists)
+    const sourceChecksum = calculateChecksum(sourcePath);
+    if (!sourceChecksum) {
+      addLog('error', 'Restore Failed', `Source file ${fileName} not found or unreadable at ${sourcePath}`);
+      return {
+        success: false,
+        action: 'failed',
+        reason: 'source_not_found',
+        message: `Source file not found at ${sourcePath}`
+      };
+    }
+    
+    if (sourceChecksum !== expectedChecksum) {
+      addLog('warning', 'Checksum Mismatch', `Source file ${fileName} checksum doesn't match expected (expected: ${expectedChecksum}, got: ${sourceChecksum}). This may indicate the file has been updated.`);
+      // We'll still copy it, but log the warning - this is expected when files are legitimately updated
+    }
+    
+    // Copy the file
+    fs.copyFileSync(sourcePath, targetPath);
+    
+    // Verify the copy
+    const copiedChecksum = calculateChecksum(targetPath);
+    if (copiedChecksum === sourceChecksum) {
+      // Copy successful and matches source
+      if (copiedChecksum === expectedChecksum) {
+        addLog('success', 'File Restored', `${fileName} successfully restored to /public`);
+        return {
+          success: true,
+          action: 'restored',
+          message: `File ${fileName} restored successfully`
+        };
+      } else {
+        addLog('success', 'File Restored', `${fileName} restored to /public (file may have been updated)`);
+        return {
+          success: true,
+          action: 'restored',
+          warning: 'checksum_updated',
+          message: `File ${fileName} restored but checksum differs from expected (likely file update)`
+        };
+      }
+    } else {
+      addLog('error', 'Restore Failed', `${fileName} copy verification failed - copied file doesn't match source`);
+      return {
+        success: false,
+        action: 'failed',
+        reason: 'copy_verification_failed',
+        message: `File ${fileName} copy verification failed`
+      };
+    }
+    
+  } catch (error) {
+    addLog('error', 'Restore Failed', `Failed to restore ${fileName}: ${error.message}`);
+    return {
+      success: false,
+      action: 'failed',
+      reason: 'copy_error',
+      message: error.message
+    };
+  }
+}
+
+/**
  * Check all static files and report status
- * @param {boolean} force - Force verification even if files exist
+ * @param {boolean} force - Force restoration even if files are customized
  * @returns {Object} - Result object with success status and counts
  */
 function checkStaticFiles(force = false) {
@@ -80,35 +239,100 @@ function checkStaticFiles(force = false) {
   
   let presentCount = 0;
   let missingCount = 0;
+  let restoredCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
   const missingFiles = [];
+  const restoredFiles = [];
+  const skippedFiles = [];
+  const failedFiles = [];
   
   const publicDir = path.join(__dirname, '..', 'public');
   
-  for (const file of STATIC_FILES) {
-    const filePath = path.join(publicDir, file);
+  for (const fileInfo of STATIC_FILES) {
+    const fileName = fileInfo.name;
+    const expectedChecksum = fileInfo.checksum;
+    const filePath = path.join(publicDir, fileName);
     
     if (fs.existsSync(filePath)) {
-      addLog('info', 'File Present', `Static file ${file} exists`);
-      presentCount++;
+      // File exists, check if it's customized
+      const customized = isFileCustomized(filePath, expectedChecksum);
+      
+      if (customized && !force) {
+        addLog('info', 'File Customized', `Static file ${fileName} has been customized`);
+        presentCount++;
+      } else if (customized && force) {
+        // File exists but is customized and force=true, restore it
+        addLog('info', 'Force Restore', `Static file ${fileName} is customized, force restoring`);
+        const result = restoreStaticFile(fileName, expectedChecksum, true);
+        
+        if (result.success) {
+          restoredCount++;
+          restoredFiles.push(fileName);
+        } else {
+          failedCount++;
+          failedFiles.push(fileName);
+        }
+      } else {
+        // File exists and matches original
+        addLog('info', 'File Present', `Static file ${fileName} exists and is original`);
+        presentCount++;
+      }
     } else {
-      addLog('warning', 'File Missing', `Static file ${file} is missing from /public`);
-      missingFiles.push(file);
+      // File is missing, attempt to restore
+      addLog('warning', 'File Missing', `Static file ${fileName} is missing from /public, attempting restore`);
+      missingFiles.push(fileName);
+      
+      const result = restoreStaticFile(fileName, expectedChecksum, force);
+      
+      if (result.success && result.action === 'restored') {
+        restoredCount++;
+        restoredFiles.push(fileName);
+      } else if (result.success && result.action === 'skipped') {
+        skippedCount++;
+        skippedFiles.push(fileName);
+      } else {
+        failedCount++;
+        failedFiles.push(fileName);
+      }
+      
       missingCount++;
     }
   }
   
-  if (missingCount > 0) {
-    addLog('warning', 'Missing Files Detected', `${missingCount} static file(s) missing. This may indicate a volume mount issue. Missing: ${missingFiles.join(', ')}`);
+  // Log summary
+  if (restoredCount > 0) {
+    addLog('success', 'Files Restored', `${restoredCount} static file(s) restored: ${restoredFiles.join(', ')}`);
+  }
+  
+  if (failedCount > 0) {
+    addLog('error', 'Restore Failed', `${failedCount} static file(s) failed to restore: ${failedFiles.join(', ')}`);
+  }
+  
+  if (skippedCount > 0) {
+    addLog('info', 'Files Skipped', `${skippedCount} static file(s) skipped: ${skippedFiles.join(', ')}`);
+  }
+  
+  if (missingCount === 0 && failedCount === 0) {
+    addLog('success', 'Check Complete', `All ${presentCount + restoredCount} static files are present`);
+  } else if (failedCount > 0) {
+    addLog('error', 'Check Failed', `${failedCount} file(s) could not be restored`);
   } else {
-    addLog('success', 'Check Complete', `All ${presentCount} static files are present`);
+    addLog('success', 'Check Complete', `Static files verified (${presentCount} present, ${restoredCount} restored)`);
   }
   
   return {
-    success: missingCount === 0,
-    checked: presentCount + missingCount,
+    success: failedCount === 0,
+    checked: STATIC_FILES.length,
     present: presentCount,
     missing: missingCount,
-    missingFiles: missingFiles
+    restored: restoredCount,
+    skipped: skippedCount,
+    failed: failedCount,
+    missingFiles: missingFiles,
+    restoredFiles: restoredFiles,
+    skippedFiles: skippedFiles,
+    failedFiles: failedFiles
   };
 }
 
@@ -195,7 +419,7 @@ async function runRegeneration(force = false) {
   };
   
   try {
-    // Step 1: Check static files
+    // Step 1: Check and restore static files
     results.staticFiles = checkStaticFiles(force);
     
     // Step 2: Regenerate espresso
@@ -204,14 +428,14 @@ async function runRegeneration(force = false) {
     // Step 3: Regenerate vidiots
     results.vidiots = await regenerateVidiots();
     
-    // Check overall success (we don't fail on missing static files as they're in the container image)
-    results.success = results.espresso && results.vidiots;
+    // Check overall success - now includes static file restoration
+    results.success = results.staticFiles.success && results.espresso && results.vidiots;
     
     const duration = Date.now() - startTime;
     results.duration = duration;
     
     if (results.success) {
-      addLog('success', 'Regeneration Complete', `All dynamic content regenerated successfully in ${duration}ms`);
+      addLog('success', 'Regeneration Complete', `All content regenerated successfully in ${duration}ms`);
     } else {
       addLog('warning', 'Regeneration Partial', `Regeneration completed with some failures in ${duration}ms`);
     }

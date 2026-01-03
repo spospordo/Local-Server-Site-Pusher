@@ -10,6 +10,9 @@ dist/
 build/
 tmp/
 
+# Static files backup (created by Dockerfile, only needed in Docker image)
+.static-files-backup/
+
 # Runtime configuration files (keep directory structure)
 config/config.json
 
