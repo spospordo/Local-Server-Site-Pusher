@@ -17,7 +17,8 @@ class Logger {
       CLIENT: 'Client',
       OLLAMA: 'Ollama',
       MEDIA: 'Media Streaming',
-      HOME_ASSISTANT: 'Home Assistant'
+      HOME_ASSISTANT: 'Home Assistant',
+      SMART_MIRROR: 'Smart Mirror'
     };
   }
 
@@ -108,6 +109,41 @@ class Logger {
   clear() {
     this.logs = [];
     this.info(this.categories.SYSTEM, 'All logs cleared');
+  }
+
+  /**
+   * Log detailed diagnostics for Smart Mirror with environment detection
+   * @param {string} context - Context of the diagnostic (e.g., 'route access', 'config load')
+   * @param {Object} details - Additional details to log
+   */
+  logSmartMirrorDiagnostics(context, details = {}) {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    
+    const diagnostics = {
+      context,
+      timestamp: new Date().toISOString(),
+      environment: {
+        nodeEnv: process.env.NODE_ENV || 'development',
+        isDocker: fs.existsSync('/.dockerenv'),
+        platform: os.platform(),
+        arch: os.arch(),
+        hostname: os.hostname(),
+        nodeVersion: process.version,
+        uptime: process.uptime()
+      },
+      paths: {
+        cwd: process.cwd(),
+        dirname: __dirname
+      },
+      ...details
+    };
+    
+    // Log as JSON for structured logging
+    this.debug(this.categories.SMART_MIRROR, `[DIAGNOSTIC] ${context}: ${JSON.stringify(diagnostics, null, 2)}`);
+    
+    return diagnostics;
   }
 }
 

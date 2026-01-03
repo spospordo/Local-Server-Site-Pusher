@@ -267,54 +267,104 @@
 
         // Load configuration and initialize dashboard
         async function loadConfig() {
+            console.log('[Smart Mirror] Loading configuration from API...');
+            console.log('[Smart Mirror] Timestamp:', new Date().toISOString());
+            console.log('[Smart Mirror] User Agent:', navigator.userAgent);
+            console.log('[Smart Mirror] Page URL:', window.location.href);
+            
             try {
+                const fetchStart = performance.now();
+                console.log('[Smart Mirror] Fetching config from /api/smart-mirror/config');
+                
                 const response = await fetch('/api/smart-mirror/config');
+                const fetchEnd = performance.now();
+                
+                console.log(`[Smart Mirror] API response received (${Math.round(fetchEnd - fetchStart)}ms)`);
+                console.log('[Smart Mirror] Response status:', response.status, response.statusText);
+                console.log('[Smart Mirror] Response headers:', {
+                    contentType: response.headers.get('content-type'),
+                    cacheControl: response.headers.get('cache-control')
+                });
+                
                 const data = await response.json();
+                console.log('[Smart Mirror] Config data parsed:', {
+                    success: data.success,
+                    hasConfig: !!data.config,
+                    enabled: data.config?.enabled,
+                    theme: data.config?.theme,
+                    widgetCount: Object.keys(data.config?.widgets || {}).length
+                });
                 
                 if (data.success && data.config) {
                     config = data.config;
-                    console.log('Smart Mirror config loaded:', config);
+                    console.log('✅ [Smart Mirror] Config loaded successfully:', config);
+                    console.log('[Smart Mirror] Enabled widgets:', 
+                        Object.keys(config.widgets || {}).filter(k => config.widgets[k]?.enabled)
+                    );
                     
                     // Apply theme
                     if (config.theme === 'light') {
+                        console.log('[Smart Mirror] Applying light theme');
                         document.body.classList.add('theme-light');
+                    } else {
+                        console.log('[Smart Mirror] Using dark theme (default)');
                     }
                     
                     // Check if dashboard is enabled
                     if (config.enabled === false) {
+                        console.warn('⚠️  [Smart Mirror] Dashboard is disabled in configuration');
                         showError('Smart Mirror Dashboard is currently disabled. Please enable it in the admin panel.');
                         return;
                     }
+                    
+                    console.log('[Smart Mirror] Dashboard is enabled, rendering...');
                     
                     // Render dashboard
                     renderDashboard();
                     
                     // Set up refresh interval
                     if (config.refreshInterval && config.refreshInterval > 0) {
+                        console.log(`[Smart Mirror] Setting refresh interval: ${config.refreshInterval}ms`);
                         refreshInterval = setInterval(updateWidgets, config.refreshInterval);
                     }
                 } else {
+                    console.error('❌ [Smart Mirror] Config load failed:', data);
                     showError('Failed to load Smart Mirror configuration.');
                 }
             } catch (error) {
-                console.error('Error loading config:', error);
+                console.error('❌ [Smart Mirror] Error loading config:', error);
+                console.error('[Smart Mirror] Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
                 showError('Error connecting to server. Please check your connection.');
             }
         }
 
         // Render the dashboard with configured widgets
         function renderDashboard() {
+            console.log('[Smart Mirror] Starting dashboard render');
             const container = document.getElementById('dashboardContainer');
             container.innerHTML = '';
 
             if (!config || !config.widgets) {
+                console.error('❌ [Smart Mirror] No widgets configured');
                 showError('No widgets configured.');
                 return;
             }
 
+            console.log('[Smart Mirror] Rendering widgets:', Object.keys(config.widgets));
+            
             // Create widgets based on configuration
             Object.keys(config.widgets).forEach(widgetKey => {
                 const widgetConfig = config.widgets[widgetKey];
+                
+                console.log(`[Smart Mirror] Processing widget: ${widgetKey}`, {
+                    enabled: widgetConfig?.enabled,
+                    area: widgetConfig?.area,
+                    size: widgetConfig?.size
+                });
                 
                 // Only render enabled widgets
                 if (widgetConfig && widgetConfig.enabled === true) {

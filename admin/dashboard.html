@@ -3362,6 +3362,38 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Smart Mirror Diagnostics -->
+                <h3>📊 Diagnostics & Troubleshooting</h3>
+                <p style="margin-bottom: 15px;">View deployment information and recent logs for troubleshooting Smart Mirror issues.</p>
+                
+                <button onclick="loadSmartMirrorDiagnostics()" class="btn btn-secondary" style="margin-bottom: 15px;">
+                    🔍 Run Diagnostics
+                </button>
+                <button onclick="exportSmartMirrorLogs()" class="btn btn-secondary" style="margin-bottom: 15px; margin-left: 10px;">
+                    📥 Export Logs
+                </button>
+                
+                <div id="smartMirrorDiagnostics" style="display: none; margin-top: 15px;">
+                    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px;">
+                        <h4 style="margin-top: 0;">Environment Information</h4>
+                        <div id="diagnosticsEnvironment" style="font-family: monospace; font-size: 12px;"></div>
+                        
+                        <h4 style="margin-top: 20px;">File Checks</h4>
+                        <div id="diagnosticsFiles" style="font-family: monospace; font-size: 12px;"></div>
+                        
+                        <h4 style="margin-top: 20px;">Configuration Status</h4>
+                        <div id="diagnosticsConfig" style="font-family: monospace; font-size: 12px;"></div>
+                        
+                        <h4 style="margin-top: 20px;">Warnings & Issues</h4>
+                        <div id="diagnosticsWarnings" style="font-family: monospace; font-size: 12px;"></div>
+                        
+                        <h4 style="margin-top: 20px;">Recent Logs (Last 10 entries)</h4>
+                        <div id="diagnosticsLogs" style="font-family: monospace; font-size: 11px; max-height: 300px; overflow-y: auto; background: #fff; padding: 10px; border: 1px solid #dee2e6; border-radius: 3px;"></div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <button onclick="saveSmartMirrorConfig()" class="btn btn-primary">Save Smart Mirror Configuration</button>
                 <button onclick="previewSmartMirror()" class="btn btn-secondary" style="margin-left: 10px;">Preview Dashboard</button>
                 
@@ -8331,6 +8363,124 @@
                 setTimeout(() => {
                     alertDiv.style.display = 'none';
                 }, 5000);
+            }
+        }
+        
+        // Smart Mirror Diagnostics Functions
+        async function loadSmartMirrorDiagnostics() {
+            try {
+                const response = await fetch('/admin/api/smart-mirror/diagnostics');
+                const data = await response.json();
+                
+                if (data.success && data.diagnostics) {
+                    const diag = data.diagnostics;
+                    
+                    // Show diagnostics section
+                    document.getElementById('smartMirrorDiagnostics').style.display = 'block';
+                    
+                    // Environment information
+                    const envHtml = `
+                        <div><strong>Node Environment:</strong> ${diag.environment.nodeEnv}</div>
+                        <div><strong>Running in Docker:</strong> ${diag.environment.isDocker ? '✅ Yes' : '❌ No'}</div>
+                        <div><strong>Platform:</strong> ${diag.environment.platform} (${diag.environment.arch})</div>
+                        <div><strong>Hostname:</strong> ${diag.environment.hostname}</div>
+                        <div><strong>Node Version:</strong> ${diag.environment.nodeVersion}</div>
+                        <div><strong>Uptime:</strong> ${Math.floor(diag.environment.uptime / 60)} minutes</div>
+                        <div><strong>Memory:</strong> ${diag.environment.memory.used}MB used / ${diag.environment.memory.total}MB total</div>
+                    `;
+                    document.getElementById('diagnosticsEnvironment').innerHTML = envHtml;
+                    
+                    // File checks
+                    const filesHtml = `
+                        <div><strong>Dashboard File:</strong> ${diag.fileChecks.dashboardExists ? '✅ Found' : '❌ NOT FOUND'}</div>
+                        <div style="margin-left: 20px; color: #666;">Path: ${diag.paths.dashboardFile}</div>
+                        ${diag.fileChecks.dashboardExists ? `<div style="margin-left: 20px; color: #666;">Size: ${diag.fileChecks.dashboardSize} bytes</div>` : ''}
+                        <div style="margin-top: 10px;"><strong>Config File:</strong> ${diag.fileChecks.configExists ? '✅ Found' : '❌ NOT FOUND'}</div>
+                        <div style="margin-left: 20px; color: #666;">Path: ${diag.paths.configFile}</div>
+                        ${diag.fileChecks.configExists ? `<div style="margin-left: 20px; color: #666;">Size: ${diag.fileChecks.configSize} bytes</div>` : ''}
+                        <div style="margin-top: 10px;"><strong>Public Directory:</strong> ${diag.fileChecks.publicDirExists ? '✅ Found' : '❌ NOT FOUND'}</div>
+                        <div style="margin-left: 20px; color: #666;">Path: ${diag.paths.publicDirectory}</div>
+                        <div style="margin-top: 10px;"><strong>Working Directory:</strong> ${diag.paths.workingDirectory}</div>
+                    `;
+                    document.getElementById('diagnosticsFiles').innerHTML = filesHtml;
+                    
+                    // Configuration status
+                    const configHtml = `
+                        <div><strong>Dashboard Enabled:</strong> ${diag.configuration.enabled ? '✅ Yes' : '❌ No'}</div>
+                        <div><strong>Theme:</strong> ${diag.configuration.theme}</div>
+                        <div><strong>Total Widgets:</strong> ${diag.configuration.widgetCount}</div>
+                        <div><strong>Enabled Widgets:</strong> ${diag.configuration.enabledWidgets.join(', ') || 'None'}</div>
+                        <div><strong>Custom Encryption Key:</strong> ${diag.configuration.hasCustomEncryptionKey ? '✅ Yes' : '⚠️  No (using default)'}</div>
+                    `;
+                    document.getElementById('diagnosticsConfig').innerHTML = configHtml;
+                    
+                    // Warnings
+                    if (diag.warnings && diag.warnings.length > 0) {
+                        const warningsHtml = diag.warnings.map(w => {
+                            const icon = w.level === 'ERROR' ? '❌' : w.level === 'WARNING' ? '⚠️' : 'ℹ️';
+                            return `
+                                <div style="margin-bottom: 10px; padding: 10px; background: ${w.level === 'ERROR' ? '#fee' : w.level === 'WARNING' ? '#ffd' : '#eff'}; border-left: 3px solid ${w.level === 'ERROR' ? '#f00' : w.level === 'WARNING' ? '#fa0' : '#09f'}; border-radius: 3px;">
+                                    <div><strong>${icon} ${w.level}:</strong> ${w.message}</div>
+                                    <div style="margin-top: 5px; color: #666; font-size: 11px;"><strong>Solution:</strong> ${w.solution}</div>
+                                </div>
+                            `;
+                        }).join('');
+                        document.getElementById('diagnosticsWarnings').innerHTML = warningsHtml;
+                    } else {
+                        document.getElementById('diagnosticsWarnings').innerHTML = '<div style="color: #0a0;">✅ No issues detected</div>';
+                    }
+                    
+                    // Recent logs
+                    if (diag.logs && diag.logs.recent && diag.logs.recent.length > 0) {
+                        const logsHtml = diag.logs.recent.map(log => {
+                            const levelColor = {
+                                'ERROR': '#f00',
+                                'WARNING': '#fa0',
+                                'SUCCESS': '#0a0',
+                                'INFO': '#09f',
+                                'DEBUG': '#999'
+                            }[log.level] || '#000';
+                            
+                            const timestamp = new Date(log.timestamp).toLocaleString();
+                            
+                            return `
+                                <div style="margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee;">
+                                    <div style="color: ${levelColor}; font-weight: bold;">${log.level} - ${timestamp}</div>
+                                    <div style="margin-top: 3px;">${log.message}</div>
+                                </div>
+                            `;
+                        }).join('');
+                        document.getElementById('diagnosticsLogs').innerHTML = logsHtml;
+                    } else {
+                        document.getElementById('diagnosticsLogs').innerHTML = '<div style="color: #999;">No recent logs available</div>';
+                    }
+                    
+                    showSmartMirrorAlert('Diagnostics loaded successfully', 'success');
+                } else {
+                    showSmartMirrorAlert('Failed to load diagnostics: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error loading Smart Mirror diagnostics:', error);
+                showSmartMirrorAlert('Error loading diagnostics: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportSmartMirrorLogs() {
+            try {
+                const response = await fetch('/admin/api/smart-mirror/logs/export');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `smart-mirror-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showSmartMirrorAlert('Logs exported successfully', 'success');
+            } catch (error) {
+                console.error('Error exporting Smart Mirror logs:', error);
+                showSmartMirrorAlert('Error exporting logs: ' + error.message, 'error');
             }
         }
         
