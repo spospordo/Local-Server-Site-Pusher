@@ -46,7 +46,6 @@ docker build -t local-server-site-pusher .
 # Run the container
 docker run -d \
   -p 3000:3000 \
-  -v $(pwd)/public:/app/public \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/uploads:/app/uploads \
   --name local-server \

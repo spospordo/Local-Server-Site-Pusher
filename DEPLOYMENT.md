@@ -19,12 +19,13 @@ docker-compose up -d
 # Build and run
 docker build -t local-server-site-pusher .
 docker run -d -p 3000:3000 \
-  -v ./public:/app/public \
   -v ./config:/app/config \
   -v ./uploads:/app/uploads \
   --name local-server \
   local-server-site-pusher
 ```
+
+**Note:** Static files are served from the Docker image. Only mount `config` and `uploads` for persistent data.
 
 ### Building for Raspberry Pi / ARM64
 
@@ -79,7 +80,6 @@ id
 # Use in docker run
 docker run -d --user "$(id -u):$(id -g)" \
   -p 3000:3000 \
-  -v ./public:/app/public \
   -v ./config:/app/config \
   -v ./uploads:/app/uploads \
   local-server-site-pusher
@@ -121,7 +121,8 @@ Status endpoint: http://localhost:3000/api/status
 
 ### Persistence
 - Mount the `config` directory to persist configuration changes
-- Mount the `public` directory for your web content
+- Mount the `uploads` directory to persist uploaded files
+- Static files (smart-mirror.html, index.html, etc.) are served from the Docker image
 - For production with multiple instances, consider using an external session store
 
 ### Environment Variables
@@ -164,7 +165,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./public:/app/public
+      # Only mount config and uploads for persistence
       - ./config:/app/config
       - ./uploads:/app/uploads
     user: "1000:1000"  # Your user:group ID
@@ -178,7 +179,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /path/to/persistent/public:/app/public
+      # Only mount config and uploads - static files come from the image
       - /path/to/persistent/config:/app/config
       - /path/to/persistent/uploads:/app/uploads
     environment:
@@ -201,7 +202,7 @@ On server startup, the auto-regeneration system:
    - **Vidiots**: Regenerates `public/vidiots/index.html` and poster images
 3. **Logs All Actions**: All checks and generation actions are logged for troubleshooting
 
-**Note**: Static files are baked into the Docker image at `/app/public`. If you mount a volume over `/app/public`, ensure the static files are present in that volume, or don't mount `/public` and let the container use the built-in files.
+**Note**: Static files are baked into the Docker image at `/app/public`. With the recommended volume mount strategy (no `/app/public` mount), static files are always served from the image and automatically update on redeploy.
 
 ### Configuration
 
@@ -231,9 +232,9 @@ Or in `config/config.json`:
 
 ### Volume Mount Strategies
 
-#### Strategy 1: No Volume Mount (Recommended for Simple Deployments)
+#### Recommended Strategy: No /public Mount
 ```yaml
-# Public files stay in the container
+# Public files stay in the container (recommended)
 services:
   local-server:
     volumes:
@@ -241,47 +242,34 @@ services:
       - ./uploads:/app/uploads
 ```
 
-**Pros**: Auto-regeneration always works correctly  
-**Cons**: Generated files lost on container recreation (but automatically regenerated)
+**Pros**: 
+- Static files automatically update on redeploy
+- Simple and reliable
+- No sync issues
 
-#### Strategy 2: Volume Mount with Auto-Regeneration (Recommended for Portainer)
+**Cons**: 
+- Dynamic generated files (espresso/vidiots) are regenerated on each container start (but this is automatic)
+
+#### Legacy Strategy: With /public Mount (Not Recommended)
 ```yaml
-# Mount public but let auto-regeneration handle updates
+# Mount public but static files won't auto-update
 services:
   local-server:
     volumes:
-      - ./public:/app/public
-      - ./config:/app/config
-      - ./uploads:/app/uploads
-    environment:
-      - AUTO_REGENERATE_PUBLIC_DELAY=5
-```
-
-**Pros**: Files persist AND auto-update on deploy  
-**Cons**: Requires auto-regeneration enabled
-
-#### Strategy 3: Manual Management
-```yaml
-# Mount public and disable auto-regeneration
-services:
-  local-server:
-    volumes:
-      - ./public:/app/public
+      - ./public:/app/public     # Not recommended - prevents static file updates
       - ./config:/app/config
       - ./uploads:/app/uploads
 ```
 
-Then in `config/config.json`:
-```json
-{
-  "publicFilesRegeneration": {
-    "enabled": false
-  }
-}
-```
+**Pros**: 
+- Generated files persist between restarts
 
-**Pros**: Full manual control  
-**Cons**: Must manually trigger regeneration via admin panel
+**Cons**: 
+- Static files DON'T update after code changes
+- Requires manual copying of updated static files
+- More complex deployment
+
+**If upgrading from this strategy**: Back up any custom files from `./public` before switching to the recommended strategy.
 
 ### Manual Regeneration
 
@@ -313,28 +301,18 @@ curl http://localhost:3000/admin/api/regenerate-public/logs \
 
 **Issue**: Static files missing after deployment
 
-**Solution**: Check auto-regeneration logs:
-```bash
-curl http://localhost:3000/admin/api/regenerate-public/logs \
-  --cookie "connect.sid=YOUR_SESSION_COOKIE"
-```
+**Solution**: Static files come from the Docker image. Ensure you're not mounting `/app/public` volume. If you need custom static files, rebuild the Docker image with your changes.
 
 **Issue**: Files not updating after code changes
 
-**Solution**: Trigger force regeneration:
-```bash
-curl -X POST http://localhost:3000/admin/api/regenerate-public \
-  -H "Content-Type: application/json" \
-  -d '{"force": true}' \
-  --cookie "connect.sid=YOUR_SESSION_COOKIE"
-```
+**Solution**: Redeploy the container with the new image. Static files will automatically update. For dynamic content (espresso/vidiots), it regenerates automatically from config/uploads.
 
 **Issue**: Permission errors during regeneration
 
-**Solution**: Ensure proper permissions on `/app/public`:
+**Solution**: Ensure proper permissions on `/app/config` and `/app/uploads`:
 ```bash
 # On host
-sudo chown -R $(id -u):$(id -g) ./public
+sudo chown -R $(id -u):$(id -g) ./config ./uploads
 
 # Or set in docker-compose.yml
 services:
@@ -344,11 +322,11 @@ services:
 
 ### Best Practices
 
-1. **Keep Auto-Regeneration Enabled**: It ensures files are always up-to-date after deploys
-2. **Use 5-10 Second Delay**: Gives the server time to fully initialize before regeneration
+1. **Use the Recommended Volume Mount Strategy**: Only mount `/app/config` and `/app/uploads` for simplicity and reliability
+2. **Static Files from Image**: Let static files come from the Docker image for automatic updates
 3. **Monitor Logs**: Check regeneration logs via admin panel to catch issues early
-4. **Volume Mount `/config` and `/uploads`**: Always persist these directories
-5. **Consider NOT Mounting `/public`**: Let auto-regeneration handle it unless you need persistence
+4. **Always Persist Config and Uploads**: These directories contain critical data
+5. **Backup Before Upgrading**: If migrating from the old `/app/public` mount strategy, backup any custom files first
 
 ### CI/CD Integration
 

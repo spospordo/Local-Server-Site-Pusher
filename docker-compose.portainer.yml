@@ -20,9 +20,8 @@ services:
       - "3000:3000"
     volumes:
       # Use absolute paths for Portainer deployment
-      # Adjust these paths based on your system setup
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -38,11 +37,17 @@ services:
 
 # Volume paths explanation:
 # - /var/lib/local-server-site-pusher/config: Stores admin configuration and settings
-# - /var/lib/local-server-site-pusher/public: Stores public web files
 # - /var/lib/local-server-site-pusher/uploads: Stores uploaded files from clients
+# 
+# Static files (smart-mirror.html, index.html, etc.) are served from the Docker image.
+# This ensures static assets update correctly after code changes and redeploy.
 #
 # Before deploying, ensure these directories exist on your host:
-# sudo mkdir -p /var/lib/local-server-site-pusher/{config,public,uploads}
+# sudo mkdir -p /var/lib/local-server-site-pusher/{config,uploads}
 # sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
 #
 # Note: The container automatically fixes permissions if running as root initially
+#
+# IMPORTANT: If you have custom or generated files in /app/public (e.g., vidiots/espresso outputs),
+# back them up before updating, as they will no longer persist between container rebuilds.
+# Generated content is automatically regenerated from config/uploads on startup

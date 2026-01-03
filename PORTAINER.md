@@ -2,6 +2,27 @@
 
 This guide provides step-by-step instructions for deploying Local-Server-Site-Pusher in Portainer environments, including TrueNAS Scale.
 
+## Important: Volume Mount Strategy (Updated)
+
+**Static files (smart-mirror.html, index.html, etc.) are now served directly from the Docker image** to ensure they update correctly after code changes and container redeployment.
+
+### What Changed
+- **Removed:** `/app/public` volume mount
+- **Kept:** `/app/config` and `/app/uploads` volume mounts for persistent data
+
+### Why This Approach?
+- ✅ **Reliable updates:** Static files automatically update when you redeploy with a new image
+- ✅ **Simpler deployment:** Fewer volume mounts to manage
+- ✅ **No sync issues:** No risk of stale files in mounted volumes
+- ✅ **Dynamic content preserved:** Generated content (Espresso, Vidiots) is automatically regenerated from config/uploads on startup
+
+### Backwards Compatibility
+If you're upgrading from a previous version that mounted `/app/public`:
+1. **Backup any custom files** from your public directory before updating (e.g., custom HTML, images)
+2. **Generated content** (vidiots/espresso outputs) will be automatically regenerated from config/uploads
+3. **Update your docker-compose** to remove the `/app/public` mount
+4. **Redeploy** - static files will come from the new image
+
 ## Quick Deployment (Recommended)
 
 ### Step 1: Create Host Directories
@@ -10,11 +31,13 @@ On your host system, create directories for persistent data:
 
 ```bash
 # Choose a location for your data (adjust path as needed)
-sudo mkdir -p /var/lib/local-server-site-pusher/{config,public}
+sudo mkdir -p /var/lib/local-server-site-pusher/{config,uploads}
 
 # Set proper ownership (optional - container will auto-fix if needed)
 sudo chown -R 1000:1000 /var/lib/local-server-site-pusher/
 ```
+
+**Note:** We only mount `config` and `uploads` directories. Static files (smart-mirror.html, index.html, etc.) are served directly from the Docker image, ensuring they update correctly after code changes and redeploys.
 
 ### Step 2: Deploy via Portainer Stack
 
@@ -30,8 +53,8 @@ services:
       - "3000:3000"
     volumes:
       # Use absolute paths for Portainer
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -80,8 +103,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -107,8 +130,9 @@ Create a custom app template in Portainer with these settings:
 
 **Volumes:**
 - `/var/lib/local-server-site-pusher/config:/app/config`
-- `/var/lib/local-server-site-pusher/public:/app/public`
 - `/var/lib/local-server-site-pusher/uploads:/app/uploads`
+
+**Note:** Static files are served from the Docker image, not from a volume mount.
 
 **Environment Variables:**
 - `NODE_ENV=production`
@@ -129,12 +153,12 @@ Create a custom app template in Portainer with these settings:
    - **Host Path Volume**: 
      - Host Path: `/mnt/pool1/apps/local-server/config`
      - Mount Path: `/app/config`
-   - **Host Path Volume**: 
-     - Host Path: `/mnt/pool1/apps/local-server/public`
-     - Mount Path: `/app/public`
+     - Description: Stores admin configuration and settings
    - **Host Path Volume**: 
      - Host Path: `/mnt/pool1/apps/local-server/uploads`
      - Mount Path: `/app/uploads`
+     - Description: Stores uploaded files from clients
+   - **Note:** Static files (smart-mirror.html, etc.) are served from the Docker image
 6. **Environment Variables**:
    - `NODE_ENV=production`
    - `SESSION_SECRET=your-secure-secret-here`
@@ -177,8 +201,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -312,7 +336,7 @@ You can run a test/staging container alongside your production container to safe
 
 ```bash
 # Create separate directories for the test container
-sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,public,uploads}
+sudo mkdir -p /var/lib/local-server-site-pusher-test/{config,uploads}
 sudo chown -R 1000:1000 /var/lib/local-server-site-pusher-test/
 ```
 
@@ -333,8 +357,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher/config:/app/config
-      - /var/lib/local-server-site-pusher/public:/app/public
       - /var/lib/local-server-site-pusher/uploads:/app/uploads
     environment:
       - NODE_ENV=production
@@ -351,8 +375,8 @@ services:
     ports:
       - "3001:3000"  # Accessible on port 3001
     volumes:
+      # Only mount config and uploads - static files come from the image
       - /var/lib/local-server-site-pusher-test/config:/app/config
-      - /var/lib/local-server-site-pusher-test/public:/app/public
       - /var/lib/local-server-site-pusher-test/uploads:/app/uploads
     environment:
       - NODE_ENV=development
