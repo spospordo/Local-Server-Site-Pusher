@@ -430,7 +430,8 @@
             justify-content: space-around;
             width: 100%;
             gap: 10px;
-            flex-wrap: wrap;
+            /* Use horizontal scroll without wrap for overflow */
+            flex-wrap: nowrap;
             overflow-x: auto;
             overflow-y: hidden;
         }
