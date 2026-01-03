@@ -277,8 +277,11 @@ async function fetchCalendarEvents(calendarUrls) {
   const allEvents = [];
   const errors = [];
   
-  for (const url of calendarUrls) {
+  for (let url of calendarUrls) {
     if (!url || url.trim() === '') continue;
+    
+    // Convert webcal:// to https:// for Apple Calendar feeds
+    url = url.trim().replace(/^webcal:\/\//i, 'https://');
     
     try {
       logger.info(logger.categories.SMART_MIRROR, `Fetching calendar from: ${url}`);
@@ -294,6 +297,14 @@ async function fetchCalendarEvents(calendarUrls) {
           const startDate = event.start ? new Date(event.start) : null;
           const endDate = event.end ? new Date(event.end) : null;
           
+          // Detect all-day events (when start has no time component or datetype is 'date')
+          const isAllDay = event.datetype === 'date' || 
+                          (startDate && endDate && 
+                           startDate.getHours() === 0 && 
+                           startDate.getMinutes() === 0 &&
+                           endDate.getHours() === 0 &&
+                           endDate.getMinutes() === 0);
+          
           // Only include future events (within next 30 days)
           if (startDate && startDate > now) {
             const daysFromNow = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
@@ -304,7 +315,8 @@ async function fetchCalendarEvents(calendarUrls) {
                 end: endDate ? endDate.toISOString() : null,
                 location: event.location || '',
                 description: event.description || '',
-                daysFromNow
+                daysFromNow,
+                isAllDay
               });
             }
           }

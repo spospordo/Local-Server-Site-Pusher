@@ -83,61 +83,224 @@
         /* Calendar Widget */
         .calendar-container {
             width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .calendar-month-view {
+            flex-shrink: 0;
         }
 
         .calendar-header {
             text-align: center;
-            font-size: 1.5rem;
-            margin-bottom: 15px;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
             font-weight: 600;
         }
 
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
+            gap: 3px;
             text-align: center;
+            font-size: 0.85rem;
         }
 
         .calendar-day-name {
             font-weight: 600;
-            padding: 5px;
-            font-size: 0.9rem;
+            padding: 4px 2px;
+            font-size: 0.75rem;
             opacity: 0.7;
+            text-transform: uppercase;
         }
 
         .calendar-day {
-            padding: 10px 5px;
-            border-radius: 5px;
-            font-size: 1rem;
+            padding: 6px 2px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            min-height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .calendar-day.today {
             background: rgba(102, 126, 234, 0.6);
             font-weight: 700;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.4);
         }
 
         .calendar-day.other-month {
             opacity: 0.3;
         }
 
+        .calendar-day.has-event {
+            position: relative;
+        }
+
+        .calendar-day.has-event::after {
+            content: '•';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(102, 126, 234, 0.8);
+            font-size: 0.8rem;
+        }
+
         .calendar-events {
-            margin-top: 15px;
-            max-height: 200px;
+            flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            min-height: 100px;
+        }
+
+        .calendar-events::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .calendar-events::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .calendar-events::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 3px;
+        }
+
+        body.theme-light .calendar-events::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.theme-light .calendar-events::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
         }
 
         .calendar-event {
             background: rgba(102, 126, 234, 0.2);
-            padding: 8px 12px;
+            padding: 8px 10px;
             border-radius: 5px;
             margin-bottom: 8px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            border-left: 3px solid rgba(102, 126, 234, 0.6);
+        }
+
+        .calendar-event.all-day {
+            border-left-color: rgba(255, 183, 77, 0.8);
+            background: rgba(255, 183, 77, 0.15);
         }
 
         .calendar-event-time {
             font-weight: 600;
-            margin-right: 10px;
+            margin-right: 8px;
+            color: rgba(102, 126, 234, 0.9);
+        }
+
+        .calendar-event.all-day .calendar-event-time {
+            color: rgba(255, 183, 77, 0.9);
+        }
+
+        body.theme-light .calendar-event-time {
+            color: rgba(102, 126, 234, 1);
+        }
+
+        body.theme-light .calendar-event.all-day .calendar-event-time {
+            color: rgba(255, 152, 0, 1);
+        }
+
+        .calendar-event-title {
+            font-weight: 500;
+        }
+
+        .calendar-event-location {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
+
+        .calendar-event-description {
+            font-size: 0.75em;
+            opacity: 0.6;
+            margin-top: 4px;
+            line-height: 1.3;
+            max-height: 3em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .calendar-error {
+            opacity: 0.6;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        .calendar-warning {
+            background: rgba(255, 183, 77, 0.2);
+            border-left: 3px solid rgba(255, 183, 77, 0.6);
+            padding: 8px 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+        }
+
+        /* Responsive calendar layout for different widget sizes */
+        @media (min-width: 1px) {
+            /* Small widgets - reduce calendar grid size */
+            .widget[data-grid-width="1"] .calendar-grid,
+            .widget[data-grid-height="1"] .calendar-grid {
+                font-size: 0.7rem;
+                gap: 2px;
+            }
+
+            .widget[data-grid-width="1"] .calendar-day,
+            .widget[data-grid-height="1"] .calendar-day {
+                padding: 3px 1px;
+                font-size: 0.7rem;
+                min-height: 1.2rem;
+            }
+
+            .widget[data-grid-width="1"] .calendar-header,
+            .widget[data-grid-height="1"] .calendar-header {
+                font-size: 0.9rem;
+                margin-bottom: 5px;
+            }
+
+            .widget[data-grid-width="1"] .calendar-day-name,
+            .widget[data-grid-height="1"] .calendar-day-name {
+                font-size: 0.6rem;
+            }
+
+            /* Medium and large widgets - standard sizing */
+            .widget[data-grid-width="2"] .calendar-events,
+            .widget[data-grid-width="3"] .calendar-events,
+            .widget[data-grid-width="4"] .calendar-events {
+                min-height: 120px;
+            }
+
+            /* Wide widgets - use horizontal layout if short */
+            .widget[data-grid-width="3"][data-grid-height="1"] .calendar-container,
+            .widget[data-grid-width="4"][data-grid-height="1"] .calendar-container {
+                flex-direction: row;
+                gap: 15px;
+            }
+
+            .widget[data-grid-width="3"][data-grid-height="1"] .calendar-month-view,
+            .widget[data-grid-width="4"][data-grid-height="1"] .calendar-month-view {
+                flex-shrink: 0;
+                width: 45%;
+            }
+
+            .widget[data-grid-width="3"][data-grid-height="1"] .calendar-events,
+            .widget[data-grid-width="4"][data-grid-height="1"] .calendar-events {
+                width: 55%;
+                min-height: 0;
+            }
         }
 
         /* Weather Widget */
@@ -553,78 +716,218 @@
         }
 
         // Update calendar widget
+        // Update calendar widget
         async function updateCalendarWidget(content, widgetConfig) {
             try {
                 const response = await fetch('/api/smart-mirror/calendar');
                 const data = await response.json();
                 
+                // Clear content
+                content.innerHTML = '';
+                
+                // Create calendar container
+                const calendarContainer = document.createElement('div');
+                calendarContainer.className = 'calendar-container';
+                
+                // Generate monthly calendar grid
+                const monthView = renderMonthlyCalendar(data.events || []);
+                calendarContainer.appendChild(monthView);
+                
+                // Show warnings if there are errors
+                if (data.errors && data.errors.length > 0) {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.className = 'calendar-warning';
+                    warningDiv.textContent = '⚠️ Some feeds could not be loaded';
+                    calendarContainer.appendChild(warningDiv);
+                }
+                
+                // Render events list
                 if (data.success && data.events && data.events.length > 0) {
-                    let eventsHTML = '<div class="calendar-events">';
+                    const eventsContainer = document.createElement('div');
+                    eventsContainer.className = 'calendar-events';
+                    
                     data.events.forEach(event => {
-                        const startDate = new Date(event.start);
-                        const timeStr = startDate.toLocaleTimeString('en-US', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: true 
-                        });
-                        const dateStr = startDate.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        });
-                        
-                        // Create safe text nodes by using textContent
-                        const eventDiv = document.createElement('div');
-                        eventDiv.className = 'calendar-event';
-                        
-                        const mainDiv = document.createElement('div');
-                        const timeSpan = document.createElement('span');
-                        timeSpan.className = 'calendar-event-time';
-                        timeSpan.textContent = `${dateStr} ${timeStr}`;
-                        mainDiv.appendChild(timeSpan);
-                        
-                        const titleStrong = document.createElement('strong');
-                        titleStrong.textContent = event.title || 'Untitled Event';
-                        mainDiv.appendChild(titleStrong);
-                        eventDiv.appendChild(mainDiv);
-                        
-                        if (event.location) {
-                            const locationDiv = document.createElement('div');
-                            locationDiv.style.fontSize = '0.85em';
-                            locationDiv.style.opacity = '0.7';
-                            locationDiv.style.marginTop = '3px';
-                            locationDiv.textContent = '📍 ' + event.location;
-                            eventDiv.appendChild(locationDiv);
-                        }
-                        
-                        eventsHTML += eventDiv.outerHTML;
+                        const eventDiv = renderEvent(event);
+                        eventsContainer.appendChild(eventDiv);
                     });
-                    eventsHTML += '</div>';
-                    content.innerHTML = eventsHTML;
+                    
+                    calendarContainer.appendChild(eventsContainer);
                 } else if (data.error) {
                     const errorDiv = document.createElement('div');
-                    errorDiv.style.opacity = '0.6';
-                    errorDiv.style.textAlign = 'center';
+                    errorDiv.className = 'calendar-error';
                     errorDiv.textContent = '⚠️ ' + data.error;
-                    content.innerHTML = '';
-                    content.appendChild(errorDiv);
+                    calendarContainer.appendChild(errorDiv);
                 } else {
                     const msgDiv = document.createElement('div');
-                    msgDiv.style.opacity = '0.6';
-                    msgDiv.style.textAlign = 'center';
+                    msgDiv.className = 'calendar-error';
                     msgDiv.textContent = 'No upcoming events';
-                    content.innerHTML = '';
-                    content.appendChild(msgDiv);
+                    calendarContainer.appendChild(msgDiv);
                 }
+                
+                content.appendChild(calendarContainer);
             } catch (error) {
                 console.error('Error fetching calendar:', error);
                 const errorDiv = document.createElement('div');
-                errorDiv.style.opacity = '0.6';
-                errorDiv.style.textAlign = 'center';
+                errorDiv.className = 'calendar-error';
                 errorDiv.textContent = 'Error loading calendar';
                 content.innerHTML = '';
                 content.appendChild(errorDiv);
             }
         }
+        
+        // Render monthly calendar grid
+        function renderMonthlyCalendar(events) {
+            const monthView = document.createElement('div');
+            monthView.className = 'calendar-month-view';
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            
+            // Create header with month/year
+            const header = document.createElement('div');
+            header.className = 'calendar-header';
+            header.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            monthView.appendChild(header);
+            
+            // Create calendar grid
+            const grid = document.createElement('div');
+            grid.className = 'calendar-grid';
+            
+            // Day names
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayNames.forEach(day => {
+                const dayNameDiv = document.createElement('div');
+                dayNameDiv.className = 'calendar-day-name';
+                dayNameDiv.textContent = day;
+                grid.appendChild(dayNameDiv);
+            });
+            
+            // Get first day of month and number of days
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+            
+            // Create a map of dates with events
+            const eventDates = new Set();
+            events.forEach(event => {
+                const eventDate = new Date(event.start);
+                if (eventDate.getMonth() === month && eventDate.getFullYear() === year) {
+                    eventDates.add(eventDate.getDate());
+                }
+            });
+            
+            // Previous month days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day other-month';
+                dayDiv.textContent = daysInPrevMonth - i;
+                grid.appendChild(dayDiv);
+            }
+            
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day';
+                dayDiv.textContent = day;
+                
+                // Highlight today
+                if (day === now.getDate()) {
+                    dayDiv.classList.add('today');
+                }
+                
+                // Mark days with events
+                if (eventDates.has(day)) {
+                    dayDiv.classList.add('has-event');
+                }
+                
+                grid.appendChild(dayDiv);
+            }
+            
+            // Next month days to fill grid
+            const totalCells = grid.children.length - 7; // Subtract day names
+            const remainingCells = (7 - (totalCells % 7)) % 7;
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day other-month';
+                dayDiv.textContent = day;
+                grid.appendChild(dayDiv);
+            }
+            
+            monthView.appendChild(grid);
+            return monthView;
+        }
+        
+        // Render individual event
+        function renderEvent(event) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'calendar-event';
+            
+            // Add all-day class if applicable
+            if (event.isAllDay) {
+                eventDiv.classList.add('all-day');
+            }
+            
+            const startDate = new Date(event.start);
+            
+            // Main info div
+            const mainDiv = document.createElement('div');
+            
+            // Time/date display
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'calendar-event-time';
+            
+            if (event.isAllDay) {
+                // For all-day events, show date only
+                timeSpan.textContent = startDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    weekday: 'short'
+                });
+            } else {
+                // For timed events, show date and time
+                const dateStr = startDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                const timeStr = startDate.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+                timeSpan.textContent = `${dateStr} ${timeStr}`;
+            }
+            mainDiv.appendChild(timeSpan);
+            
+            // Title
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'calendar-event-title';
+            titleSpan.textContent = event.title || 'Untitled Event';
+            mainDiv.appendChild(titleSpan);
+            
+            eventDiv.appendChild(mainDiv);
+            
+            // Location
+            if (event.location) {
+                const locationDiv = document.createElement('div');
+                locationDiv.className = 'calendar-event-location';
+                locationDiv.textContent = '📍 ' + event.location;
+                eventDiv.appendChild(locationDiv);
+            }
+            
+            // Description (truncated)
+            if (event.description && event.description.trim()) {
+                const descDiv = document.createElement('div');
+                descDiv.className = 'calendar-event-description';
+                // Remove excessive whitespace and limit length
+                const cleanDesc = event.description.replace(/\s+/g, ' ').trim();
+                descDiv.textContent = cleanDesc.length > 100 ? cleanDesc.substring(0, 100) + '...' : cleanDesc;
+                eventDiv.appendChild(descDiv);
+            }
+            
+            return eventDiv;
+        }
+
 
         // Helper function to convert Celsius to Fahrenheit
         function celsiusToFahrenheit(celsius) {
