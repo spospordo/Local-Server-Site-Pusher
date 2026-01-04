@@ -17,6 +17,7 @@ finance.init({});
 console.log('Test 1: Parse sample account text');
 console.log('=' .repeat(50));
 
+// Sample text with icon contamination and wrapped names (simulating real OCR output)
 const sampleText = `
 $100,000
 +3.14% all worth at 00:00
@@ -25,13 +26,13 @@ Goals
 
 Cash                                           $10,000
 
-My Personal Cash Account                       $1,000
+G My Personal Cash Account                     $1,000
 Individual 3,325 APY
 
-Home Projects                                  $1,000
+anHome Projects                                $1,000
 Individual
 
-Emergency fund                                 $1,000
+anEmergency fund                               $1,000
 Individual
 
 Joint Cash Account                             $1,000
@@ -39,7 +40,7 @@ Individual 3.55% APY
 
 Vacation                                       $600
 
-Individual Cash Account                        10,000
+Individual Cash Account ( )                    10,000
 Investment: Individual Cash Account            $1,000
 
 Savings                                        $1,000
@@ -70,7 +71,7 @@ Individual
 Individual Automated Bond Ladder               $1,000
 Individual
 
-Individual Investment Account                  $1,000
+Individual Investment Account ( )              $1,000
 Wealthfront - Individual Automated Investing
 
 Roth IRA                                       $1,000
@@ -107,6 +108,30 @@ Chase
 6 days ago
 `;
 
+// Expected accounts that should be parsed (for validation)
+const expectedAccounts = [
+  'My Personal Cash Account',
+  'Home Projects',
+  'Emergency fund',
+  'Joint Cash Account',
+  'Vacation',
+  'Individual Cash Account',
+  'Savings',
+  'Checking',
+  'My Roth IRA',
+  'Individual Investment Account',
+  'S&P 500 Direct Portfolio',
+  'Wall Replacement Investment Account',
+  'Automated Bond Portfolio',
+  'Individual Automated Bond Ladder',
+  'Roth IRA',
+  'Traditional 401K',
+  '401K',
+  'Home',
+  'Credit Card',
+  'Mortgage'
+];
+
 // Parse the text using the internal parsing function (we'll need to export it for testing)
 const parseResult = finance.parseAccountsFromText ? 
   finance.parseAccountsFromText(sampleText) : 
@@ -132,6 +157,46 @@ if (parseResult.success) {
       console.log(`    - ${account.name}: $${account.balance.toLocaleString()}`);
     });
   });
+  
+  // Validation: Check for expected accounts
+  console.log('\n🔍 Validation Results:');
+  console.log('=' .repeat(50));
+  
+  const parsedNames = parseResult.accounts.map(a => a.name.toLowerCase());
+  const missingAccounts = [];
+  const contaminatedAccounts = [];
+  
+  expectedAccounts.forEach(expectedName => {
+    const found = parsedNames.some(parsed => 
+      parsed.includes(expectedName.toLowerCase()) || 
+      expectedName.toLowerCase().includes(parsed)
+    );
+    if (!found) {
+      missingAccounts.push(expectedName);
+    }
+  });
+  
+  // Check for icon contamination
+  parseResult.accounts.forEach(account => {
+    // Check if name starts with 1-3 lowercase letters followed by uppercase (icon pattern)
+    if (/^[a-z]{1,3}[A-Z]/.test(account.name)) {
+      contaminatedAccounts.push(account.name);
+    }
+  });
+  
+  if (missingAccounts.length === 0) {
+    console.log('✅ All expected accounts were captured!');
+  } else {
+    console.log(`⚠️  Missing ${missingAccounts.length} expected account(s):`);
+    missingAccounts.forEach(name => console.log(`   - ${name}`));
+  }
+  
+  if (contaminatedAccounts.length === 0) {
+    console.log('✅ No icon character contamination detected!');
+  } else {
+    console.log(`⚠️  Found ${contaminatedAccounts.length} account(s) with potential icon contamination:`);
+    contaminatedAccounts.forEach(name => console.log(`   - ${name}`));
+  }
   
   console.log('\n');
 } else {
