@@ -1547,8 +1547,9 @@ function parseAccountsFromText(text) {
     let currentCategory = null;
     
     // Skip words that are common UI elements, not account names
+    // Note: Removed 'individual' from skipWords to allow accounts like "Individual Cash Account"
     const skipWords = ['today', 'april', 'march', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
-                       'goals', 'individual', 'retirement', 'days ago', 'day ago', 'hours ago', 'hour ago', 
+                       'goals', 'days ago', 'day ago', 'hours ago', 'hour ago', 
                        'temporarily down', 'temporarily', 'apy', 'employer plan', 'build your', 'wealthfront'];
     
     for (let i = 0; i < lines.length; i++) {
@@ -1624,9 +1625,20 @@ function parseAccountsFromText(text) {
           accountName = nameStr
             .replace(/\$+/g, '') // Remove any dollar signs
             .replace(/^\d+\s*/, '') // Remove leading numbers
+            .replace(/^[a-z]{1,3}(?=[A-Z])/, '') // Remove lowercase icon prefix (e.g., "an", "ab")
             .replace(/[^\w\s\-&()\/]/g, ' ') // Remove special chars except basic ones
             .replace(/\s+/g, ' ') // Normalize whitespace
             .trim();
+          
+          // Remove single uppercase letter icon prefix (e.g., "G"), but not common words like "A", "I"
+          const singleLetterMatch = accountName.match(/^([A-Z])\s/);
+          if (singleLetterMatch) {
+            const letter = singleLetterMatch[1].toLowerCase();
+            const commonWords = ['a', 'i'];
+            if (!commonWords.includes(letter)) {
+              accountName = accountName.replace(/^[A-Z]\s/, '');
+            }
+          }
         }
       }
       
@@ -1637,9 +1649,21 @@ function parseAccountsFromText(text) {
         
         if (nextMatch) {
           accountName = line
+            .replace(/^[a-z]{1,3}(?=[A-Z])/, '') // Remove lowercase icon prefix
             .replace(/[^\w\s\-&()\/]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+          
+          // Remove single uppercase letter icon prefix (e.g., "G"), but not common words like "A", "I"
+          const singleLetterMatch = accountName.match(/^([A-Z])\s/);
+          if (singleLetterMatch) {
+            const letter = singleLetterMatch[1].toLowerCase();
+            const commonWords = ['a', 'i'];
+            if (!commonWords.includes(letter)) {
+              accountName = accountName.replace(/^[A-Z]\s/, '');
+            }
+          }
+          
           balance = parseFloat(nextMatch[1].replace(/,/g, ''));
           i++; // Skip the next line
         }
@@ -1647,15 +1671,15 @@ function parseAccountsFromText(text) {
       
       if (accountName && balance !== null && accountName.length >= 3 && accountName.length <= 100) {
         // Filter out category names and skip words
+        // Only reject if accountName IS a category keyword, not just contains it
         const isCategoryName = Object.values(categoryKeywords).flat().some(kw => 
-          accountName.toLowerCase().includes(kw)
+          accountName.toLowerCase() === kw || accountName.toLowerCase() === kw.replace('-', ' ')
         );
         const isSkipWord = skipWords.some(word => accountName.toLowerCase().includes(word));
         
-        // Avoid very generic names
-        const isGenericName = ['account', 'individual', 'personal'].includes(accountName.toLowerCase());
-        
-        if (!isCategoryName && !isSkipWord && !isGenericName && balance >= 0) {
+        // Allow all account names unless they're category names or skip words
+        // Removed isGenericName filter to allow accounts like "Individual Cash Account"
+        if (!isCategoryName && !isSkipWord && balance >= 0) {
           // Check for duplicates
           const duplicate = accounts.find(a => 
             a.name.toLowerCase() === accountName.toLowerCase() && Math.abs(a.balance - balance) < 1
