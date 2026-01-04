@@ -8810,6 +8810,13 @@
                 const currentConfigData = await currentConfigResponse.json();
                 const currentConfig = currentConfigData.success ? currentConfigData.config : null;
                 
+                // Helper function to preserve existing API key if input is empty
+                function preserveApiKey(inputValue, existingKey) {
+                    // If user entered a new value, use it; otherwise preserve existing
+                    const trimmedInput = inputValue ? inputValue.trim() : '';
+                    return trimmedInput || existingKey || undefined;
+                }
+                
                 // Parse calendar URLs from textarea (one per line)
                 const calendarUrlText = document.getElementById('calendarUrl').value;
                 const calendarUrls = calendarUrlText.split('\n')
@@ -8879,7 +8886,10 @@
                             size: document.getElementById('weatherSize').value,
                             area: 'bottom-left',
                             location: document.getElementById('weatherLocation').value,
-                            apiKey: document.getElementById('weatherApiKey').value.trim() || currentConfig?.widgets?.weather?.apiKey || undefined,
+                            apiKey: preserveApiKey(
+                                document.getElementById('weatherApiKey').value,
+                                currentConfig?.widgets?.weather?.apiKey
+                            ),
                             units: document.getElementById('weatherUnits').value
                         },
                         forecast: {
@@ -8887,7 +8897,10 @@
                             size: 'large',
                             area: 'bottom-center',
                             location: document.getElementById('forecastLocation').value,
-                            apiKey: document.getElementById('forecastApiKey').value.trim() || currentConfig?.widgets?.forecast?.apiKey || undefined,
+                            apiKey: preserveApiKey(
+                                document.getElementById('forecastApiKey').value,
+                                currentConfig?.widgets?.forecast?.apiKey
+                            ),
                             days: parseInt(document.getElementById('forecastDays').value),
                             units: document.getElementById('forecastUnits').value
                         },

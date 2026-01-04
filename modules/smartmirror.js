@@ -431,18 +431,15 @@ function saveConfig(newConfig) {
     };
     
     // Preserve API keys for weather and forecast widgets if not provided in new config
-    if (configToSave.widgets.weather) {
-      if (!configToSave.widgets.weather.apiKey && existingConfig.widgets?.weather?.apiKey) {
-        logger.info(logger.categories.SMART_MIRROR, 'Preserving existing weather API key');
-        configToSave.widgets.weather.apiKey = existingConfig.widgets.weather.apiKey;
+    const widgetsToPreserve = ['weather', 'forecast'];
+    widgetsToPreserve.forEach(widgetKey => {
+      if (configToSave.widgets[widgetKey]) {
+        if (!configToSave.widgets[widgetKey].apiKey && existingConfig.widgets?.[widgetKey]?.apiKey) {
+          logger.info(logger.categories.SMART_MIRROR, `Preserving existing ${widgetKey} API key`);
+          configToSave.widgets[widgetKey].apiKey = existingConfig.widgets[widgetKey].apiKey;
+        }
       }
-    }
-    if (configToSave.widgets.forecast) {
-      if (!configToSave.widgets.forecast.apiKey && existingConfig.widgets?.forecast?.apiKey) {
-        logger.info(logger.categories.SMART_MIRROR, 'Preserving existing forecast API key');
-        configToSave.widgets.forecast.apiKey = existingConfig.widgets.forecast.apiKey;
-      }
-    }
+    });
     
     logger.debug(logger.categories.SMART_MIRROR, `Merged configuration with defaults`);
     

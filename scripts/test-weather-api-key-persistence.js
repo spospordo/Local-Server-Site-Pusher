@@ -98,7 +98,7 @@ async function testLogin() {
 async function testSaveConfigWithApiKeys() {
   console.log('\n📝 Test 2: Save Config with Weather API Keys');
   
-  const testApiKey = 'test-api-key-12345';
+  const testApiKey = 'fake-test-openweathermap-api-key-for-persistence-testing-only';
   const testLocation = 'Seattle, WA';
   
   const config = {
