@@ -1852,7 +1852,7 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
     if (entry.type === 'balance_update' && entry.accountId) {
       const account = accounts.find(a => a.id === entry.accountId);
       if (account) {
-        const accountType = accountTypes[account.type];
+        const accountType = ACCOUNT_TYPES[account.type];
         if (accountType) {
           const category = accountType.category;
           if (!typeHistory[category]) {
@@ -1911,7 +1911,7 @@ function getNetWorthHistory(startDate = null, endDate = null) {
       Object.keys(accountBalances).forEach(accountId => {
         const account = accounts.find(a => a.id === accountId);
         if (account) {
-          const accountType = accountTypes[account.type];
+          const accountType = ACCOUNT_TYPES[account.type];
           if (accountType && accountType.category === 'liabilities') {
             liabilities += accountBalances[accountId];
           } else if (accountType && accountType.category !== 'future_income') {
