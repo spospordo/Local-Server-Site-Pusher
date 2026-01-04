@@ -1631,10 +1631,11 @@ function parseAccountsFromText(text) {
             .trim();
           
           // Remove single uppercase letter icon prefix (e.g., "G"), but not common words like "A", "I"
+          // Note: Add more common single-letter words to this list if needed (e.g., 'u' for U.S.)
           const singleLetterMatch = accountName.match(/^([A-Z])\s/);
           if (singleLetterMatch) {
             const letter = singleLetterMatch[1].toLowerCase();
-            const commonWords = ['a', 'i'];
+            const commonWords = ['a', 'i']; // Common single-letter words that are valid account name prefixes
             if (!commonWords.includes(letter)) {
               accountName = accountName.replace(/^[A-Z]\s/, '');
             }
@@ -1655,10 +1656,11 @@ function parseAccountsFromText(text) {
             .trim();
           
           // Remove single uppercase letter icon prefix (e.g., "G"), but not common words like "A", "I"
+          // Note: Add more common single-letter words to this list if needed (e.g., 'u' for U.S.)
           const singleLetterMatch = accountName.match(/^([A-Z])\s/);
           if (singleLetterMatch) {
             const letter = singleLetterMatch[1].toLowerCase();
-            const commonWords = ['a', 'i'];
+            const commonWords = ['a', 'i']; // Common single-letter words that are valid account name prefixes
             if (!commonWords.includes(letter)) {
               accountName = accountName.replace(/^[A-Z]\s/, '');
             }
