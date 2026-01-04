@@ -85,6 +85,24 @@
             max-width: 100%;
         }
 
+        .clock-time-24h {
+            font-size: 2.4rem; /* 60% of main clock size */
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            margin-top: 8px;
+            opacity: 0.6;
+            color: #999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        body.theme-light .clock-time-24h {
+            color: #666;
+        }
+
         .clock-date {
             font-size: 1.5rem;
             margin-top: 10px;
@@ -273,6 +291,10 @@
             .widget[data-grid-width="1"] .clock-time {
                 font-size: 2rem;
             }
+
+            .widget[data-grid-width="1"] .clock-time-24h {
+                font-size: 1.2rem; /* 60% of small widget clock size */
+            }
             
             .widget[data-grid-width="1"] .clock-date {
                 font-size: 0.8rem;
@@ -280,6 +302,10 @@
             
             .widget[data-grid-height="1"] .clock-time {
                 font-size: 2.5rem;
+            }
+
+            .widget[data-grid-height="1"] .clock-time-24h {
+                font-size: 1.5rem; /* 60% of medium widget clock size */
             }
             
             .widget[data-grid-height="1"] .clock-date {
@@ -927,6 +953,12 @@
                 minute: '2-digit',
                 hour12: true 
             });
+
+            const time24Str = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
             
             const dateStr = now.toLocaleDateString('en-US', { 
                 weekday: 'long', 
@@ -937,6 +969,7 @@
 
             content.innerHTML = `
                 <div class="clock-time">${timeStr}</div>
+                <div class="clock-time-24h">${time24Str}</div>
                 <div class="clock-date">${dateStr}</div>
             `;
         }
