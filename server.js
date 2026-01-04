@@ -4834,6 +4834,41 @@ app.post('/admin/api/finance/advanced-settings', requireAuth, (req, res) => {
   }
 });
 
+// Upload and process account screenshot
+app.post('/admin/api/finance/upload-screenshot', requireAuth, upload.single('screenshot'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+    
+    console.log('📤 [Finance] Screenshot uploaded, processing...');
+    
+    // Process the uploaded screenshot
+    const result = await finance.processAccountScreenshot(req.file.path);
+    
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Screenshot upload error:', err.message);
+    
+    // Clean up uploaded file on error
+    if (req.file && req.file.path) {
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      } catch (cleanupErr) {
+        console.error('⚠️ [Finance] Failed to cleanup file:', cleanupErr.message);
+      }
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process screenshot: ' + err.message 
+    });
+  }
+});
+
 // Backup and Export/Import API Endpoints
 // Export all site configurations and data
 app.get('/admin/api/backup/export', requireAuth, (req, res) => {

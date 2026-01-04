@@ -2069,6 +2069,37 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Screenshot Upload Section -->
+                <div class="finance-subsection">
+                    <h3>📸 Upload Account Screenshot</h3>
+                    <p class="help-text">Upload a screenshot of your account dashboard to automatically update balances</p>
+                    
+                    <div class="alert" style="background: #e7f3ff; border-left: 4px solid #2196F3; margin-bottom: 1rem;">
+                        <strong>ℹ️ How it works:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.9rem;">
+                            <li>Upload a clear screenshot showing account names and balances</li>
+                            <li>The system will extract account information using OCR</li>
+                            <li>Existing accounts will be updated with new balances</li>
+                            <li>New accounts found in the screenshot will be created automatically</li>
+                            <li>Screenshots are deleted immediately after processing for security</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="screenshotFile">Select Screenshot</label>
+                        <input type="file" id="screenshotFile" accept="image/*" style="display: block; width: 100%; padding: 0.5rem; border: 2px dashed #ccc; border-radius: 4px; cursor: pointer;">
+                        <small class="help-text">Supported formats: JPG, PNG, WebP. Max size: 10MB</small>
+                    </div>
+                    
+                    <button onclick="uploadAccountScreenshot()" class="btn" style="background: #2196F3;">
+                        📤 Upload & Process Screenshot
+                    </button>
+                    
+                    <div id="screenshotUploadStatus" style="margin-top: 1rem; display: none;"></div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Accounts List -->
                 <div class="finance-subsection">
                     <h3>📋 Your Accounts</h3>
@@ -10108,6 +10139,83 @@
             document.getElementById('startAge').value = '';
             document.getElementById('linkedProperty').value = '';
             updateAccountTypeHelp();
+        }
+        
+        async function uploadAccountScreenshot() {
+            const fileInput = document.getElementById('screenshotFile');
+            const statusDiv = document.getElementById('screenshotUploadStatus');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                statusDiv.className = 'alert alert-error';
+                statusDiv.textContent = 'Please select a screenshot file first';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                statusDiv.className = 'alert alert-error';
+                statusDiv.textContent = 'File is too large. Maximum size is 10MB.';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                statusDiv.className = 'alert alert-error';
+                statusDiv.textContent = 'Please upload an image file (JPG, PNG, WebP, etc.)';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            // Show processing status
+            statusDiv.className = 'alert alert-info';
+            statusDiv.innerHTML = '⏳ Processing screenshot... This may take 30-60 seconds.<br><small>Extracting text and updating accounts...</small>';
+            statusDiv.style.display = 'block';
+            
+            try {
+                const formData = new FormData();
+                formData.append('screenshot', file);
+                
+                const response = await fetch('/admin/api/finance/upload-screenshot', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.innerHTML = `
+                        ✅ <strong>Screenshot processed successfully!</strong><br>
+                        <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
+                            <li><strong>${result.accountsCreated}</strong> new account(s) created</li>
+                            <li><strong>${result.accountsUpdated}</strong> account(s) updated</li>
+                            <li><strong>${result.totalAccounts}</strong> total accounts processed</li>
+                            ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
+                        </ul>
+                    `;
+                    
+                    // Clear the file input
+                    fileInput.value = '';
+                    
+                    // Reload accounts and chart
+                    await loadAccounts();
+                    await updateChart();
+                    
+                    // Show general success alert
+                    showAlert('Account balances updated from screenshot!', 'success');
+                } else {
+                    statusDiv.className = 'alert alert-error';
+                    statusDiv.innerHTML = `❌ <strong>Processing failed:</strong><br>${result.error}`;
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                statusDiv.className = 'alert alert-error';
+                statusDiv.innerHTML = `❌ <strong>Upload failed:</strong><br>${err.message}`;
+            }
         }
         
         async function loadRecommendations() {
