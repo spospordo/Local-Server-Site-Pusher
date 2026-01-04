@@ -1831,6 +1831,136 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
   }
 }
 
+// Get historical balance data aggregated by account type
+function getHistoryByAccountType(startDate = null, endDate = null) {
+  const data = loadFinanceData();
+  let history = data.history || [];
+  
+  // Filter by date range
+  if (startDate) {
+    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+  }
+  if (endDate) {
+    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+  }
+  
+  // Group by account type and timestamp
+  const typeHistory = {};
+  const accounts = data.accounts || [];
+  
+  history.forEach(entry => {
+    if (entry.type === 'balance_update' && entry.accountId) {
+      const account = accounts.find(a => a.id === entry.accountId);
+      if (account) {
+        const accountType = accountTypes[account.type];
+        if (accountType) {
+          const category = accountType.category;
+          if (!typeHistory[category]) {
+            typeHistory[category] = [];
+          }
+          typeHistory[category].push({
+            timestamp: entry.balanceDate || entry.timestamp,
+            balance: entry.newBalance,
+            accountId: entry.accountId,
+            accountName: entry.accountName
+          });
+        }
+      }
+    }
+  });
+  
+  return typeHistory;
+}
+
+// Get net worth history over time
+function getNetWorthHistory(startDate = null, endDate = null) {
+  const data = loadFinanceData();
+  let history = data.history || [];
+  const accounts = data.accounts || [];
+  
+  // Filter by date range
+  if (startDate) {
+    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+  }
+  if (endDate) {
+    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+  }
+  
+  // Sort history by timestamp
+  history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  
+  // Calculate net worth at each point in time
+  const netWorthData = [];
+  const accountBalances = {};
+  
+  // Initialize with current account balances
+  accounts.forEach(account => {
+    accountBalances[account.id] = account.currentValue || 0;
+  });
+  
+  // Process history entries in chronological order
+  history.forEach(entry => {
+    if (entry.type === 'balance_update' && entry.accountId) {
+      accountBalances[entry.accountId] = entry.newBalance;
+      
+      // Calculate net worth at this point
+      let netWorth = 0;
+      let assets = 0;
+      let liabilities = 0;
+      
+      Object.keys(accountBalances).forEach(accountId => {
+        const account = accounts.find(a => a.id === accountId);
+        if (account) {
+          const accountType = accountTypes[account.type];
+          if (accountType && accountType.category === 'liabilities') {
+            liabilities += accountBalances[accountId];
+          } else if (accountType && accountType.category !== 'future_income') {
+            assets += accountBalances[accountId];
+          }
+        }
+      });
+      
+      netWorth = assets - liabilities;
+      
+      netWorthData.push({
+        timestamp: entry.balanceDate || entry.timestamp,
+        netWorth: netWorth,
+        assets: assets,
+        liabilities: liabilities
+      });
+    }
+  });
+  
+  return netWorthData;
+}
+
+// Get account balance history with snapshots
+function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
+  const data = loadFinanceData();
+  let history = data.history || [];
+  
+  // Filter by account
+  history = history.filter(h => h.accountId === accountId && h.type === 'balance_update');
+  
+  // Filter by date range
+  if (startDate) {
+    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+  }
+  if (endDate) {
+    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+  }
+  
+  // Sort by timestamp
+  history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  
+  // Map to balance snapshots
+  return history.map(entry => ({
+    timestamp: entry.balanceDate || entry.timestamp,
+    balance: entry.newBalance,
+    accountName: entry.accountName
+  }));
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -1852,6 +1982,9 @@ module.exports = {
   getDemoRecommendations,
   evaluateDemoRetirementPlan,
   processAccountScreenshot,
+  getHistoryByAccountType,
+  getNetWorthHistory,
+  getAccountBalanceHistory,
   // Export for testing
   parseAccountsFromText
 };

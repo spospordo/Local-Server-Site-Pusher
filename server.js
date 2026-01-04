@@ -4743,6 +4743,40 @@ app.get('/admin/api/finance/history', requireAuth, (req, res) => {
   }
 });
 
+// Get history grouped by account type
+app.get('/admin/api/finance/history/by-type', requireAuth, (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const history = finance.getHistoryByAccountType(startDate, endDate);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get history by type: ' + err.message });
+  }
+});
+
+// Get net worth history
+app.get('/admin/api/finance/history/net-worth', requireAuth, (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const history = finance.getNetWorthHistory(startDate, endDate);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get net worth history: ' + err.message });
+  }
+});
+
+// Get account balance history
+app.get('/admin/api/finance/history/account/:accountId', requireAuth, (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const { startDate, endDate } = req.query;
+    const history = finance.getAccountBalanceHistory(accountId, startDate, endDate);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get account balance history: ' + err.message });
+  }
+});
+
 // Get recommendations
 app.get('/admin/api/finance/recommendations', requireAuth, (req, res) => {
   try {
