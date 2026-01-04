@@ -13,6 +13,48 @@ The Finance Module is a secure, encrypted personal finance tracking system integ
 ### 📊 Account Management
 Track all your financial accounts and assets in one secure location:
 
+#### Screenshot Upload & Auto-Import
+
+**NEW in v2.2.5**: Automatically import account balances from screenshots
+
+The Finance Module now supports uploading screenshots of your financial dashboard to automatically extract and update account balances using OCR (Optical Character Recognition).
+
+**Features:**
+- **Automatic Account Detection**: Upload a screenshot and the system extracts account names and balances
+- **Smart Matching**: Existing accounts are automatically updated with new balances from the screenshot
+- **Auto-Creation**: New accounts detected in the screenshot are automatically created
+- **Category Recognition**: Automatically categorizes accounts as Cash, Investments, Real Estate, or Liabilities
+- **Historical Tracking**: All updates from screenshots are recorded in your account history
+- **Secure Processing**: Screenshots are immediately deleted after processing for maximum security
+
+**How to Use:**
+1. Navigate to the Finance Module "My Data" tab
+2. Scroll to the "Upload Account Screenshot" section
+3. Click "Select Screenshot" and choose an image file (JPG, PNG, WebP)
+4. Click "Upload & Process Screenshot"
+5. Wait 30-60 seconds while the system extracts text and updates accounts
+6. Review the results showing accounts created/updated
+
+**Supported Screenshot Formats:**
+- Financial dashboard screenshots showing account names and balances
+- Clear text that can be read by OCR
+- Organized by categories (Cash, Investments, Real Estate, Liabilities)
+- Maximum file size: 10MB
+
+**Technical Details:**
+- Uses Tesseract.js for OCR text extraction
+- Parses account structure with flexible pattern matching
+- Maps categories to appropriate account types
+- Handles various text layouts and formats
+- Provides detailed feedback on processing results
+
+**Privacy & Security:**
+- Screenshots are uploaded to server temporarily
+- Processed immediately with OCR
+- Deleted from server as soon as processing completes
+- Never stored permanently
+- All extracted data is encrypted before saving
+
 #### Balance Update & Historical Tracking
 - **Streamlined Balance Updates**: Quickly update account balances with a single click
 - **Historical Tracking**: Every balance change is recorded with the effective date
@@ -289,6 +331,7 @@ All endpoints require admin authentication.
 - `POST /admin/api/finance/accounts` - Create or update account
 - `POST /admin/api/finance/accounts/:id/balance` - Update account balance with historical tracking
 - `DELETE /admin/api/finance/accounts/:id` - Delete account
+- `POST /admin/api/finance/upload-screenshot` - Upload and process account screenshot (multipart/form-data with 'screenshot' field)
 
 ### Demographics
 - `GET /admin/api/finance/demographics` - Get user demographics
@@ -356,10 +399,16 @@ If charts don't display, the CDN may be blocked. The module continues to work wi
 ## Future Enhancements
 
 Potential additions for future versions:
-- Historical value tracking over time
-- Net worth trend analysis
+- **Screenshot Import Improvements**:
+  - Support for multiple financial institution formats
+  - Manual review/correction UI for OCR errors
+  - Validation of extracted totals against group sums
+  - Multi-image batch processing
+  - Historical screenshot archives with audit trails
+- Historical value tracking over time with trend graphs
+- Net worth trend analysis with projections
 - Import/export functionality (encrypted)
-- Budget tracking
+- Budget tracking with spending categories
 - Goal setting and progress tracking
 - Multi-currency support
 
