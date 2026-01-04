@@ -1521,70 +1521,153 @@ function parseAccountsFromText(text) {
   try {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
-    // Extract net worth (usually at the top)
+    // Extract net worth (usually at the top with $ sign and larger amount)
     let netWorth = null;
-    const netWorthMatch = text.match(/\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/);
-    if (netWorthMatch) {
-      netWorth = parseFloat(netWorthMatch[1].replace(/,/g, ''));
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const match = lines[i].match(/\$\s*(\d{1,3}(?:,\d{3})+)/);
+      if (match) {
+        const amount = parseFloat(match[1].replace(/,/g, ''));
+        if (amount > 10000) { // Likely net worth if > $10k
+          netWorth = amount;
+          break;
+        }
+      }
     }
     
     // Category/group keywords to identify sections
     const categoryKeywords = {
-      'cash': ['cash', 'checking', 'savings'],
-      'investments': ['investments', 'investment', 'portfolio', 'stocks', 'bonds', 'etf', 'ira', '401', 'roth'],
-      'real_estate': ['real estate', 'property', 'home', 'house', 'redfin', 'zillow'],
-      'liabilities': ['liabilities', 'debt', 'credit card', 'mortgage', 'loan']
+      'cash': ['cash'],
+      'investments': ['investments', 'investment'],
+      'real_estate': ['real estate', 'real-estate'],
+      'liabilities': ['liabilities']
     };
     
     const accounts = [];
     const groups = {};
     let currentCategory = null;
-    let currentGroupTotal = null;
+    
+    // Skip words that are common UI elements, not account names
+    const skipWords = ['today', 'april', 'march', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+                       'goals', 'individual', 'retirement', 'days ago', 'day ago', 'hours ago', 'hour ago', 
+                       'temporarily down', 'temporarily', 'apy', 'employer plan', 'build your', 'wealthfront'];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lowerLine = line.toLowerCase();
       
-      // Check if this line is a category header
+      // Skip common UI elements and very short lines
+      if (skipWords.some(word => lowerLine.includes(word)) || line.length < 3) {
+        continue;
+      }
+      
+      // Check if this line is a category header (exact match preferred)
+      let foundCategory = false;
       for (const [category, keywords] of Object.entries(categoryKeywords)) {
-        if (keywords.some(keyword => lowerLine.includes(keyword))) {
+        // Check for exact or very close match
+        if (keywords.some(keyword => {
+          const normalized = lowerLine.replace(/[^a-z\s]/g, '').trim();
+          return normalized === keyword || normalized.startsWith(keyword + ' ');
+        })) {
           currentCategory = category;
+          foundCategory = true;
           
-          // Try to extract group total from same line or next line
-          const amountMatch = line.match(/\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/);
+          // Try to extract group total from same line or nearby lines
+          const amountMatch = line.match(/\$\s*(\d{1,3}(?:,\d{3})*)/);
           if (amountMatch) {
-            currentGroupTotal = parseFloat(amountMatch[1].replace(/,/g, ''));
-            groups[category] = currentGroupTotal;
-          } else if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1];
-            const nextAmountMatch = nextLine.match(/\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/);
-            if (nextAmountMatch) {
-              currentGroupTotal = parseFloat(nextAmountMatch[1].replace(/,/g, ''));
-              groups[category] = currentGroupTotal;
+            groups[category] = parseFloat(amountMatch[1].replace(/,/g, ''));
+          } else {
+            // Look ahead a few lines for the total
+            for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+              const nextAmountMatch = lines[j].match(/^\$?\s*(\d{1,3}(?:,\d{3})*)\s*$/);
+              if (nextAmountMatch) {
+                groups[category] = parseFloat(nextAmountMatch[1].replace(/,/g, ''));
+                break;
+              }
             }
           }
           break;
         }
       }
       
+      if (foundCategory) {
+        continue; // Skip to next line after identifying category
+      }
+      
+      // Only process lines if we're in a category
+      if (!currentCategory) {
+        continue;
+      }
+      
       // Try to extract account name and balance
-      // Pattern: Account name followed by amount
-      const accountMatch = line.match(/^([A-Za-z\s\-]+[A-Za-z])\s+\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*$/);
-      if (accountMatch && currentCategory) {
-        const accountName = accountMatch[1].trim();
-        const balance = parseFloat(accountMatch[2].replace(/,/g, ''));
+      let accountName = null;
+      let balance = null;
+      
+      // Check if line contains a dollar amount
+      const dollarMatch = line.match(/\$(\d{1,3}(?:,\d{3})*)/);
+      const numberMatch = line.match(/(\d{1,3}(?:,\d{3})*)\s*$/);
+      
+      if (dollarMatch || numberMatch) {
+        // Extract the amount
+        const amountStr = dollarMatch ? dollarMatch[1] : (numberMatch ? numberMatch[1] : null);
+        if (amountStr) {
+          balance = parseFloat(amountStr.replace(/,/g, ''));
+          
+          // Extract account name (everything before the amount)
+          let nameStr = line;
+          if (dollarMatch) {
+            nameStr = line.substring(0, dollarMatch.index).trim();
+          } else if (numberMatch) {
+            nameStr = line.substring(0, numberMatch.index).trim();
+          }
+          
+          // Clean up the name
+          accountName = nameStr
+            .replace(/\$+/g, '') // Remove any dollar signs
+            .replace(/^\d+\s*/, '') // Remove leading numbers
+            .replace(/[^\w\s\-&()\/]/g, ' ') // Remove special chars except basic ones
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        }
+      }
+      
+      // If no amount on this line, check if next line has just an amount
+      if (!accountName && i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        const nextMatch = nextLine.match(/^\$?\s*(\d{1,3}(?:,\d{3})*)\s*$/);
         
-        // Filter out category names themselves
+        if (nextMatch) {
+          accountName = line
+            .replace(/[^\w\s\-&()\/]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          balance = parseFloat(nextMatch[1].replace(/,/g, ''));
+          i++; // Skip the next line
+        }
+      }
+      
+      if (accountName && balance !== null && accountName.length >= 3 && accountName.length <= 100) {
+        // Filter out category names and skip words
         const isCategoryName = Object.values(categoryKeywords).flat().some(kw => 
           accountName.toLowerCase().includes(kw)
         );
+        const isSkipWord = skipWords.some(word => accountName.toLowerCase().includes(word));
         
-        if (!isCategoryName && accountName.length > 2) {
-          accounts.push({
-            name: accountName,
-            balance: balance,
-            category: currentCategory
-          });
+        // Avoid very generic names
+        const isGenericName = ['account', 'individual', 'personal'].includes(accountName.toLowerCase());
+        
+        if (!isCategoryName && !isSkipWord && !isGenericName && balance >= 0) {
+          // Check for duplicates
+          const duplicate = accounts.find(a => 
+            a.name.toLowerCase() === accountName.toLowerCase() && Math.abs(a.balance - balance) < 1
+          );
+          
+          if (!duplicate) {
+            accounts.push({
+              name: accountName,
+              balance: balance,
+              category: currentCategory
+            });
+          }
         }
       }
     }
@@ -1592,7 +1675,8 @@ function parseAccountsFromText(text) {
     if (accounts.length === 0) {
       return {
         success: false,
-        error: 'Could not extract any account information from the image. Please ensure the image is clear and contains account details.'
+        error: 'Could not extract any account information from the image. Please ensure the image is clear and contains account details.',
+        rawText: text.substring(0, 1000) // Return more text for debugging
       };
     }
     
@@ -1741,5 +1825,7 @@ module.exports = {
   getDemoHistory,
   getDemoRecommendations,
   evaluateDemoRetirementPlan,
-  processAccountScreenshot
+  processAccountScreenshot,
+  // Export for testing
+  parseAccountsFromText
 };
