@@ -305,6 +305,61 @@ The Finance > Spending tab includes AI-powered assistance through Ollama LLM int
 
 See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
 
+## Smart Mirror Dashboard
+
+Create a customizable smart mirror display with widgets for clock, calendar, weather, forecast, and news feeds.
+
+### Features
+
+- 📱 **Dual Orientation Layouts**: Separate layouts for portrait and landscape displays with automatic detection
+- 🌤️ **Weather Widgets**: Current weather and 5-day forecast powered by OpenWeatherMap API
+- 📅 **Calendar Integration**: Display upcoming events from iCal/ICS feeds
+- 📰 **News Feeds**: Show latest headlines from RSS feeds
+- 🎨 **Grid Editor**: Visual drag-and-drop layout editor
+- 🌙 **Dark/Light Themes**: Built-in theme support
+- 🔐 **Persistent Configuration**: All settings including API keys persist across container restarts
+
+### Getting Started
+
+1. Access admin interface at `http://localhost:3000/admin`
+2. Navigate to **Smart Mirror** section
+3. Enable Smart Mirror and configure widgets:
+   - **Clock**: Always-on time display
+   - **Calendar**: Add iCal/ICS feed URLs
+   - **Weather**: Enter OpenWeatherMap API key and location
+   - **Forecast**: Uses same API key as weather widget
+   - **News**: Add RSS feed URLs
+
+4. Get a free OpenWeatherMap API key at [openweathermap.org/api](https://openweathermap.org/api)
+5. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+
+### API Key Persistence
+
+**Weather API keys persist automatically** across all deployments:
+
+- ✅ Container restarts and redeployments
+- ✅ Configuration updates that don't modify API keys
+- ✅ Server updates and rebuilds
+- ✅ Docker volume remounts
+
+**Security**: API keys are encrypted with AES-256-CBC and stored in `config/smartmirror-config.json.enc`
+
+**Admin UI**: When updating Smart Mirror settings, leave API key fields blank to keep existing keys. Enter a value only when setting or changing the API key.
+
+### Configuration Backup
+
+Smart Mirror configuration is included in automated backups:
+
+```bash
+# Backup all configuration including Smart Mirror API keys
+./scripts/backup-config.sh
+
+# Restore from backup
+./scripts/restore-config.sh <backup_file>
+```
+
+See [PERSISTENCE.md](PERSISTENCE.md) for detailed information on configuration persistence.
+
 ## Home Assistant Integration
 
 Add a RESTful sensor to your Home Assistant configuration:
