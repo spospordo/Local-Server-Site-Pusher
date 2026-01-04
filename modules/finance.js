@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const Tesseract = require('tesseract.js');
 
 let config = null;
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
@@ -1459,6 +1460,351 @@ function evaluateDemoRetirementPlan() {
   };
 }
 
+// Process uploaded screenshot and extract account data
+async function processAccountScreenshot(imagePath) {
+  try {
+    console.log('🔍 [Finance] Processing account screenshot with OCR...');
+    
+    // Perform OCR on the image
+    const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          console.log(`📖 [Finance] OCR Progress: ${Math.round(m.progress * 100)}%`);
+        }
+      }
+    });
+    
+    console.log('✅ [Finance] OCR completed, parsing account data...');
+    
+    // Parse the extracted text to find accounts and balances
+    const parseResult = parseAccountsFromText(text);
+    
+    // Delete the uploaded image file for security
+    try {
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+        console.log('🗑️ [Finance] Deleted uploaded image for security');
+      }
+    } catch (err) {
+      console.error('⚠️ [Finance] Failed to delete image:', err.message);
+    }
+    
+    if (!parseResult.success) {
+      return parseResult;
+    }
+    
+    // Update or create accounts from parsed data
+    const result = await updateAccountsFromParsedData(parseResult.accounts, parseResult.groups, parseResult.netWorth);
+    
+    return result;
+  } catch (error) {
+    console.error('❌ [Finance] Error processing screenshot:', error.message);
+    
+    // Try to clean up the image file even on error
+    try {
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    } catch (err) {
+      // Ignore cleanup errors
+    }
+    
+    return {
+      success: false,
+      error: 'Failed to process image: ' + error.message
+    };
+  }
+}
+
+// Parse account information from OCR text
+function parseAccountsFromText(text) {
+  try {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Extract net worth (usually at the top with $ sign and larger amount)
+    let netWorth = null;
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const match = lines[i].match(/\$\s*(\d{1,3}(?:,\d{3})+)/);
+      if (match) {
+        const amount = parseFloat(match[1].replace(/,/g, ''));
+        if (amount > 10000) { // Likely net worth if > $10k
+          netWorth = amount;
+          break;
+        }
+      }
+    }
+    
+    // Category/group keywords to identify sections
+    const categoryKeywords = {
+      'cash': ['cash'],
+      'investments': ['investments', 'investment'],
+      'real_estate': ['real estate', 'real-estate'],
+      'liabilities': ['liabilities']
+    };
+    
+    const accounts = [];
+    const groups = {};
+    let currentCategory = null;
+    
+    // Skip words that are common UI elements, not account names
+    const skipWords = ['today', 'april', 'march', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+                       'goals', 'individual', 'retirement', 'days ago', 'day ago', 'hours ago', 'hour ago', 
+                       'temporarily down', 'temporarily', 'apy', 'employer plan', 'build your', 'wealthfront'];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lowerLine = line.toLowerCase();
+      
+      // Skip common UI elements and very short lines
+      if (skipWords.some(word => lowerLine.includes(word)) || line.length < 3) {
+        continue;
+      }
+      
+      // Check if this line is a category header (exact match preferred)
+      let foundCategory = false;
+      for (const [category, keywords] of Object.entries(categoryKeywords)) {
+        // Check for exact or very close match
+        if (keywords.some(keyword => {
+          const normalized = lowerLine.replace(/[^a-z\s]/g, '').trim();
+          return normalized === keyword || normalized.startsWith(keyword + ' ');
+        })) {
+          currentCategory = category;
+          foundCategory = true;
+          
+          // Try to extract group total from same line or nearby lines
+          const amountMatch = line.match(/\$\s*(\d{1,3}(?:,\d{3})*)/);
+          if (amountMatch) {
+            groups[category] = parseFloat(amountMatch[1].replace(/,/g, ''));
+          } else {
+            // Look ahead a few lines for the total
+            for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+              const nextAmountMatch = lines[j].match(/^\$?\s*(\d{1,3}(?:,\d{3})*)\s*$/);
+              if (nextAmountMatch) {
+                groups[category] = parseFloat(nextAmountMatch[1].replace(/,/g, ''));
+                break;
+              }
+            }
+          }
+          break;
+        }
+      }
+      
+      if (foundCategory) {
+        continue; // Skip to next line after identifying category
+      }
+      
+      // Only process lines if we're in a category
+      if (!currentCategory) {
+        continue;
+      }
+      
+      // Try to extract account name and balance
+      let accountName = null;
+      let balance = null;
+      
+      // Check if line contains a dollar amount
+      const dollarMatch = line.match(/\$(\d{1,3}(?:,\d{3})*)/);
+      const numberMatch = line.match(/(\d{1,3}(?:,\d{3})*)\s*$/);
+      
+      if (dollarMatch || numberMatch) {
+        // Extract the amount
+        const amountStr = dollarMatch ? dollarMatch[1] : (numberMatch ? numberMatch[1] : null);
+        if (amountStr) {
+          balance = parseFloat(amountStr.replace(/,/g, ''));
+          
+          // Extract account name (everything before the amount)
+          let nameStr = line;
+          if (dollarMatch) {
+            nameStr = line.substring(0, dollarMatch.index).trim();
+          } else if (numberMatch) {
+            nameStr = line.substring(0, numberMatch.index).trim();
+          }
+          
+          // Clean up the name
+          accountName = nameStr
+            .replace(/\$+/g, '') // Remove any dollar signs
+            .replace(/^\d+\s*/, '') // Remove leading numbers
+            .replace(/[^\w\s\-&()\/]/g, ' ') // Remove special chars except basic ones
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        }
+      }
+      
+      // If no amount on this line, check if next line has just an amount
+      if (!accountName && i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        const nextMatch = nextLine.match(/^\$?\s*(\d{1,3}(?:,\d{3})*)\s*$/);
+        
+        if (nextMatch) {
+          accountName = line
+            .replace(/[^\w\s\-&()\/]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          balance = parseFloat(nextMatch[1].replace(/,/g, ''));
+          i++; // Skip the next line
+        }
+      }
+      
+      if (accountName && balance !== null && accountName.length >= 3 && accountName.length <= 100) {
+        // Filter out category names and skip words
+        const isCategoryName = Object.values(categoryKeywords).flat().some(kw => 
+          accountName.toLowerCase().includes(kw)
+        );
+        const isSkipWord = skipWords.some(word => accountName.toLowerCase().includes(word));
+        
+        // Avoid very generic names
+        const isGenericName = ['account', 'individual', 'personal'].includes(accountName.toLowerCase());
+        
+        if (!isCategoryName && !isSkipWord && !isGenericName && balance >= 0) {
+          // Check for duplicates
+          const duplicate = accounts.find(a => 
+            a.name.toLowerCase() === accountName.toLowerCase() && Math.abs(a.balance - balance) < 1
+          );
+          
+          if (!duplicate) {
+            accounts.push({
+              name: accountName,
+              balance: balance,
+              category: currentCategory
+            });
+          }
+        }
+      }
+    }
+    
+    if (accounts.length === 0) {
+      return {
+        success: false,
+        error: 'Could not extract any account information from the image. Please ensure the image is clear and contains account details.',
+        rawText: text.substring(0, 1000) // Return more text for debugging
+      };
+    }
+    
+    console.log(`📊 [Finance] Parsed ${accounts.length} accounts from screenshot`);
+    
+    return {
+      success: true,
+      accounts: accounts,
+      groups: groups,
+      netWorth: netWorth,
+      rawText: text.substring(0, 500) // Include snippet for debugging
+    };
+  } catch (error) {
+    console.error('❌ [Finance] Error parsing account text:', error.message);
+    return {
+      success: false,
+      error: 'Failed to parse account data: ' + error.message
+    };
+  }
+}
+
+// Update or create accounts from parsed data
+async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
+  try {
+    const data = loadFinanceData();
+    const existingAccounts = data.accounts || [];
+    
+    let accountsUpdated = 0;
+    let accountsCreated = 0;
+    const updatedAccountIds = [];
+    
+    // Map category to default account type
+    const categoryToType = {
+      'cash': 'checking',
+      'investments': 'stocks',
+      'real_estate': 'home',
+      'liabilities': 'credit_card'
+    };
+    
+    for (const parsedAccount of parsedAccounts) {
+      // Try to find existing account by name (case-insensitive)
+      const existingAccount = existingAccounts.find(acc => 
+        acc.name && acc.name.toLowerCase() === parsedAccount.name.toLowerCase()
+      );
+      
+      if (existingAccount) {
+        // Update existing account balance
+        const oldBalance = existingAccount.currentValue || 0;
+        existingAccount.currentValue = parsedAccount.balance;
+        existingAccount.updatedAt = new Date().toISOString();
+        
+        // Add history entry
+        data.history.push({
+          accountId: existingAccount.id,
+          accountName: existingAccount.name,
+          type: 'balance_update',
+          oldBalance: parseFloat(oldBalance),
+          newBalance: parsedAccount.balance,
+          balanceDate: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+          source: 'screenshot_upload'
+        });
+        
+        accountsUpdated++;
+        updatedAccountIds.push(existingAccount.id);
+      } else {
+        // Create new account
+        const accountType = categoryToType[parsedAccount.category] || 'checking';
+        const newAccount = {
+          id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
+          name: parsedAccount.name,
+          type: accountType,
+          currentValue: parsedAccount.balance,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: `Auto-created from screenshot upload on ${new Date().toLocaleDateString()}`
+        };
+        
+        data.accounts.push(newAccount);
+        
+        // Add history entry for new account
+        data.history.push({
+          accountId: newAccount.id,
+          accountName: newAccount.name,
+          type: 'account_created',
+          newBalance: parsedAccount.balance,
+          balanceDate: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+          source: 'screenshot_upload'
+        });
+        
+        accountsCreated++;
+        updatedAccountIds.push(newAccount.id);
+      }
+    }
+    
+    // Keep only last 1000 history entries
+    if (data.history.length > 1000) {
+      data.history = data.history.slice(-1000);
+    }
+    
+    // Save updated data
+    const saveResult = saveFinanceData(data);
+    
+    if (!saveResult.success) {
+      return saveResult;
+    }
+    
+    console.log(`✅ [Finance] Screenshot processing complete: ${accountsCreated} created, ${accountsUpdated} updated`);
+    
+    return {
+      success: true,
+      accountsCreated: accountsCreated,
+      accountsUpdated: accountsUpdated,
+      totalAccounts: parsedAccounts.length,
+      updatedAccountIds: updatedAccountIds,
+      groups: groups,
+      netWorth: netWorth
+    };
+  } catch (error) {
+    console.error('❌ [Finance] Error updating accounts from parsed data:', error.message);
+    return {
+      success: false,
+      error: 'Failed to update accounts: ' + error.message
+    };
+  }
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -1478,5 +1824,8 @@ module.exports = {
   getDemoDemographics,
   getDemoHistory,
   getDemoRecommendations,
-  evaluateDemoRetirementPlan
+  evaluateDemoRetirementPlan,
+  processAccountScreenshot,
+  // Export for testing
+  parseAccountsFromText
 };
