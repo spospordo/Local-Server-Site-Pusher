@@ -9801,6 +9801,16 @@
         let financeChart = null;
         let accountTypes = {};
         
+        // Category colors used across all finance charts
+        const FINANCE_CATEGORY_COLORS = {
+            cash: '#28a745',
+            investments: '#007bff',
+            retirement: '#ffc107',
+            real_estate: '#17a2b8',
+            future_income: '#6f42c1',
+            liabilities: '#dc3545'
+        };
+        
         async function initializeFinance() {
             try {
                 // Load account types
@@ -10506,14 +10516,6 @@
                 
                 // Group by category
                 const categoryData = {};
-                const categoryColors = {
-                    cash: '#28a745',
-                    investments: '#007bff',
-                    retirement: '#ffc107',
-                    real_estate: '#17a2b8',
-                    future_income: '#6f42c1',
-                    liabilities: '#dc3545'
-                };
                 
                 accounts.forEach(account => {
                     const type = accountTypes[account.type];
@@ -10528,7 +10530,7 @@
                 
                 const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
                 const data = Object.values(categoryData);
-                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                const colors = Object.keys(categoryData).map(cat => FINANCE_CATEGORY_COLORS[cat] || '#6c757d');
                 
                 const chartType = document.querySelector('input[name="chartType"]:checked').value;
                 
@@ -10880,14 +10882,6 @@
                 
                 // Group by category
                 const categoryData = {};
-                const categoryColors = {
-                    cash: '#28a745',
-                    investments: '#007bff',
-                    retirement: '#ffc107',
-                    real_estate: '#17a2b8',
-                    future_income: '#6f42c1',
-                    liabilities: '#dc3545'
-                };
                 
                 accounts.forEach(account => {
                     const type = accountTypes[account.type];
@@ -10902,7 +10896,7 @@
                 
                 const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
                 const data = Object.values(categoryData);
-                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                const colors = Object.keys(categoryData).map(cat => FINANCE_CATEGORY_COLORS[cat] || '#6c757d');
                 
                 const chartType = document.querySelector('input[name="demoChartType"]:checked').value;
                 
@@ -11181,14 +11175,6 @@
                 
                 // Aggregate data by date and category
                 const dateMap = {};
-                const categoryColors = {
-                    cash: '#28a745',
-                    investments: '#007bff',
-                    retirement: '#ffc107',
-                    real_estate: '#17a2b8',
-                    future_income: '#6f42c1',
-                    liabilities: '#dc3545'
-                };
                 
                 Object.keys(typeHistory).forEach(category => {
                     typeHistory[category].forEach(entry => {
@@ -11210,8 +11196,8 @@
                     return {
                         label: category.replace('_', ' ').toUpperCase(),
                         data: sortedDates.map(date => dateMap[date][category] || 0),
-                        borderColor: categoryColors[category],
-                        backgroundColor: categoryColors[category] + '40',
+                        borderColor: FINANCE_CATEGORY_COLORS[category],
+                        backgroundColor: FINANCE_CATEGORY_COLORS[category] + '40',
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4
@@ -11483,11 +11469,22 @@
                     .then(history => {
                         const balanceUpdates = history.filter(h => h.type === 'balance_update');
                         
+                        // Helper function to escape CSV values
+                        function escapeCSV(value) {
+                            if (value == null) return '';
+                            const str = String(value);
+                            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+                            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                                return '"' + str.replace(/"/g, '""') + '"';
+                            }
+                            return str;
+                        }
+                        
                         let csv = 'Date,Account,Old Balance,New Balance,Change\n';
                         balanceUpdates.forEach(entry => {
                             const date = new Date(entry.balanceDate || entry.timestamp).toISOString().split('T')[0];
                             const change = entry.newBalance - entry.oldBalance;
-                            csv += `${date},${entry.accountName},${entry.oldBalance},${entry.newBalance},${change}\n`;
+                            csv += `${escapeCSV(date)},${escapeCSV(entry.accountName)},${escapeCSV(entry.oldBalance)},${escapeCSV(entry.newBalance)},${escapeCSV(change)}\n`;
                         });
                         
                         const blob = new Blob([csv], { type: 'text/csv' });

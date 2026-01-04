@@ -1849,7 +1849,7 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
   const accounts = data.accounts || [];
   
   history.forEach(entry => {
-    if (entry.type === 'balance_update' && entry.accountId) {
+    if (entry.type === 'balance_update' && entry.accountId && entry.newBalance != null && !isNaN(entry.newBalance)) {
       const account = accounts.find(a => a.id === entry.accountId);
       if (account) {
         const accountType = ACCOUNT_TYPES[account.type];
@@ -1860,7 +1860,7 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
           }
           typeHistory[category].push({
             timestamp: entry.balanceDate || entry.timestamp,
-            balance: entry.newBalance,
+            balance: parseFloat(entry.newBalance),
             accountId: entry.accountId,
             accountName: entry.accountName
           });
@@ -1893,15 +1893,11 @@ function getNetWorthHistory(startDate = null, endDate = null) {
   const netWorthData = [];
   const accountBalances = {};
   
-  // Initialize with current account balances
-  accounts.forEach(account => {
-    accountBalances[account.id] = account.currentValue || 0;
-  });
-  
   // Process history entries in chronological order
+  // Build up balances from scratch rather than starting with current values
   history.forEach(entry => {
-    if (entry.type === 'balance_update' && entry.accountId) {
-      accountBalances[entry.accountId] = entry.newBalance;
+    if (entry.type === 'balance_update' && entry.accountId && entry.newBalance != null && !isNaN(entry.newBalance)) {
+      accountBalances[entry.accountId] = parseFloat(entry.newBalance);
       
       // Calculate net worth at this point
       let netWorth = 0;
@@ -1953,12 +1949,14 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   // Sort by timestamp
   history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   
-  // Map to balance snapshots
-  return history.map(entry => ({
-    timestamp: entry.balanceDate || entry.timestamp,
-    balance: entry.newBalance,
-    accountName: entry.accountName
-  }));
+  // Map to balance snapshots, filtering out entries with invalid balances
+  return history
+    .filter(entry => entry.newBalance != null && !isNaN(entry.newBalance))
+    .map(entry => ({
+      timestamp: entry.balanceDate || entry.timestamp,
+      balance: parseFloat(entry.newBalance),
+      accountName: entry.accountName
+    }));
 }
 
 module.exports = {
