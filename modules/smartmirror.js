@@ -404,6 +404,9 @@ function saveConfig(newConfig) {
       fs.mkdirSync(configDir, { recursive: true });
     }
     
+    // Load existing config to preserve API keys if not provided
+    const existingConfig = loadConfig();
+    
     // Migrate and validate config structure
     const migratedConfig = migrateConfig(newConfig);
     const defaultConfig = getDefaultConfig();
@@ -426,6 +429,17 @@ function saveConfig(newConfig) {
         }
       }
     };
+    
+    // Preserve API keys for weather and forecast widgets if not provided in new config
+    const widgetsToPreserve = ['weather', 'forecast'];
+    widgetsToPreserve.forEach(widgetKey => {
+      if (configToSave.widgets[widgetKey]) {
+        if (!configToSave.widgets[widgetKey].apiKey && existingConfig.widgets?.[widgetKey]?.apiKey) {
+          logger.info(logger.categories.SMART_MIRROR, `Preserving existing ${widgetKey} API key`);
+          configToSave.widgets[widgetKey].apiKey = existingConfig.widgets[widgetKey].apiKey;
+        }
+      }
+    });
     
     logger.debug(logger.categories.SMART_MIRROR, `Merged configuration with defaults`);
     

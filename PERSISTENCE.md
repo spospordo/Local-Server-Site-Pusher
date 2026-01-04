@@ -56,6 +56,28 @@ The following data is automatically persisted when properly configured:
 - **Contains**: Ollama WebUI URL, API key, model preferences
 - **Auto-persist**: ✅ Yes, encrypted and saved when configured
 
+### 📱 Smart Mirror Configuration
+- **Location**: `config/smartmirror-config.json.enc` (encrypted configuration)
+- **Contains**: 
+  - Widget configuration (clock, calendar, weather, forecast, news)
+  - OpenWeatherMap API keys for weather and forecast widgets
+  - Layout settings for portrait and landscape orientations
+  - Theme and refresh interval settings
+- **Auto-persist**: ✅ Yes, encrypted and saved immediately when modified
+- **Security**: 
+  - API keys encrypted with AES-256-CBC at rest
+  - API keys never exposed to public API endpoints
+  - API keys preserved when saving configuration without re-entering them
+- **Key Feature**: Weather API keys persist across:
+  - Container restarts and redeployments
+  - Configuration updates that don't modify API keys
+  - Server updates and rebuilds
+- **Admin UI Behavior**: 
+  - API keys are not displayed in admin interface for security
+  - Placeholder shows "••••••" when key is configured
+  - Leave API key field blank to keep existing key when updating other settings
+  - Enter new API key only when changing or setting for first time
+
 ### 🐙 GitHub Integration Settings
 - **Location**: `config/.gitconfig` (JSON format)
 - **Contains**: Git user name and email for commits
