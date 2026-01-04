@@ -8707,7 +8707,15 @@
                     document.getElementById('weatherGridHeight').value = weatherPortrait.height ?? 1;
                     document.getElementById('weatherLocation').value = weather.location || '';
                     document.getElementById('weatherUnits').value = weather.units || 'imperial';
-                    // Don't load API key for security
+                    // Don't load API key for security, but show if one exists
+                    const weatherApiKeyInput = document.getElementById('weatherApiKey');
+                    if (weather.apiKey) {
+                        weatherApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
+                        weatherApiKeyInput.dataset.hasKey = 'true';
+                    } else {
+                        weatherApiKeyInput.placeholder = 'Enter your OpenWeatherMap API key';
+                        weatherApiKeyInput.dataset.hasKey = 'false';
+                    }
                     
                     // Load forecast widget config
                     const forecast = config.widgets?.forecast || {};
@@ -8720,7 +8728,15 @@
                     document.getElementById('forecastGridHeight').value = forecastPortrait.height ?? 1;
                     document.getElementById('forecastLocation').value = forecast.location || '';
                     document.getElementById('forecastUnits').value = forecast.units || 'imperial';
-                    // Don't load API key for security
+                    // Don't load API key for security, but show if one exists
+                    const forecastApiKeyInput = document.getElementById('forecastApiKey');
+                    if (forecast.apiKey) {
+                        forecastApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
+                        forecastApiKeyInput.dataset.hasKey = 'true';
+                    } else {
+                        forecastApiKeyInput.placeholder = 'Enter your OpenWeatherMap API key';
+                        forecastApiKeyInput.dataset.hasKey = 'false';
+                    }
                     
                     // Load news widget config
                     const news = config.widgets?.news || {};
@@ -8789,6 +8805,11 @@
         
         async function saveSmartMirrorConfig() {
             try {
+                // First, fetch current config to preserve API keys if not being changed
+                const currentConfigResponse = await fetch('/admin/api/smart-mirror/config');
+                const currentConfigData = await currentConfigResponse.json();
+                const currentConfig = currentConfigData.success ? currentConfigData.config : null;
+                
                 // Parse calendar URLs from textarea (one per line)
                 const calendarUrlText = document.getElementById('calendarUrl').value;
                 const calendarUrls = calendarUrlText.split('\n')
@@ -8858,7 +8879,7 @@
                             size: document.getElementById('weatherSize').value,
                             area: 'bottom-left',
                             location: document.getElementById('weatherLocation').value,
-                            apiKey: document.getElementById('weatherApiKey').value.trim() || undefined,
+                            apiKey: document.getElementById('weatherApiKey').value.trim() || currentConfig?.widgets?.weather?.apiKey || undefined,
                             units: document.getElementById('weatherUnits').value
                         },
                         forecast: {
@@ -8866,7 +8887,7 @@
                             size: 'large',
                             area: 'bottom-center',
                             location: document.getElementById('forecastLocation').value,
-                            apiKey: document.getElementById('forecastApiKey').value.trim() || undefined,
+                            apiKey: document.getElementById('forecastApiKey').value.trim() || currentConfig?.widgets?.forecast?.apiKey || undefined,
                             days: parseInt(document.getElementById('forecastDays').value),
                             units: document.getElementById('forecastUnits').value
                         },
