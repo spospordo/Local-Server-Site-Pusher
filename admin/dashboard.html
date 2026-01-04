@@ -1898,6 +1898,7 @@
             <div class="sub-tabs" id="finance-subtabs">
                 <button class="sub-tab" onclick="showSubTab('finance-demo')">Demo</button>
                 <button class="sub-tab active" onclick="showSubTab('finance-mydata')">My Data</button>
+                <button class="sub-tab" onclick="showSubTab('finance-history')">History</button>
                 <button class="sub-tab" onclick="showSubTab('finance-spending')">Spending</button>
             </div>
             
@@ -2276,6 +2277,134 @@
                     </div>
                     
                     <div id="demoChartLegend" class="chart-legend"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance - History Sub-tab -->
+        <div class="card admin-section finance-section finance-history-section">
+            <div class="card-header">
+                <h2>📈 Finance History</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    View historical account balances and track your financial progress over time
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Filter Controls Section -->
+                <div class="finance-subsection">
+                    <h3>🔍 Filter Options</h3>
+                    <p class="help-text">Select date range and accounts to view historical data</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="historyStartDate">Start Date</label>
+                            <input type="date" id="historyStartDate" onchange="updateHistoryView()">
+                            <small class="help-text">Leave empty to show all history</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="historyEndDate">End Date</label>
+                            <input type="date" id="historyEndDate" onchange="updateHistoryView()">
+                            <small class="help-text">Leave empty to include up to today</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="historyAccountFilter">Filter by Account</label>
+                            <select id="historyAccountFilter" onchange="updateHistoryView()">
+                                <option value="">All Accounts</option>
+                            </select>
+                            <small class="help-text">Select a specific account or view all</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="historyViewType">View Type</label>
+                            <select id="historyViewType" onchange="updateHistoryView()">
+                                <option value="net-worth">Net Worth Over Time</option>
+                                <option value="by-category">By Account Type</option>
+                                <option value="single-account">Single Account</option>
+                            </select>
+                            <small class="help-text">Choose what to visualize</small>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <button onclick="setQuickDateRange('30d')" class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">Last 30 Days</button>
+                        <button onclick="setQuickDateRange('90d')" class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">Last 90 Days</button>
+                        <button onclick="setQuickDateRange('1y')" class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">Last Year</button>
+                        <button onclick="setQuickDateRange('all')" class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">All Time</button>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Chart Visualization Section -->
+                <div class="finance-subsection">
+                    <h3>📊 Historical Balance Chart</h3>
+                    <p class="help-text">Visual representation of your account balances over time</p>
+                    
+                    <div id="historyChartContainer" style="position: relative; height: 400px; margin-bottom: 2rem;">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+                    
+                    <div id="historyChartLegend" class="chart-legend"></div>
+                    
+                    <div id="historyNoData" style="display: none; text-align: center; padding: 2rem; color: #999;">
+                        <p style="font-size: 1.1rem;">📭 No historical data available</p>
+                        <p style="font-size: 0.9rem;">Historical data is automatically recorded when you update account balances.</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Summary Statistics Section -->
+                <div class="finance-subsection">
+                    <h3>📋 Summary Statistics</h3>
+                    <div id="historySummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <!-- Summary stats will be populated here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Historical Data Table Section -->
+                <div class="finance-subsection">
+                    <h3>📝 Historical Data</h3>
+                    <p class="help-text">Detailed list of balance changes and updates</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="historyTable" class="data-table" style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                            <thead>
+                                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                    <th style="padding: 0.75rem; text-align: left;">Date</th>
+                                    <th style="padding: 0.75rem; text-align: left;">Account</th>
+                                    <th style="padding: 0.75rem; text-align: right;">Balance</th>
+                                    <th style="padding: 0.75rem; text-align: right;">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr>
+                                    <td colspan="4" style="padding: 2rem; text-align: center; color: #999;">
+                                        Loading history data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Export Options Section -->
+                <div class="finance-subsection">
+                    <h3>💾 Export Options</h3>
+                    <p class="help-text">Download your historical data for external analysis</p>
+                    
+                    <button onclick="exportHistoryToCSV()" class="btn" style="margin-right: 0.5rem;">
+                        📥 Export to CSV
+                    </button>
+                    <button onclick="exportHistoryToJSON()" class="btn">
+                        📥 Export to JSON
+                    </button>
                 </div>
             </div>
         </div>
@@ -6859,6 +6988,7 @@
                 else if (subTabName === 'server-smartmirror') targetTabText = 'Smart Mirror';
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
+                else if (subTabName === 'finance-history') targetTabText = 'History';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
                 else if (subTabName === 'finance-advanced') targetTabText = 'Advanced';
                 else if (subTabName === 'settings-general') targetTabText = 'General';
@@ -6957,6 +7087,13 @@
                 
                 if (shouldLoadData) {
                     loadOllamaConfig();
+                }
+            } else if (subTabName === 'finance-history') {
+                const historySections = document.querySelectorAll('.finance-history-section');
+                historySections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    initializeHistory();
                 }
             } else if (subTabName === 'finance-advanced') {
                 const advancedSections = document.querySelectorAll('.finance-advanced-section');
@@ -9664,6 +9801,16 @@
         let financeChart = null;
         let accountTypes = {};
         
+        // Category colors used across all finance charts
+        const FINANCE_CATEGORY_COLORS = {
+            cash: '#28a745',
+            investments: '#007bff',
+            retirement: '#ffc107',
+            real_estate: '#17a2b8',
+            future_income: '#6f42c1',
+            liabilities: '#dc3545'
+        };
+        
         async function initializeFinance() {
             try {
                 // Load account types
@@ -10369,14 +10516,6 @@
                 
                 // Group by category
                 const categoryData = {};
-                const categoryColors = {
-                    cash: '#28a745',
-                    investments: '#007bff',
-                    retirement: '#ffc107',
-                    real_estate: '#17a2b8',
-                    future_income: '#6f42c1',
-                    liabilities: '#dc3545'
-                };
                 
                 accounts.forEach(account => {
                     const type = accountTypes[account.type];
@@ -10391,7 +10530,7 @@
                 
                 const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
                 const data = Object.values(categoryData);
-                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                const colors = Object.keys(categoryData).map(cat => FINANCE_CATEGORY_COLORS[cat] || '#6c757d');
                 
                 const chartType = document.querySelector('input[name="chartType"]:checked').value;
                 
@@ -10743,14 +10882,6 @@
                 
                 // Group by category
                 const categoryData = {};
-                const categoryColors = {
-                    cash: '#28a745',
-                    investments: '#007bff',
-                    retirement: '#ffc107',
-                    real_estate: '#17a2b8',
-                    future_income: '#6f42c1',
-                    liabilities: '#dc3545'
-                };
                 
                 accounts.forEach(account => {
                     const type = accountTypes[account.type];
@@ -10765,7 +10896,7 @@
                 
                 const labels = Object.keys(categoryData).map(cat => cat.replace('_', ' ').toUpperCase());
                 const data = Object.values(categoryData);
-                const colors = Object.keys(categoryData).map(cat => categoryColors[cat] || '#6c757d');
+                const colors = Object.keys(categoryData).map(cat => FINANCE_CATEGORY_COLORS[cat] || '#6c757d');
                 
                 const chartType = document.querySelector('input[name="demoChartType"]:checked').value;
                 
@@ -10829,6 +10960,570 @@
                 `).join('');
             } catch (err) {
                 console.error('Failed to update demo chart:', err);
+            }
+        }
+        
+        // Finance History Functions
+        let historyChart = null;
+        
+        async function initializeHistory() {
+            try {
+                // Populate account filter dropdown
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                
+                const filterSelect = document.getElementById('historyAccountFilter');
+                filterSelect.innerHTML = '<option value="">All Accounts</option>';
+                
+                accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.id;
+                    option.textContent = account.name;
+                    filterSelect.appendChild(option);
+                });
+                
+                // Load initial history view
+                await updateHistoryView();
+            } catch (err) {
+                console.error('Failed to initialize history:', err);
+            }
+        }
+        
+        function setQuickDateRange(range) {
+            const endDate = new Date();
+            let startDate = new Date();
+            
+            switch(range) {
+                case '30d':
+                    startDate.setDate(endDate.getDate() - 30);
+                    break;
+                case '90d':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1y':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+                case 'all':
+                    document.getElementById('historyStartDate').value = '';
+                    document.getElementById('historyEndDate').value = '';
+                    updateHistoryView();
+                    return;
+            }
+            
+            document.getElementById('historyStartDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('historyEndDate').value = endDate.toISOString().split('T')[0];
+            updateHistoryView();
+        }
+        
+        async function updateHistoryView() {
+            try {
+                const viewType = document.getElementById('historyViewType').value;
+                const startDate = document.getElementById('historyStartDate').value;
+                const endDate = document.getElementById('historyEndDate').value;
+                const accountId = document.getElementById('historyAccountFilter').value;
+                
+                if (viewType === 'net-worth') {
+                    await renderNetWorthChart(startDate, endDate);
+                } else if (viewType === 'by-category') {
+                    await renderCategoryChart(startDate, endDate);
+                } else if (viewType === 'single-account') {
+                    if (!accountId) {
+                        document.getElementById('historyNoData').style.display = 'block';
+                        document.getElementById('historyChartContainer').style.display = 'none';
+                        return;
+                    }
+                    await renderSingleAccountChart(accountId, startDate, endDate);
+                }
+                
+                // Update the table
+                await updateHistoryTable(accountId, startDate, endDate);
+                
+            } catch (err) {
+                console.error('Failed to update history view:', err);
+                document.getElementById('historyNoData').style.display = 'block';
+                document.getElementById('historyChartContainer').style.display = 'none';
+            }
+        }
+        
+        async function renderNetWorthChart(startDate, endDate) {
+            try {
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available');
+                    return;
+                }
+                
+                let url = '/admin/api/finance/history/net-worth?';
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('historyNoData').style.display = 'block';
+                    document.getElementById('historyChartContainer').style.display = 'none';
+                    return;
+                }
+                
+                document.getElementById('historyNoData').style.display = 'none';
+                document.getElementById('historyChartContainer').style.display = 'block';
+                
+                const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+                const netWorthData = data.map(d => d.netWorth);
+                const assetsData = data.map(d => d.assets);
+                const liabilitiesData = data.map(d => d.liabilities);
+                
+                const ctx = document.getElementById('historyChart').getContext('2d');
+                
+                if (historyChart) {
+                    historyChart.destroy();
+                }
+                
+                historyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Net Worth',
+                                data: netWorthData,
+                                borderColor: '#28a745',
+                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Total Assets',
+                                data: assetsData,
+                                borderColor: '#007bff',
+                                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Total Liabilities',
+                                data: liabilitiesData,
+                                borderColor: '#dc3545',
+                                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Update summary statistics
+                updateHistorySummary(data);
+                
+            } catch (err) {
+                console.error('Failed to render net worth chart:', err);
+            }
+        }
+        
+        async function renderCategoryChart(startDate, endDate) {
+            try {
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available');
+                    return;
+                }
+                
+                let url = '/admin/api/finance/history/by-type?';
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const typeHistory = await response.json();
+                
+                if (!typeHistory || Object.keys(typeHistory).length === 0) {
+                    document.getElementById('historyNoData').style.display = 'block';
+                    document.getElementById('historyChartContainer').style.display = 'none';
+                    return;
+                }
+                
+                document.getElementById('historyNoData').style.display = 'none';
+                document.getElementById('historyChartContainer').style.display = 'block';
+                
+                // Aggregate data by date and category
+                const dateMap = {};
+                
+                Object.keys(typeHistory).forEach(category => {
+                    typeHistory[category].forEach(entry => {
+                        const date = new Date(entry.timestamp).toISOString().split('T')[0];
+                        if (!dateMap[date]) {
+                            dateMap[date] = {};
+                        }
+                        if (!dateMap[date][category]) {
+                            dateMap[date][category] = 0;
+                        }
+                        dateMap[date][category] += entry.balance;
+                    });
+                });
+                
+                const sortedDates = Object.keys(dateMap).sort();
+                const labels = sortedDates.map(d => new Date(d).toLocaleDateString());
+                
+                const datasets = Object.keys(categoryColors).map(category => {
+                    return {
+                        label: category.replace('_', ' ').toUpperCase(),
+                        data: sortedDates.map(date => dateMap[date][category] || 0),
+                        borderColor: FINANCE_CATEGORY_COLORS[category],
+                        backgroundColor: FINANCE_CATEGORY_COLORS[category] + '40',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    };
+                }).filter(ds => ds.data.some(v => v > 0));
+                
+                const ctx = document.getElementById('historyChart').getContext('2d');
+                
+                if (historyChart) {
+                    historyChart.destroy();
+                }
+                
+                historyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            },
+                            x: {
+                                stacked: true
+                            }
+                        }
+                    }
+                });
+                
+            } catch (err) {
+                console.error('Failed to render category chart:', err);
+            }
+        }
+        
+        async function renderSingleAccountChart(accountId, startDate, endDate) {
+            try {
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available');
+                    return;
+                }
+                
+                let url = `/admin/api/finance/history/account/${accountId}?`;
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('historyNoData').style.display = 'block';
+                    document.getElementById('historyChartContainer').style.display = 'none';
+                    return;
+                }
+                
+                document.getElementById('historyNoData').style.display = 'none';
+                document.getElementById('historyChartContainer').style.display = 'block';
+                
+                const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+                const balances = data.map(d => d.balance);
+                const accountName = data[0].accountName;
+                
+                const ctx = document.getElementById('historyChart').getContext('2d');
+                
+                if (historyChart) {
+                    historyChart.destroy();
+                }
+                
+                historyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: accountName,
+                            data: balances,
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Balance: $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Update summary for single account
+                updateSingleAccountSummary(data);
+                
+            } catch (err) {
+                console.error('Failed to render single account chart:', err);
+            }
+        }
+        
+        function updateHistorySummary(netWorthData) {
+            if (!netWorthData || netWorthData.length === 0) {
+                document.getElementById('historySummary').innerHTML = '<p style="color: #999;">No data available</p>';
+                return;
+            }
+            
+            const latest = netWorthData[netWorthData.length - 1];
+            const oldest = netWorthData[0];
+            const change = latest.netWorth - oldest.netWorth;
+            const percentChange = oldest.netWorth !== 0 ? ((change / oldest.netWorth) * 100) : 0;
+            
+            const summaryHTML = `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Current Net Worth</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${latest.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid ${change >= 0 ? '#28a745' : '#dc3545'};">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Change</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: ${change >= 0 ? '#28a745' : '#dc3545'};">
+                        ${change >= 0 ? '+' : ''}$${change.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666;">${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Total Assets</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${latest.assets.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545;">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Total Liabilities</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${latest.liabilities.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                </div>
+            `;
+            
+            document.getElementById('historySummary').innerHTML = summaryHTML;
+        }
+        
+        function updateSingleAccountSummary(accountData) {
+            if (!accountData || accountData.length === 0) {
+                document.getElementById('historySummary').innerHTML = '<p style="color: #999;">No data available</p>';
+                return;
+            }
+            
+            const latest = accountData[accountData.length - 1];
+            const oldest = accountData[0];
+            const change = latest.balance - oldest.balance;
+            const percentChange = oldest.balance !== 0 ? ((change / oldest.balance) * 100) : 0;
+            
+            const summaryHTML = `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Current Balance</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${latest.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid ${change >= 0 ? '#28a745' : '#dc3545'};">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Change</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: ${change >= 0 ? '#28a745' : '#dc3545'};">
+                        ${change >= 0 ? '+' : ''}$${change.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666;">${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #6c757d;">
+                    <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Data Points</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${accountData.length}</div>
+                </div>
+            `;
+            
+            document.getElementById('historySummary').innerHTML = summaryHTML;
+        }
+        
+        async function updateHistoryTable(accountId, startDate, endDate) {
+            try {
+                let url = '/admin/api/finance/history?';
+                if (accountId) url += `accountId=${accountId}&`;
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const history = await response.json();
+                
+                const tbody = document.getElementById('historyTableBody');
+                
+                if (!history || history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding: 2rem; text-align: center; color: #999;">No history data available</td></tr>';
+                    return;
+                }
+                
+                // Filter to only balance updates
+                const balanceUpdates = history.filter(h => h.type === 'balance_update');
+                
+                // Sort by date descending (newest first)
+                balanceUpdates.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                tbody.innerHTML = balanceUpdates.map((entry, index) => {
+                    const change = entry.newBalance - entry.oldBalance;
+                    const changeColor = change >= 0 ? '#28a745' : '#dc3545';
+                    const date = new Date(entry.balanceDate || entry.timestamp).toLocaleDateString();
+                    
+                    return `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 0.75rem;">${date}</td>
+                            <td style="padding: 0.75rem;">${entry.accountName}</td>
+                            <td style="padding: 0.75rem; text-align: right; font-weight: 500;">$${entry.newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                            <td style="padding: 0.75rem; text-align: right; color: ${changeColor}; font-weight: 500;">
+                                ${change >= 0 ? '+' : ''}$${change.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+            } catch (err) {
+                console.error('Failed to update history table:', err);
+            }
+        }
+        
+        function exportHistoryToCSV() {
+            try {
+                const startDate = document.getElementById('historyStartDate').value;
+                const endDate = document.getElementById('historyEndDate').value;
+                const accountId = document.getElementById('historyAccountFilter').value;
+                
+                let url = '/admin/api/finance/history?';
+                if (accountId) url += `accountId=${accountId}&`;
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(history => {
+                        const balanceUpdates = history.filter(h => h.type === 'balance_update');
+                        
+                        // Helper function to escape CSV values
+                        function escapeCSV(value) {
+                            if (value == null) return '';
+                            const str = String(value);
+                            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+                            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                                return '"' + str.replace(/"/g, '""') + '"';
+                            }
+                            return str;
+                        }
+                        
+                        let csv = 'Date,Account,Old Balance,New Balance,Change\n';
+                        balanceUpdates.forEach(entry => {
+                            const date = new Date(entry.balanceDate || entry.timestamp).toISOString().split('T')[0];
+                            const change = entry.newBalance - entry.oldBalance;
+                            csv += `${escapeCSV(date)},${escapeCSV(entry.accountName)},${escapeCSV(entry.oldBalance)},${escapeCSV(entry.newBalance)},${escapeCSV(change)}\n`;
+                        });
+                        
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `finance-history-${new Date().toISOString().split('T')[0]}.csv`;
+                        a.click();
+                    });
+            } catch (err) {
+                console.error('Failed to export CSV:', err);
+                showAlert('Failed to export data', 'error');
+            }
+        }
+        
+        function exportHistoryToJSON() {
+            try {
+                const startDate = document.getElementById('historyStartDate').value;
+                const endDate = document.getElementById('historyEndDate').value;
+                const accountId = document.getElementById('historyAccountFilter').value;
+                
+                let url = '/admin/api/finance/history?';
+                if (accountId) url += `accountId=${accountId}&`;
+                if (startDate) url += `startDate=${startDate}&`;
+                if (endDate) url += `endDate=${endDate}`;
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(history => {
+                        const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `finance-history-${new Date().toISOString().split('T')[0]}.json`;
+                        a.click();
+                    });
+            } catch (err) {
+                console.error('Failed to export JSON:', err);
+                showAlert('Failed to export data', 'error');
             }
         }
         

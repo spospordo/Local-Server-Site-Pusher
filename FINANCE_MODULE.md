@@ -2,6 +2,10 @@
 
 The Finance Module is a secure, encrypted personal finance tracking system integrated into the Local Server Site Pusher admin dashboard.
 
+# Finance Module
+
+The Finance Module is a secure, encrypted personal finance tracking system integrated into the Local Server Site Pusher admin dashboard.
+
 ## Features
 
 ### 🔐 Security
@@ -63,6 +67,113 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - **Historical Tracking**: Every balance change is recorded with the effective date
 - **Time-Series Data**: Maintain a complete history of account balances over time
 - **Audit Trail**: Track when balances were updated and what they were changed to
+
+### 📈 Finance History (NEW in v2.2.5)
+
+**Navigate to: Finance → History**
+
+Comprehensive historical balance tracking and visualization to monitor your financial progress over time.
+
+#### Features
+
+**Interactive Charts:**
+- **Net Worth Over Time**: Track your total net worth, assets, and liabilities on a single chart
+- **By Account Type**: View stacked area chart showing balance progression by category (Cash, Investments, Retirement, Real Estate, Liabilities)
+- **Single Account**: Deep dive into any individual account's balance history
+
+**Flexible Filtering:**
+- **Date Range Selection**: Pick custom start and end dates
+- **Quick Filters**: One-click access to Last 30 Days, Last 90 Days, Last Year, or All Time
+- **Account Filtering**: Focus on a specific account or view all accounts together
+- **View Type Selection**: Switch between different visualization modes
+
+**Summary Statistics:**
+- Current balances and net worth
+- Total change over selected period
+- Percentage growth/decline
+- Asset and liability breakdowns
+- Number of data points tracked
+
+**Historical Data Table:**
+- Chronological list of all balance updates
+- Shows date, account name, balance, and change amount
+- Color-coded to highlight gains (green) and losses (red)
+- Sortable and filterable
+
+**Data Export:**
+- **CSV Export**: Download historical data for Excel or spreadsheet analysis
+- **JSON Export**: Export raw data for custom processing or backup
+
+#### How to Use
+
+1. **Navigate to History Tab**: Click Finance → History in the admin dashboard
+2. **Select View Type**: Choose Net Worth, By Category, or Single Account
+3. **Apply Filters**: Select date range and/or specific account
+4. **Analyze Charts**: Hover over data points to see exact values and dates
+5. **Review Table**: Scroll through detailed transaction history below the chart
+6. **Export Data**: Click export buttons to download your data
+
+#### Quick Filters
+
+- **Last 30 Days**: Perfect for monthly reviews
+- **Last 90 Days**: Quarterly financial checkups
+- **Last Year**: Annual performance analysis
+- **All Time**: Complete financial journey
+
+#### Chart Types
+
+**Net Worth Chart:**
+- Green line: Net worth (assets - liabilities)
+- Blue line: Total assets
+- Red line: Total liabilities
+- Shows overall financial health trajectory
+
+**By Category Chart:**
+- Stacked area chart with color-coded categories
+- Shows contribution of each account type to total wealth
+- Interactive legend to toggle categories on/off
+
+**Single Account Chart:**
+- Focused view of one account's balance history
+- Shows clear growth or decline patterns
+- Useful for tracking specific investment or savings goals
+
+#### API Endpoints
+
+The Finance History feature is powered by three new API endpoints:
+
+- `GET /admin/api/finance/history/net-worth` - Net worth history with assets/liabilities
+- `GET /admin/api/finance/history/by-type` - Historical balances grouped by account type
+- `GET /admin/api/finance/history/account/:id` - Balance history for a specific account
+
+All endpoints support optional query parameters:
+- `startDate` - Filter history from this date (ISO 8601 format)
+- `endDate` - Filter history up to this date (ISO 8601 format)
+
+#### Technical Details
+
+- **Automatic Tracking**: History is automatically created whenever account balances are updated
+- **Efficient Storage**: History entries are stored with timestamps and balance snapshots
+- **Data Retention**: System keeps last 1000 history entries (configurable)
+- **Real-time Calculations**: Net worth and aggregations are calculated on-the-fly
+- **Chart.js Integration**: Uses Chart.js library for smooth, interactive visualizations
+- **Encrypted Storage**: All historical data is encrypted at rest like other finance data
+
+#### Best Practices
+
+1. **Regular Updates**: Update balances regularly for accurate historical trends
+2. **Consistent Timing**: Update on the same day each month for cleaner charts
+3. **Use Screenshots**: Upload account screenshots for automated historical tracking
+4. **Export Regularly**: Back up your data periodically using the export feature
+5. **Review Quarterly**: Check your finance history at least every 3 months
+
+#### Edge Cases Handled
+
+- **New Accounts**: Accounts created after history was tracked appear correctly in timelines
+- **Deleted Accounts**: Historical data for deleted accounts is preserved
+- **Missing Data**: Charts gracefully handle gaps in history
+- **Multiple Updates**: Multiple balance updates on the same day are all tracked
+- **Date Filtering**: Empty date ranges show all available history
 
 #### Supported Account Types
 
