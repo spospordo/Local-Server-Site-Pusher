@@ -16,6 +16,7 @@ Track all your financial accounts and assets in one secure location:
 #### Screenshot Upload & Auto-Import
 
 **NEW in v2.2.5**: Automatically import account balances from screenshots
+**IMPROVED in v2.2.6**: Enhanced parsing accuracy and icon contamination fixes (see [ACCOUNT_PARSING_FIX.md](ACCOUNT_PARSING_FIX.md))
 
 The Finance Module now supports uploading screenshots of your financial dashboard to automatically extract and update account balances using OCR (Optical Character Recognition).
 
@@ -26,6 +27,8 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - **Category Recognition**: Automatically categorizes accounts as Cash, Investments, Real Estate, or Liabilities
 - **Historical Tracking**: All updates from screenshots are recorded in your account history
 - **Secure Processing**: Screenshots are immediately deleted after processing for maximum security
+- **Icon Contamination Removal**: Automatically removes UI icon characters that may be captured in OCR (v2.2.6)
+- **Long Name Support**: Correctly handles accounts with long or wrapped names (v2.2.6)
 
 **How to Use:**
 1. Navigate to the Finance Module "My Data" tab
