@@ -4291,6 +4291,36 @@
         </div>
     </div>
 
+    <!-- Edit Display Name Modal -->
+    <div id="displayNameModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Account Display Name</h3>
+                <span class="close" onclick="closeDisplayNameModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="displayNameAlert" class="alert" style="display: none;"></div>
+                <form id="displayNameForm" onsubmit="updateDisplayName(event)">
+                    <input type="hidden" id="displayNameAccountId">
+                    <div class="form-group">
+                        <label>Original Account Name (from upload/OCR)</label>
+                        <div id="displayNameOriginalName" style="padding: 10px; background: #f0f0f0; border-radius: 4px; color: #666;"></div>
+                        <small class="help-text">This is the name captured from screenshots or initially entered. It's used for matching across uploads.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="displayNameInput">Display Name</label>
+                        <input type="text" id="displayNameInput" placeholder="e.g., My Savings Account">
+                        <small class="help-text">This is the name shown throughout the interface. Leave blank to use the original name. Set a custom display name to correct OCR errors or make the name more descriptive.</small>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeDisplayNameModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn" style="background: #17a2b8;">Update Display Name</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Tournament Creation Modal -->
     <div id="tournamentModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -5466,6 +5496,12 @@
         document.getElementById('balanceUpdateModal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeBalanceUpdateModal();
+            }
+        });
+        
+        document.getElementById('displayNameModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeDisplayNameModal();
             }
         });
         
@@ -10074,21 +10110,26 @@
                     const isFutureIncome = type.category === 'future_income';
                     const isMortgage = type.requiresPropertyLink;
                     
+                    // Get display name (prefer displayName, fallback to name)
+                    const displayName = account.displayName || account.name;
+                    const showOriginalName = account.displayName && account.displayName !== account.name;
+                    
                     // Find linked property if applicable
                     let linkedPropertyName = '';
                     if (isMortgage && account.linkedProperty) {
                         const linkedProp = accounts.find(a => a.id === account.linkedProperty);
                         if (linkedProp) {
-                            linkedPropertyName = linkedProp.name;
+                            linkedPropertyName = linkedProp.displayName || linkedProp.name;
                         }
                     }
                     
                     return `
                         <div class="account-card">
                             <div class="account-card-header">
-                                <div class="account-name">${escapeHtml(account.name)}</div>
+                                <div class="account-name">${escapeHtml(displayName)}</div>
                                 <div class="account-type-badge">${type.name}</div>
                             </div>
+                            ${showOriginalName ? `<div style="color: #888; font-size: 0.85rem; margin-top: -0.5rem; margin-bottom: 0.5rem;">Original: ${escapeHtml(account.name)}</div>` : ''}
                             <div class="account-value">$${parseFloat(account.currentValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                             ${isFutureIncome && account.monthlyPayment ? `
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
@@ -10113,7 +10154,8 @@
                             </div>
                             <div class="account-actions">
                                 <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
-                                <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(account.name)}', ${account.currentValue || 0})">Update Balance</button>
+                                <button class="btn" style="background: #17a2b8;" onclick="showEditDisplayNameModal('${account.id}', '${escapeHtml(displayName)}', '${escapeHtml(account.name)}')">Edit Display Name</button>
+                                <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(displayName)}', ${account.currentValue || 0})">Update Balance</button>
                                 <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
                             </div>
                         </div>
@@ -10304,6 +10346,59 @@
             } catch (err) {
                 const alert = document.getElementById('balanceUpdateAlert');
                 alert.textContent = 'Failed to update balance: ' + err.message;
+                alert.className = 'alert alert-error';
+                alert.style.display = 'block';
+            }
+        }
+        
+        function showEditDisplayNameModal(accountId, currentDisplayName, originalName) {
+            document.getElementById('displayNameAccountId').value = accountId;
+            document.getElementById('displayNameOriginalName').textContent = originalName;
+            document.getElementById('displayNameInput').value = currentDisplayName;
+            
+            // Show modal
+            document.getElementById('displayNameModal').style.display = 'flex';
+            
+            // Hide alert
+            const alert = document.getElementById('displayNameAlert');
+            alert.style.display = 'none';
+        }
+        
+        function closeDisplayNameModal() {
+            document.getElementById('displayNameModal').style.display = 'none';
+            document.getElementById('displayNameForm').reset();
+        }
+        
+        async function updateDisplayName(event) {
+            event.preventDefault();
+            
+            const accountId = document.getElementById('displayNameAccountId').value;
+            const displayName = document.getElementById('displayNameInput').value.trim();
+            
+            try {
+                const response = await fetch(`/admin/api/finance/accounts/${accountId}/display-name`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: displayName
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    closeDisplayNameModal();
+                    showAlert('Display name updated successfully!', 'success');
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    const alert = document.getElementById('displayNameAlert');
+                    alert.textContent = 'Error: ' + result.error;
+                    alert.className = 'alert alert-error';
+                    alert.style.display = 'block';
+                }
+            } catch (err) {
+                const alert = document.getElementById('displayNameAlert');
+                alert.textContent = 'Failed to update display name: ' + err.message;
                 alert.className = 'alert alert-error';
                 alert.style.display = 'block';
             }
@@ -10978,7 +11073,7 @@
                 accounts.forEach(account => {
                     const option = document.createElement('option');
                     option.value = account.id;
-                    option.textContent = account.name;
+                    option.textContent = account.displayName || account.name;
                     filterSelect.appendChild(option);
                 });
                 

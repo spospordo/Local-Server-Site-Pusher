@@ -21,12 +21,15 @@ Track all your financial accounts and assets in one secure location:
 
 **NEW in v2.2.5**: Automatically import account balances from screenshots
 **IMPROVED in v2.2.6**: Enhanced parsing accuracy and icon contamination fixes (see [ACCOUNT_PARSING_FIX.md](ACCOUNT_PARSING_FIX.md))
+**NEW in v2.2.7**: Admin display name management for fixing OCR errors
 
 The Finance Module now supports uploading screenshots of your financial dashboard to automatically extract and update account balances using OCR (Optical Character Recognition).
 
 **Features:**
 - **Automatic Account Detection**: Upload a screenshot and the system extracts account names and balances
 - **Smart Matching**: Existing accounts are automatically updated with new balances from the screenshot
+- **Robust Fuzzy Matching**: Handles OCR variations, truncated names, and icon contamination
+- **Display Name Management**: Admins can set custom display names to correct OCR errors
 - **Auto-Creation**: New accounts detected in the screenshot are automatically created
 - **Category Recognition**: Automatically categorizes accounts as Cash, Investments, Real Estate, or Liabilities
 - **Historical Tracking**: All updates from screenshots are recorded in your account history
@@ -41,6 +44,7 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 4. Click "Upload & Process Screenshot"
 5. Wait 30-60 seconds while the system extracts text and updates accounts
 6. Review the results showing accounts created/updated
+7. (Optional) Click "Edit Display Name" on any account to set a more descriptive name
 
 **Supported Screenshot Formats:**
 - Financial dashboard screenshots showing account names and balances
@@ -51,6 +55,7 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 **Technical Details:**
 - Uses Tesseract.js for OCR text extraction
 - Parses account structure with flexible pattern matching
+- Enhanced fuzzy matching for account identification across uploads
 - Maps categories to appropriate account types
 - Handles various text layouts and formats
 - Provides detailed feedback on processing results
@@ -61,6 +66,43 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - Deleted from server as soon as processing completes
 - Never stored permanently
 - All extracted data is encrypted before saving
+
+#### Admin Display Name Management (NEW in v2.2.7)
+
+**Purpose:** Fix inaccurate or truncated account names captured from screenshots/OCR
+
+**Features:**
+- Set custom display names for any account
+- Display names shown throughout the interface (lists, charts, reports)
+- Original names preserved for matching across uploads
+- Robust fuzzy matching ensures correct account linking
+- Clear indication when display name differs from original
+
+**How to Use:**
+1. Click "Edit Display Name" button on any account card
+2. View the original name (captured from OCR/initial entry)
+3. Enter a custom display name (or leave blank to use original)
+4. Click "Update Display Name"
+5. Display name is now shown throughout the interface
+
+**Matching Behavior:**
+- Accounts are always matched by **original name** (not display name)
+- Fuzzy matching handles:
+  - Exact matches
+  - Truncated names (e.g., "My Personal Cash" matches "G My Personal Cash Account")
+  - OCR variations (e.g., extra spaces, missing punctuation)
+- Display names persist through balance updates
+- Display names are shown in:
+  - Account lists and cards
+  - Charts and visualizations
+  - History views
+  - Dropdown selectors
+
+**Use Cases:**
+- Fix OCR errors: "G My Personal Cash Account" → "My Savings Account"
+- Clarify account purpose: "Investment 401k" → "Retirement Fund (Employer Match)"
+- Standardize naming: "checking" → "Primary Checking Account"
+- Remove icon contamination: "anHome Projects" → "Home Projects Savings"
 
 #### Balance Update & Historical Tracking
 - **Streamlined Balance Updates**: Quickly update account balances with a single click
@@ -441,9 +483,10 @@ All endpoints require admin authentication.
 
 ### Account Management
 - `GET /admin/api/finance/account-types` - Get all account types with descriptions
-- `GET /admin/api/finance/accounts` - List all accounts
+- `GET /admin/api/finance/accounts` - List all accounts (includes displayName field)
 - `POST /admin/api/finance/accounts` - Create or update account
 - `POST /admin/api/finance/accounts/:id/balance` - Update account balance with historical tracking
+- `POST /admin/api/finance/accounts/:id/display-name` - Update account display name (body: `{ displayName: string }`)
 - `DELETE /admin/api/finance/accounts/:id` - Delete account
 - `POST /admin/api/finance/upload-screenshot` - Upload and process account screenshot (multipart/form-data with 'screenshot' field)
 
@@ -454,6 +497,9 @@ All endpoints require admin authentication.
 ### History & Analysis
 - `GET /admin/api/finance/history` - Get historical data
 - `POST /admin/api/finance/history` - Add history entry
+- `GET /admin/api/finance/history/by-type` - Get historical balances grouped by account type
+- `GET /admin/api/finance/history/net-worth` - Get net worth history over time
+- `GET /admin/api/finance/history/account/:id` - Get balance history for specific account
 - `GET /admin/api/finance/recommendations` - Get allocation recommendations
 - `GET /admin/api/finance/retirement-evaluation` - Evaluate retirement plan (Monte Carlo simulation)
 
