@@ -9421,12 +9421,18 @@
             currentOrientation: 'portrait' // Track which layout we're editing
         };
         
+        // Widget icons for the grid editor
+        // To add a new widget to the grid editor, simply:
+        // 1. Add it to this WIDGET_ICONS object with an appropriate emoji
+        // 2. Create form fields following the naming pattern: {widgetType}Enabled, {widgetType}GridX, etc.
+        // The grid editor will automatically discover and display the widget - no other changes needed!
         const WIDGET_ICONS = {
             clock: '🕐',
             calendar: '📅',
             weather: '🌤️',
             forecast: '🌦️',
-            news: '📰'
+            news: '📰',
+            media: '🎵'
         };
         
         // Switch between portrait and landscape editing
@@ -9496,7 +9502,16 @@
             gridState.widgets = {};
             gridState.originalPositions = {};
             
-            const widgetTypes = ['clock', 'calendar', 'weather', 'forecast', 'news'];
+            // Dynamically discover all available widget types by scanning DOM for enabled fields
+            // This ensures any new widgets added in the future are automatically included
+            const widgetTypes = [];
+            for (const widgetType of Object.keys(WIDGET_ICONS)) {
+                // Check if this widget has form fields
+                if (document.getElementById(`${widgetType}Enabled`)) {
+                    widgetTypes.push(widgetType);
+                }
+            }
+            
             const palette = document.getElementById('widgetPalette');
             palette.innerHTML = '';
             
