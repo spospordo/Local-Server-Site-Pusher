@@ -1,0 +1,59 @@
+name: Version Bump
+
+# Automatically bumps version based on commit messages
+# See VERSIONING.md for details on commit message conventions
+#
+# Triggered on: Push to main branch
+# Skipped for: Version bump commits (prevents infinite loops)
+#
+# Actions performed:
+# 1. Analyze commits since last version tag
+# 2. Determine version bump type (major/minor/patch)
+# 3. Update package.json and CHANGELOG.md
+# 4. Create git tag (e.g., v2.3.0)
+# 5. Commit and push changes
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - '**'
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Skip if commit message starts with "chore: bump version"
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to analyze commits
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Run version bump script
+        id: bump
+        run: |
+          node scripts/bump-version.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Push changes and tag
+        if: steps.bump.outputs.bumped == 'true'
+        run: |
+          git push origin main
+          git push origin --tags

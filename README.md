@@ -408,6 +408,16 @@ The application uses:
 - **JSON configuration** for easy management
 - **Docker** for containerization
 
+### Contributing
+
+When contributing to this project, please follow the [Versioning Guide](VERSIONING.md) for commit message conventions. The project uses automated semantic versioning based on commit messages:
+
+- `feat:` - New features (minor version bump)
+- `fix:` - Bug fixes (patch version bump)
+- `BREAKING CHANGE:` - Breaking changes (major version bump)
+
+See [VERSIONING.md](VERSIONING.md) for complete details on the automated versioning system.
+
 ## License
 
 MIT License - see LICENSE file for details.
