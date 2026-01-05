@@ -13,7 +13,7 @@ const http = require('http');
 const finance = require('../modules/finance');
 
 console.log('🧪 Testing Display Name Feature\n');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 // Initialize finance module
 finance.init({});

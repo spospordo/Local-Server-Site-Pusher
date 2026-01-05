@@ -308,8 +308,10 @@ function updateAccountDisplayName(accountId, displayName) {
   
   const account = data.accounts[accountIndex];
   
-  // Set display name (can be empty string to clear it)
-  account.displayName = displayName || null;
+  // Set display name (empty or whitespace-only strings become null)
+  account.displayName = (typeof displayName === 'string' && displayName.trim() !== '') 
+    ? displayName.trim() 
+    : null;
   account.updatedAt = new Date().toISOString();
   
   return saveFinanceData(data);
