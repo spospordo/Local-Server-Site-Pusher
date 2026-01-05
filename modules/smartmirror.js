@@ -5,6 +5,7 @@ const logger = require('./logger');
 const axios = require('axios');
 const Parser = require('rss-parser');
 const ical = require('node-ical');
+const SunCalc = require('suncalc');
 
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
@@ -154,8 +155,145 @@ function getDefaultConfig() {
       }
     },
     theme: 'dark',
-    refreshInterval: 60000 // 1 minute
+    refreshInterval: 60000, // 1 minute
+    autoThemeSwitch: {
+      portrait: {
+        enabled: false,
+        latitude: null,
+        longitude: null,
+        timezone: 'America/New_York'
+      },
+      landscape: {
+        enabled: false,
+        latitude: null,
+        longitude: null,
+        timezone: 'America/New_York'
+      }
+    }
   };
+}
+
+// Calculate sunrise and sunset times for a given date and location
+// Note: timezone is not used in calculation as SunCalc returns times based on the date object's timezone
+// The timezone is stored in config for display/reference purposes only
+function calculateSunTimes(latitude, longitude, timezone, date = new Date()) {
+  if (!latitude || !longitude) {
+    logger.warning(logger.categories.SMART_MIRROR, 'Cannot calculate sun times: latitude or longitude not provided');
+    return null;
+  }
+
+  try {
+    // Get sun times for the location
+    // SunCalc returns Date objects in the timezone of the input date
+    const times = SunCalc.getTimes(date, latitude, longitude);
+    
+    logger.debug(logger.categories.SMART_MIRROR, `Sun times calculated for lat=${latitude}, lon=${longitude}, tz=${timezone || 'system'}: sunrise=${times.sunrise}, sunset=${times.sunset}`);
+    
+    return {
+      sunrise: times.sunrise,
+      sunset: times.sunset,
+      sunriseISO: times.sunrise.toISOString(),
+      sunsetISO: times.sunset.toISOString()
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Error calculating sun times: ${err.message}`);
+    return null;
+  }
+}
+
+// Calculate theme based on current time and sunrise/sunset times
+// Light theme: 30 minutes before sunrise to 30 minutes after sunset
+// Dark theme: all other times
+function calculateCurrentTheme(autoThemeConfig, manualTheme = 'dark') {
+  // If auto theme switching is disabled, return manual theme
+  if (!autoThemeConfig || !autoThemeConfig.enabled) {
+    logger.debug(logger.categories.SMART_MIRROR, `Auto theme disabled, using manual theme: ${manualTheme}`);
+    return {
+      theme: manualTheme,
+      autoMode: false,
+      nextSwitch: null,
+      sunTimes: null
+    };
+  }
+
+  // Validate coordinates
+  if (!autoThemeConfig.latitude || !autoThemeConfig.longitude) {
+    logger.warning(logger.categories.SMART_MIRROR, 'Auto theme enabled but location not configured, using manual theme');
+    return {
+      theme: manualTheme,
+      autoMode: false,
+      error: 'Location not configured',
+      nextSwitch: null,
+      sunTimes: null
+    };
+  }
+
+  try {
+    const now = new Date();
+    const sunTimes = calculateSunTimes(autoThemeConfig.latitude, autoThemeConfig.longitude, autoThemeConfig.timezone, now);
+    
+    if (!sunTimes) {
+      logger.error(logger.categories.SMART_MIRROR, 'Failed to calculate sun times');
+      return {
+        theme: manualTheme,
+        autoMode: false,
+        error: 'Failed to calculate sun times',
+        nextSwitch: null,
+        sunTimes: null
+      };
+    }
+
+    // Apply 30-minute buffers
+    const BUFFER_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
+    const lightStart = new Date(sunTimes.sunrise.getTime() - BUFFER_MS);
+    const lightEnd = new Date(sunTimes.sunset.getTime() + BUFFER_MS);
+
+    // Determine current theme
+    const currentTheme = (now >= lightStart && now <= lightEnd) ? 'light' : 'dark';
+    
+    // Calculate next switch time
+    let nextSwitch;
+    if (currentTheme === 'light') {
+      // Currently light, next switch is to dark (30min after sunset)
+      nextSwitch = lightEnd;
+    } else if (now < lightStart) {
+      // Before light period starts, next switch is to light (30min before sunrise)
+      nextSwitch = lightStart;
+    } else {
+      // After light period ends, next switch is tomorrow's light start
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowSunTimes = calculateSunTimes(autoThemeConfig.latitude, autoThemeConfig.longitude, autoThemeConfig.timezone, tomorrow);
+      if (tomorrowSunTimes) {
+        nextSwitch = new Date(tomorrowSunTimes.sunrise.getTime() - BUFFER_MS);
+      } else {
+        nextSwitch = null;
+      }
+    }
+
+    logger.info(logger.categories.SMART_MIRROR, `Auto theme calculated: ${currentTheme} (next switch: ${nextSwitch ? nextSwitch.toISOString() : 'unknown'})`);
+    
+    return {
+      theme: currentTheme,
+      autoMode: true,
+      nextSwitch: nextSwitch ? nextSwitch.toISOString() : null,
+      sunTimes: {
+        sunrise: sunTimes.sunriseISO,
+        sunset: sunTimes.sunsetISO,
+        lightStart: lightStart.toISOString(),
+        lightEnd: lightEnd.toISOString()
+      }
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Error in calculateCurrentTheme: ${err.message}`);
+    return {
+      theme: manualTheme,
+      autoMode: false,
+      error: err.message,
+      nextSwitch: null,
+      sunTimes: null
+    };
+  }
 }
 
 // Helper function to scale widget position to new grid size
@@ -258,6 +396,15 @@ function migrateConfig(oldConfig) {
       };
     }
     
+    // Check if autoThemeSwitch is missing and add it
+    if (!oldConfig.autoThemeSwitch) {
+      logger.info(logger.categories.SMART_MIRROR, 'Adding missing autoThemeSwitch configuration');
+      return {
+        ...oldConfig,
+        autoThemeSwitch: getDefaultConfig().autoThemeSwitch
+      };
+    }
+    
     // Already in new format
     return oldConfig;
   }
@@ -278,6 +425,7 @@ function migrateConfig(oldConfig) {
       landscape: newLandscapeGridSize
     },
     refreshInterval: oldConfig.refreshInterval || 60000,
+    autoThemeSwitch: oldConfig.autoThemeSwitch || defaultConfig.autoThemeSwitch,
     widgets: {},
     layouts: {
       portrait: {},
@@ -543,6 +691,40 @@ function getPublicConfig(orientation = null) {
       portrait: getDefaultPortraitLayout(),
       landscape: getDefaultLandscapeLayout()
     };
+  }
+  
+  // Add auto theme switch configuration (sanitized)
+  if (fullConfig.autoThemeSwitch) {
+    publicConfig.autoThemeSwitch = {};
+    
+    if (orientation === 'portrait' && fullConfig.autoThemeSwitch.portrait) {
+      publicConfig.autoThemeSwitch.portrait = {
+        enabled: fullConfig.autoThemeSwitch.portrait.enabled,
+        latitude: fullConfig.autoThemeSwitch.portrait.latitude,
+        longitude: fullConfig.autoThemeSwitch.portrait.longitude,
+        timezone: fullConfig.autoThemeSwitch.portrait.timezone
+      };
+    } else if (orientation === 'landscape' && fullConfig.autoThemeSwitch.landscape) {
+      publicConfig.autoThemeSwitch.landscape = {
+        enabled: fullConfig.autoThemeSwitch.landscape.enabled,
+        latitude: fullConfig.autoThemeSwitch.landscape.latitude,
+        longitude: fullConfig.autoThemeSwitch.landscape.longitude,
+        timezone: fullConfig.autoThemeSwitch.landscape.timezone
+      };
+    } else {
+      // Return both if orientation not specified
+      publicConfig.autoThemeSwitch = {
+        portrait: fullConfig.autoThemeSwitch.portrait || getDefaultConfig().autoThemeSwitch.portrait,
+        landscape: fullConfig.autoThemeSwitch.landscape || getDefaultConfig().autoThemeSwitch.landscape
+      };
+    }
+  }
+  
+  // Calculate current theme based on orientation
+  if (orientation && fullConfig.autoThemeSwitch && fullConfig.autoThemeSwitch[orientation]) {
+    const themeInfo = calculateCurrentTheme(fullConfig.autoThemeSwitch[orientation], fullConfig.theme);
+    publicConfig.calculatedTheme = themeInfo.theme;
+    publicConfig.themeInfo = themeInfo;
   }
   
   // Sanitize widgets - remove API keys and other sensitive data
@@ -1474,6 +1656,8 @@ module.exports = {
   saveConfig,
   getPublicConfig,
   getDefaultConfig,
+  calculateCurrentTheme,
+  calculateSunTimes,
   fetchCalendarEvents,
   fetchNews,
   fetchWeather,
