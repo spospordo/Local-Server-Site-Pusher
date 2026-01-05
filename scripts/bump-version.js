@@ -195,6 +195,13 @@ function commitChanges(version) {
   log(`✓ Committed version bump changes`, 'green');
 }
 
+function setGitHubOutput(name, value) {
+  // Use new GitHub Actions output format
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+  }
+}
+
 function main() {
   try {
     log('\n🚀 Starting automated version bump...', 'cyan');
@@ -216,7 +223,7 @@ function main() {
     if (commits.length === 0) {
       log('No new commits to process. Version bump not needed.', 'yellow');
       // Set output for GitHub Actions
-      console.log('::set-output name=bumped::false');
+      setGitHubOutput('bumped', 'false');
       return;
     }
     
@@ -227,7 +234,7 @@ function main() {
     const bumpType = determineBumpType(commits);
     if (!bumpType) {
       log('No version bump needed.', 'yellow');
-      console.log('::set-output name=bumped::false');
+      setGitHubOutput('bumped', 'false');
       return;
     }
     
@@ -250,8 +257,8 @@ function main() {
     createGitTag(newVersion);
     
     // Set output for GitHub Actions
-    console.log('::set-output name=bumped::true');
-    console.log(`::set-output name=version::${newVersion}`);
+    setGitHubOutput('bumped', 'true');
+    setGitHubOutput('version', newVersion);
     
     log('\n✅ Version bump completed successfully!', 'green');
     log(`Version ${currentVersion} → ${newVersion}`, 'cyan');

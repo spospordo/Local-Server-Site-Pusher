@@ -106,6 +106,32 @@ git push origin main
 
 Result: Version 2.2.4 → 2.3.0 (minor bump - highest priority)
 
+## Preview Version Bump
+
+Before pushing changes, you can preview what version bump would occur:
+
+```bash
+node scripts/preview-version-bump.js
+```
+
+This shows:
+- Current version
+- Commits that will be analyzed
+- What bump type each commit triggers
+- The resulting new version
+- No changes are made to your repository
+
+Example output:
+```
+📌 Current version: 2.2.4
+📝 Commits to analyze (2):
+✨ feat: Add new feature [MINOR]
+🔧 fix: Bug fix [PATCH]
+
+✨ Determined bump type: MINOR
+2.2.4 → 2.3.0
+```
+
 ## Manual Version Bumping
 
 If the automated system doesn't detect the change scale correctly, you can manually bump the version:
