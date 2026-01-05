@@ -5402,7 +5402,6 @@ app.post('/admin/api/smart-mirror/test/weather', requireAuth, async (req, res) =
     
     res.json(result);
   } catch (err) {
-    console.error('❌ [Smart Mirror] Error testing weather connection:', err.message);
     logger.error(logger.categories.SMART_MIRROR, `Weather test error: ${err.message}`);
     res.status(500).json({
       success: false,
@@ -5443,7 +5442,6 @@ app.post('/admin/api/smart-mirror/test/calendar', requireAuth, async (req, res) 
     
     res.json(result);
   } catch (err) {
-    console.error('❌ [Smart Mirror] Error testing calendar connection:', err.message);
     logger.error(logger.categories.SMART_MIRROR, `Calendar test error: ${err.message}`);
     res.status(500).json({
       success: false,
@@ -5484,7 +5482,6 @@ app.post('/admin/api/smart-mirror/test/news', requireAuth, async (req, res) => {
     
     res.json(result);
   } catch (err) {
-    console.error('❌ [Smart Mirror] Error testing news connection:', err.message);
     logger.error(logger.categories.SMART_MIRROR, `News test error: ${err.message}`);
     res.status(500).json({
       success: false,
@@ -5525,7 +5522,6 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
     
     res.json(result);
   } catch (err) {
-    console.error('❌ [Smart Mirror] Error testing Home Assistant connection:', err.message);
     logger.error(logger.categories.SMART_MIRROR, `Home Assistant test error: ${err.message}`);
     res.status(500).json({
       success: false,

@@ -1067,15 +1067,28 @@ async function testCalendarFeed(feedUrls) {
     const trimmedUrl = url.trim();
     if (!trimmedUrl) continue;
     
-    // Convert webcal:// to https://
+    // Convert webcal:// to https:// securely
     let finalUrl = trimmedUrl;
-    if (trimmedUrl.startsWith('webcal://')) {
+    if (trimmedUrl.toLowerCase().startsWith('webcal://')) {
       finalUrl = 'https://' + trimmedUrl.substring(9);
+    } else if (trimmedUrl.toLowerCase().startsWith('webcals://')) {
+      finalUrl = 'https://' + trimmedUrl.substring(10);
     }
     
     // Validate URL format
     try {
-      new URL(finalUrl);
+      const parsedUrl = new URL(finalUrl);
+      // Only allow http and https protocols
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        results.push({
+          url: trimmedUrl,
+          success: false,
+          error: 'Invalid Protocol',
+          message: 'Only HTTP and HTTPS protocols are supported.'
+        });
+        errorCount++;
+        continue;
+      }
     } catch (err) {
       results.push({
         url: trimmedUrl,
