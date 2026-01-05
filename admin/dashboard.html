@@ -3940,6 +3940,76 @@
                     </div>
                 </div>
 
+                <!-- Media Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🎵 Media Widget (Home Assistant)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="mediaEnabled">Media Widget</label>
+                                <select id="mediaEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="mediaSize">Size</label>
+                                <select id="mediaSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="mediaGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="mediaGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="mediaGridY">Grid Position Y (0-2)</label>
+                                <input type="number" id="mediaGridY" min="0" max="2" value="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="mediaGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="mediaGridWidth" min="1" max="4" value="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="mediaGridHeight">Height (1-3 cells)</label>
+                                <input type="number" id="mediaGridHeight" min="1" max="3" value="2">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="mediaHomeAssistantUrl">Home Assistant Server URL</label>
+                            <input type="text" id="mediaHomeAssistantUrl" placeholder="http://homeassistant.local:8123">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Enter the full URL of your Home Assistant server (e.g., http://192.168.1.100:8123 or http://homeassistant.local:8123)
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="mediaHomeAssistantToken">Home Assistant Long-Lived Access Token</label>
+                            <input type="password" id="mediaHomeAssistantToken" placeholder="Enter your long-lived access token">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Create a long-lived access token in Home Assistant: Profile → Security → Long-Lived Access Tokens → Create Token
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="mediaEntityIds">Media Player Entity IDs (one per line)</label>
+                            <textarea id="mediaEntityIds" rows="3" placeholder="media_player.spotify&#10;media_player.chromecast&#10;media_player.sonos"></textarea>
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Enter the entity IDs of your Home Assistant media players. Find these in Home Assistant under Developer Tools → States. The widget will display the first active (playing/paused) player, or the first available player if none are active.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="section-divider"></div>
 
                 <!-- Smart Mirror Diagnostics -->
@@ -8932,6 +9002,28 @@
                     const feedUrls = news.feedUrls || (news.feedUrl ? [news.feedUrl] : []);
                     document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
                     
+                    // Load media widget config
+                    const media = config.widgets?.media || {};
+                    document.getElementById('mediaEnabled').value = media.enabled === true ? 'true' : 'false';
+                    document.getElementById('mediaSize').value = media.size || 'large';
+                    const mediaPortrait = portraitLayout.media || media.gridPosition || { x: 0, y: 4, width: 4, height: 2 };
+                    document.getElementById('mediaGridX').value = mediaPortrait.x ?? 0;
+                    document.getElementById('mediaGridY').value = mediaPortrait.y ?? 4;
+                    document.getElementById('mediaGridWidth').value = mediaPortrait.width ?? 4;
+                    document.getElementById('mediaGridHeight').value = mediaPortrait.height ?? 2;
+                    document.getElementById('mediaHomeAssistantUrl').value = media.homeAssistantUrl || '';
+                    // Don't load token for security, but show if one exists
+                    const mediaTokenInput = document.getElementById('mediaHomeAssistantToken');
+                    if (media.homeAssistantToken) {
+                        mediaTokenInput.placeholder = '••••••••••••••••••••••••• (Token is set - leave blank to keep current)';
+                        mediaTokenInput.dataset.hasToken = 'true';
+                    } else {
+                        mediaTokenInput.placeholder = 'Enter your long-lived access token';
+                        mediaTokenInput.dataset.hasToken = 'false';
+                    }
+                    const entityIds = media.entityIds || [];
+                    document.getElementById('mediaEntityIds').value = entityIds.join('\n');
+                    
                     // Store landscape layouts and grid sizes in a global variable for later use
                     window.smartMirrorLayouts = {
                         portrait: portraitLayout,
@@ -8963,7 +9055,7 @@
                     initializeGridEditor();
                     
                     // Add event listeners to refresh grid when widgets are enabled/disabled
-                    ['clock', 'calendar', 'weather', 'forecast', 'news'].forEach(type => {
+                    ['clock', 'calendar', 'weather', 'forecast', 'news', 'media'].forEach(type => {
                         const enabledSelect = document.getElementById(`${type}Enabled`);
                         if (enabledSelect) {
                             enabledSelect.addEventListener('change', () => {
@@ -9041,8 +9133,20 @@
                         y: parseInt(document.getElementById('newsGridY').value),
                         width: parseInt(document.getElementById('newsGridWidth').value),
                         height: parseInt(document.getElementById('newsGridHeight').value)
+                    },
+                    media: {
+                        x: parseInt(document.getElementById('mediaGridX').value),
+                        y: parseInt(document.getElementById('mediaGridY').value),
+                        width: parseInt(document.getElementById('mediaGridWidth').value),
+                        height: parseInt(document.getElementById('mediaGridHeight').value)
                     }
                 };
+                
+                // Parse media entity IDs from textarea (one per line)
+                const mediaEntityIdsText = document.getElementById('mediaEntityIds').value;
+                const mediaEntityIds = mediaEntityIdsText.split('\n')
+                    .map(id => id.trim())
+                    .filter(id => id.length > 0);
                 
                 // Get landscape layout from stored config (or default if not set)
                 const landscapeLayout = window.smartMirrorLayouts?.landscape || portraitLayout;
@@ -9090,6 +9194,17 @@
                             size: document.getElementById('newsSize').value,
                             area: 'bottom-right',
                             feedUrls: feedUrls
+                        },
+                        media: {
+                            enabled: document.getElementById('mediaEnabled').value === 'true',
+                            size: document.getElementById('mediaSize').value,
+                            area: 'middle-center',
+                            homeAssistantUrl: document.getElementById('mediaHomeAssistantUrl').value.trim(),
+                            homeAssistantToken: preserveApiKey(
+                                document.getElementById('mediaHomeAssistantToken').value,
+                                currentConfig?.widgets?.media?.homeAssistantToken
+                            ),
+                            entityIds: mediaEntityIds
                         }
                     },
                     layouts: {
