@@ -943,6 +943,518 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   }
 }
 
+// Test weather API connection
+async function testWeatherConnection(apiKey, location, units = 'imperial') {
+  logger.info(logger.categories.SMART_MIRROR, `Testing weather API connection for location: ${location}`);
+  
+  if (!apiKey || !location) {
+    return {
+      success: false,
+      error: 'API key and location are required',
+      message: 'Please provide both an API key and location to test the connection.'
+    };
+  }
+  
+  if (!apiKey.trim()) {
+    return {
+      success: false,
+      error: 'Invalid API Key',
+      message: 'API key cannot be empty.'
+    };
+  }
+  
+  if (!location.trim()) {
+    return {
+      success: false,
+      error: 'Invalid Location',
+      message: 'Location cannot be empty.'
+    };
+  }
+  
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
+    const response = await axios.get(url, { timeout: 10000 });
+    
+    if (response.status === 200 && response.data) {
+      logger.success(logger.categories.SMART_MIRROR, `Weather API test successful for ${location}`);
+      return {
+        success: true,
+        message: `Successfully connected to OpenWeatherMap API. Found weather data for "${response.data.name}".`,
+        data: {
+          location: response.data.name,
+          temp: Math.round(response.data.main.temp),
+          condition: response.data.weather[0]?.main || 'Unknown'
+        }
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Unexpected Response',
+      message: 'Received an unexpected response from the weather API.'
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Weather API test failed: ${err.message}`);
+    
+    if (err.response) {
+      if (err.response.status === 401) {
+        return {
+          success: false,
+          error: 'Invalid API Key',
+          message: 'The API key is invalid. Please check your OpenWeatherMap API key and try again.'
+        };
+      } else if (err.response.status === 404) {
+        return {
+          success: false,
+          error: 'Location Not Found',
+          message: `Could not find weather data for "${location}". Please check the location name and try again.`
+        };
+      } else if (err.response.status >= 500) {
+        return {
+          success: false,
+          error: 'Server Error',
+          message: 'OpenWeatherMap API is currently unavailable. Please try again later.'
+        };
+      }
+      return {
+        success: false,
+        error: `HTTP ${err.response.status}`,
+        message: `Received error ${err.response.status} from OpenWeatherMap API.`
+      };
+    }
+    
+    if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
+      return {
+        success: false,
+        error: 'Cannot Reach Server',
+        message: 'Could not connect to OpenWeatherMap API. Please check your internet connection.'
+      };
+    }
+    
+    if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+      return {
+        success: false,
+        error: 'Connection Timeout',
+        message: 'Connection to OpenWeatherMap API timed out. Please try again.'
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Connection Failed',
+      message: `Failed to connect to weather API: ${err.message}`
+    };
+  }
+}
+
+// Test calendar feed connection
+async function testCalendarFeed(feedUrls) {
+  logger.info(logger.categories.SMART_MIRROR, `Testing calendar feed connection for ${feedUrls.length} feeds`);
+  
+  if (!feedUrls || feedUrls.length === 0) {
+    return {
+      success: false,
+      error: 'No URLs Provided',
+      message: 'Please provide at least one calendar feed URL.'
+    };
+  }
+  
+  const results = [];
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const url of feedUrls) {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) continue;
+    
+    // Convert webcal:// to https://
+    let finalUrl = trimmedUrl;
+    if (trimmedUrl.startsWith('webcal://')) {
+      finalUrl = 'https://' + trimmedUrl.substring(9);
+    }
+    
+    // Validate URL format
+    try {
+      new URL(finalUrl);
+    } catch (err) {
+      results.push({
+        url: trimmedUrl,
+        success: false,
+        error: 'Malformed URL',
+        message: 'The URL format is invalid.'
+      });
+      errorCount++;
+      continue;
+    }
+    
+    try {
+      logger.info(logger.categories.SMART_MIRROR, `Testing calendar feed: ${finalUrl}`);
+      const response = await axios.get(finalUrl, { 
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Local-Server-Site-Pusher/1.0'
+        }
+      });
+      
+      if (response.status === 200 && response.data) {
+        // Try to parse the iCal data
+        const events = await ical.async.parseICS(response.data);
+        const eventCount = Object.keys(events).length;
+        
+        logger.success(logger.categories.SMART_MIRROR, `Calendar feed test successful: ${finalUrl} (${eventCount} items)`);
+        results.push({
+          url: trimmedUrl,
+          success: true,
+          message: `Successfully fetched calendar feed with ${eventCount} items.`,
+          eventCount
+        });
+        successCount++;
+      } else {
+        results.push({
+          url: trimmedUrl,
+          success: false,
+          error: 'Unexpected Response',
+          message: `Received HTTP ${response.status} from the server.`
+        });
+        errorCount++;
+      }
+    } catch (err) {
+      logger.error(logger.categories.SMART_MIRROR, `Calendar feed test failed for ${finalUrl}: ${err.message}`);
+      
+      let errorMessage = 'Failed to fetch calendar feed.';
+      let errorType = 'Connection Failed';
+      
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorType = 'Unauthorized';
+          errorMessage = 'Authentication required. The calendar feed requires valid credentials.';
+        } else if (err.response.status === 403) {
+          errorType = 'Access Denied';
+          errorMessage = 'Access to the calendar feed is forbidden. Check permissions.';
+        } else if (err.response.status === 404) {
+          errorType = 'Not Found';
+          errorMessage = 'Calendar feed not found at this URL.';
+        } else if (err.response.status >= 500) {
+          errorType = 'Server Error';
+          errorMessage = 'The calendar server is currently unavailable.';
+        } else {
+          errorMessage = `Received error ${err.response.status} from the server.`;
+        }
+      } else if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
+        errorType = 'Cannot Reach Server';
+        errorMessage = 'Could not connect to the calendar server.';
+      } else if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+        errorType = 'Connection Timeout';
+        errorMessage = 'Connection timed out while fetching the calendar feed.';
+      }
+      
+      results.push({
+        url: trimmedUrl,
+        success: false,
+        error: errorType,
+        message: errorMessage
+      });
+      errorCount++;
+    }
+  }
+  
+  const overallSuccess = successCount > 0 && errorCount === 0;
+  const message = errorCount === 0
+    ? `Successfully tested ${successCount} calendar feed(s).`
+    : `Tested ${successCount + errorCount} feed(s): ${successCount} successful, ${errorCount} failed.`;
+  
+  return {
+    success: overallSuccess,
+    message,
+    results,
+    summary: {
+      total: successCount + errorCount,
+      successful: successCount,
+      failed: errorCount
+    }
+  };
+}
+
+// Test news feed connection
+async function testNewsFeed(feedUrls) {
+  logger.info(logger.categories.SMART_MIRROR, `Testing news feed connection for ${feedUrls.length} feeds`);
+  
+  if (!feedUrls || feedUrls.length === 0) {
+    return {
+      success: false,
+      error: 'No URLs Provided',
+      message: 'Please provide at least one news feed URL.'
+    };
+  }
+  
+  const parser = new Parser({
+    timeout: 10000,
+    customFields: {
+      item: ['media:content', 'media:thumbnail']
+    }
+  });
+  
+  const results = [];
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const url of feedUrls) {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) continue;
+    
+    // Validate URL format
+    try {
+      new URL(trimmedUrl);
+    } catch (err) {
+      results.push({
+        url: trimmedUrl,
+        success: false,
+        error: 'Malformed URL',
+        message: 'The URL format is invalid.'
+      });
+      errorCount++;
+      continue;
+    }
+    
+    try {
+      logger.info(logger.categories.SMART_MIRROR, `Testing news feed: ${trimmedUrl}`);
+      const feed = await parser.parseURL(trimmedUrl);
+      
+      const itemCount = feed.items?.length || 0;
+      logger.success(logger.categories.SMART_MIRROR, `News feed test successful: ${trimmedUrl} (${itemCount} items)`);
+      
+      results.push({
+        url: trimmedUrl,
+        success: true,
+        message: `Successfully fetched RSS feed "${feed.title || 'Unknown'}" with ${itemCount} items.`,
+        feedTitle: feed.title,
+        itemCount
+      });
+      successCount++;
+    } catch (err) {
+      logger.error(logger.categories.SMART_MIRROR, `News feed test failed for ${trimmedUrl}: ${err.message}`);
+      
+      let errorMessage = 'Failed to fetch news feed.';
+      let errorType = 'Connection Failed';
+      
+      if (err.message.includes('Status code 401')) {
+        errorType = 'Unauthorized';
+        errorMessage = 'Authentication required for this feed.';
+      } else if (err.message.includes('Status code 403')) {
+        errorType = 'Access Denied';
+        errorMessage = 'Access to the news feed is forbidden.';
+      } else if (err.message.includes('Status code 404')) {
+        errorType = 'Not Found';
+        errorMessage = 'News feed not found at this URL.';
+      } else if (err.message.includes('Status code 5')) {
+        errorType = 'Server Error';
+        errorMessage = 'The news server is currently unavailable.';
+      } else if (err.message.includes('ENOTFOUND') || err.message.includes('ECONNREFUSED')) {
+        errorType = 'Cannot Reach Server';
+        errorMessage = 'Could not connect to the news server.';
+      } else if (err.message.includes('timeout') || err.message.includes('ETIMEDOUT')) {
+        errorType = 'Connection Timeout';
+        errorMessage = 'Connection timed out while fetching the feed.';
+      } else if (err.message.includes('Invalid RSS') || err.message.includes('parse')) {
+        errorType = 'Invalid Feed Format';
+        errorMessage = 'The feed is not in a valid RSS/Atom format.';
+      }
+      
+      results.push({
+        url: trimmedUrl,
+        success: false,
+        error: errorType,
+        message: errorMessage
+      });
+      errorCount++;
+    }
+  }
+  
+  const overallSuccess = successCount > 0 && errorCount === 0;
+  const message = errorCount === 0
+    ? `Successfully tested ${successCount} news feed(s).`
+    : `Tested ${successCount + errorCount} feed(s): ${successCount} successful, ${errorCount} failed.`;
+  
+  return {
+    success: overallSuccess,
+    message,
+    results,
+    summary: {
+      total: successCount + errorCount,
+      successful: successCount,
+      failed: errorCount
+    }
+  };
+}
+
+// Test Home Assistant media connection
+async function testHomeAssistantMedia(url, token, entityIds) {
+  logger.info(logger.categories.SMART_MIRROR, `Testing Home Assistant media connection to ${url}`);
+  
+  if (!url || !token) {
+    return {
+      success: false,
+      error: 'Missing Configuration',
+      message: 'Home Assistant URL and access token are required.'
+    };
+  }
+  
+  if (!url.trim()) {
+    return {
+      success: false,
+      error: 'Invalid URL',
+      message: 'Home Assistant URL cannot be empty.'
+    };
+  }
+  
+  if (!token.trim()) {
+    return {
+      success: false,
+      error: 'Invalid Token',
+      message: 'Home Assistant access token cannot be empty.'
+    };
+  }
+  
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch (err) {
+    return {
+      success: false,
+      error: 'Malformed URL',
+      message: 'The Home Assistant URL format is invalid. Use format: http://hostname:port'
+    };
+  }
+  
+  try {
+    // Test basic connection first
+    const apiUrl = `${url.replace(/\/$/, '')}/api/`;
+    logger.info(logger.categories.SMART_MIRROR, `Testing Home Assistant API: ${apiUrl}`);
+    
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
+    
+    if (response.status === 200) {
+      logger.success(logger.categories.SMART_MIRROR, 'Home Assistant API connection successful');
+      
+      // If entity IDs are provided, test fetching their states
+      if (entityIds && entityIds.length > 0) {
+        const statesUrl = `${url.replace(/\/$/, '')}/api/states`;
+        const statesResponse = await axios.get(statesUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        });
+        
+        const allStates = statesResponse.data;
+        const foundEntities = entityIds.filter(id => 
+          allStates.some(state => state.entity_id === id.trim())
+        );
+        
+        const mediaPlayers = foundEntities.filter(id => id.startsWith('media_player.'));
+        
+        return {
+          success: true,
+          message: `Successfully connected to Home Assistant. Found ${foundEntities.length} of ${entityIds.length} configured entities (${mediaPlayers.length} media players).`,
+          data: {
+            homeAssistantVersion: response.data.message || 'Unknown',
+            totalEntities: allStates.length,
+            foundEntities: foundEntities.length,
+            configuredEntities: entityIds.length,
+            mediaPlayers: mediaPlayers.length
+          }
+        };
+      }
+      
+      return {
+        success: true,
+        message: 'Successfully connected to Home Assistant.',
+        data: {
+          homeAssistantVersion: response.data.message || 'Unknown'
+        }
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Unexpected Response',
+      message: `Received HTTP ${response.status} from Home Assistant.`
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Home Assistant test failed: ${err.message}`);
+    
+    if (err.response) {
+      if (err.response.status === 401) {
+        return {
+          success: false,
+          error: 'Invalid Access Token',
+          message: 'The access token is invalid or expired. Please create a new long-lived access token in Home Assistant.'
+        };
+      } else if (err.response.status === 403) {
+        return {
+          success: false,
+          error: 'Access Denied',
+          message: 'The access token does not have permission to access the API.'
+        };
+      } else if (err.response.status === 404) {
+        return {
+          success: false,
+          error: 'Not Found',
+          message: 'Home Assistant API not found at this URL. Check the URL and port number.'
+        };
+      } else if (err.response.status >= 500) {
+        return {
+          success: false,
+          error: 'Server Error',
+          message: 'Home Assistant server is experiencing errors.'
+        };
+      }
+      return {
+        success: false,
+        error: `HTTP ${err.response.status}`,
+        message: `Received error ${err.response.status} from Home Assistant.`
+      };
+    }
+    
+    if (err.code === 'ENOTFOUND') {
+      return {
+        success: false,
+        error: 'Host Not Found',
+        message: 'Could not resolve the Home Assistant hostname. Check the URL.'
+      };
+    }
+    
+    if (err.code === 'ECONNREFUSED') {
+      return {
+        success: false,
+        error: 'Connection Refused',
+        message: 'Connection refused by Home Assistant. Check the URL and port number, and ensure Home Assistant is running.'
+      };
+    }
+    
+    if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+      return {
+        success: false,
+        error: 'Connection Timeout',
+        message: 'Connection to Home Assistant timed out. Check the URL and network connectivity.'
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Connection Failed',
+      message: `Failed to connect to Home Assistant: ${err.message}`
+    };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
@@ -953,5 +1465,9 @@ module.exports = {
   fetchNews,
   fetchWeather,
   fetchForecast,
-  fetchHomeAssistantMedia
+  fetchHomeAssistantMedia,
+  testWeatherConnection,
+  testCalendarFeed,
+  testNewsFeed,
+  testHomeAssistantMedia
 };

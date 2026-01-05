@@ -5369,6 +5369,172 @@ app.get('/admin/api/smart-mirror/logs/export', requireAuth, (req, res) => {
   }
 });
 
+// Smart Mirror Widget Connection Test Endpoints (Admin - auth required)
+
+// Test weather widget connection
+app.post('/admin/api/smart-mirror/test/weather', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Weather connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { apiKey, location, units } = req.body;
+    
+    if (!apiKey || !location) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing Parameters',
+        message: 'API key and location are required.'
+      });
+    }
+    
+    const result = await smartMirror.testWeatherConnection(apiKey, location, units || 'imperial');
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, `Weather test successful for ${location}`);
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `Weather test failed: ${result.error}`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error testing weather connection:', err.message);
+    logger.error(logger.categories.SMART_MIRROR, `Weather test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test Failed',
+      message: 'An unexpected error occurred while testing the weather connection.'
+    });
+  }
+});
+
+// Test calendar widget connection
+app.post('/admin/api/smart-mirror/test/calendar', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Calendar connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { feedUrls } = req.body;
+    
+    if (!feedUrls || !Array.isArray(feedUrls)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Parameters',
+        message: 'feedUrls must be an array of calendar feed URLs.'
+      });
+    }
+    
+    const result = await smartMirror.testCalendarFeed(feedUrls);
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, `Calendar test successful: ${result.summary.successful}/${result.summary.total} feeds`);
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `Calendar test completed with errors: ${result.summary.failed}/${result.summary.total} feeds failed`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error testing calendar connection:', err.message);
+    logger.error(logger.categories.SMART_MIRROR, `Calendar test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test Failed',
+      message: 'An unexpected error occurred while testing the calendar connection.'
+    });
+  }
+});
+
+// Test news widget connection
+app.post('/admin/api/smart-mirror/test/news', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `News connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { feedUrls } = req.body;
+    
+    if (!feedUrls || !Array.isArray(feedUrls)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Parameters',
+        message: 'feedUrls must be an array of news feed URLs.'
+      });
+    }
+    
+    const result = await smartMirror.testNewsFeed(feedUrls);
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, `News test successful: ${result.summary.successful}/${result.summary.total} feeds`);
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `News test completed with errors: ${result.summary.failed}/${result.summary.total} feeds failed`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error testing news connection:', err.message);
+    logger.error(logger.categories.SMART_MIRROR, `News test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test Failed',
+      message: 'An unexpected error occurred while testing the news connection.'
+    });
+  }
+});
+
+// Test media widget (Home Assistant) connection
+app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Media (Home Assistant) connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { url, token, entityIds } = req.body;
+    
+    if (!url || !token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing Parameters',
+        message: 'Home Assistant URL and access token are required.'
+      });
+    }
+    
+    const result = await smartMirror.testHomeAssistantMedia(url, token, entityIds || []);
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, `Home Assistant test successful for ${url}`);
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `Home Assistant test failed: ${result.error}`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Smart Mirror] Error testing Home Assistant connection:', err.message);
+    logger.error(logger.categories.SMART_MIRROR, `Home Assistant test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test Failed',
+      message: 'An unexpected error occurred while testing the Home Assistant connection.'
+    });
+  }
+});
+
 // Smart Mirror Widget Data API Endpoints (Public - no auth required)
 
 // Fetch calendar events
