@@ -16,6 +16,7 @@ const OllamaIntegration = require('./modules/ollama');
 const backup = require('./modules/backup');
 const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
+const webhooks = require('./modules/webhooks');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -885,6 +886,11 @@ const requireClientAuth = (req, res, next) => {
 // Admin dashboard
 app.get('/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));
+});
+
+// Webhook management page
+app.get('/admin/webhooks', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin', 'webhooks.html'));
 });
 
 // API to get current config
@@ -5028,6 +5034,88 @@ app.post('/admin/api/backup/import', requireAuth, (req, res) => {
   } catch (err) {
     logger.error(logger.categories.SYSTEM, `Data import error: ${err.message}`);
     res.status(500).json({ error: 'Failed to import data: ' + err.message });
+  }
+});
+
+// Webhook Management API Endpoints
+// Get all webhooks
+app.get('/admin/api/webhooks', requireAuth, (req, res) => {
+  try {
+    const allWebhooks = webhooks.getAllWebhooks();
+    logger.log(`📡 Retrieved ${allWebhooks.length} webhooks`, 'WEBHOOKS');
+    res.json({ success: true, webhooks: allWebhooks });
+  } catch (err) {
+    logger.error(`Failed to get webhooks: ${err.message}`, 'WEBHOOKS');
+    res.status(500).json({ success: false, error: 'Failed to get webhooks: ' + err.message });
+  }
+});
+
+// Create or update a webhook
+app.post('/admin/api/webhooks', requireAuth, (req, res) => {
+  try {
+    const { id, name, url, highImpact } = req.body;
+    
+    if (!name || !url) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Webhook name and URL are required' 
+      });
+    }
+    
+    const result = webhooks.saveWebhook({ id, name, url, highImpact });
+    
+    if (result.success) {
+      logger.log(`📡 ${id ? 'Updated' : 'Created'} webhook: ${name}`, 'WEBHOOKS');
+      res.json({ success: true, message: `Webhook ${id ? 'updated' : 'created'} successfully` });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(`Failed to save webhook: ${err.message}`, 'WEBHOOKS');
+    res.status(500).json({ success: false, error: 'Failed to save webhook: ' + err.message });
+  }
+});
+
+// Delete a webhook
+app.delete('/admin/api/webhooks/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = webhooks.deleteWebhook(id);
+    
+    if (result.success) {
+      logger.log(`📡 Deleted webhook: ${id}`, 'WEBHOOKS');
+      res.json({ success: true, message: 'Webhook deleted successfully' });
+    } else {
+      res.status(404).json(result);
+    }
+  } catch (err) {
+    logger.error(`Failed to delete webhook: ${err.message}`, 'WEBHOOKS');
+    res.status(500).json({ success: false, error: 'Failed to delete webhook: ' + err.message });
+  }
+});
+
+// Trigger a webhook
+app.post('/admin/api/webhooks/:id/trigger', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payload = req.body.payload || {};
+    
+    logger.log(`📡 Triggering webhook: ${id}`, 'WEBHOOKS');
+    const result = await webhooks.triggerWebhook(id, payload);
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'Webhook triggered successfully',
+        status: result.status,
+        data: result.data
+      });
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (err) {
+    logger.error(`Failed to trigger webhook: ${err.message}`, 'WEBHOOKS');
+    res.status(500).json({ success: false, error: 'Failed to trigger webhook: ' + err.message });
   }
 });
 

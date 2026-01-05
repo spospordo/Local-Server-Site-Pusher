@@ -2055,6 +2055,30 @@
             </div>
         </div>
 
+        <!-- Webhooks Subsection -->
+        <div class="card admin-section dashboard-section">
+            <div class="card-header">
+                <h2>Webhooks</h2>
+            </div>
+            <div class="card-body">
+                <div class="status-grid" id="webhooksGrid">
+                    <div class="status-item">
+                        <div class="status-label">Configured Webhooks</div>
+                        <div class="status-value" id="webhookCount">Loading...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">High Impact Webhooks</div>
+                        <div class="status-value" id="highImpactCount">Loading...</div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <a href="/admin/webhooks" class="btn" style="text-decoration: none; display: inline-block;">
+                        ⚙️ Manage Webhooks
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Finance Module - My Data Sub-tab -->
         <div class="card admin-section finance-section finance-mydata-section">
             <div class="card-header">
@@ -5123,6 +5147,29 @@
             }
         }
         
+        // Load webhook statistics
+        async function loadWebhookStats() {
+            try {
+                const response = await fetch('/admin/api/webhooks');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const webhooks = result.webhooks;
+                    const highImpactCount = webhooks.filter(w => w.highImpact).length;
+                    
+                    document.getElementById('webhookCount').textContent = webhooks.length;
+                    document.getElementById('highImpactCount').textContent = highImpactCount;
+                } else {
+                    document.getElementById('webhookCount').textContent = 'Error';
+                    document.getElementById('highImpactCount').textContent = 'Error';
+                }
+            } catch (err) {
+                console.error('Failed to load webhook stats:', err);
+                document.getElementById('webhookCount').textContent = 'Error';
+                document.getElementById('highImpactCount').textContent = 'Error';
+            }
+        }
+        
         // Load configuration
         async function loadConfig() {
             try {
@@ -6146,6 +6193,7 @@
             
             // Load other data
             loadStatus();
+            loadWebhookStats();
             loadLogs();
             loadLinks();
             loadClientConfig();
@@ -7333,6 +7381,7 @@
                 
                 // Load dashboard data
                 loadStatus();
+                loadWebhookStats();
                 loadLogs();
             } else if (tabName === 'clients') {
                 const clientsSections = document.querySelectorAll('.clients-section');
