@@ -271,6 +271,10 @@ async function testUpdateWebhook() {
 }
 
 // Test: Trigger a webhook
+// Note: This test accepts network errors as valid outcomes because external URLs 
+// may be blocked in the test environment. The test validates that the API correctly
+// attempts to trigger the webhook and handles errors appropriately. In a production
+// environment, consider using a mock HTTP server for more reliable testing.
 async function testTriggerWebhook() {
     if (!testWebhookId) {
         console.log('❌ Test skipped: No webhook ID available\n');

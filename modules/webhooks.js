@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const axios = require('axios');
 const logger = require('./logger');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
@@ -182,8 +183,6 @@ function deleteWebhook(id) {
  * Trigger a webhook by sending a POST request
  */
 async function triggerWebhook(id, payload = {}) {
-  const axios = require('axios');
-  
   try {
     const webhook = getWebhookById(id);
     if (!webhook) {
