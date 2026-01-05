@@ -4694,6 +4694,24 @@ app.post('/admin/api/finance/accounts/:id/balance', requireAuth, (req, res) => {
   }
 });
 
+// Update account display name
+app.post('/admin/api/finance/accounts/:id/display-name', requireAuth, (req, res) => {
+  try {
+    const { displayName } = req.body;
+    const result = finance.updateAccountDisplayName(req.params.id, displayName);
+    if (result.success) {
+      logger.success(logger.categories.FINANCE, `Account display name updated: ${displayName || '(cleared)'}`);
+      res.json({ success: true, message: 'Display name updated successfully' });
+    } else {
+      logger.error(logger.categories.FINANCE, `Failed to update display name: ${result.error}`);
+      res.status(404).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    logger.error(logger.categories.FINANCE, `Display name update error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to update display name: ' + err.message });
+  }
+});
+
 // Get demographics
 app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
   try {

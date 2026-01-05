@@ -297,6 +297,29 @@ function saveAccount(accountData) {
   return saveFinanceData(data);
 }
 
+// Update account display name
+function updateAccountDisplayName(accountId, displayName) {
+  const data = loadFinanceData();
+  
+  const accountIndex = data.accounts.findIndex(a => a.id === accountId);
+  if (accountIndex < 0) {
+    return { success: false, error: 'Account not found' };
+  }
+  
+  const account = data.accounts[accountIndex];
+  
+  // Set display name (can be empty string to clear it)
+  account.displayName = displayName || null;
+  account.updatedAt = new Date().toISOString();
+  
+  return saveFinanceData(data);
+}
+
+// Get display name for an account (falls back to original name)
+function getAccountDisplayName(account) {
+  return account.displayName || account.name;
+}
+
 // Delete account
 function deleteAccount(accountId) {
   const data = loadFinanceData();
@@ -1742,10 +1765,37 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
       'liabilities': 'credit_card'
     };
     
+    // Helper function for fuzzy name matching
+    function fuzzyMatch(str1, str2) {
+      const s1 = str1.toLowerCase().trim();
+      const s2 = str2.toLowerCase().trim();
+      
+      // Exact match
+      if (s1 === s2) return true;
+      
+      // Check if one contains the other (for truncated names)
+      if (s1.includes(s2) || s2.includes(s1)) return true;
+      
+      // Remove common OCR variations and compare
+      const normalize = (s) => s
+        .replace(/[^\w\s]/g, '') // Remove special chars
+        .replace(/\s+/g, ' ')     // Normalize whitespace
+        .trim();
+      
+      const n1 = normalize(s1);
+      const n2 = normalize(s2);
+      
+      if (n1 === n2) return true;
+      if (n1.includes(n2) || n2.includes(n1)) return true;
+      
+      return false;
+    }
+    
     for (const parsedAccount of parsedAccounts) {
-      // Try to find existing account by name (case-insensitive)
+      // Try to find existing account by name (with fuzzy matching)
+      // Match on original name only, not displayName
       const existingAccount = existingAccounts.find(acc => 
-        acc.name && acc.name.toLowerCase() === parsedAccount.name.toLowerCase()
+        acc.name && fuzzyMatch(acc.name, parsedAccount.name)
       );
       
       if (existingAccount) {
@@ -1965,6 +2015,8 @@ module.exports = {
   saveAccount,
   deleteAccount,
   updateAccountBalance,
+  updateAccountDisplayName,
+  getAccountDisplayName,
   getDemographics,
   updateDemographics,
   getAdvancedSettings,
