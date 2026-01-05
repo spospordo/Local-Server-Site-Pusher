@@ -3706,6 +3706,142 @@
                 </div>
 
                 <div class="section-divider"></div>
+                
+                <!-- Auto Theme Switching Configuration -->
+                <h3>🌅 Auto Theme Switching</h3>
+                <p style="margin-bottom: 15px;">
+                    Automatically switch between light and dark themes based on sunrise/sunset times. 
+                    Light theme is active from 30 minutes before sunrise to 30 minutes after sunset. 
+                    Configure separately for each orientation.
+                </p>
+                
+                <!-- Portrait Auto Theme Settings -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">📱 Portrait Mode Auto Theme</span>
+                        <span class="collapsible-icon">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemePortraitEnabled">Auto Theme Switching</label>
+                                <select id="autoThemePortraitEnabled">
+                                    <option value="false">Disabled (use manual theme)</option>
+                                    <option value="true">Enabled (auto by sunrise/sunset)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemePortraitLat">
+                                    Latitude
+                                    <span class="input-hint">Decimal degrees (e.g., 40.7128 for NYC)</span>
+                                </label>
+                                <input type="number" step="0.0001" id="autoThemePortraitLat" placeholder="e.g., 40.7128">
+                            </div>
+                            <div class="form-group">
+                                <label for="autoThemePortraitLon">
+                                    Longitude
+                                    <span class="input-hint">Decimal degrees (e.g., -74.0060 for NYC)</span>
+                                </label>
+                                <input type="number" step="0.0001" id="autoThemePortraitLon" placeholder="e.g., -74.0060">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemePortraitTimezone">
+                                    Timezone
+                                    <span class="input-hint">IANA timezone identifier</span>
+                                </label>
+                                <select id="autoThemePortraitTimezone">
+                                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                    <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                                    <option value="America/Denver">America/Denver (MST/MDT)</option>
+                                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                                    <option value="America/Phoenix">America/Phoenix (MST - no DST)</option>
+                                    <option value="America/Anchorage">America/Anchorage (AKST/AKDT)</option>
+                                    <option value="Pacific/Honolulu">Pacific/Honolulu (HST)</option>
+                                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                    <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                                    <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
+                                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                                    <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+                                    <option value="Australia/Sydney">Australia/Sydney (AEDT/AEST)</option>
+                                    <option value="UTC">UTC</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="autoThemePortraitStatus" class="info-message" style="display: none; margin-top: 10px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Landscape Auto Theme Settings -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">🖥️ Landscape Mode Auto Theme</span>
+                        <span class="collapsible-icon">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemeLandscapeEnabled">Auto Theme Switching</label>
+                                <select id="autoThemeLandscapeEnabled">
+                                    <option value="false">Disabled (use manual theme)</option>
+                                    <option value="true">Enabled (auto by sunrise/sunset)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemeLandscapeLat">
+                                    Latitude
+                                    <span class="input-hint">Decimal degrees (e.g., 40.7128 for NYC)</span>
+                                </label>
+                                <input type="number" step="0.0001" id="autoThemeLandscapeLat" placeholder="e.g., 40.7128">
+                            </div>
+                            <div class="form-group">
+                                <label for="autoThemeLandscapeLon">
+                                    Longitude
+                                    <span class="input-hint">Decimal degrees (e.g., -74.0060 for NYC)</span>
+                                </label>
+                                <input type="number" step="0.0001" id="autoThemeLandscapeLon" placeholder="e.g., -74.0060">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="autoThemeLandscapeTimezone">
+                                    Timezone
+                                    <span class="input-hint">IANA timezone identifier</span>
+                                </label>
+                                <select id="autoThemeLandscapeTimezone">
+                                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                    <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                                    <option value="America/Denver">America/Denver (MST/MDT)</option>
+                                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                                    <option value="America/Phoenix">America/Phoenix (MST - no DST)</option>
+                                    <option value="America/Anchorage">America/Anchorage (AKST/AKDT)</option>
+                                    <option value="Pacific/Honolulu">Pacific/Honolulu (HST)</option>
+                                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                    <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                                    <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
+                                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                                    <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+                                    <option value="Australia/Sydney">Australia/Sydney (AEDT/AEST)</option>
+                                    <option value="UTC">UTC</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="autoThemeLandscapeStatus" class="info-message" style="display: none; margin-top: 10px;"></div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
 
                 <!-- Interactive Grid Editor -->
                 <div class="grid-editor-container">
@@ -9210,6 +9346,24 @@
                         };
                     }
                     
+                    // Load auto theme switch settings
+                    const autoTheme = config.autoThemeSwitch || {
+                        portrait: { enabled: false, latitude: null, longitude: null, timezone: 'America/New_York' },
+                        landscape: { enabled: false, latitude: null, longitude: null, timezone: 'America/New_York' }
+                    };
+                    
+                    // Portrait auto theme
+                    document.getElementById('autoThemePortraitEnabled').value = autoTheme.portrait?.enabled ? 'true' : 'false';
+                    document.getElementById('autoThemePortraitLat').value = autoTheme.portrait?.latitude || '';
+                    document.getElementById('autoThemePortraitLon').value = autoTheme.portrait?.longitude || '';
+                    document.getElementById('autoThemePortraitTimezone').value = autoTheme.portrait?.timezone || 'America/New_York';
+                    
+                    // Landscape auto theme
+                    document.getElementById('autoThemeLandscapeEnabled').value = autoTheme.landscape?.enabled ? 'true' : 'false';
+                    document.getElementById('autoThemeLandscapeLat').value = autoTheme.landscape?.latitude || '';
+                    document.getElementById('autoThemeLandscapeLon').value = autoTheme.landscape?.longitude || '';
+                    document.getElementById('autoThemeLandscapeTimezone').value = autoTheme.landscape?.timezone || 'America/New_York';
+                    
                     console.log('Smart Mirror configuration loaded');
                     console.log('Portrait layouts:', portraitLayout);
                     console.log('Landscape layouts:', landscapeLayout);
@@ -9379,7 +9533,21 @@
                         portrait: { columns: 4, rows: 6 },
                         landscape: { columns: 8, rows: 4 }
                     },
-                    refreshInterval: 60000
+                    refreshInterval: 60000,
+                    autoThemeSwitch: {
+                        portrait: {
+                            enabled: document.getElementById('autoThemePortraitEnabled').value === 'true',
+                            latitude: parseFloat(document.getElementById('autoThemePortraitLat').value) || null,
+                            longitude: parseFloat(document.getElementById('autoThemePortraitLon').value) || null,
+                            timezone: document.getElementById('autoThemePortraitTimezone').value
+                        },
+                        landscape: {
+                            enabled: document.getElementById('autoThemeLandscapeEnabled').value === 'true',
+                            latitude: parseFloat(document.getElementById('autoThemeLandscapeLat').value) || null,
+                            longitude: parseFloat(document.getElementById('autoThemeLandscapeLon').value) || null,
+                            timezone: document.getElementById('autoThemeLandscapeTimezone').value
+                        }
+                    }
                 };
                 
                 const response = await fetch('/admin/api/smart-mirror/config', {
