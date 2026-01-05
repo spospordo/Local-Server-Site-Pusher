@@ -9207,6 +9207,86 @@
         }
         
         // Smart Mirror Dashboard Functions
+        
+        // Update auto theme status display for an orientation
+        async function updateAutoThemeStatus(orientation, config) {
+            const statusDiv = document.getElementById(`autoTheme${orientation.charAt(0).toUpperCase() + orientation.slice(1)}Status`);
+            if (!statusDiv) return;
+            
+            const autoTheme = config?.autoThemeSwitch?.[orientation];
+            
+            if (!autoTheme || !autoTheme.enabled) {
+                statusDiv.style.display = 'none';
+                return;
+            }
+            
+            if (!autoTheme.latitude || !autoTheme.longitude) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'warning-message';
+                statusDiv.innerHTML = '⚠️ Auto theme enabled but location not configured. Please enter latitude and longitude.';
+                return;
+            }
+            
+            try {
+                // Fetch current theme info from API
+                const response = await fetch(`/api/smart-mirror/config?orientation=${orientation}`);
+                const data = await response.json();
+                
+                if (data.success && data.config && data.config.themeInfo) {
+                    const themeInfo = data.config.themeInfo;
+                    
+                    if (themeInfo.autoMode) {
+                        const now = new Date();
+                        const nextSwitch = themeInfo.nextSwitch ? new Date(themeInfo.nextSwitch) : null;
+                        
+                        let statusHtml = `
+                            <strong>🌅 Auto Theme Active</strong><br>
+                            <span style="color: #666;">Current Theme: <strong style="color: ${themeInfo.theme === 'light' ? '#f39c12' : '#3498db'};">${themeInfo.theme === 'light' ? '☀️ Light' : '🌙 Dark'}</strong></span>
+                        `;
+                        
+                        if (themeInfo.sunTimes) {
+                            const sunrise = new Date(themeInfo.sunTimes.sunrise);
+                            const sunset = new Date(themeInfo.sunTimes.sunset);
+                            const lightStart = new Date(themeInfo.sunTimes.lightStart);
+                            const lightEnd = new Date(themeInfo.sunTimes.lightEnd);
+                            
+                            statusHtml += `<br><span style="color: #666;">
+                                Today's Light Period: ${lightStart.toLocaleTimeString()} - ${lightEnd.toLocaleTimeString()}<br>
+                                (Sunrise: ${sunrise.toLocaleTimeString()}, Sunset: ${sunset.toLocaleTimeString()})
+                            </span>`;
+                        }
+                        
+                        if (nextSwitch) {
+                            const timeUntil = Math.round((nextSwitch - now) / 1000 / 60); // minutes
+                            const nextTheme = themeInfo.theme === 'light' ? 'Dark' : 'Light';
+                            const nextEmoji = themeInfo.theme === 'light' ? '🌙' : '☀️';
+                            
+                            statusHtml += `<br><span style="color: #666;">
+                                Next Switch: ${nextEmoji} ${nextTheme} in ${timeUntil} minutes (at ${nextSwitch.toLocaleTimeString()})
+                            </span>`;
+                        }
+                        
+                        statusDiv.style.display = 'block';
+                        statusDiv.className = 'info-message';
+                        statusDiv.innerHTML = statusHtml;
+                    } else if (themeInfo.error) {
+                        statusDiv.style.display = 'block';
+                        statusDiv.className = 'error-message';
+                        statusDiv.innerHTML = `❌ Error: ${themeInfo.error}`;
+                    }
+                } else {
+                    statusDiv.style.display = 'block';
+                    statusDiv.className = 'info-message';
+                    statusDiv.innerHTML = '📊 Save configuration to see auto theme status';
+                }
+            } catch (error) {
+                console.error(`Error fetching theme status for ${orientation}:`, error);
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'error-message';
+                statusDiv.innerHTML = '❌ Error fetching theme status';
+            }
+        }
+        
         async function loadSmartMirrorConfig() {
             try {
                 const response = await fetch('/admin/api/smart-mirror/config');
@@ -9363,6 +9443,10 @@
                     document.getElementById('autoThemeLandscapeLat').value = autoTheme.landscape?.latitude || '';
                     document.getElementById('autoThemeLandscapeLon').value = autoTheme.landscape?.longitude || '';
                     document.getElementById('autoThemeLandscapeTimezone').value = autoTheme.landscape?.timezone || 'America/New_York';
+                    
+                    // Calculate and display theme status for both orientations
+                    updateAutoThemeStatus('portrait', config);
+                    updateAutoThemeStatus('landscape', config);
                     
                     console.log('Smart Mirror configuration loaded');
                     console.log('Portrait layouts:', portraitLayout);
@@ -9562,6 +9646,9 @@
                 
                 if (result.success) {
                     showSmartMirrorAlert('Smart Mirror configuration saved successfully!', 'success');
+                    // Update auto theme status displays
+                    updateAutoThemeStatus('portrait', result.config);
+                    updateAutoThemeStatus('landscape', result.config);
                 } else {
                     showSmartMirrorAlert('Failed to save configuration: ' + result.error, 'error');
                 }
