@@ -90,6 +90,20 @@ function getDefaultWidgets() {
       units: 'imperial',
       calendarUrls: [],
       days: 5
+    },
+    media: {
+      enabled: false,
+      area: 'middle-center',
+      size: 'large',
+      homeAssistantUrl: '', // e.g., http://homeassistant.local:8123
+      homeAssistantToken: '', // Long-lived access token
+      entityIds: [], // Array of media player entity IDs (e.g., ['media_player.spotify', 'media_player.chromecast'])
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      calendarUrls: [],
+      feedUrls: [],
+      days: 5
     }
   };
 }
@@ -102,7 +116,8 @@ function getDefaultPortraitLayout() {
     calendar: { x: 2, y: 0, width: 2, height: 4 },
     weather: { x: 0, y: 2, width: 2, height: 2 },
     forecast: { x: 0, y: 4, width: 4, height: 2 },
-    news: { x: 2, y: 2, width: 2, height: 2 }
+    news: { x: 2, y: 2, width: 2, height: 2 },
+    media: { x: 0, y: 4, width: 4, height: 2 }
   };
 }
 
@@ -114,7 +129,8 @@ function getDefaultLandscapeLayout() {
     calendar: { x: 2, y: 0, width: 4, height: 3 },
     weather: { x: 6, y: 0, width: 2, height: 1 },
     news: { x: 0, y: 1, width: 2, height: 2 },
-    forecast: { x: 0, y: 3, width: 8, height: 1 }
+    forecast: { x: 0, y: 3, width: 8, height: 1 },
+    media: { x: 6, y: 1, width: 2, height: 2 }
   };
 }
 
@@ -206,6 +222,38 @@ function migrateConfig(oldConfig) {
         layouts: {
           portrait: scaledPortraitLayout,
           landscape: scaledLandscapeLayout
+        }
+      };
+    }
+    
+    // Already in new format - but check for missing widgets
+    const defaultWidgets = getDefaultWidgets();
+    const defaultPortrait = getDefaultPortraitLayout();
+    const defaultLandscape = getDefaultLandscapeLayout();
+    
+    let needsUpdate = false;
+    const updatedWidgets = { ...oldConfig.widgets };
+    const updatedPortrait = { ...(oldConfig.layouts.portrait || {}) };
+    const updatedLandscape = { ...(oldConfig.layouts.landscape || {}) };
+    
+    // Add any missing widgets with defaults
+    Object.keys(defaultWidgets).forEach(widgetKey => {
+      if (!updatedWidgets[widgetKey]) {
+        logger.info(logger.categories.SMART_MIRROR, `Adding missing widget: ${widgetKey}`);
+        updatedWidgets[widgetKey] = defaultWidgets[widgetKey];
+        updatedPortrait[widgetKey] = defaultPortrait[widgetKey];
+        updatedLandscape[widgetKey] = defaultLandscape[widgetKey];
+        needsUpdate = true;
+      }
+    });
+    
+    if (needsUpdate) {
+      return {
+        ...oldConfig,
+        widgets: updatedWidgets,
+        layouts: {
+          portrait: updatedPortrait,
+          landscape: updatedLandscape
         }
       };
     }
@@ -813,6 +861,88 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
   }
 }
 
+// Fetch Home Assistant media player state
+async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
+  if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
+    return { success: false, error: 'Home Assistant URL, token, and entity IDs are required' };
+  }
+
+  try {
+    // Remove trailing slash from URL if present
+    const baseUrl = haUrl.replace(/\/$/, '');
+    
+    // Fetch state for all specified entities
+    const statePromises = entityIds.map(async entityId => {
+      try {
+        const response = await axios.get(
+          `${baseUrl}/api/states/${entityId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${haToken}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 5000
+          }
+        );
+        return { entityId, data: response.data, error: null };
+      } catch (err) {
+        logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: ${err.message}`);
+        return { entityId, data: null, error: err.message };
+      }
+    });
+
+    const results = await Promise.all(statePromises);
+    
+    // Find first playing or paused media player, or first idle/standby
+    let activePlayer = results.find(r => r.data && (r.data.state === 'playing' || r.data.state === 'paused'));
+    if (!activePlayer) {
+      activePlayer = results.find(r => r.data && r.data.state);
+    }
+
+    if (!activePlayer || !activePlayer.data) {
+      return { 
+        success: true, 
+        state: 'idle',
+        message: 'No active media players found'
+      };
+    }
+
+    const playerData = activePlayer.data;
+    const attributes = playerData.attributes || {};
+
+    // Extract platform/app name from entity_picture or app_name
+    let platform = attributes.app_name || attributes.source || '';
+    if (!platform && attributes.entity_picture) {
+      // Try to extract platform from entity picture URL
+      const picMatch = attributes.entity_picture.match(/\/(spotify|plex|chromecast|sonos|youtube|netflix)/i);
+      if (picMatch) {
+        platform = picMatch[1].charAt(0).toUpperCase() + picMatch[1].slice(1);
+      }
+    }
+
+    logger.success(logger.categories.SMART_MIRROR, `Media player data fetched for ${activePlayer.entityId}`);
+
+    return {
+      success: true,
+      entityId: activePlayer.entityId,
+      entityName: attributes.friendly_name || activePlayer.entityId,
+      state: playerData.state,
+      title: attributes.media_title || '',
+      artist: attributes.media_artist || '',
+      album: attributes.media_album_name || '',
+      artworkUrl: attributes.entity_picture ? `${baseUrl}${attributes.entity_picture}` : null,
+      platform: platform || 'Media Player',
+      duration: attributes.media_duration || 0,
+      position: attributes.media_position || 0,
+      volume: attributes.volume_level ? Math.round(attributes.volume_level * 100) : null
+    };
+  } catch (err) {
+    const errorMsg = `Failed to fetch Home Assistant media: ${err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
@@ -822,5 +952,6 @@ module.exports = {
   fetchCalendarEvents,
   fetchNews,
   fetchWeather,
-  fetchForecast
+  fetchForecast,
+  fetchHomeAssistantMedia
 };

@@ -575,6 +575,130 @@
             opacity: 0.6;
         }
 
+        /* Media Widget */
+        .media-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 10px;
+        }
+
+        .media-artwork-container {
+            flex: 0 0 auto;
+            width: 100%;
+            max-height: 60%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .media-artwork {
+            width: 100%;
+            height: auto;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .media-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            min-height: 0;
+        }
+
+        .media-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.3;
+        }
+
+        .media-artist {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-album {
+            font-size: 0.9rem;
+            opacity: 0.6;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .media-platform {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        body.theme-light .media-platform {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .media-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .media-status-icon {
+            font-size: 1.1rem;
+        }
+
+        .media-idle {
+            text-align: center;
+            opacity: 0.6;
+            padding: 20px;
+        }
+
+        .media-idle-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        /* Responsive media widget sizing */
+        .widget[data-grid-width="1"] .media-title {
+            font-size: 1rem;
+            -webkit-line-clamp: 1;
+        }
+
+        .widget[data-grid-width="1"] .media-artist {
+            font-size: 0.9rem;
+        }
+
+        .widget[data-grid-height="1"] .media-artwork-container {
+            max-height: 40%;
+        }
+
+        .widget[data-grid-width="2"][data-grid-height="2"] .media-artwork-container {
+            max-height: 50%;
+        }
+
         /* Error message */
         .error-message {
             color: #ff6b6b;
@@ -903,7 +1027,8 @@
                 calendar: '📅 Calendar',
                 weather: '🌤️ Weather',
                 forecast: '🌦️ Forecast',
-                news: '📰 News'
+                news: '📰 News',
+                media: '🎵 Now Playing'
             };
             return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -940,6 +1065,9 @@
                     break;
                 case 'news':
                     updateNewsWidget(content, widgetConfig);
+                    break;
+                case 'media':
+                    updateMediaWidget(content, widgetConfig);
                     break;
             }
         }
@@ -1414,6 +1542,139 @@
                 errorDiv.style.opacity = '0.6';
                 errorDiv.style.textAlign = 'center';
                 errorDiv.textContent = 'Error loading news';
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+
+        // Update media widget
+        async function updateMediaWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/media');
+                const data = await response.json();
+                
+                if (data.success && data.state && data.state !== 'idle') {
+                    content.innerHTML = '';
+                    const mediaContainer = document.createElement('div');
+                    mediaContainer.className = 'media-container';
+                    
+                    // Artwork
+                    if (data.artworkUrl) {
+                        const artworkContainer = document.createElement('div');
+                        artworkContainer.className = 'media-artwork-container';
+                        
+                        const artwork = document.createElement('img');
+                        artwork.className = 'media-artwork';
+                        artwork.src = data.artworkUrl;
+                        artwork.alt = 'Album Artwork';
+                        artwork.onerror = () => {
+                            artworkContainer.style.display = 'none';
+                        };
+                        artworkContainer.appendChild(artwork);
+                        mediaContainer.appendChild(artworkContainer);
+                    }
+                    
+                    // Media info
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'media-info';
+                    
+                    if (data.title) {
+                        const titleDiv = document.createElement('div');
+                        titleDiv.className = 'media-title';
+                        titleDiv.textContent = data.title;
+                        infoDiv.appendChild(titleDiv);
+                    }
+                    
+                    if (data.artist) {
+                        const artistDiv = document.createElement('div');
+                        artistDiv.className = 'media-artist';
+                        artistDiv.textContent = data.artist;
+                        infoDiv.appendChild(artistDiv);
+                    }
+                    
+                    if (data.album) {
+                        const albumDiv = document.createElement('div');
+                        albumDiv.className = 'media-album';
+                        albumDiv.textContent = data.album;
+                        infoDiv.appendChild(albumDiv);
+                    }
+                    
+                    // Footer with platform and status
+                    const footerDiv = document.createElement('div');
+                    footerDiv.className = 'media-footer';
+                    
+                    const platformDiv = document.createElement('div');
+                    platformDiv.className = 'media-platform';
+                    platformDiv.textContent = data.platform || 'Media Player';
+                    footerDiv.appendChild(platformDiv);
+                    
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'media-status';
+                    
+                    const statusIcon = document.createElement('span');
+                    statusIcon.className = 'media-status-icon';
+                    
+                    if (data.state === 'playing') {
+                        statusIcon.textContent = '▶️';
+                        statusDiv.appendChild(statusIcon);
+                        const statusText = document.createElement('span');
+                        statusText.textContent = 'Playing';
+                        statusDiv.appendChild(statusText);
+                    } else if (data.state === 'paused') {
+                        statusIcon.textContent = '⏸️';
+                        statusDiv.appendChild(statusIcon);
+                        const statusText = document.createElement('span');
+                        statusText.textContent = 'Paused';
+                        statusDiv.appendChild(statusText);
+                    } else {
+                        statusDiv.textContent = data.state.charAt(0).toUpperCase() + data.state.slice(1);
+                    }
+                    
+                    footerDiv.appendChild(statusDiv);
+                    infoDiv.appendChild(footerDiv);
+                    
+                    mediaContainer.appendChild(infoDiv);
+                    content.appendChild(mediaContainer);
+                } else if (data.state === 'idle' || data.message) {
+                    // Show idle state
+                    content.innerHTML = '';
+                    const idleDiv = document.createElement('div');
+                    idleDiv.className = 'media-idle';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'media-idle-icon';
+                    iconDiv.textContent = '🎵';
+                    idleDiv.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = data.message || 'No media playing';
+                    idleDiv.appendChild(msgDiv);
+                    
+                    content.appendChild(idleDiv);
+                } else if (data.error) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.opacity = '0.6';
+                    errorDiv.style.textAlign = 'center';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '⚠️';
+                    errorDiv.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = data.error;
+                    errorDiv.appendChild(msgDiv);
+                    
+                    content.innerHTML = '';
+                    content.appendChild(errorDiv);
+                }
+            } catch (error) {
+                console.error('Error fetching media:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading media player';
                 content.innerHTML = '';
                 content.appendChild(errorDiv);
             }

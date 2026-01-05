@@ -5488,6 +5488,43 @@ app.get('/api/smart-mirror/forecast', async (req, res) => {
   }
 });
 
+// Fetch Home Assistant media player state
+app.get('/api/smart-mirror/media', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Media player data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const mediaConfig = config.widgets?.media;
+    
+    if (!mediaConfig || !mediaConfig.enabled) {
+      return res.json({ success: false, error: 'Media widget not enabled' });
+    }
+    
+    if (!mediaConfig.homeAssistantUrl || !mediaConfig.homeAssistantToken) {
+      return res.json({ success: false, error: 'Home Assistant URL and token must be configured' });
+    }
+    
+    if (!mediaConfig.entityIds || mediaConfig.entityIds.length === 0) {
+      return res.json({ success: false, error: 'At least one media player entity ID must be configured' });
+    }
+    
+    const result = await smartMirror.fetchHomeAssistantMedia(
+      mediaConfig.homeAssistantUrl,
+      mediaConfig.homeAssistantToken,
+      mediaConfig.entityIds
+    );
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Media API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch media player data' });
+  }
+});
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');
