@@ -836,6 +836,39 @@
             console.log(`[Smart Mirror] Generated ${cssRules.split('\n').length - 1} CSS positioning rules`);
         }
 
+        // Check and update theme based on current time
+        async function checkAndUpdateTheme() {
+            try {
+                console.log('[Smart Mirror] Checking for theme update...');
+                const response = await fetch(`/api/smart-mirror/config?orientation=${currentOrientation}`);
+                const data = await response.json();
+                
+                if (data.success && data.config && data.config.calculatedTheme) {
+                    const currentTheme = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+                    const newTheme = data.config.calculatedTheme;
+                    
+                    if (currentTheme !== newTheme) {
+                        console.log(`[Smart Mirror] Theme switching from ${currentTheme} to ${newTheme}`);
+                        if (newTheme === 'light') {
+                            document.body.classList.add('theme-light');
+                        } else {
+                            document.body.classList.remove('theme-light');
+                        }
+                    } else {
+                        console.log(`[Smart Mirror] Theme unchanged: ${currentTheme}`);
+                    }
+                    
+                    // Update config with new theme info
+                    if (config) {
+                        config.calculatedTheme = data.config.calculatedTheme;
+                        config.themeInfo = data.config.themeInfo;
+                    }
+                }
+            } catch (error) {
+                console.error('[Smart Mirror] Error checking theme:', error);
+            }
+        }
+
         // Load configuration and initialize dashboard
         async function loadConfig() {
             console.log('[Smart Mirror] Loading configuration from API...');
@@ -877,12 +910,29 @@
                         Object.keys(config.widgets || {}).filter(k => config.widgets[k]?.enabled)
                     );
                     
-                    // Apply theme
-                    if (config.theme === 'light') {
+                    // Apply theme - use calculated theme if available, otherwise manual theme
+                    const themeToApply = config.calculatedTheme || config.theme || 'dark';
+                    console.log('[Smart Mirror] Theme info:', {
+                        manualTheme: config.theme,
+                        calculatedTheme: config.calculatedTheme,
+                        autoMode: config.themeInfo?.autoMode,
+                        nextSwitch: config.themeInfo?.nextSwitch,
+                        applying: themeToApply
+                    });
+                    
+                    if (themeToApply === 'light') {
                         console.log('[Smart Mirror] Applying light theme');
                         document.body.classList.add('theme-light');
                     } else {
-                        console.log('[Smart Mirror] Using dark theme (default)');
+                        console.log('[Smart Mirror] Using dark theme');
+                        document.body.classList.remove('theme-light');
+                    }
+                    
+                    // Set up theme checking interval if auto mode is enabled
+                    if (config.themeInfo?.autoMode && config.themeInfo?.nextSwitch) {
+                        console.log(`[Smart Mirror] Auto theme mode enabled, next switch at: ${config.themeInfo.nextSwitch}`);
+                        // Check theme every minute to handle switches
+                        setInterval(checkAndUpdateTheme, 60000); // Check every 60 seconds
                     }
                     
                     // Check if dashboard is enabled
