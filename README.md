@@ -307,7 +307,7 @@ See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
 
 ## Smart Mirror Dashboard
 
-Create a customizable smart mirror display with widgets for clock, calendar, weather, forecast, and news feeds.
+Create a customizable smart mirror display with widgets for clock, calendar, weather, forecast, news feeds, and Home Assistant media players.
 
 ### Features
 
@@ -315,6 +315,7 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
 - 🌤️ **Weather Widgets**: Current weather and 5-day forecast powered by OpenWeatherMap API
 - 📅 **Calendar Integration**: Display upcoming events from iCal/ICS feeds
 - 📰 **News Feeds**: Show latest headlines from RSS feeds
+- 🎵 **Home Assistant Media Player**: Display now-playing information from your Home Assistant media players (Spotify, Chromecast, Sonos, Plex, etc.)
 - 🎨 **Grid Editor**: Visual drag-and-drop layout editor
 - 🌙 **Dark/Light Themes**: Built-in theme support
 - 🔐 **Persistent Configuration**: All settings including API keys persist across container restarts
@@ -329,9 +330,11 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
    - **Weather**: Enter OpenWeatherMap API key and location
    - **Forecast**: Uses same API key as weather widget
    - **News**: Add RSS feed URLs
+   - **Media**: Connect to Home Assistant for now-playing display (see [HOME_ASSISTANT_MEDIA_WIDGET.md](HOME_ASSISTANT_MEDIA_WIDGET.md))
 
 4. Get a free OpenWeatherMap API key at [openweathermap.org/api](https://openweathermap.org/api)
-5. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+5. For Home Assistant media widget setup, see the [detailed guide](HOME_ASSISTANT_MEDIA_WIDGET.md)
+6. View your Smart Mirror at `http://localhost:3000/smart-mirror`
 
 ### API Key Persistence
 
