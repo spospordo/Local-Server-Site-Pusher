@@ -174,6 +174,8 @@ function getDefaultConfig() {
 }
 
 // Calculate sunrise and sunset times for a given date and location
+// Note: timezone is not used in calculation as SunCalc returns times based on the date object's timezone
+// The timezone is stored in config for display/reference purposes only
 function calculateSunTimes(latitude, longitude, timezone, date = new Date()) {
   if (!latitude || !longitude) {
     logger.warning(logger.categories.SMART_MIRROR, 'Cannot calculate sun times: latitude or longitude not provided');
@@ -182,9 +184,10 @@ function calculateSunTimes(latitude, longitude, timezone, date = new Date()) {
 
   try {
     // Get sun times for the location
+    // SunCalc returns Date objects in the timezone of the input date
     const times = SunCalc.getTimes(date, latitude, longitude);
     
-    logger.debug(logger.categories.SMART_MIRROR, `Sun times calculated for lat=${latitude}, lon=${longitude}: sunrise=${times.sunrise}, sunset=${times.sunset}`);
+    logger.debug(logger.categories.SMART_MIRROR, `Sun times calculated for lat=${latitude}, lon=${longitude}, tz=${timezone || 'system'}: sunrise=${times.sunrise}, sunset=${times.sunset}`);
     
     return {
       sunrise: times.sunrise,
