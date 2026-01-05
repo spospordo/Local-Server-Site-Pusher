@@ -4707,6 +4707,14 @@
             }
         }
         
+        // Format uptime as days/hours/minutes
+        function formatUptime(uptimeInSeconds) {
+            const days = Math.floor(uptimeInSeconds / 86400);
+            const hours = Math.floor((uptimeInSeconds % 86400) / 3600);
+            const minutes = Math.floor((uptimeInSeconds % 3600) / 60);
+            return `${days}d ${hours}h ${minutes}m`;
+        }
+        
         // Load server status
         async function loadStatus() {
             try {
@@ -4721,7 +4729,7 @@
                     </div>
                     <div class="status-item">
                         <div class="status-label">Uptime</div>
-                        <div class="status-value">${Math.floor(status.server.uptime / 60)} minutes</div>
+                        <div class="status-value">${formatUptime(status.server.uptime)}</div>
                     </div>
                     <div class="status-item">
                         <div class="status-label">Port</div>
@@ -4729,7 +4737,7 @@
                     </div>
                     <div class="status-item">
                         <div class="status-label">Memory Usage</div>
-                        <div class="status-value">${Math.round(status.memory.heapUsed / 1024 / 1024)} MB</div>
+                        <div class="status-value">${Math.round(status.memory.heapUsed / 1024 / 1024)} MB / ${Math.round(status.memory.heapTotal / 1024 / 1024)} MB</div>
                     </div>
                     <div class="status-item">
                         <div class="status-label">Version</div>
@@ -9162,7 +9170,7 @@
                         <div><strong>Platform:</strong> ${diag.environment.platform} (${diag.environment.arch})</div>
                         <div><strong>Hostname:</strong> ${diag.environment.hostname}</div>
                         <div><strong>Node Version:</strong> ${diag.environment.nodeVersion}</div>
-                        <div><strong>Uptime:</strong> ${Math.floor(diag.environment.uptime / 60)} minutes</div>
+                        <div><strong>Uptime:</strong> ${formatUptime(diag.environment.uptime)}</div>
                         <div><strong>Memory:</strong> ${diag.environment.memory.used}MB used / ${diag.environment.memory.total}MB total</div>
                     `;
                     document.getElementById('diagnosticsEnvironment').innerHTML = envHtml;

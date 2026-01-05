@@ -1156,13 +1156,21 @@
             }
         }
 
+        // Format uptime as days/hours/minutes
+        function formatUptime(uptimeInSeconds) {
+            const days = Math.floor(uptimeInSeconds / 86400);
+            const hours = Math.floor((uptimeInSeconds % 86400) / 3600);
+            const minutes = Math.floor((uptimeInSeconds % 3600) / 60);
+            return `${days}d ${hours}h ${minutes}m`;
+        }
+
         // Load server status
         async function loadServerStatus() {
             try {
                 const response = await fetch('/api/status');
                 const status = await response.json();
                 
-                document.getElementById('serverUptime').textContent = Math.floor(status.server.uptime / 60) + ' minutes';
+                document.getElementById('serverUptime').textContent = formatUptime(status.server.uptime);
                 document.getElementById('serverVersion').textContent = status.version;
                 document.getElementById('serverStatus').textContent = 'Online';
                 document.querySelector('.status-indicator').className = 'status-indicator status-online';
