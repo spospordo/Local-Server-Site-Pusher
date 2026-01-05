@@ -226,6 +226,38 @@ function migrateConfig(oldConfig) {
       };
     }
     
+    // Already in new format - but check for missing widgets
+    const defaultWidgets = getDefaultWidgets();
+    const defaultPortrait = getDefaultPortraitLayout();
+    const defaultLandscape = getDefaultLandscapeLayout();
+    
+    let needsUpdate = false;
+    const updatedWidgets = { ...oldConfig.widgets };
+    const updatedPortrait = { ...(oldConfig.layouts.portrait || {}) };
+    const updatedLandscape = { ...(oldConfig.layouts.landscape || {}) };
+    
+    // Add any missing widgets with defaults
+    Object.keys(defaultWidgets).forEach(widgetKey => {
+      if (!updatedWidgets[widgetKey]) {
+        logger.info(logger.categories.SMART_MIRROR, `Adding missing widget: ${widgetKey}`);
+        updatedWidgets[widgetKey] = defaultWidgets[widgetKey];
+        updatedPortrait[widgetKey] = defaultPortrait[widgetKey];
+        updatedLandscape[widgetKey] = defaultLandscape[widgetKey];
+        needsUpdate = true;
+      }
+    });
+    
+    if (needsUpdate) {
+      return {
+        ...oldConfig,
+        widgets: updatedWidgets,
+        layouts: {
+          portrait: updatedPortrait,
+          landscape: updatedLandscape
+        }
+      };
+    }
+    
     // Already in new format
     return oldConfig;
   }
