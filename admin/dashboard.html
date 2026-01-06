@@ -1981,6 +1981,134 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Webhook Dashboard Styles */
+        .webhook-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0 0 0;
+        }
+        
+        .webhook-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .webhook-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .webhook-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .webhook-url {
+            color: #666;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        
+        .webhook-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-high-impact {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .webhook-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .btn-small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            margin-bottom: 1rem;
+        }
+        
+        .modal-header h3 {
+            color: #333;
+            margin: 0;
+        }
+        
+        .modal-body {
+            margin-bottom: 1rem;
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
     </style>
     <!-- Chart.js for Finance Module -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" 
@@ -2071,6 +2199,17 @@
                         <div class="status-value" id="highImpactCount">Loading...</div>
                     </div>
                 </div>
+                
+                <!-- Webhook List -->
+                <div id="webhookListContainer" style="margin-top: 1.5rem;">
+                    <ul class="webhook-list" id="webhookList">
+                        <li class="empty-state">
+                            <div class="empty-state-icon">📡</div>
+                            <p>Loading webhooks...</p>
+                        </li>
+                    </ul>
+                </div>
+                
                 <div style="margin-top: 1rem;">
                     <a href="/admin/webhooks" class="btn" style="text-decoration: none; display: inline-block;">
                         ⚙️ Manage Webhooks
@@ -4848,6 +4987,28 @@
         </div>
     </div>
     
+    <!-- Confirmation Modal for High Impact Webhooks -->
+    <div id="webhookConfirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚠️ High Impact Webhook Confirmation</h3>
+            </div>
+            <div class="modal-body">
+                <p>You are about to trigger a <strong>high impact</strong> webhook:</p>
+                <p style="margin: 1rem 0; padding: 1rem; background: #fff3cd; border-radius: 5px;">
+                    <strong id="confirmWebhookName"></strong>
+                </p>
+                <p style="color: #721c24; background: #f8d7da; padding: 0.75rem; border-radius: 5px;">
+                    <strong>Warning:</strong> This action may have significant consequences. Please confirm that you want to proceed.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeWebhookConfirmModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmTriggerWebhook()">Trigger Webhook</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         let originalConfig = '';
         let currentLinks = [];
@@ -5148,27 +5309,145 @@
         }
         
         // Load webhook statistics
+        // Global webhook state
+        let dashboardWebhooks = [];
+        let triggerWebhookId = null;
+        
         async function loadWebhookStats() {
             try {
                 const response = await fetch('/admin/api/webhooks');
                 const result = await response.json();
                 
                 if (result.success) {
-                    const webhooks = result.webhooks;
-                    const highImpactCount = webhooks.filter(w => w.highImpact).length;
+                    dashboardWebhooks = result.webhooks;
+                    const highImpactCount = dashboardWebhooks.filter(w => w.highImpact).length;
                     
-                    document.getElementById('webhookCount').textContent = webhooks.length;
+                    document.getElementById('webhookCount').textContent = dashboardWebhooks.length;
                     document.getElementById('highImpactCount').textContent = highImpactCount;
+                    
+                    // Render the webhook list
+                    renderWebhookList();
                 } else {
                     document.getElementById('webhookCount').textContent = 'Error';
                     document.getElementById('highImpactCount').textContent = 'Error';
+                    renderWebhookListError();
                 }
             } catch (err) {
                 console.error('Failed to load webhook stats:', err);
                 document.getElementById('webhookCount').textContent = 'Error';
                 document.getElementById('highImpactCount').textContent = 'Error';
+                renderWebhookListError();
             }
         }
+        
+        // Render webhook list on dashboard
+        function renderWebhookList() {
+            const list = document.getElementById('webhookList');
+            
+            if (!list) return;
+            
+            if (dashboardWebhooks.length === 0) {
+                list.innerHTML = `
+                    <li class="empty-state">
+                        <div class="empty-state-icon">📡</div>
+                        <p>No webhooks configured yet.</p>
+                        <p style="color: #666; font-size: 0.9rem;">Add webhooks using the Manage Webhooks button below.</p>
+                    </li>
+                `;
+                return;
+            }
+            
+            list.innerHTML = dashboardWebhooks.map(webhook => `
+                <li class="webhook-item">
+                    <div class="webhook-info">
+                        <div class="webhook-name">
+                            ${escapeHtml(webhook.name)}
+                            ${webhook.highImpact ? '<span class="webhook-badge badge-high-impact">HIGH IMPACT</span>' : ''}
+                        </div>
+                        <div class="webhook-url">${escapeHtml(webhook.url)}</div>
+                    </div>
+                    <div class="webhook-actions">
+                        <button class="btn btn-small ${webhook.highImpact ? 'btn-warning' : ''}" onclick="triggerDashboardWebhook('${webhook.id}')">
+                            🚀 Trigger
+                        </button>
+                    </div>
+                </li>
+            `).join('');
+        }
+        
+        // Render error state for webhook list
+        function renderWebhookListError() {
+            const list = document.getElementById('webhookList');
+            if (!list) return;
+            
+            list.innerHTML = `
+                <li class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <p>Failed to load webhooks</p>
+                    <p style="color: #666; font-size: 0.9rem;">Please try refreshing the page.</p>
+                </li>
+            `;
+        }
+        
+        // Trigger webhook from dashboard
+        function triggerDashboardWebhook(id) {
+            const webhook = dashboardWebhooks.find(w => w.id === id);
+            if (!webhook) return;
+            
+            triggerWebhookId = id;
+            
+            if (webhook.highImpact) {
+                // Show confirmation modal for high impact webhooks
+                document.getElementById('confirmWebhookName').textContent = webhook.name;
+                document.getElementById('webhookConfirmModal').classList.add('active');
+            } else {
+                // Trigger directly for normal webhooks
+                executeTriggerDashboardWebhook(id);
+            }
+        }
+        
+        // Execute webhook trigger from dashboard
+        async function executeTriggerDashboardWebhook(id) {
+            try {
+                const response = await fetch(`/admin/api/webhooks/${id}/trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payload: {} })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Webhook triggered successfully! Status: ${result.status}`, 'success');
+                } else {
+                    showAlert('Failed to trigger webhook: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to trigger webhook: ' + err.message, 'error');
+            }
+        }
+        
+        // Confirm trigger webhook from modal
+        function confirmTriggerWebhook() {
+            closeWebhookConfirmModal();
+            if (triggerWebhookId) {
+                executeTriggerDashboardWebhook(triggerWebhookId);
+                triggerWebhookId = null;
+            }
+        }
+        
+        // Close webhook confirm modal
+        function closeWebhookConfirmModal() {
+            document.getElementById('webhookConfirmModal').classList.remove('active');
+            triggerWebhookId = null;
+        }
+        
+        // Close modal on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target.id === 'webhookConfirmModal') {
+                closeWebhookConfirmModal();
+            }
+        });
         
         // Load configuration
         async function loadConfig() {
