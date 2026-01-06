@@ -62,6 +62,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.6] - 2026-01-06
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #344 from spospordo/copilot/add-webhooks-display-dashboard
+  - Complete webhook dashboard display and navigation fixes
+  - Fix webhook back to dashboard link and add webhook list display on dashboard
+  - Initial plan
+
+
 ## [2.2.5] - 2026-01-06
 
 ### Patch Update
