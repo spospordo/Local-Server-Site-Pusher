@@ -8,9 +8,9 @@
  */
 
 const { execSync } = require('child_process');
-
-// Mock execSync to return null
-const originalExecSync = execSync;
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 // ANSI color codes
 const colors = {
@@ -43,38 +43,41 @@ function assertEqual(actual, expected, message) {
   }
 }
 
+// Helper function to create a test git repository
+function createTestGitRepo(baseName) {
+  const testRepoPath = path.join(os.tmpdir(), baseName + '-' + Date.now());
+  fs.mkdirSync(testRepoPath, { recursive: true });
+  execSync('git init', { cwd: testRepoPath, stdio: 'pipe' });
+  execSync('git config user.name "Test"', { cwd: testRepoPath, stdio: 'pipe' });
+  execSync('git config user.email "test@test.com"', { cwd: testRepoPath, stdio: 'pipe' });
+  
+  // Create a dummy file and commit
+  fs.writeFileSync(path.join(testRepoPath, 'test.txt'), 'test');
+  execSync('git add .', { cwd: testRepoPath, stdio: 'pipe' });
+  execSync('git commit -m "Initial commit"', { cwd: testRepoPath, stdio: 'pipe' });
+  
+  return testRepoPath;
+}
+
+// Helper function to clean up test repository
+function cleanupTestRepo(testRepoPath) {
+  try {
+    execSync(`rm -rf "${testRepoPath}"`, { stdio: 'pipe' });
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+}
+
 log('\n🧪 Running execCommand Null Handling Tests\n', 'cyan');
 
 let passed = 0;
 let failed = 0;
 
-// Test the execCommand function directly
-// We'll simulate the scenario by using a git command that returns no output
-const { execSync: mockExecSync } = require('child_process');
-
 // Test 1: execCommand handles empty output (should return empty string, not crash)
 if (runTest('execCommand handles git commands with no output', () => {
-  // Re-require to get fresh instance
-  delete require.cache[require.resolve('./bump-version.js')];
-  
-  // Create a test repository scenario
-  const fs = require('fs');
-  const path = require('path');
-  const tmpDir = require('os').tmpdir();
-  const testRepoPath = path.join(tmpDir, 'test-git-repo-' + Date.now());
+  const testRepoPath = createTestGitRepo('test-git-repo');
   
   try {
-    // Create a temporary git repo with no tags
-    fs.mkdirSync(testRepoPath, { recursive: true });
-    execSync('git init', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git config user.name "Test"', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git config user.email "test@test.com"', { cwd: testRepoPath, stdio: 'pipe' });
-    
-    // Create a dummy file and commit
-    fs.writeFileSync(path.join(testRepoPath, 'test.txt'), 'test');
-    execSync('git add .', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git commit -m "Initial commit"', { cwd: testRepoPath, stdio: 'pipe' });
-    
     // Now test the command that would return no tags (empty output)
     const result = execSync('git tag --sort=-v:refname', { 
       cwd: testRepoPath,
@@ -86,17 +89,8 @@ if (runTest('execCommand handles git commands with no output', () => {
     // The fix should handle this by returning empty string
     const trimmed = result ? result.trim() : '';
     assertEqual(trimmed, '', 'Should handle empty git tag output');
-    
-    // Clean up
-    execSync(`rm -rf "${testRepoPath}"`, { stdio: 'pipe' });
-  } catch (error) {
-    // Clean up on error
-    try {
-      execSync(`rm -rf "${testRepoPath}"`, { stdio: 'pipe' });
-    } catch (e) {
-      // Ignore cleanup errors
-    }
-    throw error;
+  } finally {
+    cleanupTestRepo(testRepoPath);
   }
 })) passed++; else failed++;
 
@@ -128,24 +122,9 @@ if (runTest('execCommand returns empty string for null/undefined result', () => 
 
 // Test 3: Test with actual bump-version.js getLastVersionTag function
 if (runTest('getLastVersionTag handles no tags scenario', () => {
-  // This simulates the actual error scenario from the issue
-  const fs = require('fs');
-  const path = require('path');
-  const tmpDir = require('os').tmpdir();
-  const testRepoPath = path.join(tmpDir, 'test-no-tags-' + Date.now());
+  const testRepoPath = createTestGitRepo('test-no-tags');
   
   try {
-    // Create a temporary git repo with no tags
-    fs.mkdirSync(testRepoPath, { recursive: true });
-    execSync('git init', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git config user.name "Test"', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git config user.email "test@test.com"', { cwd: testRepoPath, stdio: 'pipe' });
-    
-    // Create a dummy file and commit
-    fs.writeFileSync(path.join(testRepoPath, 'test.txt'), 'test');
-    execSync('git add .', { cwd: testRepoPath, stdio: 'pipe' });
-    execSync('git commit -m "Initial commit"', { cwd: testRepoPath, stdio: 'pipe' });
-    
     // Test git tag command returns empty
     const tags = execSync('git tag --sort=-v:refname', { 
       cwd: testRepoPath,
@@ -158,17 +137,8 @@ if (runTest('getLastVersionTag handles no tags scenario', () => {
     
     // Should not crash and should return empty string
     assertEqual(result, '', 'Should handle no tags without crashing');
-    
-    // Clean up
-    execSync(`rm -rf "${testRepoPath}"`, { stdio: 'pipe' });
-  } catch (error) {
-    // Clean up on error
-    try {
-      execSync(`rm -rf "${testRepoPath}"`, { stdio: 'pipe' });
-    } catch (e) {
-      // Ignore cleanup errors
-    }
-    throw error;
+  } finally {
+    cleanupTestRepo(testRepoPath);
   }
 })) passed++; else failed++;
 
