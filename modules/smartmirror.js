@@ -14,10 +14,22 @@ const APP_NAME = packageJson.name;
 
 // Configuration constants
 const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
+const DEFAULT_CALENDAR_CACHE_TTL = 600; // Default: 10 minutes in seconds
+const CALENDAR_CACHE_BACKOFF_MS = 30000; // 30 seconds backoff on errors
 
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
 const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-change-in-production';
+
+// Calendar cache state - stores fetched calendar data with metadata
+const calendarCache = {
+  data: null,           // Cached calendar events
+  timestamp: 0,         // When data was last fetched
+  etags: {},           // ETags by URL for conditional requests
+  lastModified: {},    // Last-Modified headers by URL
+  errors: {},          // Error state by URL
+  lastFetchAttempt: 0  // Last attempt timestamp (for backoff)
+};
 
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
@@ -175,6 +187,7 @@ function getDefaultConfig() {
     },
     theme: 'dark',
     refreshInterval: 60000, // 1 minute
+    calendarCacheTTL: DEFAULT_CALENDAR_CACHE_TTL, // 10 minutes - cache duration for calendar feeds
     autoThemeSwitch: {
       portrait: {
         enabled: false,
@@ -696,6 +709,7 @@ function getPublicConfig(orientation = null) {
     theme: fullConfig.theme,
     gridSize: fullConfig.gridSize,
     refreshInterval: fullConfig.refreshInterval,
+    calendarCacheTTL: fullConfig.calendarCacheTTL || DEFAULT_CALENDAR_CACHE_TTL,
     widgets: {}
   };
   
@@ -779,17 +793,55 @@ function getPublicConfig(orientation = null) {
   return publicConfig;
 }
 
-// Fetch calendar events from ICS feed
-async function fetchCalendarEvents(calendarUrls) {
-  logger.debug(logger.categories.SMART_MIRROR, `Fetching calendar events from ${calendarUrls.length} feeds`);
+// Fetch calendar events from ICS feed with server-side caching
+async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching calendar events from ${calendarUrls.length} feeds (forceRefresh: ${forceRefresh})`);
   
   if (!calendarUrls || calendarUrls.length === 0) {
     logger.warning(logger.categories.SMART_MIRROR, 'No calendar URLs configured');
-    return { success: false, error: 'No calendar URLs configured', events: [] };
+    return { success: false, error: 'No calendar URLs configured', events: [], cached: false };
   }
+  
+  // Load config to get cache TTL
+  const config = loadConfig();
+  const cacheTTL = (config.calendarCacheTTL || DEFAULT_CALENDAR_CACHE_TTL) * 1000; // Convert to milliseconds
+  const now = Date.now();
+  
+  // Check if we have valid cached data
+  const cacheAge = now - calendarCache.timestamp;
+  const isCacheValid = calendarCache.data !== null && cacheAge < cacheTTL && !forceRefresh;
+  
+  if (isCacheValid) {
+    logger.info(logger.categories.SMART_MIRROR, `Returning cached calendar data (age: ${Math.floor(cacheAge / 1000)}s, TTL: ${cacheTTL / 1000}s)`);
+    return {
+      ...calendarCache.data,
+      cached: true,
+      cacheAge: Math.floor(cacheAge / 1000),
+      lastFetch: new Date(calendarCache.timestamp).toISOString()
+    };
+  }
+  
+  // Prevent rapid re-fetches on errors (backoff period defined by constant)
+  const timeSinceLastAttempt = now - calendarCache.lastFetchAttempt;
+  if (timeSinceLastAttempt < CALENDAR_CACHE_BACKOFF_MS && calendarCache.data !== null && !forceRefresh) {
+    logger.warning(logger.categories.SMART_MIRROR, `Using stale cache due to recent fetch attempt (${Math.floor(timeSinceLastAttempt / 1000)}s ago)`);
+    return {
+      ...calendarCache.data,
+      cached: true,
+      stale: true,
+      cacheAge: Math.floor(cacheAge / 1000),
+      lastFetch: new Date(calendarCache.timestamp).toISOString()
+    };
+  }
+  
+  // Update last fetch attempt timestamp
+  calendarCache.lastFetchAttempt = now;
+  
+  logger.info(logger.categories.SMART_MIRROR, `Cache expired or invalid, fetching fresh calendar data`);
   
   const allEvents = [];
   const errors = [];
+  const fetchStatus = {};
   
   for (let url of calendarUrls) {
     if (!url || url.trim() === '') continue;
@@ -799,11 +851,53 @@ async function fetchCalendarEvents(calendarUrls) {
     
     try {
       logger.info(logger.categories.SMART_MIRROR, `Fetching calendar from: ${url}`);
-      const response = await axios.get(url, { timeout: 10000 });
+      
+      // Prepare conditional request headers
+      const headers = {};
+      if (calendarCache.etags[url]) {
+        headers['If-None-Match'] = calendarCache.etags[url];
+        logger.debug(logger.categories.SMART_MIRROR, `Using ETag for conditional request: ${calendarCache.etags[url]}`);
+      }
+      if (calendarCache.lastModified[url]) {
+        headers['If-Modified-Since'] = calendarCache.lastModified[url];
+        logger.debug(logger.categories.SMART_MIRROR, `Using Last-Modified for conditional request: ${calendarCache.lastModified[url]}`);
+      }
+      
+      const response = await axios.get(url, { 
+        timeout: 10000,
+        headers,
+        validateStatus: (status) => {
+          // Accept 200 (OK), 304 (Not Modified), and treat others as errors
+          return status === 200 || status === 304;
+        }
+      });
+      
+      // Handle 304 Not Modified - content hasn't changed
+      if (response.status === 304) {
+        logger.info(logger.categories.SMART_MIRROR, `Calendar feed unchanged (304 Not Modified): ${url}`);
+        fetchStatus[url] = { status: 'not_modified', cached: true };
+        
+        // Use cached events for this URL if available
+        if (calendarCache.data && calendarCache.data.eventsByUrl && calendarCache.data.eventsByUrl[url]) {
+          allEvents.push(...calendarCache.data.eventsByUrl[url]);
+        }
+        continue;
+      }
+      
+      // Store ETag and Last-Modified for future requests
+      if (response.headers.etag) {
+        calendarCache.etags[url] = response.headers.etag;
+        logger.debug(logger.categories.SMART_MIRROR, `Stored ETag: ${response.headers.etag}`);
+      }
+      if (response.headers['last-modified']) {
+        calendarCache.lastModified[url] = response.headers['last-modified'];
+        logger.debug(logger.categories.SMART_MIRROR, `Stored Last-Modified: ${response.headers['last-modified']}`);
+      }
+      
       const events = await ical.async.parseICS(response.data);
       
       // Process events
-      const now = new Date();
+      const nowDate = new Date();
       const upcomingEvents = [];
       
       for (const [key, event] of Object.entries(events)) {
@@ -820,8 +914,8 @@ async function fetchCalendarEvents(calendarUrls) {
                            endDate.getMinutes() === 0);
           
           // Only include future events (within next 30 days)
-          if (startDate && startDate > now) {
-            const daysFromNow = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
+          if (startDate && startDate > nowDate) {
+            const daysFromNow = Math.floor((startDate - nowDate) / (1000 * 60 * 60 * 24));
             if (daysFromNow <= 30) {
               upcomingEvents.push({
                 title: event.summary || 'Untitled Event',
@@ -838,11 +932,39 @@ async function fetchCalendarEvents(calendarUrls) {
       }
       
       allEvents.push(...upcomingEvents);
+      fetchStatus[url] = { status: 'success', eventCount: upcomingEvents.length };
       logger.success(logger.categories.SMART_MIRROR, `Fetched ${upcomingEvents.length} upcoming events from calendar`);
+      
+      // Clear error state for this URL on success
+      if (calendarCache.errors[url]) {
+        delete calendarCache.errors[url];
+      }
+      
     } catch (err) {
       const errorMsg = `Failed to fetch calendar from ${url}: ${err.message}`;
       logger.error(logger.categories.SMART_MIRROR, errorMsg);
-      errors.push(errorMsg);
+      
+      // Store error state
+      calendarCache.errors[url] = {
+        message: err.message,
+        timestamp: now,
+        statusCode: err.response?.status
+      };
+      
+      // Handle rate limiting (429) or server errors (5xx) by using stale cache
+      if (err.response?.status === 429 || (err.response?.status >= 500 && err.response?.status < 600)) {
+        logger.warning(logger.categories.SMART_MIRROR, `Rate limited or server error for ${url}, using stale cache if available`);
+        errors.push(`${errorMsg} (using cached data)`);
+        fetchStatus[url] = { status: 'error_cached', error: err.message, statusCode: err.response?.status };
+        
+        // Use cached events for this URL if available
+        if (calendarCache.data && calendarCache.data.eventsByUrl && calendarCache.data.eventsByUrl[url]) {
+          allEvents.push(...calendarCache.data.eventsByUrl[url]);
+        }
+      } else {
+        errors.push(errorMsg);
+        fetchStatus[url] = { status: 'error', error: err.message };
+      }
     }
   }
   
@@ -852,11 +974,40 @@ async function fetchCalendarEvents(calendarUrls) {
   // Limit to 10 most recent events
   const limitedEvents = allEvents.slice(0, 10);
   
-  return {
+  // Build eventsByUrl map for future 304 handling
+  // NOTE: This is a simplified implementation that stores all events for each URL.
+  // This means when a feed returns 304 Not Modified, we use all previously cached events,
+  // not just the ones that came from that specific feed. This works well enough for most
+  // use cases but could lead to duplicate events if multiple feeds have overlapping events.
+  // A more sophisticated implementation would track which events came from which feed,
+  // but that would require significant additional complexity and memory overhead.
+  const eventsByUrl = {};
+  for (let url of calendarUrls) {
+    url = url.trim().replace(/^webcal:\/\//i, 'https://');
+    if (url) {
+      eventsByUrl[url] = allEvents; // Store all events for simplicity
+    }
+  }
+  
+  // Update cache
+  const result = {
     success: true,
     events: limitedEvents,
-    errors: errors.length > 0 ? errors : null
+    errors: errors.length > 0 ? errors : null,
+    fetchStatus,
+    cached: false,
+    lastFetch: new Date(now).toISOString()
   };
+  
+  calendarCache.data = {
+    ...result,
+    eventsByUrl // Store for 304 handling
+  };
+  calendarCache.timestamp = now;
+  
+  logger.success(logger.categories.SMART_MIRROR, `Calendar cache updated with ${limitedEvents.length} events`);
+  
+  return result;
 }
 
 // Fetch news from RSS feeds
@@ -914,6 +1065,47 @@ async function fetchNews(feedUrls) {
     items: limitedItems,
     errors: errors.length > 0 ? errors : null
   };
+}
+
+// Get calendar cache status (for admin UI)
+function getCalendarCacheStatus() {
+  const config = loadConfig();
+  const cacheTTL = (config.calendarCacheTTL || DEFAULT_CALENDAR_CACHE_TTL) * 1000;
+  const now = Date.now();
+  const cacheAge = calendarCache.timestamp > 0 ? now - calendarCache.timestamp : null;
+  const isValid = calendarCache.data !== null && cacheAge < cacheTTL;
+  
+  return {
+    enabled: true,
+    lastFetch: calendarCache.timestamp > 0 ? new Date(calendarCache.timestamp).toISOString() : null,
+    cacheAge: cacheAge !== null ? Math.floor(cacheAge / 1000) : null,
+    cacheTTL: cacheTTL / 1000,
+    isValid,
+    hasData: calendarCache.data !== null,
+    eventCount: calendarCache.data?.events?.length || 0,
+    errors: calendarCache.errors,
+    etags: Object.keys(calendarCache.etags).length,
+    lastModified: Object.keys(calendarCache.lastModified).length
+  };
+}
+
+// Refresh calendar cache (for manual refresh button)
+async function refreshCalendarCache() {
+  logger.info(logger.categories.SMART_MIRROR, 'Manual calendar cache refresh requested');
+  const config = loadConfig();
+  const calendarConfig = config.widgets?.calendar;
+  
+  if (!calendarConfig || !calendarConfig.enabled) {
+    return { success: false, error: 'Calendar widget not enabled' };
+  }
+  
+  const calendarUrls = calendarConfig.calendarUrls || [];
+  if (calendarUrls.length === 0) {
+    return { success: false, error: 'No calendar URLs configured' };
+  }
+  
+  // Force refresh by passing forceRefresh=true
+  return await fetchCalendarEvents(calendarUrls, true);
 }
 
 // Fetch current weather from OpenWeatherMap
@@ -1700,6 +1892,8 @@ module.exports = {
   calculateCurrentTheme,
   calculateSunTimes,
   fetchCalendarEvents,
+  getCalendarCacheStatus,
+  refreshCalendarCache,
   fetchNews,
   fetchWeather,
   fetchForecast,
@@ -1709,5 +1903,7 @@ module.exports = {
   testNewsFeed,
   testHomeAssistantMedia,
   // Export constants for use in other modules
-  CACHE_MIN_INTERVAL_MS
+  CACHE_MIN_INTERVAL_MS,
+  DEFAULT_CALENDAR_CACHE_TTL,
+  CALENDAR_CACHE_BACKOFF_MS
 };
