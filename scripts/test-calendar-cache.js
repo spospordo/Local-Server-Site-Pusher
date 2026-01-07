@@ -10,9 +10,6 @@ const http = require('http');
 const BASE_URL = 'http://localhost:3000';
 const TEST_TIMEOUT = 15000;
 
-// Test calendar URL (using public test calendar)
-const TEST_CALENDAR_URL = 'https://calendar.google.com/calendar/ical/en.usa%23holiday%40group.v.calendar.google.com/public/basic.ics';
-
 // Helper function to make HTTP requests
 function makeRequest(method, path, data = null, headers = {}) {
   return new Promise((resolve, reject) => {

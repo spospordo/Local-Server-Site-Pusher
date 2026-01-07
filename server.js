@@ -5661,7 +5661,7 @@ app.get('/api/smart-mirror/calendar', async (req, res) => {
       return res.json({ success: false, error: 'Calendar widget not enabled', events: [] });
     }
     
-    // Get cache TTL from config (default: 10 minutes)
+    // Get cache TTL from config for HTTP headers (fetchCalendarEvents will also load config internally)
     const cacheTTL = config.calendarCacheTTL || smartMirror.DEFAULT_CALENDAR_CACHE_TTL;
     
     // Set cache-control headers to allow client-side caching

@@ -15,6 +15,7 @@ const APP_NAME = packageJson.name;
 // Configuration constants
 const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
 const DEFAULT_CALENDAR_CACHE_TTL = 600; // Default: 10 minutes in seconds
+const CALENDAR_CACHE_BACKOFF_MS = 30000; // 30 seconds backoff on errors
 
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
@@ -820,9 +821,9 @@ async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
     };
   }
   
-  // Prevent rapid re-fetches on errors (backoff: 30 seconds)
+  // Prevent rapid re-fetches on errors (backoff period defined by constant)
   const timeSinceLastAttempt = now - calendarCache.lastFetchAttempt;
-  if (timeSinceLastAttempt < 30000 && calendarCache.data !== null && !forceRefresh) {
+  if (timeSinceLastAttempt < CALENDAR_CACHE_BACKOFF_MS && calendarCache.data !== null && !forceRefresh) {
     logger.warning(logger.categories.SMART_MIRROR, `Using stale cache due to recent fetch attempt (${Math.floor(timeSinceLastAttempt / 1000)}s ago)`);
     return {
       ...calendarCache.data,
@@ -974,12 +975,17 @@ async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
   const limitedEvents = allEvents.slice(0, 10);
   
   // Build eventsByUrl map for future 304 handling
+  // NOTE: This is a simplified implementation that stores all events for each URL.
+  // This means when a feed returns 304 Not Modified, we use all previously cached events,
+  // not just the ones that came from that specific feed. This works well enough for most
+  // use cases but could lead to duplicate events if multiple feeds have overlapping events.
+  // A more sophisticated implementation would track which events came from which feed,
+  // but that would require significant additional complexity and memory overhead.
   const eventsByUrl = {};
   for (let url of calendarUrls) {
     url = url.trim().replace(/^webcal:\/\//i, 'https://');
     if (url) {
-      // Filter events that likely came from this URL (this is approximate)
-      eventsByUrl[url] = allEvents.filter(event => true); // Store all for simplicity
+      eventsByUrl[url] = allEvents; // Store all events for simplicity
     }
   }
   
@@ -1898,5 +1904,6 @@ module.exports = {
   testHomeAssistantMedia,
   // Export constants for use in other modules
   CACHE_MIN_INTERVAL_MS,
-  DEFAULT_CALENDAR_CACHE_TTL
+  DEFAULT_CALENDAR_CACHE_TTL,
+  CALENDAR_CACHE_BACKOFF_MS
 };
