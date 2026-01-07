@@ -62,6 +62,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.8] - 2026-01-07
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #354 from spospordo/copilot/implement-server-side-caching
+  - Address code review feedback - improve maintainability
+  - Add comprehensive documentation for calendar caching feature
+  - Add test script for calendar caching functionality
+  - Add admin UI for calendar cache configuration and status
+  - Implement server-side calendar caching with ETag support
+  - Initial plan
+
+
 ## [2.2.7] - 2026-01-07
 
 ### Patch Update
