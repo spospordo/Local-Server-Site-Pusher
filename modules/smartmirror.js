@@ -708,6 +708,7 @@ function getPublicConfig(orientation = null) {
     theme: fullConfig.theme,
     gridSize: fullConfig.gridSize,
     refreshInterval: fullConfig.refreshInterval,
+    calendarCacheTTL: fullConfig.calendarCacheTTL || DEFAULT_CALENDAR_CACHE_TTL,
     widgets: {}
   };
   
