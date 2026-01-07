@@ -138,6 +138,10 @@ async function testRateLimiting() {
 async function testCacheTimeout() {
   console.log('\n⏳ Test 3: Verify cache expires after timeout period');
   
+  // Use shorter timeout in CI environment
+  const cacheTimeout = process.env.CI ? 2000 : 6000; // 2s for CI, 6s for local
+  const waitMessage = process.env.CI ? '2.5 seconds' : '6 seconds';
+  
   // Make first request
   const response1 = await makeRequest({
     hostname: 'localhost',
@@ -148,9 +152,9 @@ async function testCacheTimeout() {
   
   console.log('📤 Made first request');
   
-  // Wait for cache timeout (5 seconds + buffer)
-  console.log('⏳ Waiting 6 seconds for cache to expire...');
-  await new Promise(resolve => setTimeout(resolve, 6000));
+  // Wait for cache timeout (with buffer)
+  console.log(`⏳ Waiting ${waitMessage} for cache to expire...`);
+  await new Promise(resolve => setTimeout(resolve, cacheTimeout + 500));
   
   // Make second request (should fetch fresh data)
   const response2 = await makeRequest({
@@ -252,13 +256,7 @@ async function runTests() {
     results.push(await testRateLimiting());
     results.push(await testErrorHandling());
     results.push(await testCacheHeaders());
-    
-    // Skip cache timeout test in CI (takes 6+ seconds)
-    if (!process.env.CI) {
-      results.push(await testCacheTimeout());
-    } else {
-      console.log('\n⏭️  Skipping cache timeout test in CI environment');
-    }
+    results.push(await testCacheTimeout());
     
     // Summary
     console.log('\n==================================================');

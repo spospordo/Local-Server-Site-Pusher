@@ -11,6 +11,17 @@ let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
 const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-change-in-production';
 
+// Shared axios configuration for Home Assistant requests
+const HOME_ASSISTANT_AXIOS_CONFIG = {
+  headers: {
+    'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget)'
+  },
+  maxRedirects: 0,
+  validateStatus: function (status) {
+    return status >= 200 && status < 300; // Only accept 2xx as success
+  }
+};
+
 // Warn if using default encryption key
 if (!process.env.SMARTMIRROR_KEY) {
   console.warn('⚠️  [Smart Mirror] Using default encryption key. Set SMARTMIRROR_KEY environment variable for production.');
@@ -1059,18 +1070,13 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
         const response = await axios.get(
           `${baseUrl}/api/states/${entityId}`,
           {
+            ...HOME_ASSISTANT_AXIOS_CONFIG,
             headers: {
+              ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
               'Authorization': `Bearer ${haToken}`,
-              'Content-Type': 'application/json',
-              'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget)'
+              'Content-Type': 'application/json'
             },
-            timeout: 5000,
-            // Prevent axios from following redirects that might lead to login pages
-            maxRedirects: 0,
-            // Ensure we validate status codes properly
-            validateStatus: function (status) {
-              return status >= 200 && status < 300; // Only accept 2xx as success
-            }
+            timeout: 5000
           }
         );
         return { entityId, data: response.data, error: null };
@@ -1550,16 +1556,13 @@ async function testHomeAssistantMedia(url, token, entityIds) {
     logger.info(logger.categories.SMART_MIRROR, `Testing Home Assistant API: ${apiUrl}`);
     
     const response = await axios.get(apiUrl, {
+      ...HOME_ASSISTANT_AXIOS_CONFIG,
       headers: {
+        ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget - Connection Test)'
+        'Content-Type': 'application/json'
       },
-      timeout: 10000,
-      maxRedirects: 0,
-      validateStatus: function (status) {
-        return status >= 200 && status < 300;
-      }
+      timeout: 10000
     });
     
     if (response.status === 200) {
@@ -1569,16 +1572,13 @@ async function testHomeAssistantMedia(url, token, entityIds) {
       if (entityIds && entityIds.length > 0) {
         const statesUrl = `${url.replace(/\/$/, '')}/api/states`;
         const statesResponse = await axios.get(statesUrl, {
+          ...HOME_ASSISTANT_AXIOS_CONFIG,
           headers: {
+            ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget - Connection Test)'
+            'Content-Type': 'application/json'
           },
-          timeout: 10000,
-          maxRedirects: 0,
-          validateStatus: function (status) {
-            return status >= 200 && status < 300;
-          }
+          timeout: 10000
         });
         
         const allStates = statesResponse.data;
