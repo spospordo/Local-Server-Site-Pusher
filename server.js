@@ -5738,6 +5738,13 @@ app.get('/api/smart-mirror/forecast', async (req, res) => {
   }
 });
 
+// Cache for Home Assistant media requests to prevent spam
+let mediaRequestCache = {
+  lastRequest: 0,
+  lastResult: null,
+  minInterval: 5000 // Minimum 5 seconds between actual HA requests
+};
+
 // Fetch Home Assistant media player state
 app.get('/api/smart-mirror/media', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Media player data requested');
@@ -5763,11 +5770,27 @@ app.get('/api/smart-mirror/media', async (req, res) => {
       return res.json({ success: false, error: 'At least one media player entity ID must be configured' });
     }
     
+    // Check if we have a recent cached result to prevent spamming HA
+    const now = Date.now();
+    const timeSinceLastRequest = now - mediaRequestCache.lastRequest;
+    
+    if (timeSinceLastRequest < mediaRequestCache.minInterval && mediaRequestCache.lastResult) {
+      logger.debug(logger.categories.SMART_MIRROR, `Returning cached media data (${timeSinceLastRequest}ms since last request)`);
+      return res.json(mediaRequestCache.lastResult);
+    }
+    
+    // Update cache timestamp before making request to prevent race conditions
+    mediaRequestCache.lastRequest = now;
+    
     const result = await smartMirror.fetchHomeAssistantMedia(
       mediaConfig.homeAssistantUrl,
       mediaConfig.homeAssistantToken,
       mediaConfig.entityIds
     );
+    
+    // Cache the result
+    mediaRequestCache.lastResult = result;
+    
     res.json(result);
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Media API error: ${err.message}`);

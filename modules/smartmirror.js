@@ -1061,14 +1061,37 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
           {
             headers: {
               'Authorization': `Bearer ${haToken}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget)'
             },
-            timeout: 5000
+            timeout: 5000,
+            // Prevent axios from following redirects that might lead to login pages
+            maxRedirects: 0,
+            // Ensure we validate status codes properly
+            validateStatus: function (status) {
+              return status >= 200 && status < 300; // Only accept 2xx as success
+            }
           }
         );
         return { entityId, data: response.data, error: null };
       } catch (err) {
-        logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: ${err.message}`);
+        // Log detailed error information for debugging
+        if (err.response) {
+          // Server responded with error status
+          if (err.response.status === 401) {
+            logger.error(logger.categories.SMART_MIRROR, `Home Assistant authentication failed for ${entityId}: Invalid or expired token`);
+          } else if (err.response.status === 404) {
+            logger.warning(logger.categories.SMART_MIRROR, `Entity ${entityId} not found in Home Assistant`);
+          } else {
+            logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: HTTP ${err.response.status}`);
+          }
+        } else if (err.request) {
+          // Request made but no response received
+          logger.warning(logger.categories.SMART_MIRROR, `No response from Home Assistant for ${entityId}: ${err.message}`);
+        } else {
+          // Error setting up the request
+          logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: ${err.message}`);
+        }
         return { entityId, data: null, error: err.message };
       }
     });
@@ -1529,9 +1552,14 @@ async function testHomeAssistantMedia(url, token, entityIds) {
     const response = await axios.get(apiUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget - Connection Test)'
       },
-      timeout: 10000
+      timeout: 10000,
+      maxRedirects: 0,
+      validateStatus: function (status) {
+        return status >= 200 && status < 300;
+      }
     });
     
     if (response.status === 200) {
@@ -1543,9 +1571,14 @@ async function testHomeAssistantMedia(url, token, entityIds) {
         const statesResponse = await axios.get(statesUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget - Connection Test)'
           },
-          timeout: 10000
+          timeout: 10000,
+          maxRedirects: 0,
+          validateStatus: function (status) {
+            return status >= 200 && status < 300;
+          }
         });
         
         const allStates = statesResponse.data;

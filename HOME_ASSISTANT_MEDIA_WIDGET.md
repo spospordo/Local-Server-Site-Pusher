@@ -123,6 +123,38 @@ This is normal when:
 2. Wait for the next refresh cycle (default: 60 seconds)
 3. The widget should update to show the playing media
 
+### Home Assistant Logs Show "Failed Login Attempt"
+
+If you see "failed login attempt" warnings in your Home Assistant logs:
+
+**This is a known issue that has been resolved in version 2.2.7+**
+
+The Smart Mirror widget now includes:
+- Proper User-Agent headers identifying requests as coming from the Smart Mirror
+- Request rate limiting (minimum 5 seconds between requests) to prevent spam
+- Enhanced error handling to avoid unnecessary retry attempts
+- Strict validation to prevent accidental redirects to login pages
+
+**To verify the fix is working**:
+1. Update to version 2.2.7 or later
+2. Restart your Local-Server-Site-Pusher container
+3. Monitor your Home Assistant logs for 5-10 minutes
+4. You should no longer see "failed login attempt" logs from the Smart Mirror
+
+**If you still see the logs after updating**:
+1. Verify your access token is valid and hasn't expired
+   - Go to Home Assistant → Profile → Long-Lived Access Tokens
+   - Create a new token if needed and update the Smart Mirror configuration
+2. Check that your Home Assistant URL is correct and doesn't redirect
+3. Ensure you're using `http://` or `https://` (not `homeassistant.local` which can cause DNS issues)
+
+**Technical details**:
+The integration now sends all requests with:
+- `User-Agent: Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget)` header
+- `maxRedirects: 0` to prevent following redirects to login pages
+- Proper status code validation (only 2xx responses accepted)
+- Request caching to minimize calls to Home Assistant
+
 ### Connection Errors
 
 If you see connection errors:
