@@ -144,7 +144,7 @@ Added comprehensive troubleshooting section covering:
 
 To verify the fix is working in your environment:
 
-1. **Update to version 2.2.7 or later**
+1. **Update to version 2.2.6 or later**
    ```bash
    docker pull your-image:latest
    docker-compose up -d
@@ -226,7 +226,7 @@ Potential enhancements for future versions:
 
 ## Version Information
 
-- **Fixed in**: v2.2.7
+- **Fixed in**: v2.2.6
 - **Affects**: Home Assistant Media Widget
 - **Priority**: High (security and stability)
 - **Backward Compatible**: Yes

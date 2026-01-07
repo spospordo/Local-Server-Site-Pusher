@@ -127,7 +127,7 @@ This is normal when:
 
 If you see "failed login attempt" warnings in your Home Assistant logs:
 
-**This is a known issue that has been resolved in version 2.2.7+**
+**This is a known issue that has been resolved in version 2.2.6+**
 
 The Smart Mirror widget now includes:
 - Proper User-Agent headers identifying requests as coming from the Smart Mirror
@@ -136,7 +136,7 @@ The Smart Mirror widget now includes:
 - Strict validation to prevent accidental redirects to login pages
 
 **To verify the fix is working**:
-1. Update to version 2.2.7 or later
+1. Update to version 2.2.6 or later
 2. Restart your Local-Server-Site-Pusher container
 3. Monitor your Home Assistant logs for 5-10 minutes
 4. You should no longer see "failed login attempt" logs from the Smart Mirror
