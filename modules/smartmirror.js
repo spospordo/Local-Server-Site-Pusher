@@ -10,6 +10,7 @@ const SunCalc = require('suncalc');
 // Read version from package.json
 const packageJson = require('../package.json');
 const APP_VERSION = packageJson.version;
+const APP_NAME = packageJson.name;
 
 // Configuration constants
 const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
@@ -21,7 +22,7 @@ const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-c
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
   headers: {
-    'User-Agent': `Local-Server-Site-Pusher/${APP_VERSION} (Smart Mirror Widget)`
+    'User-Agent': `${APP_NAME}/${APP_VERSION} (Smart Mirror Widget)`
   },
   maxRedirects: 0,
   validateStatus: function (status) {

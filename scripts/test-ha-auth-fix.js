@@ -10,6 +10,7 @@ const http = require('http');
 // Import the cache interval constant from smartMirror module
 const smartMirror = require('../modules/smartmirror');
 const CACHE_MIN_INTERVAL_MS = smartMirror.CACHE_MIN_INTERVAL_MS;
+const CACHE_TIMEOUT_BUFFER_MS = 500; // Buffer time to wait beyond cache interval for expiry tests
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -161,7 +162,7 @@ async function testCacheTimeout() {
   
   // Wait for cache timeout (with buffer)
   console.log(`⏳ Waiting ${waitMessage} for cache to expire...`);
-  await new Promise(resolve => setTimeout(resolve, cacheTimeout + 500));
+  await new Promise(resolve => setTimeout(resolve, cacheTimeout + CACHE_TIMEOUT_BUFFER_MS));
   
   // Make second request (should fetch fresh data)
   const response2 = await makeRequest({
