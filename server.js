@@ -5745,7 +5745,7 @@ app.get('/api/smart-mirror/media', (() => {
   const cache = {
     lastRequest: 0,
     lastResult: null,
-    minInterval: 5000 // Minimum 5 seconds between actual HA requests
+    minInterval: smartMirror.CACHE_MIN_INTERVAL_MS // Use constant from smartMirror module
   };
   
   return async (req, res) => {

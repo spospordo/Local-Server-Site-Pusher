@@ -7,6 +7,10 @@
 
 const http = require('http');
 
+// Import the cache interval constant from smartMirror module
+const smartMirror = require('../modules/smartmirror');
+const CACHE_MIN_INTERVAL_MS = smartMirror.CACHE_MIN_INTERVAL_MS;
+
 const BASE_URL = 'http://localhost:3000';
 
 // Helper to make HTTP requests
@@ -138,9 +142,12 @@ async function testRateLimiting() {
 async function testCacheTimeout() {
   console.log('\n⏳ Test 3: Verify cache expires after timeout period');
   
-  // Use shorter timeout in CI environment
-  const cacheTimeout = process.env.CI ? 2000 : 6000; // 2s for CI, 6s for local
-  const waitMessage = process.env.CI ? '2.5 seconds' : '6 seconds';
+  // Use shorter timeout in CI environment, but based on actual cache interval
+  const cacheTimeout = process.env.CI 
+    ? Math.min(CACHE_MIN_INTERVAL_MS, 2000) // Max 2s for CI
+    : CACHE_MIN_INTERVAL_MS; // Use actual cache interval for local
+  
+  const waitMessage = `${(cacheTimeout / 1000).toFixed(1)} seconds`;
   
   // Make first request
   const response1 = await makeRequest({
@@ -240,7 +247,7 @@ async function runTests() {
   console.log('==================================================\n');
   console.log('This test verifies the fixes for Home Assistant "failed login" logs:');
   console.log('- Request caching to prevent spam');
-  console.log('- Rate limiting (min 5 seconds between HA requests)');
+  console.log(`- Rate limiting (min ${CACHE_MIN_INTERVAL_MS}ms between HA requests)`);
   console.log('- Proper User-Agent headers (verified in smartmirror.js)');
   console.log('- Error handling improvements\n');
   

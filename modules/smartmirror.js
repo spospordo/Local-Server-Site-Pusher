@@ -7,6 +7,13 @@ const Parser = require('rss-parser');
 const ical = require('node-ical');
 const SunCalc = require('suncalc');
 
+// Read version from package.json
+const packageJson = require('../package.json');
+const APP_VERSION = packageJson.version;
+
+// Configuration constants
+const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
+
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
 const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-change-in-production';
@@ -14,7 +21,7 @@ const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-c
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
   headers: {
-    'User-Agent': 'Local-Server-Site-Pusher/2.2.6 (Smart Mirror Widget)'
+    'User-Agent': `Local-Server-Site-Pusher/${APP_VERSION} (Smart Mirror Widget)`
   },
   maxRedirects: 0,
   validateStatus: function (status) {
@@ -1699,5 +1706,7 @@ module.exports = {
   testWeatherConnection,
   testCalendarFeed,
   testNewsFeed,
-  testHomeAssistantMedia
+  testHomeAssistantMedia,
+  // Export constants for use in other modules
+  CACHE_MIN_INTERVAL_MS
 };
