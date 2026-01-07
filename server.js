@@ -5619,6 +5619,34 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   }
 });
 
+// Admin API endpoints for calendar cache management
+
+// Get calendar cache status
+app.get('/admin/api/smart-mirror/calendar/cache-status', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Calendar cache status requested');
+  
+  try {
+    const status = smartMirror.getCalendarCacheStatus();
+    res.json({ success: true, cache: status });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Calendar cache status error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get cache status' });
+  }
+});
+
+// Manually refresh calendar cache
+app.post('/admin/api/smart-mirror/calendar/refresh', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Manual calendar cache refresh requested');
+  
+  try {
+    const result = await smartMirror.refreshCalendarCache();
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Calendar cache refresh error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to refresh calendar cache' });
+  }
+});
+
 // Smart Mirror Widget Data API Endpoints (Public - no auth required)
 
 // Fetch calendar events
@@ -5626,17 +5654,19 @@ app.get('/api/smart-mirror/calendar', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Calendar data requested');
   
   try {
-    // Set cache-control headers
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
     const config = smartMirror.loadConfig();
     const calendarConfig = config.widgets?.calendar;
     
     if (!calendarConfig || !calendarConfig.enabled) {
       return res.json({ success: false, error: 'Calendar widget not enabled', events: [] });
     }
+    
+    // Get cache TTL from config (default: 10 minutes)
+    const cacheTTL = config.calendarCacheTTL || smartMirror.DEFAULT_CALENDAR_CACHE_TTL;
+    
+    // Set cache-control headers to allow client-side caching
+    res.setHeader('Cache-Control', `public, max-age=${cacheTTL}`);
+    res.setHeader('Expires', new Date(Date.now() + cacheTTL * 1000).toUTCString());
     
     const result = await smartMirror.fetchCalendarEvents(calendarConfig.calendarUrls || []);
     res.json(result);
