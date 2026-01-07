@@ -7,9 +7,28 @@ const Parser = require('rss-parser');
 const ical = require('node-ical');
 const SunCalc = require('suncalc');
 
+// Read version from package.json
+const packageJson = require('../package.json');
+const APP_VERSION = packageJson.version;
+const APP_NAME = packageJson.name;
+
+// Configuration constants
+const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
+
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
 const ENCRYPTION_KEY = process.env.SMARTMIRROR_KEY || 'smartmirror-default-key-change-in-production';
+
+// Shared axios configuration for Home Assistant requests
+const HOME_ASSISTANT_AXIOS_CONFIG = {
+  headers: {
+    'User-Agent': `${APP_NAME}/${APP_VERSION} (Smart Mirror Widget)`
+  },
+  maxRedirects: 0,
+  validateStatus: function (status) {
+    return status >= 200 && status < 300; // Only accept 2xx as success
+  }
+};
 
 // Warn if using default encryption key
 if (!process.env.SMARTMIRROR_KEY) {
@@ -1059,7 +1078,9 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
         const response = await axios.get(
           `${baseUrl}/api/states/${entityId}`,
           {
+            ...HOME_ASSISTANT_AXIOS_CONFIG,
             headers: {
+              ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
               'Authorization': `Bearer ${haToken}`,
               'Content-Type': 'application/json'
             },
@@ -1068,7 +1089,23 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
         );
         return { entityId, data: response.data, error: null };
       } catch (err) {
-        logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: ${err.message}`);
+        // Log detailed error information for debugging
+        if (err.response) {
+          // Server responded with error status
+          if (err.response.status === 401) {
+            logger.error(logger.categories.SMART_MIRROR, `Home Assistant authentication failed for ${entityId}: Invalid or expired token`);
+          } else if (err.response.status === 404) {
+            logger.warning(logger.categories.SMART_MIRROR, `Entity ${entityId} not found in Home Assistant`);
+          } else {
+            logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: HTTP ${err.response.status}`);
+          }
+        } else if (err.request) {
+          // Request made but no response received
+          logger.warning(logger.categories.SMART_MIRROR, `No response from Home Assistant for ${entityId}: ${err.message}`);
+        } else {
+          // Error setting up the request
+          logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch entity ${entityId}: ${err.message}`);
+        }
         return { entityId, data: null, error: err.message };
       }
     });
@@ -1527,7 +1564,9 @@ async function testHomeAssistantMedia(url, token, entityIds) {
     logger.info(logger.categories.SMART_MIRROR, `Testing Home Assistant API: ${apiUrl}`);
     
     const response = await axios.get(apiUrl, {
+      ...HOME_ASSISTANT_AXIOS_CONFIG,
       headers: {
+        ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
@@ -1541,7 +1580,9 @@ async function testHomeAssistantMedia(url, token, entityIds) {
       if (entityIds && entityIds.length > 0) {
         const statesUrl = `${url.replace(/\/$/, '')}/api/states`;
         const statesResponse = await axios.get(statesUrl, {
+          ...HOME_ASSISTANT_AXIOS_CONFIG,
           headers: {
+            ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
@@ -1666,5 +1707,7 @@ module.exports = {
   testWeatherConnection,
   testCalendarFeed,
   testNewsFeed,
-  testHomeAssistantMedia
+  testHomeAssistantMedia,
+  // Export constants for use in other modules
+  CACHE_MIN_INTERVAL_MS
 };
