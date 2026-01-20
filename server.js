@@ -4749,6 +4749,31 @@ app.post('/admin/api/finance/accounts/merge', requireAuth, (req, res) => {
   }
 });
 
+// Unmerge a previously merged account
+app.post('/admin/api/finance/accounts/:id/unmerge', requireAuth, (req, res) => {
+  try {
+    const accountId = req.params.id;
+    const { manualBalances } = req.body || {};
+    
+    const result = finance.unmergeAccount(accountId, manualBalances || {});
+    
+    if (result.success) {
+      logger.success(logger.categories.FINANCE, 
+        `Unmerged account ${accountId}, recreated ${result.recreatedCount} account(s)`);
+      res.json(result);
+    } else {
+      logger.error(logger.categories.FINANCE, `Failed to unmerge account: ${result.error}`);
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(logger.categories.FINANCE, `Account unmerge error: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to unmerge account: ' + err.message 
+    });
+  }
+});
+
 // Get demographics
 app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
   try {
