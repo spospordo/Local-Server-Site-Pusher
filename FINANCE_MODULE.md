@@ -10,7 +10,7 @@ The Finance Module is a secure, encrypted personal finance tracking system integ
 
 ### 📑 Navigation Structure
 
-**NEW in v2.2.11**: Finance module now has dedicated sub-tabs for better organization:
+**NEW in v2.2.10**: Finance module now has dedicated sub-tabs for better organization:
 - **Demo**: View demo data and examples
 - **My Data**: Personal finance profile and retirement planning
 - **Account**: Dedicated sub-tab for all account management features (NEW)
