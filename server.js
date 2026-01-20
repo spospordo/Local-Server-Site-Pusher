@@ -4718,6 +4718,37 @@ app.post('/admin/api/finance/accounts/:id/display-name', requireAuth, (req, res)
   }
 });
 
+// Merge accounts
+app.post('/admin/api/finance/accounts/merge', requireAuth, (req, res) => {
+  try {
+    const { accountIds } = req.body;
+    
+    if (!accountIds || !Array.isArray(accountIds)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'accountIds array is required' 
+      });
+    }
+    
+    const result = finance.mergeAccounts(accountIds);
+    
+    if (result.success) {
+      logger.success(logger.categories.FINANCE, 
+        `Merged ${result.mergedCount} accounts into ${result.survivingAccount.name}`);
+      res.json(result);
+    } else {
+      logger.error(logger.categories.FINANCE, `Failed to merge accounts: ${result.error}`);
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(logger.categories.FINANCE, `Account merge error: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to merge accounts: ' + err.message 
+    });
+  }
+});
+
 // Get demographics
 app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
   try {

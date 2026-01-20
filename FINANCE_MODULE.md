@@ -104,6 +104,66 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - Standardize naming: "checking" → "Primary Checking Account"
 - Remove icon contamination: "anHome Projects" → "Home Projects Savings"
 
+#### Merge Duplicate/Split Accounts (NEW in v2.3.0)
+
+**Purpose:** Merge duplicate or split accounts that represent the same financial entity into a single account
+
+**Problem Solved:** 
+Sometimes processing screenshots inadvertently creates duplicate accounts when fuzzy matching fails to identify an existing account. This feature allows admins to merge these duplicates while maintaining accurate balance and history.
+
+**Features:**
+- **Multi-Select Interface**: Select 2 or more accounts to merge with checkboxes
+- **Smart Surviving Account**: Automatically uses the most recently updated account as the surviving account
+- **Complete History Transfer**: All history entries from merged accounts are transferred to the surviving account
+- **Alias Tracking**: Previous account names are stored to prevent future re-creation of duplicates
+- **Future-Proof Matching**: Screenshot uploads will match against previous names to link to the correct merged account
+- **Audit Trail**: Merge operations are logged in the history for traceability
+- **Confirmation Dialog**: Clear preview of what will happen before executing the merge
+
+**How to Use:**
+1. Navigate to Finance → My Data tab
+2. Click "🔀 Merge Duplicate Accounts" button to enter merge mode
+3. Select 2 or more accounts using the checkboxes that appear
+4. Review the selection count and click "Merge Selected"
+5. Review the confirmation dialog showing:
+   - All accounts being merged
+   - Which account will survive (most recently updated)
+   - Warning that action cannot be undone
+6. Confirm to execute the merge
+7. The surviving account now contains all history and has previous names stored
+
+**Merge Behavior:**
+- **Surviving Account Selection**: The account with the most recent `updatedAt` timestamp becomes the surviving account
+- **Balance Preservation**: The surviving account's balance is kept (as it was most recently updated)
+- **History Transfer**: All history entries from merged accounts are transferred to surviving account
+- **Previous Names**: All merged account names are stored in `previousNames` array
+- **Future Matching**: Screenshot uploads check both current name and `previousNames` for matching
+- **Audit Log**: A special `accounts_merged` history entry is created documenting the merge
+
+**Merged Account Indicator:**
+- Accounts that have absorbed other accounts display a blue badge showing "📎 Merged from: [account names]"
+- This helps you track which accounts were consolidated
+
+**Use Cases:**
+- Merge accounts split due to OCR errors: "My Savings" + "My Savings Account" → "My Savings Account"
+- Consolidate duplicate accounts created from multiple uploads: "Checking" + "Checking 1" → "Checking"
+- Fix naming variations: "401k" + "401(k)" + "401K" → "401(k)"
+- Clean up test accounts or old accounts that represent the same entity
+
+**Technical Details:**
+- Merged account IDs are permanently removed from the accounts list
+- All history entries referencing merged account IDs are updated to point to surviving account
+- Original account names in history are preserved in `originalAccountName` field for audit trail
+- Previous names are checked during screenshot processing to prevent re-creating merged accounts
+- Merge operations cannot be undone - ensure you select the correct accounts before confirming
+
+**Best Practices:**
+1. Review all selected accounts carefully before merging
+2. Ensure accounts truly represent the same financial entity
+3. The most recently updated account becomes the survivor - update the correct account last if needed
+4. After merging, consider setting a clear display name on the surviving account
+5. Check the "Merged from" indicator to verify all previous account names are stored correctly
+
 #### Balance Update & Historical Tracking
 - **Streamlined Balance Updates**: Quickly update account balances with a single click
 - **Historical Tracking**: Every balance change is recorded with the effective date
@@ -483,10 +543,11 @@ All endpoints require admin authentication.
 
 ### Account Management
 - `GET /admin/api/finance/account-types` - Get all account types with descriptions
-- `GET /admin/api/finance/accounts` - List all accounts (includes displayName field)
+- `GET /admin/api/finance/accounts` - List all accounts (includes displayName and previousNames fields)
 - `POST /admin/api/finance/accounts` - Create or update account
 - `POST /admin/api/finance/accounts/:id/balance` - Update account balance with historical tracking
 - `POST /admin/api/finance/accounts/:id/display-name` - Update account display name (body: `{ displayName: string }`)
+- `POST /admin/api/finance/accounts/merge` - Merge multiple accounts (body: `{ accountIds: string[] }`)
 - `DELETE /admin/api/finance/accounts/:id` - Delete account
 - `POST /admin/api/finance/upload-screenshot` - Upload and process account screenshot (multipart/form-data with 'screenshot' field)
 

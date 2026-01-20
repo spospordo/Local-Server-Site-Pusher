@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Finance Module - Account Merging (v2.3.0)**: Merge duplicate or split accounts into a single account
+  - Multi-select interface with checkboxes to select accounts for merging
+  - Automatically identifies the most recently updated account as the surviving account
+  - Transfers all history entries from merged accounts to the surviving account
+  - Stores previous account names in `previousNames` array to prevent future re-creation
+  - Enhanced fuzzy matching checks both current name and previous names during screenshot uploads
+  - Audit trail with `accounts_merged` history entry documenting the merge operation
+  - Confirmation dialog showing preview of merge before execution
+  - Visual indicator showing "Merged from" badge on accounts that have absorbed others
+  - New API endpoint: `POST /admin/api/finance/accounts/merge`
+  - Comprehensive documentation in FINANCE_MODULE.md
+
 ### Fixed
 - **Smart Mirror Dashboard 404 Error**: Fixed issue where `/smart-mirror` route would return 404 Not Found after enabling the dashboard in admin settings
   - Added enabled state check to `/smart-mirror` route
