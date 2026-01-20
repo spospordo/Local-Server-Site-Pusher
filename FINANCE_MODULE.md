@@ -8,6 +8,18 @@ The Finance Module is a secure, encrypted personal finance tracking system integ
 
 ## Features
 
+### 📑 Navigation Structure
+
+**NEW in v2.2.11**: Finance module now has dedicated sub-tabs for better organization:
+- **Demo**: View demo data and examples
+- **My Data**: Personal finance profile and retirement planning
+- **Account**: Dedicated sub-tab for all account management features (NEW)
+  - Your Accounts: View and manage existing accounts
+  - Upload Account Screenshot: Auto-import balances via OCR
+  - Add Manual Account: Manually add/edit accounts
+- **History**: View historical balance changes and transactions
+- **Spending**: AI assistant for spending analysis
+
 ### 🔐 Security
 - **AES-256-GCM Encryption**: All financial data is encrypted at rest
 - **Secure Key Storage**: Encryption keys stored with 0600 file permissions
@@ -38,7 +50,7 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - **Long Name Support**: Correctly handles accounts with long or wrapped names (v2.2.6)
 
 **How to Use:**
-1. Navigate to the Finance Module "My Data" tab
+1. Navigate to the Finance Module → "Account" sub-tab
 2. Scroll to the "Upload Account Screenshot" section
 3. Click "Select Screenshot" and choose an image file (JPG, PNG, WebP)
 4. Click "Upload & Process Screenshot"
@@ -121,7 +133,7 @@ Sometimes processing screenshots inadvertently creates duplicate accounts when f
 - **Confirmation Dialog**: Clear preview of what will happen before executing the merge
 
 **How to Use:**
-1. Navigate to Finance → My Data tab
+1. Navigate to Finance → Account sub-tab
 2. Click "🔀 Merge Duplicate Accounts" button to enter merge mode
 3. Select 2 or more accounts using the checkboxes that appear
 4. Review the selection count and click "Merge Selected"
@@ -180,7 +192,7 @@ Sometimes accounts are merged accidentally, but later it is discovered they shou
 - **Clear Preview Dialog**: Shows which accounts will be recreated before executing
 
 **How to Use:**
-1. Navigate to Finance → My Data tab
+1. Navigate to Finance → Account sub-tab
 2. Find an account with the "📎 Merged from" badge
 3. Click the "🔓 Unmerge Account" button
 4. Review the unmerge dialog showing:
