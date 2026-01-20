@@ -478,8 +478,8 @@ function unmergeAccount(accountId, manualBalances = {}) {
     const originalName = mergedAccountNames[i];
     const originalId = mergedAccountIds[i];
     
-    // Generate new ID for recreated account
-    const newAccountId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9);
+    // Generate new ID for recreated account using crypto for better uniqueness
+    const newAccountId = crypto.randomUUID();
     
     // Determine the balance for this account
     let accountBalance = 0;
@@ -514,7 +514,7 @@ function unmergeAccount(accountId, manualBalances = {}) {
       currentValue: accountBalance,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      notes: `Unmerged from "${mergedAccount.displayName || mergedAccount.name}" on ${new Date().toLocaleDateString()}`,
+      notes: `Unmerged from "${mergedAccount.displayName || mergedAccount.name}" on ${new Date().toISOString().split('T')[0]}`,
       originalMergedAccountId: originalId // Track original ID for reference
     };
     
