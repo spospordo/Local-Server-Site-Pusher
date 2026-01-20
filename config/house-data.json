@@ -1,0 +1,18 @@
+{
+  "vacation": {
+    "dates": [],
+    "travelInfo": "",
+    "emergencyContact": {
+      "name": "",
+      "phone": "",
+      "email": "",
+      "relationship": ""
+    },
+    "pets": []
+  },
+  "documentation": {
+    "documents": [],
+    "diagrams": [],
+    "instructions": []
+  }
+}
