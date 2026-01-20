@@ -75,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.9] - 2026-01-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #358 from spospordo/copilot/add-merge-split-accounts-feature
+  - Address code review feedback
+  - Add test script for account merge functionality
+  - Implement account merge feature for Finance module
+  - Initial plan
+
+
 ## [2.2.8] - 2026-01-07
 
 ### Patch Update
