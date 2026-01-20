@@ -8,6 +8,7 @@ const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits for GCM
 const AUTH_TAG_LENGTH = 16;
+const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
 
 // Initialize the finance module with config
 function init(serverConfig) {
@@ -335,6 +336,114 @@ function deleteAccount(accountId) {
   return saveFinanceData(data);
 }
 
+// Merge multiple accounts into one
+function mergeAccounts(accountIds) {
+  if (!Array.isArray(accountIds) || accountIds.length < 2) {
+    return { success: false, error: 'At least 2 accounts are required for merging' };
+  }
+
+  const data = loadFinanceData();
+  
+  // Find all accounts to merge
+  const accountsToMerge = accountIds
+    .map(id => data.accounts.find(a => a.id === id))
+    .filter(a => a !== undefined);
+  
+  if (accountsToMerge.length < 2) {
+    return { success: false, error: 'Could not find all accounts to merge' };
+  }
+  
+  if (accountsToMerge.length !== accountIds.length) {
+    return { success: false, error: 'Some account IDs were not found' };
+  }
+  
+  // Find the most recently updated account (this becomes the surviving account)
+  const survivingAccount = accountsToMerge.reduce((latest, current) => {
+    const latestTime = new Date(latest.updatedAt || latest.createdAt || 0);
+    const currentTime = new Date(current.updatedAt || current.createdAt || 0);
+    return currentTime > latestTime ? current : latest;
+  });
+  
+  // Collect accounts to be merged (all except surviving)
+  const mergedAccounts = accountsToMerge.filter(a => a.id !== survivingAccount.id);
+  
+  // Initialize previousNames array if it doesn't exist
+  if (!survivingAccount.previousNames) {
+    survivingAccount.previousNames = [];
+  }
+  
+  // Collect all previous names from merged accounts
+  const allPreviousNames = new Set(survivingAccount.previousNames);
+  
+  mergedAccounts.forEach(account => {
+    // Add the account's current name as a previous name
+    if (account.name && account.name !== survivingAccount.name) {
+      allPreviousNames.add(account.name);
+    }
+    
+    // Add any existing previous names from this account
+    if (account.previousNames && Array.isArray(account.previousNames)) {
+      account.previousNames.forEach(name => allPreviousNames.add(name));
+    }
+  });
+  
+  // Update surviving account with all previous names
+  survivingAccount.previousNames = Array.from(allPreviousNames);
+  survivingAccount.updatedAt = new Date().toISOString();
+  
+  // Transfer all history entries from merged accounts to surviving account
+  const mergedAccountIds = mergedAccounts.map(a => a.id);
+  data.history.forEach(entry => {
+    if (mergedAccountIds.includes(entry.accountId)) {
+      entry.accountId = survivingAccount.id;
+      // Keep original accountName for audit trail, but mark as transferred
+      if (!entry.originalAccountName) {
+        entry.originalAccountName = entry.accountName;
+      }
+      entry.accountName = survivingAccount.name;
+      entry.transferredToAccount = survivingAccount.id;
+    }
+  });
+  
+  // Create audit log entry for the merge
+  const mergeAuditEntry = {
+    accountId: survivingAccount.id,
+    accountName: survivingAccount.name,
+    type: 'accounts_merged',
+    timestamp: new Date().toISOString(),
+    mergedAccountIds: mergedAccountIds,
+    mergedAccountNames: mergedAccounts.map(a => a.name),
+    survivingAccountId: survivingAccount.id,
+    survivingAccountName: survivingAccount.name,
+    previousNames: Array.from(allPreviousNames)
+  };
+  
+  data.history.push(mergeAuditEntry);
+  
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
+  }
+  
+  // Remove merged accounts from accounts array
+  data.accounts = data.accounts.filter(a => !mergedAccountIds.includes(a.id));
+  
+  // Save the updated data
+  const saveResult = saveFinanceData(data);
+  
+  if (saveResult.success) {
+    return {
+      success: true,
+      survivingAccount: survivingAccount,
+      mergedCount: mergedAccounts.length,
+      mergedAccountNames: mergedAccounts.map(a => a.name),
+      previousNames: survivingAccount.previousNames
+    };
+  } else {
+    return saveResult;
+  }
+}
+
 // Update account balance (with historical tracking)
 function updateAccountBalance(accountId, newBalance, balanceDate = null) {
   const data = loadFinanceData();
@@ -363,9 +472,9 @@ function updateAccountBalance(accountId, newBalance, balanceDate = null) {
     timestamp: new Date().toISOString()
   });
   
-  // Keep only last 1000 entries to prevent file bloat
-  if (data.history.length > 1000) {
-    data.history = data.history.slice(-1000);
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
   }
   
   return saveFinanceData(data);
@@ -407,9 +516,9 @@ function addHistoryEntry(entry) {
   
   data.history.push(entry);
   
-  // Keep only last 1000 entries to prevent file bloat
-  if (data.history.length > 1000) {
-    data.history = data.history.slice(-1000);
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
   }
   
   return saveFinanceData(data);
@@ -1795,10 +1904,22 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
     
     for (const parsedAccount of parsedAccounts) {
       // Try to find existing account by name (with fuzzy matching)
-      // Match on original name only, not displayName
-      const existingAccount = existingAccounts.find(acc => 
-        acc.name && fuzzyMatch(acc.name, parsedAccount.name)
-      );
+      // Match on original name, and also check previousNames for merged accounts
+      const existingAccount = existingAccounts.find(acc => {
+        // Check current name
+        if (acc.name && fuzzyMatch(acc.name, parsedAccount.name)) {
+          return true;
+        }
+        
+        // Check previous names (from merged accounts)
+        if (acc.previousNames && Array.isArray(acc.previousNames)) {
+          return acc.previousNames.some(prevName => 
+            fuzzyMatch(prevName, parsedAccount.name)
+          );
+        }
+        
+        return false;
+      });
       
       if (existingAccount) {
         // Update existing account balance
@@ -1851,9 +1972,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
       }
     }
     
-    // Keep only last 1000 history entries
-    if (data.history.length > 1000) {
-      data.history = data.history.slice(-1000);
+    // Keep only last MAX_HISTORY_ENTRIES history entries
+    if (data.history.length > MAX_HISTORY_ENTRIES) {
+      data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
     }
     
     // Save updated data
@@ -2016,6 +2137,7 @@ module.exports = {
   getAccounts,
   saveAccount,
   deleteAccount,
+  mergeAccounts,
   updateAccountBalance,
   updateAccountDisplayName,
   getAccountDisplayName,

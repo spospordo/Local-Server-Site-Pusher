@@ -2399,6 +2399,27 @@
                 <!-- Accounts List -->
                 <div class="finance-subsection">
                     <h3>📋 Your Accounts</h3>
+                    
+                    <!-- Merge Controls -->
+                    <div id="mergeControls" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Merge Mode Active</strong>
+                                <span id="mergeSelectedCount" style="margin-left: 1rem; color: #666;"></span>
+                            </div>
+                            <div>
+                                <button onclick="mergeSelectedAccounts()" class="btn" style="background: #28a745; margin-right: 0.5rem;">Merge Selected</button>
+                                <button onclick="cancelMergeMode()" class="btn" style="background: #6c757d;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <button id="toggleMergeBtn" onclick="toggleMergeMode()" class="btn" style="background: #17a2b8;">
+                            🔀 Merge Duplicate Accounts
+                        </button>
+                    </div>
+                    
                     <div id="accountsList" class="accounts-list">
                         <p style="color: #666;">No accounts added yet</p>
                     </div>
@@ -11401,6 +11422,8 @@
                     return;
                 }
                 
+                const isMergeMode = window.financeState && window.financeState.mergeMode;
+                
                 accountsList.innerHTML = accounts.map(account => {
                     const type = accountTypes[account.type] || { name: account.type, category: 'other' };
                     const isFutureIncome = type.category === 'future_income';
@@ -11419,8 +11442,23 @@
                         }
                     }
                     
+                    // Show merge checkbox in merge mode
+                    const mergeCheckbox = isMergeMode ? `
+                        <div style="margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" 
+                                       class="merge-account-checkbox" 
+                                       data-account-id="${account.id}"
+                                       onchange="updateMergeSelection()"
+                                       style="margin-right: 0.5rem; width: 18px; height: 18px; cursor: pointer;">
+                                <strong>Select for merge</strong>
+                            </label>
+                        </div>
+                    ` : '';
+                    
                     return `
-                        <div class="account-card">
+                        <div class="account-card" ${isMergeMode ? 'style="border: 2px solid #17a2b8;"' : ''}>
+                            ${mergeCheckbox}
                             <div class="account-card-header">
                                 <div class="account-name">${escapeHtml(displayName)}</div>
                                 <div class="account-type-badge">${type.name}</div>
@@ -11438,6 +11476,11 @@
                                 </div>
                             ` : ''}
                             ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
+                            ${account.previousNames && account.previousNames.length > 0 ? `
+                                <div style="color: #17a2b8; font-size: 0.85rem; margin-top: 0.5rem; padding: 0.5rem; background: #e7f6f8; border-radius: 4px;">
+                                    <strong>📎 Merged from:</strong> ${account.previousNames.map(n => escapeHtml(n)).join(', ')}
+                                </div>
+                            ` : ''}
                             <div class="account-details">
                                 ${account.startDate ? `
                                     <div class="account-detail">
@@ -11448,12 +11491,14 @@
                                     <span class="account-detail-label">Updated:</span> ${new Date(account.updatedAt).toLocaleDateString()}
                                 </div>
                             </div>
-                            <div class="account-actions">
-                                <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
-                                <button class="btn" style="background: #17a2b8;" onclick="showEditDisplayNameModal('${account.id}', '${escapeHtml(displayName)}', '${escapeHtml(account.name)}')">Edit Display Name</button>
-                                <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(displayName)}', ${account.currentValue || 0})">Update Balance</button>
-                                <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
-                            </div>
+                            ${!isMergeMode ? `
+                                <div class="account-actions">
+                                    <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
+                                    <button class="btn" style="background: #17a2b8;" onclick="showEditDisplayNameModal('${account.id}', '${escapeHtml(displayName)}', '${escapeHtml(account.name)}')">Edit Display Name</button>
+                                    <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(displayName)}', ${account.currentValue || 0})">Update Balance</button>
+                                    <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 }).join('');
@@ -11576,6 +11621,127 @@
                 }
             } catch (err) {
                 showAlert('Failed to delete account: ' + err.message, 'error');
+            }
+        }
+        
+        // Initialize finance state for merge mode
+        if (!window.financeState) {
+            window.financeState = {
+                mergeMode: false,
+                selectedAccounts: []
+            };
+        }
+        
+        function toggleMergeMode() {
+            window.financeState.mergeMode = !window.financeState.mergeMode;
+            window.financeState.selectedAccounts = [];
+            
+            if (window.financeState.mergeMode) {
+                document.getElementById('mergeControls').style.display = 'block';
+                document.getElementById('toggleMergeBtn').textContent = '❌ Exit Merge Mode';
+                document.getElementById('toggleMergeBtn').style.background = '#dc3545';
+            } else {
+                document.getElementById('mergeControls').style.display = 'none';
+                document.getElementById('toggleMergeBtn').textContent = '🔀 Merge Duplicate Accounts';
+                document.getElementById('toggleMergeBtn').style.background = '#17a2b8';
+            }
+            
+            loadAccounts();
+            updateMergeSelection();
+        }
+        
+        function cancelMergeMode() {
+            window.financeState.mergeMode = false;
+            window.financeState.selectedAccounts = [];
+            document.getElementById('mergeControls').style.display = 'none';
+            document.getElementById('toggleMergeBtn').textContent = '🔀 Merge Duplicate Accounts';
+            document.getElementById('toggleMergeBtn').style.background = '#17a2b8';
+            loadAccounts();
+        }
+        
+        function updateMergeSelection() {
+            const checkboxes = document.querySelectorAll('.merge-account-checkbox');
+            const selectedIds = [];
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedIds.push(checkbox.dataset.accountId);
+                }
+            });
+            
+            window.financeState.selectedAccounts = selectedIds;
+            
+            const countElement = document.getElementById('mergeSelectedCount');
+            if (selectedIds.length > 0) {
+                countElement.textContent = `${selectedIds.length} account(s) selected`;
+            } else {
+                countElement.textContent = 'Select 2 or more accounts to merge';
+            }
+        }
+        
+        async function mergeSelectedAccounts() {
+            const selectedIds = window.financeState.selectedAccounts;
+            
+            if (selectedIds.length < 2) {
+                showAlert('Please select at least 2 accounts to merge', 'error');
+                return;
+            }
+            
+            // Get account details for confirmation
+            try {
+                const response = await fetch('/admin/api/finance/accounts');
+                const allAccounts = await response.json();
+                
+                const selectedAccounts = allAccounts.filter(acc => 
+                    selectedIds.includes(acc.id)
+                );
+                
+                // Find the most recently updated account (surviving account)
+                const survivingAccount = selectedAccounts.reduce((latest, current) => {
+                    const latestTime = new Date(latest.updatedAt || latest.createdAt || 0);
+                    const currentTime = new Date(current.updatedAt || current.createdAt || 0);
+                    return currentTime > latestTime ? current : latest;
+                });
+                
+                const accountNames = selectedAccounts
+                    .map(a => `• ${a.displayName || a.name} - $${parseFloat(a.currentValue || 0).toLocaleString()}`)
+                    .join('\n');
+                
+                const confirmMessage = `You are about to merge ${selectedIds.length} accounts:\n\n${accountNames}\n\n` +
+                    `The surviving account will be:\n"${survivingAccount.displayName || survivingAccount.name}" ` +
+                    `(Most recently updated: ${new Date(survivingAccount.updatedAt).toLocaleDateString()})\n\n` +
+                    `All history and transactions will be transferred to this account.\n` +
+                    `The other accounts will be deleted but their names will be saved to prevent future duplicates.\n\n` +
+                    `This action cannot be undone. Continue?`;
+                
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+                
+                // Perform merge
+                const mergeResponse = await fetch('/admin/api/finance/accounts/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accountIds: selectedIds })
+                });
+                
+                const result = await mergeResponse.json();
+                
+                if (result.success) {
+                    showAlert(
+                        `Successfully merged ${result.mergedCount} account(s) into "${result.survivingAccount.displayName || result.survivingAccount.name}"!`,
+                        'success'
+                    );
+                    
+                    // Exit merge mode and reload
+                    cancelMergeMode();
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    showAlert('Error merging accounts: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to merge accounts: ' + err.message, 'error');
             }
         }
         
