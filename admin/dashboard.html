@@ -2158,6 +2158,7 @@
             <div class="sub-tabs" id="finance-subtabs">
                 <button class="sub-tab" onclick="showSubTab('finance-demo')">Demo</button>
                 <button class="sub-tab active" onclick="showSubTab('finance-mydata')">My Data</button>
+                <button class="sub-tab" onclick="showSubTab('finance-account')">Account</button>
                 <button class="sub-tab" onclick="showSubTab('finance-history')">History</button>
                 <button class="sub-tab" onclick="showSubTab('finance-spending')">Spending</button>
             </div>
@@ -2288,140 +2289,6 @@
                     <div id="retirementEvaluation" style="display: none;">
                         <div id="retirementResult" class="alert"></div>
                         <div id="retirementDetails" style="margin-top: 1rem;"></div>
-                    </div>
-                </div>
-
-                <div class="section-divider"></div>
-
-                <!-- Account Management Section -->
-                <div class="finance-subsection">
-                    <h3>📊 Accounts & Assets</h3>
-                    <p class="help-text">Track all your financial accounts and assets in one place</p>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="accountName">Account Name</label>
-                            <input type="text" id="accountName" placeholder="e.g., Chase Savings">
-                        </div>
-                        <div class="form-group">
-                            <label for="accountType">Account Type</label>
-                            <select id="accountType" onchange="updateAccountTypeHelp()">
-                                <option value="">Select type...</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div id="accountTypeHelp" class="alert" style="display:none; margin-bottom: 1rem;"></div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="accountValue">Current Value ($)</label>
-                            <input type="number" step="0.01" id="accountValue" placeholder="e.g., 25000.00">
-                            <small class="help-text">The current balance or market value</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="accountStartDate">Start Date (Optional)</label>
-                            <input type="date" id="accountStartDate">
-                            <small class="help-text">When did you open this account?</small>
-                        </div>
-                    </div>
-                    
-                    <!-- Future Income Specific Fields -->
-                    <div id="futureIncomeFields" style="display:none;">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="monthlyPayment">Expected Monthly Payment ($)</label>
-                                <input type="number" step="0.01" id="monthlyPayment" placeholder="e.g., 2500.00">
-                                <small class="help-text">How much per month will you receive?</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="startAge">Starting Age</label>
-                                <input type="number" id="startAge" placeholder="e.g., 67">
-                                <small class="help-text">At what age will payments begin?</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Mortgage Property Link Fields -->
-                    <div id="mortgagePropertyFields" style="display:none;">
-                        <div class="form-group">
-                            <label for="linkedProperty">Linked Property</label>
-                            <select id="linkedProperty">
-                                <option value="">Select property...</option>
-                            </select>
-                            <small class="help-text">Which property is this mortgage for?</small>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="accountNotes">Notes (Optional)</label>
-                        <textarea id="accountNotes" rows="2" placeholder="Any additional details..."></textarea>
-                    </div>
-                    
-                    <input type="hidden" id="accountId">
-                    <button onclick="saveAccount()" class="btn btn-success">Add Account</button>
-                    <button onclick="clearAccountForm()" class="btn" style="background: #6c757d;">Clear Form</button>
-                </div>
-
-                <div class="section-divider"></div>
-
-                <!-- Screenshot Upload Section -->
-                <div class="finance-subsection">
-                    <h3>📸 Upload Account Screenshot</h3>
-                    <p class="help-text">Upload a screenshot of your account dashboard to automatically update balances</p>
-                    
-                    <div class="alert" style="background: #e7f3ff; border-left: 4px solid #2196F3; margin-bottom: 1rem;">
-                        <strong>ℹ️ How it works:</strong>
-                        <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.9rem;">
-                            <li>Upload a clear screenshot showing account names and balances</li>
-                            <li>The system will extract account information using OCR</li>
-                            <li>Existing accounts will be updated with new balances</li>
-                            <li>New accounts found in the screenshot will be created automatically</li>
-                            <li>Screenshots are deleted immediately after processing for security</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="screenshotFile">Select Screenshot</label>
-                        <input type="file" id="screenshotFile" accept="image/*" style="display: block; width: 100%; padding: 0.5rem; border: 2px dashed #ccc; border-radius: 4px; cursor: pointer;">
-                        <small class="help-text">Supported formats: JPG, PNG, WebP. Max size: 10MB</small>
-                    </div>
-                    
-                    <button onclick="uploadAccountScreenshot()" class="btn" style="background: #2196F3;">
-                        📤 Upload & Process Screenshot
-                    </button>
-                    
-                    <div id="screenshotUploadStatus" style="margin-top: 1rem; display: none;"></div>
-                </div>
-
-                <div class="section-divider"></div>
-
-                <!-- Accounts List -->
-                <div class="finance-subsection">
-                    <h3>📋 Your Accounts</h3>
-                    
-                    <!-- Merge Controls -->
-                    <div id="mergeControls" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; display: none;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>Merge Mode Active</strong>
-                                <span id="mergeSelectedCount" style="margin-left: 1rem; color: #666;"></span>
-                            </div>
-                            <div>
-                                <button onclick="mergeSelectedAccounts()" class="btn" style="background: #28a745; margin-right: 0.5rem;">Merge Selected</button>
-                                <button onclick="cancelMergeMode()" class="btn" style="background: #6c757d;">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 1rem;">
-                        <button id="toggleMergeBtn" onclick="toggleMergeMode()" class="btn" style="background: #17a2b8;">
-                            🔀 Merge Duplicate Accounts
-                        </button>
-                    </div>
-                    
-                    <div id="accountsList" class="accounts-list">
-                        <p style="color: #666;">No accounts added yet</p>
                     </div>
                 </div>
 
@@ -2823,6 +2690,149 @@
                         </ul>
                         <p style="margin-top: 1rem;"><strong>Current Implementation:</strong> UI mockup - backend integration pending. Configuration and prompts are stored locally for future implementation.</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance - Account Sub-tab -->
+        <div class="card admin-section finance-section finance-account-section">
+            <div class="card-header">
+                <h2>💳 Account Management</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    🔐 Manage your financial accounts, upload screenshots, and track balances securely
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Accounts List -->
+                <div class="finance-subsection">
+                    <h3>📋 Your Accounts</h3>
+                    
+                    <!-- Merge Controls -->
+                    <div id="mergeControls" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Merge Mode Active</strong>
+                                <span id="mergeSelectedCount" style="margin-left: 1rem; color: #666;"></span>
+                            </div>
+                            <div>
+                                <button onclick="mergeSelectedAccounts()" class="btn" style="background: #28a745; margin-right: 0.5rem;">Merge Selected</button>
+                                <button onclick="cancelMergeMode()" class="btn" style="background: #6c757d;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <button id="toggleMergeBtn" onclick="toggleMergeMode()" class="btn" style="background: #17a2b8;">
+                            🔀 Merge Duplicate Accounts
+                        </button>
+                    </div>
+                    
+                    <div id="accountsList" class="accounts-list">
+                        <p style="color: #666;">No accounts added yet</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Screenshot Upload Section -->
+                <div class="finance-subsection">
+                    <h3>📸 Upload Account Screenshot</h3>
+                    <p class="help-text">Upload a screenshot of your account dashboard to automatically update balances</p>
+                    
+                    <div class="alert" style="background: #e7f3ff; border-left: 4px solid #2196F3; margin-bottom: 1rem;">
+                        <strong>ℹ️ How it works:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.9rem;">
+                            <li>Upload a clear screenshot showing account names and balances</li>
+                            <li>The system will extract account information using OCR</li>
+                            <li>Existing accounts will be updated with new balances</li>
+                            <li>New accounts found in the screenshot will be created automatically</li>
+                            <li>Screenshots are deleted immediately after processing for security</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="screenshotFile">Select Screenshot</label>
+                        <input type="file" id="screenshotFile" accept="image/*" style="display: block; width: 100%; padding: 0.5rem; border: 2px dashed #ccc; border-radius: 4px; cursor: pointer;">
+                        <small class="help-text">Supported formats: JPG, PNG, WebP. Max size: 10MB</small>
+                    </div>
+                    
+                    <button onclick="uploadAccountScreenshot()" class="btn" style="background: #2196F3;">
+                        📤 Upload & Process Screenshot
+                    </button>
+                    
+                    <div id="screenshotUploadStatus" style="margin-top: 1rem; display: none;"></div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Add Manual Account Section -->
+                <div class="finance-subsection">
+                    <h3>💰 Add Manual Account</h3>
+                    <p class="help-text">Track all your financial accounts and assets in one place</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="accountName">Account Name</label>
+                            <input type="text" id="accountName" placeholder="e.g., Chase Savings">
+                        </div>
+                        <div class="form-group">
+                            <label for="accountType">Account Type</label>
+                            <select id="accountType" onchange="updateAccountTypeHelp()">
+                                <option value="">Select type...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="accountTypeHelp" class="alert" style="display:none; margin-bottom: 1rem;"></div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="accountValue">Current Value ($)</label>
+                            <input type="number" step="0.01" id="accountValue" placeholder="e.g., 25000.00">
+                            <small class="help-text">The current balance or market value</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="accountStartDate">Start Date (Optional)</label>
+                            <input type="date" id="accountStartDate">
+                            <small class="help-text">When did you open this account?</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Future Income Specific Fields -->
+                    <div id="futureIncomeFields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="monthlyPayment">Expected Monthly Payment ($)</label>
+                                <input type="number" step="0.01" id="monthlyPayment" placeholder="e.g., 2500.00">
+                                <small class="help-text">How much per month will you receive?</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="startAge">Starting Age</label>
+                                <input type="number" id="startAge" placeholder="e.g., 67">
+                                <small class="help-text">At what age will payments begin?</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mortgage Property Link Fields -->
+                    <div id="mortgagePropertyFields" style="display:none;">
+                        <div class="form-group">
+                            <label for="linkedProperty">Linked Property</label>
+                            <select id="linkedProperty">
+                                <option value="">Select property...</option>
+                            </select>
+                            <small class="help-text">Which property is this mortgage for?</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountNotes">Notes (Optional)</label>
+                        <textarea id="accountNotes" rows="2" placeholder="Any additional details..."></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="accountId">
+                    <button onclick="saveAccount()" class="btn btn-success">Add Account</button>
+                    <button onclick="clearAccountForm()" class="btn" style="background: #6c757d;">Clear Form</button>
                 </div>
             </div>
         </div>
@@ -7816,6 +7826,7 @@
                 else if (subTabName === 'server-smartmirror') targetTabText = 'Smart Mirror';
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
+                else if (subTabName === 'finance-account') targetTabText = 'Account';
                 else if (subTabName === 'finance-history') targetTabText = 'History';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
                 else if (subTabName === 'finance-advanced') targetTabText = 'Advanced';
@@ -7905,6 +7916,13 @@
             } else if (subTabName === 'finance-mydata') {
                 const myDataSections = document.querySelectorAll('.finance-mydata-section');
                 myDataSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadFinanceData();
+                }
+            } else if (subTabName === 'finance-account') {
+                const accountSections = document.querySelectorAll('.finance-account-section');
+                accountSections.forEach(section => section.classList.remove('hidden'));
                 
                 if (shouldLoadData) {
                     loadFinanceData();
