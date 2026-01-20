@@ -444,6 +444,161 @@ function mergeAccounts(accountIds) {
   }
 }
 
+// Unmerge a previously merged account
+function unmergeAccount(accountId, manualBalances = {}) {
+  const data = loadFinanceData();
+  
+  // Find the account to unmerge
+  const mergedAccount = data.accounts.find(a => a.id === accountId);
+  if (!mergedAccount) {
+    return { success: false, error: 'Account not found' };
+  }
+  
+  // Check if this account has merge history
+  if (!mergedAccount.previousNames || mergedAccount.previousNames.length === 0) {
+    return { success: false, error: 'This account has no merge history' };
+  }
+  
+  // Find the merge audit entry
+  const mergeEntry = data.history.find(h => 
+    h.type === 'accounts_merged' && 
+    h.survivingAccountId === accountId
+  );
+  
+  if (!mergeEntry) {
+    return { success: false, error: 'Merge audit trail not found' };
+  }
+  
+  // Create new accounts for each previously merged account
+  const recreatedAccounts = [];
+  const mergedAccountNames = mergeEntry.mergedAccountNames || [];
+  const mergedAccountIds = mergeEntry.mergedAccountIds || [];
+  
+  for (let i = 0; i < mergedAccountNames.length; i++) {
+    const originalName = mergedAccountNames[i];
+    const originalId = mergedAccountIds[i];
+    
+    // Generate new ID for recreated account using crypto for better uniqueness
+    const newAccountId = crypto.randomUUID();
+    
+    // Determine the balance for this account
+    let accountBalance = 0;
+    
+    // Check if manual balance is provided
+    if (manualBalances[originalName] !== undefined) {
+      accountBalance = parseFloat(manualBalances[originalName]);
+    } else {
+      // Try to find the last balance before merge from history
+      const accountHistory = data.history.filter(h => 
+        h.originalAccountName === originalName ||
+        (h.accountName === originalName && h.transferredToAccount)
+      );
+      
+      if (accountHistory.length > 0) {
+        // Find the last entry before the merge
+        const lastEntry = accountHistory
+          .filter(h => h.type === 'balance_update' && h.timestamp < mergeEntry.timestamp)
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+        
+        if (lastEntry && lastEntry.newBalance !== undefined) {
+          accountBalance = parseFloat(lastEntry.newBalance);
+        }
+      }
+    }
+    
+    // Create the recreated account
+    const recreatedAccount = {
+      id: newAccountId,
+      name: originalName,
+      type: mergedAccount.type, // Use same type as merged account
+      currentValue: accountBalance,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: `Unmerged from "${mergedAccount.displayName || mergedAccount.name}" on ${new Date().toISOString().split('T')[0]}`,
+      originalMergedAccountId: originalId // Track original ID for reference
+    };
+    
+    data.accounts.push(recreatedAccount);
+    recreatedAccounts.push(recreatedAccount);
+    
+    // Restore history entries for this account
+    const historyToRestore = data.history.filter(h => 
+      h.originalAccountName === originalName ||
+      (h.accountId === accountId && h.originalAccountName === originalName)
+    );
+    
+    // Create copies of history entries with the new account ID
+    historyToRestore.forEach(entry => {
+      if (entry.type === 'balance_update' && entry.timestamp < mergeEntry.timestamp) {
+        const restoredEntry = {
+          ...entry,
+          accountId: newAccountId,
+          accountName: originalName,
+          restoredFromMerge: true,
+          restoredAt: new Date().toISOString()
+        };
+        // Remove the transferred flag
+        delete restoredEntry.transferredToAccount;
+        data.history.push(restoredEntry);
+      }
+    });
+    
+    // Add initial balance history entry for the recreated account
+    const initialHistoryEntry = {
+      accountId: newAccountId,
+      accountName: originalName,
+      type: 'balance_update',
+      timestamp: new Date().toISOString(),
+      newBalance: accountBalance,
+      oldBalance: accountBalance,
+      change: 0,
+      note: `Account recreated from unmerge operation${manualBalances[originalName] !== undefined ? ' (manual balance set)' : ' (balance restored from history)'}`
+    };
+    data.history.push(initialHistoryEntry);
+  }
+  
+  // Clear the previousNames from the surviving account
+  mergedAccount.previousNames = [];
+  mergedAccount.updatedAt = new Date().toISOString();
+  
+  // Create audit log entry for the unmerge
+  const unmergeAuditEntry = {
+    accountId: accountId,
+    accountName: mergedAccount.displayName || mergedAccount.name,
+    type: 'accounts_unmerged',
+    timestamp: new Date().toISOString(),
+    originalMergeTimestamp: mergeEntry.timestamp,
+    recreatedAccountIds: recreatedAccounts.map(a => a.id),
+    recreatedAccountNames: recreatedAccounts.map(a => a.name),
+    manualBalancesUsed: Object.keys(manualBalances).length > 0,
+    sourceAccountId: accountId,
+    sourceAccountName: mergedAccount.displayName || mergedAccount.name
+  };
+  
+  data.history.push(unmergeAuditEntry);
+  
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
+  }
+  
+  // Save the updated data
+  const saveResult = saveFinanceData(data);
+  
+  if (saveResult.success) {
+    return {
+      success: true,
+      sourceAccount: mergedAccount,
+      recreatedAccounts: recreatedAccounts,
+      recreatedAccountIds: recreatedAccounts.map(a => a.id),
+      recreatedCount: recreatedAccounts.length,
+      recreatedAccountNames: recreatedAccounts.map(a => a.name)
+    };
+  } else {
+    return saveResult;
+  }
+}
+
 // Update account balance (with historical tracking)
 function updateAccountBalance(accountId, newBalance, balanceDate = null) {
   const data = loadFinanceData();
@@ -2138,6 +2293,7 @@ module.exports = {
   saveAccount,
   deleteAccount,
   mergeAccounts,
+  unmergeAccount,
   updateAccountBalance,
   updateAccountDisplayName,
   getAccountDisplayName,

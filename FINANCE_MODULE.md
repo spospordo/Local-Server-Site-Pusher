@@ -164,6 +164,76 @@ Sometimes processing screenshots inadvertently creates duplicate accounts when f
 4. After merging, consider setting a clear display name on the surviving account
 5. Check the "Merged from" indicator to verify all previous account names are stored correctly
 
+#### Unmerge Previously Merged Accounts (NEW in v2.4.0)
+
+**Purpose:** Reverse a previous merge operation by recreating the previously merged accounts with their historical balances
+
+**Problem Solved:** 
+Sometimes accounts are merged accidentally, but later it is discovered they should remain as separate entities. This feature allows admins to unmerge accounts and restore previous account states.
+
+**Features:**
+- **One-Click Unmerge**: Unmerge button appears on all merged accounts (those with previousNames)
+- **Automatic Balance Restoration**: Historic balances are restored from balance history if available
+- **History Splitting**: Transaction history is split back to the original accounts
+- **Audit Trail**: Unmerge operations are logged in the history for traceability
+- **Manual Balance Option**: If balance history is incomplete, accounts are created with $0 (can be manually updated)
+- **Clear Preview Dialog**: Shows which accounts will be recreated before executing
+
+**How to Use:**
+1. Navigate to Finance → My Data tab
+2. Find an account with the "📎 Merged from" badge
+3. Click the "🔓 Unmerge Account" button
+4. Review the unmerge dialog showing:
+   - The source account to be unmerged
+   - List of accounts that will be recreated
+   - Warning about the operation and balance restoration
+5. Click "Confirm Unmerge" to execute
+6. The previously merged accounts are recreated as separate accounts
+7. The source account's "Merged from" badge is removed
+
+**Unmerge Behavior:**
+- **Account Recreation**: Each previously merged account is recreated with a new ID
+- **Balance Restoration**: Balances are restored from the last balance update before the merge
+- **History Restoration**: All balance update history entries are restored to recreated accounts
+- **Zero Balance Fallback**: If no balance history exists, account is created with $0 balance
+- **Source Account**: The surviving account from the merge remains but loses its `previousNames`
+- **Audit Log**: A special `accounts_unmerged` history entry is created documenting the unmerge
+
+**Recreated Account Details:**
+- New unique ID is generated for each recreated account
+- Original account name is restored
+- Balance is restored from last entry before merge (or $0 if unavailable)
+- Note is added indicating unmerge date and source account
+- All balance update history is restored with `restoredFromMerge` flag
+
+**Use Cases:**
+- Accounts were merged by mistake: unmerge to restore separate accounts
+- Business need to track accounts separately again after consolidation
+- Undo a merge to correct accounting errors
+- Split accounts that were merged during testing or setup
+
+**Technical Details:**
+- Recreated accounts get new IDs (original IDs are not reused)
+- History entries are copied with `restoredFromMerge: true` flag
+- Each recreated account gets an initial balance history entry
+- The `originalMergedAccountId` field tracks the original account ID for reference
+- Source account's `previousNames` array is cleared after unmerge
+- Unmerge audit entry includes `originalMergeTimestamp` for traceability
+
+**Important Notes:**
+1. ⚠️ **Cannot auto-reverse**: Unmerging creates new accounts, not a perfect undo
+2. ⚠️ **New IDs**: Recreated accounts have new IDs, any external references will break
+3. ⚠️ **Balance accuracy**: Depends on having balance history; review and adjust if needed
+4. ⚠️ **History completeness**: Only balance updates are restored; other history types remain with source
+5. ✅ **Audit trail**: Full merge and unmerge history is maintained for compliance
+
+**Best Practices:**
+1. Review the accounts in the unmerge preview before confirming
+2. After unmerge, verify balances are correct and adjust manually if needed
+3. Update display names on recreated accounts if OCR names need correction
+4. Consider if accounts should be merged again or kept separate permanently
+5. Check the audit trail (history tab) to confirm the unmerge was logged
+
 #### Balance Update & Historical Tracking
 - **Streamlined Balance Updates**: Quickly update account balances with a single click
 - **Historical Tracking**: Every balance change is recorded with the effective date
@@ -548,6 +618,7 @@ All endpoints require admin authentication.
 - `POST /admin/api/finance/accounts/:id/balance` - Update account balance with historical tracking
 - `POST /admin/api/finance/accounts/:id/display-name` - Update account display name (body: `{ displayName: string }`)
 - `POST /admin/api/finance/accounts/merge` - Merge multiple accounts (body: `{ accountIds: string[] }`)
+- `POST /admin/api/finance/accounts/:id/unmerge` - Unmerge a previously merged account (body: `{ manualBalances?: { [accountName: string]: number } }`)
 - `DELETE /admin/api/finance/accounts/:id` - Delete account
 - `POST /admin/api/finance/upload-screenshot` - Upload and process account screenshot (multipart/form-data with 'screenshot' field)
 

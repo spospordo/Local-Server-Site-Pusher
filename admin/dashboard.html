@@ -4891,6 +4891,49 @@
         </div>
     </div>
 
+    <!-- Unmerge Account Modal -->
+    <div id="unmergeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔓 Unmerge Account</h3>
+                <span class="close" onclick="closeUnmergeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="unmergeAlert" class="alert" style="display: none;"></div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <p><strong>Account to Unmerge:</strong></p>
+                    <div style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin: 10px 0;">
+                        <span id="unmergeAccountName"></span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <p><strong>This will recreate the following accounts:</strong></p>
+                    <ul id="unmergePreviousNames" style="margin: 10px 0; padding-left: 20px;">
+                        <!-- Previous account names will be populated here -->
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning" style="display: block; margin-bottom: 1rem;">
+                    <strong>⚠️ Important:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>Each previously merged account will be recreated as a separate account</li>
+                        <li>Historical balances will be restored from the balance history if available</li>
+                        <li>Transaction history will be split back to the original accounts</li>
+                        <li>If balance history is incomplete, accounts will be created with $0 balance (you can update manually)</li>
+                        <li>This operation creates an audit trail but cannot be automatically reversed</li>
+                    </ul>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" onclick="closeUnmergeModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="performUnmerge()" class="btn" style="background: #ff9800;">🔓 Confirm Unmerge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tournament Creation Modal -->
     <div id="tournamentModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -6243,6 +6286,12 @@
         document.getElementById('displayNameModal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeDisplayNameModal();
+            }
+        });
+        
+        document.getElementById('unmergeModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeUnmergeModal();
             }
         });
         
@@ -11496,6 +11545,9 @@
                                     <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
                                     <button class="btn" style="background: #17a2b8;" onclick="showEditDisplayNameModal('${account.id}', '${escapeHtml(displayName)}', '${escapeHtml(account.name)}')">Edit Display Name</button>
                                     <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(displayName)}', ${account.currentValue || 0})">Update Balance</button>
+                                    ${account.previousNames && account.previousNames.length > 0 ? `
+                                        <button class="btn" style="background: #ff9800;" onclick="showUnmergeModal('${account.id}', '${escapeHtml(displayName)}')">🔓 Unmerge Account</button>
+                                    ` : ''}
                                     <button class="btn" style="background: #dc3545;" onclick="deleteAccount('${account.id}')">Delete</button>
                                 </div>
                             ` : ''}
@@ -11861,6 +11913,94 @@
             } catch (err) {
                 const alert = document.getElementById('displayNameAlert');
                 alert.textContent = 'Failed to update display name: ' + err.message;
+                alert.className = 'alert alert-error';
+                alert.style.display = 'block';
+            }
+        }
+        
+        async function showUnmergeModal(accountId, accountName) {
+            // Fetch account details to get previousNames
+            try {
+                const response = await fetch('/admin/api/finance/accounts');
+                const accounts = await response.json();
+                const account = accounts.find(a => a.id === accountId);
+                
+                if (!account || !account.previousNames || account.previousNames.length === 0) {
+                    showAlert('This account has no merge history', 'error');
+                    return;
+                }
+                
+                // Store account details for unmerge
+                window.unmergeAccountData = {
+                    id: accountId,
+                    name: accountName,
+                    previousNames: account.previousNames
+                };
+                
+                // Populate modal
+                document.getElementById('unmergeAccountName').textContent = accountName;
+                document.getElementById('unmergePreviousNames').innerHTML = account.previousNames
+                    .map(name => `<li><strong>${escapeHtml(name)}</strong></li>`)
+                    .join('');
+                
+                // Show modal
+                document.getElementById('unmergeModal').style.display = 'flex';
+                
+                // Hide alert
+                const alert = document.getElementById('unmergeAlert');
+                alert.style.display = 'none';
+            } catch (err) {
+                showAlert('Failed to load account details: ' + err.message, 'error');
+            }
+        }
+        
+        function closeUnmergeModal() {
+            document.getElementById('unmergeModal').style.display = 'none';
+            window.unmergeAccountData = null;
+        }
+        
+        async function performUnmerge() {
+            if (!window.unmergeAccountData) {
+                return;
+            }
+            
+            const accountId = window.unmergeAccountData.id;
+            const accountName = window.unmergeAccountData.name;
+            
+            try {
+                // Show loading state
+                const alert = document.getElementById('unmergeAlert');
+                alert.textContent = 'Unmerging accounts...';
+                alert.className = 'alert alert-info';
+                alert.style.display = 'block';
+                
+                const response = await fetch(`/admin/api/finance/accounts/${accountId}/unmerge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        manualBalances: {} // Empty for automatic balance restoration
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeUnmergeModal();
+                    showAlert(
+                        `Successfully unmerged "${accountName}"! ` +
+                        `Recreated ${result.recreatedCount} account(s): ${result.recreatedAccountNames.join(', ')}`,
+                        'success'
+                    );
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    alert.textContent = 'Error: ' + result.error;
+                    alert.className = 'alert alert-error';
+                    alert.style.display = 'block';
+                }
+            } catch (err) {
+                const alert = document.getElementById('unmergeAlert');
+                alert.textContent = 'Failed to unmerge account: ' + err.message;
                 alert.className = 'alert alert-error';
                 alert.style.display = 'block';
             }
