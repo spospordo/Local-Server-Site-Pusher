@@ -8,6 +8,7 @@ const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits for GCM
 const AUTH_TAG_LENGTH = 16;
+const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
 
 // Initialize the finance module with config
 function init(serverConfig) {
@@ -419,9 +420,9 @@ function mergeAccounts(accountIds) {
   
   data.history.push(mergeAuditEntry);
   
-  // Keep only last 1000 entries to prevent file bloat
-  if (data.history.length > 1000) {
-    data.history = data.history.slice(-1000);
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
   }
   
   // Remove merged accounts from accounts array
@@ -471,9 +472,9 @@ function updateAccountBalance(accountId, newBalance, balanceDate = null) {
     timestamp: new Date().toISOString()
   });
   
-  // Keep only last 1000 entries to prevent file bloat
-  if (data.history.length > 1000) {
-    data.history = data.history.slice(-1000);
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
   }
   
   return saveFinanceData(data);
@@ -515,9 +516,9 @@ function addHistoryEntry(entry) {
   
   data.history.push(entry);
   
-  // Keep only last 1000 entries to prevent file bloat
-  if (data.history.length > 1000) {
-    data.history = data.history.slice(-1000);
+  // Keep only last MAX_HISTORY_ENTRIES entries to prevent file bloat
+  if (data.history.length > MAX_HISTORY_ENTRIES) {
+    data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
   }
   
   return saveFinanceData(data);
@@ -1971,9 +1972,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
       }
     }
     
-    // Keep only last 1000 history entries
-    if (data.history.length > 1000) {
-      data.history = data.history.slice(-1000);
+    // Keep only last MAX_HISTORY_ENTRIES history entries
+    if (data.history.length > MAX_HISTORY_ENTRIES) {
+      data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
     }
     
     // Save updated data

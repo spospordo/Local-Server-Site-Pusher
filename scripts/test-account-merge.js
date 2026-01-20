@@ -8,6 +8,9 @@
 const finance = require('../modules/finance');
 const path = require('path');
 
+// Test configuration
+const TEST_DELAY_MS = 100; // Delay between account creation to ensure different timestamps
+
 // Initialize finance module with dummy config
 finance.init({ configPath: path.join(__dirname, '..', 'config') });
 
@@ -41,10 +44,10 @@ async function runTests() {
     
     // Save accounts with slight delay to ensure different timestamps
     const result1 = finance.saveAccount(account1);
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, TEST_DELAY_MS));
     
     const result2 = finance.saveAccount(account2);
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, TEST_DELAY_MS));
     
     const result3 = finance.saveAccount(account3);
     
