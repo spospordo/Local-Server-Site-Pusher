@@ -75,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.11] - 2026-01-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #362 from spospordo/copilot/move-account-sections-to-sub-tab
+  - Fix version number in documentation (v2.2.10)
+  - Update FINANCE_MODULE.md documentation for Account sub-tab
+  - Add Account sub-tab to Finance module and reorganize sections
+  - Initial plan
+
+
 ## [2.2.10] - 2026-01-20
 
 ### Patch Update
