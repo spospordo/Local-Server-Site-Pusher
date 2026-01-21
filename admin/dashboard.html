@@ -15008,6 +15008,20 @@
         let currentCursor = 'move';
         let saveTimeout = null;
         let customIconImages = new Map(); // Cache for loaded custom icon images
+        
+        // Standard device type icons (shared between list and canvas)
+        const deviceTypeIcons = {
+            'tv': '📺',
+            'receiver': '📻',
+            'amplifier': '🎛️',
+            'switch': '🔀',
+            'recordplayer': '💿',
+            'remote': '🎮',
+            'console': '🎮',
+            'player': '▶️',
+            'speaker': '🔊',
+            'other': '📦'
+        };
 
         async function loadMediaCenterData() {
             try {
@@ -15038,19 +15052,6 @@
                 container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No devices added yet</div>';
                 return;
             }
-            
-            const deviceTypeIcons = {
-                'tv': '📺',
-                'receiver': '📻',
-                'amplifier': '🎛️',
-                'switch': '🔀',
-                'recordplayer': '💿',
-                'remote': '🎮',
-                'console': '🎮',
-                'player': '▶️',
-                'speaker': '🔊',
-                'other': '📦'
-            };
             
             let html = '<div style="display: grid; gap: 1rem;">';
             mediaCenterData.devices.forEach(device => {
@@ -15318,10 +15319,10 @@
                 // Measure text to determine box size
                 ctx.font = '12px sans-serif';
                 const maxWidth = 150; // Max width for text
-                const deviceName = device.name || 'Unnamed Device';
+                const deviceName = (device.name && device.name.trim()) ? device.name : 'Unnamed Device';
                 const words = deviceName.split(' ');
                 const lines = [];
-                let currentLine = words[0] || '';
+                let currentLine = words[0];
                 
                 // Word wrap algorithm
                 for (let i = 1; i < words.length; i++) {
@@ -15334,9 +15335,7 @@
                         currentLine = testLine;
                     }
                 }
-                if (currentLine) {
-                    lines.push(currentLine);
-                }
+                lines.push(currentLine);
                 
                 // Calculate box dimensions based on text
                 const lineHeight = 14;
@@ -15361,14 +15360,13 @@
                     // Load and draw custom icon image
                     if (!customIconImages.has(device.id)) {
                         const img = new Image();
+                        img.onload = () => drawCanvas(); // Set onload before setting src
                         img.src = device.customIcon;
                         customIconImages.set(device.id, img);
-                        // Redraw when image loads
-                        img.onload = () => drawCanvas();
                     }
                     
                     const img = customIconImages.get(device.id);
-                    if (img.complete) {
+                    if (img.complete && img.naturalHeight !== 0) {
                         const imgSize = iconSize;
                         ctx.drawImage(img, x - imgSize / 2, y + iconYOffset - imgSize / 2, imgSize, imgSize);
                     } else {
@@ -15380,18 +15378,6 @@
                     }
                 } else {
                     // Draw emoji icon
-                    const deviceTypeIcons = {
-                        'tv': '📺',
-                        'receiver': '📻',
-                        'amplifier': '🎛️',
-                        'switch': '🔀',
-                        'recordplayer': '💿',
-                        'remote': '🎮',
-                        'console': '🎮',
-                        'player': '▶️',
-                        'speaker': '🔊',
-                        'other': '📦'
-                    };
                     const icon = device.icon || deviceTypeIcons[device.type] || '📦';
                     ctx.fillStyle = '#fff';
                     ctx.font = '16px sans-serif';
