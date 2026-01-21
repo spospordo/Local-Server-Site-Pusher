@@ -5473,7 +5473,7 @@
                     </div>
                     <div class="form-group">
                         <label for="deviceCustomIcon">Custom Icon (optional)</label>
-                        <input type="file" id="deviceCustomIcon" accept=".svg,.png,.jpg,.jpeg" style="width: 100%;">
+                        <input type="file" id="deviceCustomIcon" accept=".svg,.png,.jpg,.jpeg" style="width: 100%;" onchange="previewCustomIcon(event)">
                         <small style="color: #666; display: block; margin-top: 0.25rem;">Upload SVG or PNG (will override selected icon)</small>
                         <div id="customIconPreview" style="margin-top: 0.5rem; display: none;">
                             <img id="customIconPreviewImg" style="max-width: 50px; max-height: 50px; border: 1px solid #ddd; padding: 5px;">
@@ -15007,6 +15007,7 @@
         let draggedDevice = null;
         let currentCursor = 'move';
         let saveTimeout = null;
+        let customIconImages = new Map(); // Cache for loaded custom icon images
 
         async function loadMediaCenterData() {
             try {
@@ -15317,9 +15318,10 @@
                 // Measure text to determine box size
                 ctx.font = '12px sans-serif';
                 const maxWidth = 150; // Max width for text
-                const words = device.name.split(' ');
+                const deviceName = device.name || 'Unnamed Device';
+                const words = deviceName.split(' ');
                 const lines = [];
-                let currentLine = words[0];
+                let currentLine = words[0] || '';
                 
                 // Word wrap algorithm
                 for (let i = 1; i < words.length; i++) {
@@ -15332,7 +15334,9 @@
                         currentLine = testLine;
                     }
                 }
-                lines.push(currentLine);
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
                 
                 // Calculate box dimensions based on text
                 const lineHeight = 14;
@@ -15354,12 +15358,26 @@
                 let iconYOffset = -boxHeight / 2 + padding + iconSize / 2;
                 
                 if (device.customIcon) {
-                    // For custom icons, we'd need to load and draw images
-                    // For now, show a placeholder or text indicator
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '10px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('🖼️', x, y + iconYOffset);
+                    // Load and draw custom icon image
+                    if (!customIconImages.has(device.id)) {
+                        const img = new Image();
+                        img.src = device.customIcon;
+                        customIconImages.set(device.id, img);
+                        // Redraw when image loads
+                        img.onload = () => drawCanvas();
+                    }
+                    
+                    const img = customIconImages.get(device.id);
+                    if (img.complete) {
+                        const imgSize = iconSize;
+                        ctx.drawImage(img, x - imgSize / 2, y + iconYOffset - imgSize / 2, imgSize, imgSize);
+                    } else {
+                        // Show placeholder while loading
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '16px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🖼️', x, y + iconYOffset);
+                    }
                 } else {
                     // Draw emoji icon
                     const deviceTypeIcons = {
@@ -15471,6 +15489,22 @@
         function clearCustomIcon() {
             document.getElementById('deviceCustomIcon').value = '';
             document.getElementById('customIconPreview').style.display = 'none';
+            // Mark that custom icon should be removed
+            document.getElementById('deviceCustomIcon').dataset.cleared = 'true';
+        }
+        
+        function previewCustomIcon(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('customIconPreviewImg').src = e.target.result;
+                    document.getElementById('customIconPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+                // Clear the cleared flag
+                delete event.target.dataset.cleared;
+            }
         }
 
         function closeDeviceModal() {
@@ -15489,8 +15523,17 @@
                 icon: document.getElementById('deviceIcon').value
             };
             
+            const customIconInput = document.getElementById('deviceCustomIcon');
+            
+            // Check if user cleared the custom icon
+            if (customIconInput.dataset.cleared === 'true') {
+                deviceData.customIcon = '';
+                await submitDevice(deviceId, deviceData);
+                return;
+            }
+            
             // Handle custom icon upload
-            const customIconFile = document.getElementById('deviceCustomIcon').files[0];
+            const customIconFile = customIconInput.files[0];
             if (customIconFile) {
                 // Convert to base64
                 const reader = new FileReader();
