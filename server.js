@@ -17,6 +17,7 @@ const backup = require('./modules/backup');
 const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
+const house = require('./modules/house');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -698,6 +699,9 @@ smartMirror.init(config);
 
 // Initialize public files regenerator module
 publicFilesRegenerator.init(config);
+
+// Initialize house module
+house.init(config);
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
@@ -5892,6 +5896,223 @@ app.get('/api/smart-mirror/media', (() => {
     }
   };
 })());
+
+// House API Endpoints
+// Get vacation data
+app.get('/admin/api/house/vacation', requireAuth, (req, res) => {
+  try {
+    const vacationData = house.getVacationData();
+    res.json(vacationData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get vacation data: ' + err.message });
+  }
+});
+
+// Save vacation data
+app.post('/admin/api/house/vacation', requireAuth, (req, res) => {
+  try {
+    const result = house.saveVacationData(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Vacation data saved successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save vacation data: ' + err.message });
+  }
+});
+
+// Add vacation date
+app.post('/admin/api/house/vacation/dates', requireAuth, (req, res) => {
+  try {
+    const result = house.addVacationDate(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Vacation date added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add vacation date: ' + err.message });
+  }
+});
+
+// Update vacation date
+app.put('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateVacationDate(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Vacation date updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update vacation date: ' + err.message });
+  }
+});
+
+// Delete vacation date
+app.delete('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteVacationDate(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Vacation date deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete vacation date: ' + err.message });
+  }
+});
+
+// Add pet
+app.post('/admin/api/house/vacation/pets', requireAuth, (req, res) => {
+  try {
+    const result = house.addPet(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Pet added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add pet: ' + err.message });
+  }
+});
+
+// Update pet
+app.put('/admin/api/house/vacation/pets/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updatePet(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Pet updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update pet: ' + err.message });
+  }
+});
+
+// Delete pet
+app.delete('/admin/api/house/vacation/pets/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deletePet(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Pet deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete pet: ' + err.message });
+  }
+});
+
+// Get documentation data
+app.get('/admin/api/house/documentation', requireAuth, (req, res) => {
+  try {
+    const documentationData = house.getDocumentationData();
+    res.json(documentationData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get documentation data: ' + err.message });
+  }
+});
+
+// Save documentation data
+app.post('/admin/api/house/documentation', requireAuth, (req, res) => {
+  try {
+    const result = house.saveDocumentationData(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Documentation data saved successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save documentation data: ' + err.message });
+  }
+});
+
+// Add document
+app.post('/admin/api/house/documentation/documents', requireAuth, (req, res) => {
+  try {
+    const result = house.addDocument(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Document added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add document: ' + err.message });
+  }
+});
+
+// Update document
+app.put('/admin/api/house/documentation/documents/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateDocument(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Document updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update document: ' + err.message });
+  }
+});
+
+// Delete document
+app.delete('/admin/api/house/documentation/documents/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteDocument(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Document deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete document: ' + err.message });
+  }
+});
+
+// Add instruction
+app.post('/admin/api/house/documentation/instructions', requireAuth, (req, res) => {
+  try {
+    const result = house.addInstruction(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Instruction added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add instruction: ' + err.message });
+  }
+});
+
+// Update instruction
+app.put('/admin/api/house/documentation/instructions/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateInstruction(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Instruction updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update instruction: ' + err.message });
+  }
+});
+
+// Delete instruction
+app.delete('/admin/api/house/documentation/instructions/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteInstruction(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Instruction deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete instruction: ' + err.message });
+  }
+});
 
 // Default route - serve public content
 app.get('/', (req, res) => {

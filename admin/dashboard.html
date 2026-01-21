@@ -2133,10 +2133,17 @@
             <div class="main-tabs">
                 <button class="main-tab active" onclick="showMainTab('dashboard')">Dashboard</button>
                 <button class="main-tab" onclick="showMainTab('clients')">Clients</button>
+                <button class="main-tab" onclick="showMainTab('house')">House</button>
                 <button class="main-tab" onclick="showMainTab('party')">Party</button>
                 <button class="main-tab" onclick="showMainTab('server')">Server</button>
                 <button class="main-tab" onclick="showMainTab('finance')">Finance</button>
                 <button class="main-tab" onclick="showMainTab('settings')">Settings</button>
+            </div>
+            
+            <!-- Sub-tabs for House -->
+            <div class="sub-tabs" id="house-subtabs">
+                <button class="sub-tab active" onclick="showSubTab('house-vacation')">Vacation</button>
+                <button class="sub-tab" onclick="showSubTab('house-documentation')">Documentation</button>
             </div>
             
             <!-- Sub-tabs for Party -->
@@ -3344,6 +3351,105 @@
                     </div>
                 </div>
                 <div id="clientFilesAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Vacation Section -->
+        <div class="card admin-section house-section house-vacation-section">
+            <div class="card-header">
+                <h2>🏠 Vacation Information</h2>
+            </div>
+            <div class="card-body">
+                <!-- Vacation Dates -->
+                <h3>Vacation Dates</h3>
+                <div id="vacationDatesContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading vacation dates...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddVacationDateModal()">➕ Add Vacation Date</button>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Travel Information -->
+                <h3>Travel Information</h3>
+                <div class="form-group">
+                    <label for="travelInfo">Travel Details (flights, hotels, itinerary, etc.)</label>
+                    <textarea id="travelInfo" rows="6" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 5px;"></textarea>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Emergency Contact -->
+                <h3>Emergency Contact Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="emergencyName">Contact Name</label>
+                        <input type="text" id="emergencyName" placeholder="Full Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="emergencyRelationship">Relationship</label>
+                        <input type="text" id="emergencyRelationship" placeholder="e.g., Neighbor, Friend">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="emergencyPhone">Phone Number</label>
+                        <input type="tel" id="emergencyPhone" placeholder="+1 (555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label for="emergencyEmail">Email Address</label>
+                        <input type="email" id="emergencyEmail" placeholder="contact@example.com">
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Pet Information -->
+                <h3>Pet Care Information</h3>
+                <div id="petsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading pet information...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddPetModal()">🐾 Add Pet</button>
+                
+                <div style="margin-top: 1.5rem;">
+                    <button class="btn btn-success" onclick="saveVacationData()">💾 Save All Vacation Information</button>
+                </div>
+                <div id="vacationAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Documentation Section -->
+        <div class="card admin-section house-section house-documentation-section">
+            <div class="card-header">
+                <h2>📚 House Documentation</h2>
+            </div>
+            <div class="card-body">
+                <!-- Documents & Diagrams -->
+                <h3>Documents & Diagrams</h3>
+                <p>Store and organize important house documents, diagrams, and manuals.</p>
+                <div id="documentsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading documents...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddDocumentModal()">📄 Add Document</button>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Instructions -->
+                <h3>House Instructions & Notes</h3>
+                <p>Add instructions for how things work, troubleshooting guides, and important notes.</p>
+                <div id="instructionsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading instructions...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddInstructionModal()">📝 Add Instruction</button>
+                
+                <div id="documentationAlert" class="alert"></div>
             </div>
         </div>
 
@@ -5098,7 +5204,167 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- House Modals -->
+    <!-- Add/Edit Vacation Date Modal -->
+    <div id="vacationDateModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="vacationDateModalTitle">Add Vacation Date</h3>
+                <span class="close" onclick="closeVacationDateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="vacationDateForm" onsubmit="saveVacationDate(event)">
+                    <input type="hidden" id="vacationDateId">
+                    <div class="form-group">
+                        <label for="vacationStartDate">Start Date</label>
+                        <input type="date" id="vacationStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vacationEndDate">End Date</label>
+                        <input type="date" id="vacationEndDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vacationDestination">Destination</label>
+                        <input type="text" id="vacationDestination" placeholder="e.g., Hawaii">
+                    </div>
+                    <div class="form-group">
+                        <label for="vacationNotes">Notes</label>
+                        <textarea id="vacationNotes" rows="3" placeholder="Additional information..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeVacationDateModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Pet Modal -->
+    <div id="petModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="petModalTitle">Add Pet</h3>
+                <span class="close" onclick="closePetModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="petForm" onsubmit="savePet(event)">
+                    <input type="hidden" id="petId">
+                    <div class="form-group">
+                        <label for="petName">Pet Name *</label>
+                        <input type="text" id="petName" required placeholder="e.g., Buddy">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="petType">Type</label>
+                            <input type="text" id="petType" placeholder="e.g., Dog, Cat">
+                        </div>
+                        <div class="form-group">
+                            <label for="petBreed">Breed</label>
+                            <input type="text" id="petBreed" placeholder="e.g., Labrador">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="petAge">Age</label>
+                        <input type="text" id="petAge" placeholder="e.g., 5 years">
+                    </div>
+                    <div class="form-group">
+                        <label for="petFeedingSchedule">Feeding Schedule</label>
+                        <textarea id="petFeedingSchedule" rows="2" placeholder="e.g., 1 cup in morning, 1 cup in evening"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="petMedications">Medications</label>
+                        <textarea id="petMedications" rows="2" placeholder="Any medications and instructions"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="petVetContact">Vet Contact Information</label>
+                        <textarea id="petVetContact" rows="2" placeholder="Vet name, phone, address"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="petSpecialInstructions">Special Instructions</label>
+                        <textarea id="petSpecialInstructions" rows="3" placeholder="Any special care instructions"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closePetModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Document Modal -->
+    <div id="documentModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="documentModalTitle">Add Document</h3>
+                <span class="close" onclick="closeDocumentModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="documentForm" onsubmit="saveDocument(event)">
+                    <input type="hidden" id="documentId">
+                    <div class="form-group">
+                        <label for="documentTitle">Title *</label>
+                        <input type="text" id="documentTitle" required placeholder="e.g., HVAC System Diagram">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentType">Type</label>
+                        <select id="documentType">
+                            <option value="document">Document</option>
+                            <option value="diagram">Diagram</option>
+                            <option value="manual">Manual</option>
+                            <option value="photo">Photo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="documentDescription">Description</label>
+                        <textarea id="documentDescription" rows="3" placeholder="Brief description of this document"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="documentUrl">URL / Link</label>
+                        <input type="text" id="documentUrl" placeholder="https://example.com/document.pdf or path to file">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeDocumentModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Instruction Modal -->
+    <div id="instructionModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="instructionModalTitle">Add Instruction</h3>
+                <span class="close" onclick="closeInstructionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="instructionForm" onsubmit="saveInstruction(event)">
+                    <input type="hidden" id="instructionId">
+                    <div class="form-group">
+                        <label for="instructionTitle">Title *</label>
+                        <input type="text" id="instructionTitle" required placeholder="e.g., How to Reset the Thermostat">
+                    </div>
+                    <div class="form-group">
+                        <label for="instructionCategory">Category</label>
+                        <input type="text" id="instructionCategory" placeholder="e.g., HVAC, Plumbing, Electrical">
+                    </div>
+                    <div class="form-group">
+                        <label for="instructionContent">Instructions *</label>
+                        <textarea id="instructionContent" rows="8" required placeholder="Step-by-step instructions or important notes..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeInstructionModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         let originalConfig = '';
         let currentLinks = [];
@@ -7766,6 +8032,15 @@
                 loadClientConfig();
                 loadClientFiles();
                 loadClientStorageStats();
+            } else if (tabName === 'house') {
+                // Show sub-tabs for house
+                const houseSubTabs = document.getElementById('house-subtabs');
+                if (houseSubTabs) {
+                    houseSubTabs.classList.add('active');
+                }
+                
+                // Show default sub-tab (vacation)
+                showSubTab('house-vacation', true);
             } else if (tabName === 'party') {
                 // Show sub-tabs for party
                 const partySubTabs = document.getElementById('party-subtabs');
@@ -7817,7 +8092,9 @@
             } else {
                 // Find the correct sub-tab based on subTabName and activate it
                 let targetTabText = '';
-                if (subTabName === 'party-links') targetTabText = 'Useful Links';
+                if (subTabName === 'house-vacation') targetTabText = 'Vacation';
+                else if (subTabName === 'house-documentation') targetTabText = 'Documentation';
+                else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
                 else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
                 else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
@@ -7841,9 +8118,11 @@
                 }
             }
             
-            // Hide all party, server, finance and settings sections
+            // Hide all party, house, server, finance and settings sections
             const partySections = document.querySelectorAll('.party-section');
             partySections.forEach(section => section.classList.add('hidden'));
+            const houseSections = document.querySelectorAll('.house-section');
+            houseSections.forEach(section => section.classList.add('hidden'));
             const serverSections = document.querySelectorAll('.server-section');
             serverSections.forEach(section => section.classList.add('hidden'));
             const financeSections = document.querySelectorAll('.finance-section');
@@ -7852,7 +8131,21 @@
             settingsSections.forEach(section => section.classList.add('hidden'));
             
             // Show the selected sub-tab sections
-            if (subTabName === 'party-links') {
+            if (subTabName === 'house-vacation') {
+                const vacationSections = document.querySelectorAll('.house-vacation-section');
+                vacationSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadHouseVacationData();
+                }
+            } else if (subTabName === 'house-documentation') {
+                const documentationSections = document.querySelectorAll('.house-documentation-section');
+                documentationSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadHouseDocumentationData();
+                }
+            } else if (subTabName === 'party-links') {
                 const linksSections = document.querySelectorAll('.party-links-section');
                 linksSections.forEach(section => section.classList.remove('hidden'));
                 
@@ -13937,6 +14230,575 @@
             document.getElementById('backupFileInput').value = '';
             document.getElementById('backupPreview').style.display = 'none';
             document.getElementById('importAlert').style.display = 'none';
+        }
+
+        // ========================================
+        // House Module Functions
+        // ========================================
+        
+        let currentVacationData = null;
+        let currentDocumentationData = null;
+        
+        // Load vacation data
+        async function loadHouseVacationData() {
+            try {
+                const response = await fetch('/admin/api/house/vacation');
+                currentVacationData = await response.json();
+                
+                // Load vacation dates
+                renderVacationDates();
+                
+                // Load travel info
+                document.getElementById('travelInfo').value = currentVacationData.travelInfo || '';
+                
+                // Load emergency contact
+                const ec = currentVacationData.emergencyContact || {};
+                document.getElementById('emergencyName').value = ec.name || '';
+                document.getElementById('emergencyRelationship').value = ec.relationship || '';
+                document.getElementById('emergencyPhone').value = ec.phone || '';
+                document.getElementById('emergencyEmail').value = ec.email || '';
+                
+                // Load pets
+                renderPets();
+            } catch (err) {
+                console.error('Failed to load vacation data:', err);
+                showAlert('Failed to load vacation data', 'error', 'vacationAlert');
+            }
+        }
+        
+        // Render vacation dates
+        function renderVacationDates() {
+            const container = document.getElementById('vacationDatesContainer');
+            const dates = currentVacationData?.dates || [];
+            
+            if (dates.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No vacation dates added yet.</div>';
+                return;
+            }
+            
+            container.innerHTML = dates.map(date => `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #667eea;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <strong>${date.startDate} to ${date.endDate}</strong>
+                            ${date.destination ? `<br><span style="color: #666;">📍 ${date.destination}</span>` : ''}
+                            ${date.notes ? `<br><span style="color: #666;">${date.notes}</span>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn" style="padding: 0.5rem;" onclick="editVacationDate('${date.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteVacationDateConfirm('${date.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Render pets
+        function renderPets() {
+            const container = document.getElementById('petsContainer');
+            const pets = currentVacationData?.pets || [];
+            
+            if (pets.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No pets added yet.</div>';
+                return;
+            }
+            
+            container.innerHTML = pets.map(pet => `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #4CAF50;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <strong>${pet.name}</strong>
+                            ${pet.type ? ` - ${pet.type}` : ''}
+                            ${pet.breed ? ` (${pet.breed})` : ''}
+                            ${pet.age ? `<br><span style="color: #666;">Age: ${pet.age}</span>` : ''}
+                            ${pet.feedingSchedule ? `<br><span style="color: #666;">🍽️ ${pet.feedingSchedule}</span>` : ''}
+                            ${pet.vetContact ? `<br><span style="color: #666;">🏥 ${pet.vetContact}</span>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn" style="padding: 0.5rem;" onclick="editPet('${pet.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deletePetConfirm('${pet.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Save vacation data
+        async function saveVacationData() {
+            try {
+                const vacationData = {
+                    dates: currentVacationData?.dates || [],
+                    travelInfo: document.getElementById('travelInfo').value,
+                    emergencyContact: {
+                        name: document.getElementById('emergencyName').value,
+                        relationship: document.getElementById('emergencyRelationship').value,
+                        phone: document.getElementById('emergencyPhone').value,
+                        email: document.getElementById('emergencyEmail').value
+                    },
+                    pets: currentVacationData?.pets || []
+                };
+                
+                const response = await fetch('/admin/api/house/vacation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(vacationData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ Vacation data saved successfully!', 'success', 'vacationAlert');
+                } else {
+                    showAlert('❌ Failed to save vacation data', 'error', 'vacationAlert');
+                }
+            } catch (err) {
+                console.error('Failed to save vacation data:', err);
+                showAlert('❌ Failed to save vacation data: ' + err.message, 'error', 'vacationAlert');
+            }
+        }
+        
+        // Vacation date modal functions
+        function showAddVacationDateModal() {
+            document.getElementById('vacationDateModalTitle').textContent = 'Add Vacation Date';
+            document.getElementById('vacationDateId').value = '';
+            document.getElementById('vacationStartDate').value = '';
+            document.getElementById('vacationEndDate').value = '';
+            document.getElementById('vacationDestination').value = '';
+            document.getElementById('vacationNotes').value = '';
+            document.getElementById('vacationDateModal').style.display = 'flex';
+        }
+        
+        function editVacationDate(id) {
+            const date = currentVacationData?.dates.find(d => d.id === id);
+            if (!date) return;
+            
+            document.getElementById('vacationDateModalTitle').textContent = 'Edit Vacation Date';
+            document.getElementById('vacationDateId').value = date.id;
+            document.getElementById('vacationStartDate').value = date.startDate;
+            document.getElementById('vacationEndDate').value = date.endDate;
+            document.getElementById('vacationDestination').value = date.destination || '';
+            document.getElementById('vacationNotes').value = date.notes || '';
+            document.getElementById('vacationDateModal').style.display = 'flex';
+        }
+        
+        function closeVacationDateModal() {
+            document.getElementById('vacationDateModal').style.display = 'none';
+        }
+        
+        async function saveVacationDate(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('vacationDateId').value;
+            const dateData = {
+                startDate: document.getElementById('vacationStartDate').value,
+                endDate: document.getElementById('vacationEndDate').value,
+                destination: document.getElementById('vacationDestination').value,
+                notes: document.getElementById('vacationNotes').value
+            };
+            
+            try {
+                let response;
+                if (id) {
+                    // Update existing
+                    response = await fetch(`/admin/api/house/vacation/dates/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dateData)
+                    });
+                } else {
+                    // Add new
+                    response = await fetch('/admin/api/house/vacation/dates', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dateData)
+                    });
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeVacationDateModal();
+                    loadHouseVacationData();
+                    showAlert('✅ Vacation date saved successfully!', 'success', 'vacationAlert');
+                } else {
+                    alert('Failed to save vacation date: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save vacation date: ' + err.message);
+            }
+        }
+        
+        async function deleteVacationDateConfirm(id) {
+            if (!confirm('Are you sure you want to delete this vacation date?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/vacation/dates/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadHouseVacationData();
+                    showAlert('✅ Vacation date deleted successfully!', 'success', 'vacationAlert');
+                } else {
+                    alert('Failed to delete vacation date: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete vacation date: ' + err.message);
+            }
+        }
+        
+        // Pet modal functions
+        function showAddPetModal() {
+            document.getElementById('petModalTitle').textContent = 'Add Pet';
+            document.getElementById('petId').value = '';
+            document.getElementById('petName').value = '';
+            document.getElementById('petType').value = '';
+            document.getElementById('petBreed').value = '';
+            document.getElementById('petAge').value = '';
+            document.getElementById('petFeedingSchedule').value = '';
+            document.getElementById('petMedications').value = '';
+            document.getElementById('petVetContact').value = '';
+            document.getElementById('petSpecialInstructions').value = '';
+            document.getElementById('petModal').style.display = 'flex';
+        }
+        
+        function editPet(id) {
+            const pet = currentVacationData?.pets.find(p => p.id === id);
+            if (!pet) return;
+            
+            document.getElementById('petModalTitle').textContent = 'Edit Pet';
+            document.getElementById('petId').value = pet.id;
+            document.getElementById('petName').value = pet.name;
+            document.getElementById('petType').value = pet.type || '';
+            document.getElementById('petBreed').value = pet.breed || '';
+            document.getElementById('petAge').value = pet.age || '';
+            document.getElementById('petFeedingSchedule').value = pet.feedingSchedule || '';
+            document.getElementById('petMedications').value = pet.medications || '';
+            document.getElementById('petVetContact').value = pet.vetContact || '';
+            document.getElementById('petSpecialInstructions').value = pet.specialInstructions || '';
+            document.getElementById('petModal').style.display = 'flex';
+        }
+        
+        function closePetModal() {
+            document.getElementById('petModal').style.display = 'none';
+        }
+        
+        async function savePet(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('petId').value;
+            const petData = {
+                name: document.getElementById('petName').value,
+                type: document.getElementById('petType').value,
+                breed: document.getElementById('petBreed').value,
+                age: document.getElementById('petAge').value,
+                feedingSchedule: document.getElementById('petFeedingSchedule').value,
+                medications: document.getElementById('petMedications').value,
+                vetContact: document.getElementById('petVetContact').value,
+                specialInstructions: document.getElementById('petSpecialInstructions').value
+            };
+            
+            try {
+                let response;
+                if (id) {
+                    // Update existing
+                    response = await fetch(`/admin/api/house/vacation/pets/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(petData)
+                    });
+                } else {
+                    // Add new
+                    response = await fetch('/admin/api/house/vacation/pets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(petData)
+                    });
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closePetModal();
+                    loadHouseVacationData();
+                    showAlert('✅ Pet saved successfully!', 'success', 'vacationAlert');
+                } else {
+                    alert('Failed to save pet: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save pet: ' + err.message);
+            }
+        }
+        
+        async function deletePetConfirm(id) {
+            if (!confirm('Are you sure you want to delete this pet?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/vacation/pets/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadHouseVacationData();
+                    showAlert('✅ Pet deleted successfully!', 'success', 'vacationAlert');
+                } else {
+                    alert('Failed to delete pet: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete pet: ' + err.message);
+            }
+        }
+        
+        // Documentation functions
+        async function loadHouseDocumentationData() {
+            try {
+                const response = await fetch('/admin/api/house/documentation');
+                currentDocumentationData = await response.json();
+                
+                renderDocuments();
+                renderInstructions();
+            } catch (err) {
+                console.error('Failed to load documentation data:', err);
+                showAlert('Failed to load documentation data', 'error', 'documentationAlert');
+            }
+        }
+        
+        function renderDocuments() {
+            const container = document.getElementById('documentsContainer');
+            const documents = currentDocumentationData?.documents || [];
+            
+            if (documents.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No documents added yet.</div>';
+                return;
+            }
+            
+            container.innerHTML = documents.map(doc => `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #FF9800;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <strong>${doc.title}</strong>
+                            <span style="background: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${doc.type}</span>
+                            ${doc.description ? `<br><span style="color: #666;">${doc.description}</span>` : ''}
+                            ${doc.url ? `<br><a href="${doc.url}" target="_blank" style="color: #667eea;">🔗 View Document</a>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn" style="padding: 0.5rem;" onclick="editDocument('${doc.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteDocumentConfirm('${doc.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderInstructions() {
+            const container = document.getElementById('instructionsContainer');
+            const instructions = currentDocumentationData?.instructions || [];
+            
+            if (instructions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No instructions added yet.</div>';
+                return;
+            }
+            
+            container.innerHTML = instructions.map(inst => `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #2196F3;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <strong>${inst.title}</strong>
+                            ${inst.category ? `<span style="background: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${inst.category}</span>` : ''}
+                            <br><pre style="white-space: pre-wrap; font-family: inherit; margin: 0.5rem 0 0 0; color: #666;">${inst.content}</pre>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn" style="padding: 0.5rem;" onclick="editInstruction('${inst.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteInstructionConfirm('${inst.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Document modal functions
+        function showAddDocumentModal() {
+            document.getElementById('documentModalTitle').textContent = 'Add Document';
+            document.getElementById('documentId').value = '';
+            document.getElementById('documentTitle').value = '';
+            document.getElementById('documentType').value = 'document';
+            document.getElementById('documentDescription').value = '';
+            document.getElementById('documentUrl').value = '';
+            document.getElementById('documentModal').style.display = 'flex';
+        }
+        
+        function editDocument(id) {
+            const doc = currentDocumentationData?.documents.find(d => d.id === id);
+            if (!doc) return;
+            
+            document.getElementById('documentModalTitle').textContent = 'Edit Document';
+            document.getElementById('documentId').value = doc.id;
+            document.getElementById('documentTitle').value = doc.title;
+            document.getElementById('documentType').value = doc.type || 'document';
+            document.getElementById('documentDescription').value = doc.description || '';
+            document.getElementById('documentUrl').value = doc.url || '';
+            document.getElementById('documentModal').style.display = 'flex';
+        }
+        
+        function closeDocumentModal() {
+            document.getElementById('documentModal').style.display = 'none';
+        }
+        
+        async function saveDocument(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('documentId').value;
+            const docData = {
+                title: document.getElementById('documentTitle').value,
+                type: document.getElementById('documentType').value,
+                description: document.getElementById('documentDescription').value,
+                url: document.getElementById('documentUrl').value
+            };
+            
+            try {
+                let response;
+                if (id) {
+                    // Update existing
+                    response = await fetch(`/admin/api/house/documentation/documents/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(docData)
+                    });
+                } else {
+                    // Add new
+                    response = await fetch('/admin/api/house/documentation/documents', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(docData)
+                    });
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeDocumentModal();
+                    loadHouseDocumentationData();
+                    showAlert('✅ Document saved successfully!', 'success', 'documentationAlert');
+                } else {
+                    alert('Failed to save document: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save document: ' + err.message);
+            }
+        }
+        
+        async function deleteDocumentConfirm(id) {
+            if (!confirm('Are you sure you want to delete this document?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/documentation/documents/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadHouseDocumentationData();
+                    showAlert('✅ Document deleted successfully!', 'success', 'documentationAlert');
+                } else {
+                    alert('Failed to delete document: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete document: ' + err.message);
+            }
+        }
+        
+        // Instruction modal functions
+        function showAddInstructionModal() {
+            document.getElementById('instructionModalTitle').textContent = 'Add Instruction';
+            document.getElementById('instructionId').value = '';
+            document.getElementById('instructionTitle').value = '';
+            document.getElementById('instructionCategory').value = '';
+            document.getElementById('instructionContent').value = '';
+            document.getElementById('instructionModal').style.display = 'flex';
+        }
+        
+        function editInstruction(id) {
+            const inst = currentDocumentationData?.instructions.find(i => i.id === id);
+            if (!inst) return;
+            
+            document.getElementById('instructionModalTitle').textContent = 'Edit Instruction';
+            document.getElementById('instructionId').value = inst.id;
+            document.getElementById('instructionTitle').value = inst.title;
+            document.getElementById('instructionCategory').value = inst.category || '';
+            document.getElementById('instructionContent').value = inst.content || '';
+            document.getElementById('instructionModal').style.display = 'flex';
+        }
+        
+        function closeInstructionModal() {
+            document.getElementById('instructionModal').style.display = 'none';
+        }
+        
+        async function saveInstruction(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('instructionId').value;
+            const instData = {
+                title: document.getElementById('instructionTitle').value,
+                category: document.getElementById('instructionCategory').value,
+                content: document.getElementById('instructionContent').value
+            };
+            
+            try {
+                let response;
+                if (id) {
+                    // Update existing
+                    response = await fetch(`/admin/api/house/documentation/instructions/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(instData)
+                    });
+                } else {
+                    // Add new
+                    response = await fetch('/admin/api/house/documentation/instructions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(instData)
+                    });
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeInstructionModal();
+                    loadHouseDocumentationData();
+                    showAlert('✅ Instruction saved successfully!', 'success', 'documentationAlert');
+                } else {
+                    alert('Failed to save instruction: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save instruction: ' + err.message);
+            }
+        }
+        
+        async function deleteInstructionConfirm(id) {
+            if (!confirm('Are you sure you want to delete this instruction?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/documentation/instructions/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadHouseDocumentationData();
+                    showAlert('✅ Instruction deleted successfully!', 'success', 'documentationAlert');
+                } else {
+                    alert('Failed to delete instruction: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete instruction: ' + err.message);
+            }
         }
 
         // Diagnostic error handling - catches missing function errors
