@@ -75,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.13] - 2026-01-21
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #366 from spospordo/copilot/add-media-center-sub-tab
+  - Complete Media Center sub-tab implementation - all features working
+  - Add Media Center frontend - UI, modals, and JavaScript functions
+  - Add Media Center backend support - module and API endpoints
+  - Initial plan
+
+
 ## [2.2.12] - 2026-01-21
 
 ### Patch Update
