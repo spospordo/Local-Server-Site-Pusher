@@ -25,6 +25,15 @@
         "x": 100,
         "y": 100,
         "createdDate": "2026-01-21T00:21:00.192Z"
+      },
+      {
+        "id": "1768956786546",
+        "name": "Pioneer Amplifier",
+        "type": "amplifier",
+        "description": "Living room audio amplifier, 100W",
+        "x": 100,
+        "y": 100,
+        "createdDate": "2026-01-21T00:53:06.546Z"
       }
     ],
     "connections": []
