@@ -291,6 +291,9 @@ function addDevice(device) {
     description: device.description || "",
     x: device.x || 100,
     y: device.y || 100,
+    color: device.color || "#667eea",
+    icon: device.icon || "",
+    customIcon: device.customIcon || "",
     createdDate: new Date().toISOString()
   });
   return saveMediaCenterData(mediaCenter);
