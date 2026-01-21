@@ -75,6 +75,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.12] - 2026-01-21
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #364 from spospordo/copilot/create-house-page-for-info
+  - Complete House Page implementation with testing
+  - Add House module with Vacation and Documentation tabs
+  - Initial plan
+
+
 ## [2.2.11] - 2026-01-20
 
 ### Patch Update
