@@ -6114,6 +6114,114 @@ app.delete('/admin/api/house/documentation/instructions/:id', requireAuth, (req,
   }
 });
 
+// Get media center data
+app.get('/admin/api/house/mediacenter', requireAuth, (req, res) => {
+  try {
+    const mediaCenterData = house.getMediaCenterData();
+    res.json(mediaCenterData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get media center data: ' + err.message });
+  }
+});
+
+// Save media center data
+app.post('/admin/api/house/mediacenter', requireAuth, (req, res) => {
+  try {
+    const result = house.saveMediaCenterData(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Media center data saved successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save media center data: ' + err.message });
+  }
+});
+
+// Add device
+app.post('/admin/api/house/mediacenter/devices', requireAuth, (req, res) => {
+  try {
+    const result = house.addDevice(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Device added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add device: ' + err.message });
+  }
+});
+
+// Update device
+app.put('/admin/api/house/mediacenter/devices/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateDevice(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Device updated successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update device: ' + err.message });
+  }
+});
+
+// Delete device
+app.delete('/admin/api/house/mediacenter/devices/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteDevice(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Device deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete device: ' + err.message });
+  }
+});
+
+// Add connection
+app.post('/admin/api/house/mediacenter/connections', requireAuth, (req, res) => {
+  try {
+    const result = house.addConnection(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Connection added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add connection: ' + err.message });
+  }
+});
+
+// Update connection
+app.put('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateConnection(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Connection updated successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update connection: ' + err.message });
+  }
+});
+
+// Delete connection
+app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteConnection(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Connection deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete connection: ' + err.message });
+  }
+});
+
 // Default route - serve public content
 app.get('/', (req, res) => {
   const defaultFile = path.join(__dirname, 'public', config.webContent.defaultFile || 'index.html');

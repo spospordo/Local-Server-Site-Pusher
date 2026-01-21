@@ -14,5 +14,19 @@
     "documents": [],
     "diagrams": [],
     "instructions": []
+  },
+  "mediaCenter": {
+    "devices": [
+      {
+        "id": "1768954860192",
+        "name": "Samsung Smart TV",
+        "type": "tv",
+        "description": "",
+        "x": 100,
+        "y": 100,
+        "createdDate": "2026-01-21T00:21:00.192Z"
+      }
+    ],
+    "connections": []
   }
 }

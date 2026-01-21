@@ -29,6 +29,10 @@ function getDefaultHouseData() {
       documents: [],
       diagrams: [],
       instructions: []
+    },
+    mediaCenter: {
+      devices: [],
+      connections: []
     }
   };
 }
@@ -264,6 +268,91 @@ function deleteInstruction(id) {
   return saveDocumentationData(documentation);
 }
 
+// Get media center data
+function getMediaCenterData() {
+  const data = loadHouseData();
+  return data.mediaCenter || getDefaultHouseData().mediaCenter;
+}
+
+// Save media center data
+function saveMediaCenterData(mediaCenterData) {
+  const data = loadHouseData();
+  data.mediaCenter = mediaCenterData;
+  return saveHouseData(data);
+}
+
+// Add a device
+function addDevice(device) {
+  const mediaCenter = getMediaCenterData();
+  mediaCenter.devices.push({
+    id: Date.now().toString(),
+    name: device.name,
+    type: device.type || "other",
+    description: device.description || "",
+    x: device.x || 100,
+    y: device.y || 100,
+    createdDate: new Date().toISOString()
+  });
+  return saveMediaCenterData(mediaCenter);
+}
+
+// Update a device
+function updateDevice(id, device) {
+  const mediaCenter = getMediaCenterData();
+  const index = mediaCenter.devices.findIndex(d => d.id === id);
+  if (index !== -1) {
+    mediaCenter.devices[index] = { ...mediaCenter.devices[index], ...device, id };
+    return saveMediaCenterData(mediaCenter);
+  }
+  return { success: false, error: 'Device not found' };
+}
+
+// Delete a device
+function deleteDevice(id) {
+  const mediaCenter = getMediaCenterData();
+  // Remove device
+  mediaCenter.devices = mediaCenter.devices.filter(d => d.id !== id);
+  // Remove connections that reference this device
+  mediaCenter.connections = mediaCenter.connections.filter(c => 
+    c.sourceDeviceId !== id && c.targetDeviceId !== id
+  );
+  return saveMediaCenterData(mediaCenter);
+}
+
+// Add a connection
+function addConnection(connection) {
+  const mediaCenter = getMediaCenterData();
+  mediaCenter.connections.push({
+    id: Date.now().toString(),
+    sourceDeviceId: connection.sourceDeviceId,
+    targetDeviceId: connection.targetDeviceId,
+    sourcePort: connection.sourcePort || "",
+    targetPort: connection.targetPort || "",
+    connectionType: connection.connectionType || "HDMI",
+    description: connection.description || "",
+    createdDate: new Date().toISOString()
+  });
+  return saveMediaCenterData(mediaCenter);
+}
+
+// Update a connection
+function updateConnection(id, connection) {
+  const mediaCenter = getMediaCenterData();
+  const index = mediaCenter.connections.findIndex(c => c.id === id);
+  if (index !== -1) {
+    mediaCenter.connections[index] = { ...mediaCenter.connections[index], ...connection, id };
+    return saveMediaCenterData(mediaCenter);
+  }
+  return { success: false, error: 'Connection not found' };
+}
+
+// Delete a connection
+function deleteConnection(id) {
+  const mediaCenter = getMediaCenterData();
+  mediaCenter.connections = mediaCenter.connections.filter(c => c.id !== id);
+  return saveMediaCenterData(mediaCenter);
+}
+
 module.exports = {
   init,
   getVacationData,
@@ -281,5 +370,13 @@ module.exports = {
   deleteDocument,
   addInstruction,
   updateInstruction,
-  deleteInstruction
+  deleteInstruction,
+  getMediaCenterData,
+  saveMediaCenterData,
+  addDevice,
+  updateDevice,
+  deleteDevice,
+  addConnection,
+  updateConnection,
+  deleteConnection
 };
