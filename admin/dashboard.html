@@ -14968,6 +14968,8 @@
         let deviceDragOffset = { x: 0, y: 0 };
         let selectedDevice = null;
         let draggedDevice = null;
+        let currentCursor = 'move';
+        let saveTimeout = null;
 
         async function loadMediaCenterData() {
             try {
@@ -15118,27 +15120,38 @@
                     draggedDevice.x = mouseX - canvasOffset.x - deviceDragOffset.x;
                     draggedDevice.y = mouseY - canvasOffset.y - deviceDragOffset.y;
                     drawCanvas();
+                    
+                    // Update cursor only if changed
+                    if (currentCursor !== 'grabbing') {
+                        currentCursor = 'grabbing';
+                        canvas.style.cursor = currentCursor;
+                    }
                 } else if (isDraggingCanvas) {
                     // Update canvas offset
                     canvasOffset.x = e.clientX - dragStartPos.x;
                     canvasOffset.y = e.clientY - dragStartPos.y;
                     drawCanvas();
-                }
-                
-                // Update cursor style based on hover
-                const hoveredDevice = getDeviceAtPosition(mouseX, mouseY);
-                canvas.style.cursor = hoveredDevice ? 'grab' : 'move';
-                if (isDraggingDevice) {
-                    canvas.style.cursor = 'grabbing';
-                } else if (isDraggingCanvas) {
-                    canvas.style.cursor = 'move';
+                    
+                    // Update cursor only if changed
+                    if (currentCursor !== 'move') {
+                        currentCursor = 'move';
+                        canvas.style.cursor = currentCursor;
+                    }
+                } else {
+                    // Update cursor style based on hover
+                    const hoveredDevice = getDeviceAtPosition(mouseX, mouseY);
+                    const newCursor = hoveredDevice ? 'grab' : 'move';
+                    if (currentCursor !== newCursor) {
+                        currentCursor = newCursor;
+                        canvas.style.cursor = currentCursor;
+                    }
                 }
             });
             
             canvas.addEventListener('mouseup', () => {
                 if (isDraggingDevice && draggedDevice) {
-                    // Save the updated device position
-                    saveMediaCenterData();
+                    // Debounced save to reduce server load
+                    debouncedSaveMediaCenterData();
                 }
                 isDraggingCanvas = false;
                 isDraggingDevice = false;
@@ -15147,13 +15160,16 @@
             
             canvas.addEventListener('mouseleave', () => {
                 if (isDraggingDevice && draggedDevice) {
-                    // Save the updated device position
-                    saveMediaCenterData();
+                    // Debounced save to reduce server load
+                    debouncedSaveMediaCenterData();
                 }
                 isDraggingCanvas = false;
                 isDraggingDevice = false;
                 draggedDevice = null;
-                canvas.style.cursor = 'move';
+                if (currentCursor !== 'move') {
+                    currentCursor = 'move';
+                    canvas.style.cursor = currentCursor;
+                }
             });
             
             drawCanvas();
@@ -15176,6 +15192,19 @@
                 }
             }
             return null;
+        }
+
+        function debouncedSaveMediaCenterData() {
+            // Clear existing timeout
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            // Set new timeout to save after 500ms of inactivity
+            saveTimeout = setTimeout(() => {
+                saveMediaCenterData();
+                saveTimeout = null;
+            }, 500);
         }
 
         function drawCanvas() {
