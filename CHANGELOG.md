@@ -75,6 +75,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.15] - 2026-01-21
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #370 from spospordo/copilot/allow-rearranging-devices
+  - Optimize cursor updates and add debounced save for device dragging
+  - Implement individual device dragging on Media Center connection diagram
+  - Initial plan
+
+
 ## [2.2.14] - 2026-01-21
 
 ### Patch Update
