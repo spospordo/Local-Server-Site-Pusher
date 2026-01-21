@@ -22,8 +22,8 @@
         "name": "Samsung Smart TV",
         "type": "tv",
         "description": "",
-        "x": 100,
-        "y": 100,
+        "x": 700,
+        "y": 300,
         "createdDate": "2026-01-21T00:21:00.192Z"
       },
       {
@@ -31,11 +31,22 @@
         "name": "Pioneer Amplifier",
         "type": "amplifier",
         "description": "Living room audio amplifier, 100W",
-        "x": 100,
-        "y": 100,
+        "x": 300,
+        "y": 300,
         "createdDate": "2026-01-21T00:53:06.546Z"
       }
     ],
-    "connections": []
+    "connections": [
+      {
+        "id": "1768958707674",
+        "sourceDeviceId": "1768956786546",
+        "targetDeviceId": "1768954860192",
+        "sourcePort": "",
+        "targetPort": "",
+        "connectionType": "HDMI",
+        "description": "",
+        "createdDate": "2026-01-21T01:25:07.674Z"
+      }
+    ]
   }
 }

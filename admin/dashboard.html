@@ -14963,8 +14963,13 @@
         let ctx = null;
         let canvasOffset = { x: 0, y: 0 };
         let isDraggingCanvas = false;
+        let isDraggingDevice = false;
         let dragStartPos = { x: 0, y: 0 };
+        let deviceDragOffset = { x: 0, y: 0 };
         let selectedDevice = null;
+        let draggedDevice = null;
+        let currentCursor = 'move';
+        let saveTimeout = null;
 
         async function loadMediaCenterData() {
             try {
@@ -15083,27 +15088,123 @@
             
             // Canvas drag handlers
             canvas.addEventListener('mousedown', (e) => {
-                isDraggingCanvas = true;
-                dragStartPos = { x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y };
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Check if clicking on a device
+                const clickedDevice = getDeviceAtPosition(mouseX, mouseY);
+                
+                if (clickedDevice) {
+                    // Start dragging the device
+                    isDraggingDevice = true;
+                    draggedDevice = clickedDevice;
+                    deviceDragOffset = {
+                        x: mouseX - (clickedDevice.x + canvasOffset.x),
+                        y: mouseY - (clickedDevice.y + canvasOffset.y)
+                    };
+                } else {
+                    // Start dragging the canvas
+                    isDraggingCanvas = true;
+                    dragStartPos = { x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y };
+                }
             });
             
             canvas.addEventListener('mousemove', (e) => {
-                if (isDraggingCanvas) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                if (isDraggingDevice && draggedDevice) {
+                    // Update device position
+                    draggedDevice.x = mouseX - canvasOffset.x - deviceDragOffset.x;
+                    draggedDevice.y = mouseY - canvasOffset.y - deviceDragOffset.y;
+                    drawCanvas();
+                    
+                    // Update cursor only if changed
+                    if (currentCursor !== 'grabbing') {
+                        currentCursor = 'grabbing';
+                        canvas.style.cursor = currentCursor;
+                    }
+                } else if (isDraggingCanvas) {
+                    // Update canvas offset
                     canvasOffset.x = e.clientX - dragStartPos.x;
                     canvasOffset.y = e.clientY - dragStartPos.y;
                     drawCanvas();
+                    
+                    // Update cursor only if changed
+                    if (currentCursor !== 'move') {
+                        currentCursor = 'move';
+                        canvas.style.cursor = currentCursor;
+                    }
+                } else {
+                    // Update cursor style based on hover
+                    const hoveredDevice = getDeviceAtPosition(mouseX, mouseY);
+                    const newCursor = hoveredDevice ? 'grab' : 'move';
+                    if (currentCursor !== newCursor) {
+                        currentCursor = newCursor;
+                        canvas.style.cursor = currentCursor;
+                    }
                 }
             });
             
             canvas.addEventListener('mouseup', () => {
+                if (isDraggingDevice && draggedDevice) {
+                    // Debounced save to reduce server load
+                    debouncedSaveMediaCenterData();
+                }
                 isDraggingCanvas = false;
+                isDraggingDevice = false;
+                draggedDevice = null;
             });
             
             canvas.addEventListener('mouseleave', () => {
+                if (isDraggingDevice && draggedDevice) {
+                    // Debounced save to reduce server load
+                    debouncedSaveMediaCenterData();
+                }
                 isDraggingCanvas = false;
+                isDraggingDevice = false;
+                draggedDevice = null;
+                if (currentCursor !== 'move') {
+                    currentCursor = 'move';
+                    canvas.style.cursor = currentCursor;
+                }
             });
             
             drawCanvas();
+        }
+
+        function getDeviceAtPosition(mouseX, mouseY) {
+            // Check devices in reverse order (top to bottom in rendering)
+            for (let i = mediaCenterData.devices.length - 1; i >= 0; i--) {
+                const device = mediaCenterData.devices[i];
+                const x = device.x + canvasOffset.x;
+                const y = device.y + canvasOffset.y;
+                
+                // Device is drawn as a 80x40 box centered at (x, y)
+                const halfWidth = 40;
+                const halfHeight = 20;
+                
+                if (mouseX >= x - halfWidth && mouseX <= x + halfWidth &&
+                    mouseY >= y - halfHeight && mouseY <= y + halfHeight) {
+                    return device;
+                }
+            }
+            return null;
+        }
+
+        function debouncedSaveMediaCenterData() {
+            // Clear existing timeout
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            // Set new timeout to save after 500ms of inactivity
+            saveTimeout = setTimeout(() => {
+                saveMediaCenterData();
+                saveTimeout = null;
+            }, 500);
         }
 
         function drawCanvas() {
