@@ -2144,6 +2144,7 @@
             <div class="sub-tabs" id="house-subtabs">
                 <button class="sub-tab active" onclick="showSubTab('house-vacation')">Vacation</button>
                 <button class="sub-tab" onclick="showSubTab('house-documentation')">Documentation</button>
+                <button class="sub-tab" onclick="showSubTab('house-mediacenter')">Media Center</button>
             </div>
             
             <!-- Sub-tabs for Party -->
@@ -3450,6 +3451,50 @@
                 <button class="btn" onclick="showAddInstructionModal()">📝 Add Instruction</button>
                 
                 <div id="documentationAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Media Center Section -->
+        <div class="card admin-section house-section house-mediacenter-section">
+            <div class="card-header">
+                <h2>📺 Media Center</h2>
+            </div>
+            <div class="card-body">
+                <p>Manage and visualize your home media equipment connections. Add devices, connect them, and track how everything is wired together.</p>
+                
+                <!-- Devices List -->
+                <h3>Media Devices</h3>
+                <div id="devicesContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading devices...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddDeviceModal()">➕ Add Device</button>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Connections List -->
+                <h3>Device Connections</h3>
+                <div id="connectionsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">
+                        Loading connections...
+                    </div>
+                </div>
+                <button class="btn" onclick="showAddConnectionModal()">🔌 Add Connection</button>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Visual Diagram -->
+                <h3>Connection Diagram</h3>
+                <div style="background: #f8f9fa; border: 2px solid #ddd; border-radius: 5px; padding: 1rem; min-height: 400px; position: relative; overflow: auto;">
+                    <canvas id="mediaCenterCanvas" width="1000" height="600" style="cursor: move; display: block; margin: 0 auto;"></canvas>
+                </div>
+                <div style="margin-top: 0.5rem; display: flex; gap: 1rem;">
+                    <button class="btn" onclick="resetCanvasView()">🔄 Reset View</button>
+                    <button class="btn" onclick="autoArrangeDevices()">📐 Auto Arrange</button>
+                </div>
+                
+                <div id="mediaCenterAlert" class="alert"></div>
             </div>
         </div>
 
@@ -5358,6 +5403,108 @@
                     </div>
                     <div class="modal-actions">
                         <button type="button" onclick="closeInstructionModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Modal -->
+    <div id="deviceModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="deviceModalTitle">Add Device</h3>
+                <span class="close" onclick="closeDeviceModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="deviceForm" onsubmit="saveDevice(event)">
+                    <input type="hidden" id="deviceId">
+                    <div class="form-group">
+                        <label for="deviceName">Device Name *</label>
+                        <input type="text" id="deviceName" required placeholder="e.g., Samsung TV, Pioneer Receiver">
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceType">Device Type *</label>
+                        <select id="deviceType" required>
+                            <option value="tv">TV</option>
+                            <option value="receiver">Receiver</option>
+                            <option value="switch">Switch/Selector</option>
+                            <option value="recordplayer">Record Player</option>
+                            <option value="remote">Remote Control</option>
+                            <option value="console">Game Console</option>
+                            <option value="player">Media Player</option>
+                            <option value="speaker">Speaker</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceDescription">Description</label>
+                        <textarea id="deviceDescription" rows="3" placeholder="Model number, notes, location, etc."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeDeviceModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Modal -->
+    <div id="connectionModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="connectionModalTitle">Add Connection</h3>
+                <span class="close" onclick="closeConnectionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="connectionForm" onsubmit="saveConnection(event)">
+                    <input type="hidden" id="connectionId">
+                    <div class="form-group">
+                        <label for="sourceDevice">Source Device *</label>
+                        <select id="sourceDevice" required>
+                            <option value="">Select source device...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sourcePort">Source Port</label>
+                        <input type="text" id="sourcePort" placeholder="e.g., HDMI 1, Output A">
+                    </div>
+                    <div class="form-group">
+                        <label for="targetDevice">Target Device *</label>
+                        <select id="targetDevice" required>
+                            <option value="">Select target device...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="targetPort">Target Port</label>
+                        <input type="text" id="targetPort" placeholder="e.g., HDMI 2, Input B">
+                    </div>
+                    <div class="form-group">
+                        <label for="connectionType">Connection Type *</label>
+                        <select id="connectionType" required>
+                            <option value="HDMI">HDMI</option>
+                            <option value="RCA">RCA</option>
+                            <option value="Optical">Optical (TOSLINK)</option>
+                            <option value="Line">Line (3.5mm)</option>
+                            <option value="Coaxial">Coaxial</option>
+                            <option value="Component">Component</option>
+                            <option value="Composite">Composite</option>
+                            <option value="XLR">XLR</option>
+                            <option value="USB">USB</option>
+                            <option value="Ethernet">Ethernet</option>
+                            <option value="Bluetooth">Bluetooth</option>
+                            <option value="WiFi">WiFi</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="connectionDescription">Description</label>
+                        <textarea id="connectionDescription" rows="2" placeholder="Additional notes about this connection..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeConnectionModal()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn">Save</button>
                     </div>
                 </form>
@@ -8094,6 +8241,7 @@
                 let targetTabText = '';
                 if (subTabName === 'house-vacation') targetTabText = 'Vacation';
                 else if (subTabName === 'house-documentation') targetTabText = 'Documentation';
+                else if (subTabName === 'house-mediacenter') targetTabText = 'Media Center';
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
                 else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
@@ -8144,6 +8292,13 @@
                 
                 if (shouldLoadData) {
                     loadHouseDocumentationData();
+                }
+            } else if (subTabName === 'house-mediacenter') {
+                const mediaCenterSections = document.querySelectorAll('.house-mediacenter-section');
+                mediaCenterSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadMediaCenterData();
                 }
             } else if (subTabName === 'party-links') {
                 const linksSections = document.querySelectorAll('.party-links-section');
@@ -14798,6 +14953,466 @@
                 }
             } catch (err) {
                 alert('Failed to delete instruction: ' + err.message);
+            }
+        }
+
+        // Media Center Functions
+        let mediaCenterData = { devices: [], connections: [] };
+        let canvas = null;
+        let ctx = null;
+        let canvasOffset = { x: 0, y: 0 };
+        let isDraggingCanvas = false;
+        let dragStartPos = { x: 0, y: 0 };
+        let selectedDevice = null;
+
+        async function loadMediaCenterData() {
+            try {
+                const response = await fetch('/admin/api/house/mediacenter');
+                const data = await response.json();
+                mediaCenterData = data;
+                
+                // Display devices
+                displayDevices();
+                
+                // Display connections
+                displayConnections();
+                
+                // Initialize canvas
+                initMediaCenterCanvas();
+            } catch (err) {
+                console.error('Failed to load media center data:', err);
+                document.getElementById('devicesContainer').innerHTML = 
+                    '<div style="text-align: center; color: #dc3545; padding: 1rem;">Failed to load devices</div>';
+                document.getElementById('connectionsContainer').innerHTML = 
+                    '<div style="text-align: center; color: #dc3545; padding: 1rem;">Failed to load connections</div>';
+            }
+        }
+
+        function displayDevices() {
+            const container = document.getElementById('devicesContainer');
+            if (!mediaCenterData.devices || mediaCenterData.devices.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No devices added yet</div>';
+                return;
+            }
+            
+            const deviceTypeIcons = {
+                'tv': '📺',
+                'receiver': '📻',
+                'switch': '🔀',
+                'recordplayer': '💿',
+                'remote': '🎮',
+                'console': '🎮',
+                'player': '▶️',
+                'speaker': '🔊',
+                'other': '📦'
+            };
+            
+            let html = '<div style="display: grid; gap: 1rem;">';
+            mediaCenterData.devices.forEach(device => {
+                const icon = deviceTypeIcons[device.type] || '📦';
+                html += `
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; border-left: 4px solid #667eea;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333; font-size: 1.1rem;">
+                                    ${icon} ${device.name}
+                                </div>
+                                <div style="color: #666; margin-top: 0.25rem;">
+                                    Type: ${device.type}
+                                </div>
+                                ${device.description ? `<div style="color: #777; margin-top: 0.5rem; font-size: 0.9rem;">${device.description}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" style="padding: 0.5rem;" onclick="editDevice('${device.id}')">✏️</button>
+                                <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteDeviceConfirm('${device.id}')">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function displayConnections() {
+            const container = document.getElementById('connectionsContainer');
+            if (!mediaCenterData.connections || mediaCenterData.connections.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No connections added yet</div>';
+                return;
+            }
+            
+            let html = '<div style="display: grid; gap: 1rem;">';
+            mediaCenterData.connections.forEach(conn => {
+                const sourceDevice = mediaCenterData.devices.find(d => d.id === conn.sourceDeviceId);
+                const targetDevice = mediaCenterData.devices.find(d => d.id === conn.targetDeviceId);
+                
+                if (!sourceDevice || !targetDevice) return;
+                
+                html += `
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; border-left: 4px solid #28a745;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333;">
+                                    ${sourceDevice.name}${conn.sourcePort ? ` (${conn.sourcePort})` : ''} 
+                                    ➡️ ${targetDevice.name}${conn.targetPort ? ` (${conn.targetPort})` : ''}
+                                </div>
+                                <div style="color: #666; margin-top: 0.25rem;">
+                                    Connection Type: ${conn.connectionType}
+                                </div>
+                                ${conn.description ? `<div style="color: #777; margin-top: 0.5rem; font-size: 0.9rem;">${conn.description}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" style="padding: 0.5rem;" onclick="editConnection('${conn.id}')">✏️</button>
+                                <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteConnectionConfirm('${conn.id}')">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function initMediaCenterCanvas() {
+            canvas = document.getElementById('mediaCenterCanvas');
+            if (!canvas) return;
+            
+            ctx = canvas.getContext('2d');
+            
+            // Canvas drag handlers
+            canvas.addEventListener('mousedown', (e) => {
+                isDraggingCanvas = true;
+                dragStartPos = { x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y };
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDraggingCanvas) {
+                    canvasOffset.x = e.clientX - dragStartPos.x;
+                    canvasOffset.y = e.clientY - dragStartPos.y;
+                    drawCanvas();
+                }
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                isDraggingCanvas = false;
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                isDraggingCanvas = false;
+            });
+            
+            drawCanvas();
+        }
+
+        function drawCanvas() {
+            if (!canvas || !ctx) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw connections first (so they're behind devices)
+            mediaCenterData.connections.forEach(conn => {
+                const sourceDevice = mediaCenterData.devices.find(d => d.id === conn.sourceDeviceId);
+                const targetDevice = mediaCenterData.devices.find(d => d.id === conn.targetDeviceId);
+                
+                if (!sourceDevice || !targetDevice) return;
+                
+                const sx = sourceDevice.x + canvasOffset.x;
+                const sy = sourceDevice.y + canvasOffset.y;
+                const tx = targetDevice.x + canvasOffset.x;
+                const ty = targetDevice.y + canvasOffset.y;
+                
+                // Draw line
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(tx, ty);
+                ctx.stroke();
+                
+                // Draw connection type label
+                const midX = (sx + tx) / 2;
+                const midY = (sy + ty) / 2;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(midX - 30, midY - 10, 60, 20);
+                ctx.fillStyle = '#667eea';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(conn.connectionType, midX, midY + 5);
+            });
+            
+            // Draw devices
+            mediaCenterData.devices.forEach(device => {
+                const x = device.x + canvasOffset.x;
+                const y = device.y + canvasOffset.y;
+                
+                // Draw device box
+                ctx.fillStyle = device === selectedDevice ? '#764ba2' : '#667eea';
+                ctx.fillRect(x - 40, y - 20, 80, 40);
+                
+                // Draw device name
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(device.name, x, y + 5);
+            });
+        }
+
+        function resetCanvasView() {
+            canvasOffset = { x: 0, y: 0 };
+            drawCanvas();
+        }
+
+        function autoArrangeDevices() {
+            // Simple circular arrangement
+            const centerX = 500;
+            const centerY = 300;
+            const radius = 200;
+            const angleStep = (2 * Math.PI) / mediaCenterData.devices.length;
+            
+            mediaCenterData.devices.forEach((device, index) => {
+                device.x = centerX + radius * Math.cos(index * angleStep);
+                device.y = centerY + radius * Math.sin(index * angleStep);
+            });
+            
+            // Save the updated positions
+            saveMediaCenterData();
+        }
+
+        async function saveMediaCenterData() {
+            try {
+                const response = await fetch('/admin/api/house/mediacenter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(mediaCenterData)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    drawCanvas();
+                }
+            } catch (err) {
+                console.error('Failed to save media center data:', err);
+            }
+        }
+
+        // Device Modal Functions
+        function showAddDeviceModal() {
+            document.getElementById('deviceModalTitle').textContent = 'Add Device';
+            document.getElementById('deviceId').value = '';
+            document.getElementById('deviceName').value = '';
+            document.getElementById('deviceType').value = 'tv';
+            document.getElementById('deviceDescription').value = '';
+            document.getElementById('deviceModal').style.display = 'flex';
+        }
+
+        function editDevice(id) {
+            const device = mediaCenterData.devices.find(d => d.id === id);
+            if (!device) return;
+            
+            document.getElementById('deviceModalTitle').textContent = 'Edit Device';
+            document.getElementById('deviceId').value = device.id;
+            document.getElementById('deviceName').value = device.name;
+            document.getElementById('deviceType').value = device.type;
+            document.getElementById('deviceDescription').value = device.description || '';
+            document.getElementById('deviceModal').style.display = 'flex';
+        }
+
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').style.display = 'none';
+        }
+
+        async function saveDevice(event) {
+            event.preventDefault();
+            
+            const deviceId = document.getElementById('deviceId').value;
+            const deviceData = {
+                name: document.getElementById('deviceName').value,
+                type: document.getElementById('deviceType').value,
+                description: document.getElementById('deviceDescription').value
+            };
+            
+            try {
+                let response;
+                if (deviceId) {
+                    // Update existing device
+                    response = await fetch(`/admin/api/house/mediacenter/devices/${deviceId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(deviceData)
+                    });
+                } else {
+                    // Add new device
+                    response = await fetch('/admin/api/house/mediacenter/devices', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(deviceData)
+                    });
+                }
+                
+                const result = await response.json();
+                if (result.success) {
+                    closeDeviceModal();
+                    loadMediaCenterData();
+                    showAlert(`✅ Device ${deviceId ? 'updated' : 'added'} successfully!`, 'success', 'mediaCenterAlert');
+                } else {
+                    alert('Failed to save device: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save device: ' + err.message);
+            }
+        }
+
+        async function deleteDeviceConfirm(id) {
+            if (!confirm('Are you sure you want to delete this device? All connections to this device will also be removed.')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/mediacenter/devices/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    loadMediaCenterData();
+                    showAlert('✅ Device deleted successfully!', 'success', 'mediaCenterAlert');
+                } else {
+                    alert('Failed to delete device: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete device: ' + err.message);
+            }
+        }
+
+        // Connection Modal Functions
+        function showAddConnectionModal() {
+            document.getElementById('connectionModalTitle').textContent = 'Add Connection';
+            document.getElementById('connectionId').value = '';
+            document.getElementById('sourcePort').value = '';
+            document.getElementById('targetPort').value = '';
+            document.getElementById('connectionType').value = 'HDMI';
+            document.getElementById('connectionDescription').value = '';
+            
+            // Populate device dropdowns
+            populateDeviceDropdowns();
+            
+            document.getElementById('connectionModal').style.display = 'flex';
+        }
+
+        function editConnection(id) {
+            const connection = mediaCenterData.connections.find(c => c.id === id);
+            if (!connection) return;
+            
+            document.getElementById('connectionModalTitle').textContent = 'Edit Connection';
+            document.getElementById('connectionId').value = connection.id;
+            document.getElementById('sourcePort').value = connection.sourcePort || '';
+            document.getElementById('targetPort').value = connection.targetPort || '';
+            document.getElementById('connectionType').value = connection.connectionType;
+            document.getElementById('connectionDescription').value = connection.description || '';
+            
+            // Populate device dropdowns
+            populateDeviceDropdowns();
+            
+            // Set selected devices
+            document.getElementById('sourceDevice').value = connection.sourceDeviceId;
+            document.getElementById('targetDevice').value = connection.targetDeviceId;
+            
+            document.getElementById('connectionModal').style.display = 'flex';
+        }
+
+        function populateDeviceDropdowns() {
+            const sourceSelect = document.getElementById('sourceDevice');
+            const targetSelect = document.getElementById('targetDevice');
+            
+            let options = '<option value="">Select device...</option>';
+            mediaCenterData.devices.forEach(device => {
+                options += `<option value="${device.id}">${device.name}</option>`;
+            });
+            
+            sourceSelect.innerHTML = options;
+            targetSelect.innerHTML = options;
+        }
+
+        function closeConnectionModal() {
+            document.getElementById('connectionModal').style.display = 'none';
+        }
+
+        async function saveConnection(event) {
+            event.preventDefault();
+            
+            const connectionId = document.getElementById('connectionId').value;
+            const connectionData = {
+                sourceDeviceId: document.getElementById('sourceDevice').value,
+                targetDeviceId: document.getElementById('targetDevice').value,
+                sourcePort: document.getElementById('sourcePort').value,
+                targetPort: document.getElementById('targetPort').value,
+                connectionType: document.getElementById('connectionType').value,
+                description: document.getElementById('connectionDescription').value
+            };
+            
+            try {
+                let response;
+                if (connectionId) {
+                    // Update existing connection
+                    response = await fetch(`/admin/api/house/mediacenter/connections/${connectionId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(connectionData)
+                    });
+                } else {
+                    // Add new connection
+                    response = await fetch('/admin/api/house/mediacenter/connections', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(connectionData)
+                    });
+                }
+                
+                const result = await response.json();
+                if (result.success) {
+                    closeConnectionModal();
+                    loadMediaCenterData();
+                    showAlert(`✅ Connection ${connectionId ? 'updated' : 'added'} successfully!`, 'success', 'mediaCenterAlert');
+                } else {
+                    alert('Failed to save connection: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save connection: ' + err.message);
+            }
+        }
+
+        async function deleteConnectionConfirm(id) {
+            if (!confirm('Are you sure you want to delete this connection?')) return;
+            
+            try {
+                const response = await fetch(`/admin/api/house/mediacenter/connections/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    loadMediaCenterData();
+                    showAlert('✅ Connection deleted successfully!', 'success', 'mediaCenterAlert');
+                } else {
+                    alert('Failed to delete connection: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete connection: ' + err.message);
             }
         }
 
