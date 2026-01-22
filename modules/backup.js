@@ -12,6 +12,7 @@ const logger = require('./logger');
 
 // Import other modules to access their data functions
 const finance = require('./finance');
+const nfs = require('./nfs');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const BACKUP_VERSION = '1.0.0';
@@ -464,6 +465,132 @@ function getBackupSummary(backup) {
   return summary;
 }
 
+/**
+ * Upload backup to NFS share
+ */
+async function uploadToNFS(connectionId, backupData, filename) {
+  try {
+    if (!filename) {
+      filename = `site-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    }
+    
+    // Save backup to temporary file
+    const tempDir = path.join(__dirname, '..', 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFile = path.join(tempDir, filename);
+    fs.writeFileSync(tempFile, JSON.stringify(backupData, null, 2));
+    
+    // Upload to NFS
+    const remotePath = `backups/${filename}`;
+    const result = await nfs.uploadFile(connectionId, tempFile, remotePath);
+    
+    // Cleanup temp file
+    try {
+      fs.unlinkSync(tempFile);
+    } catch (cleanupError) {
+      logger.warning(logger.categories.SYSTEM, `[Backup] Temp file cleanup warning: ${cleanupError.message}`);
+    }
+    
+    if (result.success) {
+      logger.success(logger.categories.SYSTEM, `[Backup] Uploaded to NFS: ${remotePath}`);
+      return {
+        success: true,
+        message: 'Backup uploaded to NFS successfully',
+        remotePath: result.remotePath
+      };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logger.error(logger.categories.SYSTEM, `[Backup] NFS upload failed: ${error.message}`);
+    return {
+      success: false,
+      error: 'NFS upload failed: ' + error.message
+    };
+  }
+}
+
+/**
+ * Download backup from NFS share
+ */
+async function downloadFromNFS(connectionId, remotePath) {
+  try {
+    // Create temporary download directory
+    const tempDir = path.join(__dirname, '..', 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const filename = path.basename(remotePath);
+    const tempFile = path.join(tempDir, filename);
+    
+    // Download from NFS
+    const result = await nfs.downloadFile(connectionId, remotePath, tempFile);
+    
+    if (result.success) {
+      // Read and parse backup data
+      const backupData = JSON.parse(fs.readFileSync(tempFile, 'utf8'));
+      
+      // Cleanup temp file
+      try {
+        fs.unlinkSync(tempFile);
+      } catch (cleanupError) {
+        logger.warning(logger.categories.SYSTEM, `[Backup] Temp file cleanup warning: ${cleanupError.message}`);
+      }
+      
+      logger.success(logger.categories.SYSTEM, `[Backup] Downloaded from NFS: ${remotePath}`);
+      return {
+        success: true,
+        backup: backupData,
+        message: 'Backup downloaded from NFS successfully'
+      };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logger.error(logger.categories.SYSTEM, `[Backup] NFS download failed: ${error.message}`);
+    return {
+      success: false,
+      error: 'NFS download failed: ' + error.message
+    };
+  }
+}
+
+/**
+ * List available backups on NFS share
+ */
+async function listNFSBackups(connectionId) {
+  try {
+    const result = await nfs.listFiles(connectionId, 'backups');
+    
+    if (result.success) {
+      // Filter for JSON files only
+      const backups = result.files
+        .filter(file => file.isFile && file.name.endsWith('.json'))
+        .map(file => ({
+          name: file.name,
+          path: file.path
+        }));
+      
+      return {
+        success: true,
+        backups
+      };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logger.error(logger.categories.SYSTEM, `[Backup] List NFS backups failed: ${error.message}`);
+    return {
+      success: false,
+      error: 'Failed to list NFS backups: ' + error.message
+    };
+  }
+}
+
 module.exports = {
   exportAllData,
   importAllData,
@@ -471,5 +598,8 @@ module.exports = {
   getBackupSummary,
   generateChecksum,
   verifyChecksum,
+  uploadToNFS,
+  downloadFromNFS,
+  listNFSBackups,
   BACKUP_VERSION
 };
