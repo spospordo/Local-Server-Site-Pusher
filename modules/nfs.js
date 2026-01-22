@@ -10,6 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync, exec } = require('child_process');
 const logger = require('./logger');
+const { formatNFSMountError, logError, createErrorResponse } = require('./error-helper');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const NFS_CONFIG_FILE = path.join(CONFIG_DIR, 'nfs-config.json.enc');
@@ -172,7 +173,18 @@ function isNfsSupported() {
   } catch (error) {
     return {
       supported: false,
-      message: 'NFS client tools not installed. Install nfs-common (Debian/Ubuntu) or nfs-utils (RHEL/CentOS)'
+      message: 'NFS client tools not installed',
+      solution: [
+        'Install NFS client packages based on your system:',
+        '  - Debian/Ubuntu: apt-get install nfs-common',
+        '  - RHEL/CentOS/Fedora: yum install nfs-utils',
+        '  - Alpine Linux: apk add nfs-utils',
+        '  - Arch Linux: pacman -S nfs-utils',
+        '',
+        'After installation, verify with: which mount.nfs',
+        '',
+        'If running in Docker, ensure the NFS packages are included in your Dockerfile.'
+      ].join('\n')
     };
   }
 }
@@ -252,9 +264,21 @@ async function testConnection(connection) {
             fs.rmSync(mountPoint, { recursive: true, force: true });
           });
           
+          // Format error with detailed diagnostics
+          const enhancedError = formatNFSMountError({ 
+            message: stderr || error.message, 
+            code: error.code 
+          }, connection);
+          
+          logError(logger.categories.SYSTEM, enhancedError, {
+            operation: 'NFS mount test',
+            host: connection.host,
+            path: connection.exportPath
+          });
+          
           resolve({
             success: false,
-            error: `Mount failed: ${stderr || error.message}`
+            ...createErrorResponse(enhancedError)
           });
           return;
         }
@@ -289,9 +313,15 @@ async function testConnection(connection) {
             fs.rmSync(mountPoint, { recursive: true, force: true });
           });
           
+          const enhancedError = formatNFSMountError(testError, connection);
+          logError(logger.categories.SYSTEM, enhancedError, {
+            operation: 'NFS connection test',
+            stage: 'file access verification'
+          });
+          
           resolve({
             success: false,
-            error: `Connection test failed: ${testError.message}`
+            ...createErrorResponse(enhancedError)
           });
         }
       });
@@ -305,9 +335,15 @@ async function testConnection(connection) {
         // Ignore cleanup errors
       }
       
+      const enhancedError = formatNFSMountError(error, connection);
+      logError(logger.categories.SYSTEM, enhancedError, {
+        operation: 'NFS connection test',
+        stage: 'mount point setup'
+      });
+      
       resolve({
         success: false,
-        error: `Test failed: ${error.message}`
+        ...createErrorResponse(enhancedError)
       });
     }
   });
@@ -369,10 +405,21 @@ async function mountConnection(connectionId) {
       
       exec(mountCmd, (error, stdout, stderr) => {
         if (error) {
-          logger.error(logger.categories.SYSTEM, `[NFS] Mount failed: ${stderr || error.message}`);
+          const enhancedError = formatNFSMountError({ 
+            message: stderr || error.message, 
+            code: error.code 
+          }, connection);
+          
+          logError(logger.categories.SYSTEM, enhancedError, {
+            operation: 'NFS mount',
+            host: connection.host,
+            path: connection.exportPath,
+            mountPoint
+          });
+          
           resolve({
             success: false,
-            error: `Mount failed: ${stderr || error.message}`
+            ...createErrorResponse(enhancedError)
           });
           return;
         }
@@ -390,9 +437,15 @@ async function mountConnection(connectionId) {
         });
       });
     } catch (error) {
+      const enhancedError = formatNFSMountError(error, connection);
+      logError(logger.categories.SYSTEM, enhancedError, {
+        operation: 'NFS mount',
+        stage: 'mount preparation'
+      });
+      
       resolve({
         success: false,
-        error: `Mount failed: ${error.message}`
+        ...createErrorResponse(enhancedError)
       });
     }
   });
@@ -426,10 +479,21 @@ async function unmountConnection(connectionId) {
     
     exec(`umount ${mountPoint}`, (error, stdout, stderr) => {
       if (error) {
-        logger.error(logger.categories.SYSTEM, `[NFS] Unmount failed: ${stderr || error.message}`);
+        const enhancedError = formatNFSMountError({ 
+          message: stderr || error.message, 
+          code: error.code 
+        }, { ...connection, operation: 'unmount' });
+        
+        logError(logger.categories.SYSTEM, enhancedError, {
+          operation: 'NFS unmount',
+          host: connection.host,
+          path: connection.exportPath,
+          mountPoint
+        });
+        
         resolve({
           success: false,
-          error: `Unmount failed: ${stderr || error.message}`
+          ...createErrorResponse(enhancedError)
         });
         return;
       }
@@ -678,10 +742,19 @@ async function uploadFile(connectionId, localPath, remotePath) {
         remotePath
       });
     } catch (error) {
-      logger.error(logger.categories.SYSTEM, `[NFS] Upload failed: ${error.message}`);
+      const { formatFileSystemError } = require('./error-helper');
+      const enhancedError = formatFileSystemError(error, 'upload file', destPath);
+      
+      logError(logger.categories.SYSTEM, enhancedError, {
+        operation: 'NFS file upload',
+        connection: connection.name,
+        localPath,
+        remotePath
+      });
+      
       resolve({
         success: false,
-        error: `Upload failed: ${error.message}`
+        ...createErrorResponse(enhancedError)
       });
     }
   });
@@ -742,10 +815,19 @@ async function downloadFile(connectionId, remotePath, localPath) {
         localPath
       });
     } catch (error) {
-      logger.error(logger.categories.SYSTEM, `[NFS] Download failed: ${error.message}`);
+      const { formatFileSystemError } = require('./error-helper');
+      const enhancedError = formatFileSystemError(error, 'download file', sourcePath);
+      
+      logError(logger.categories.SYSTEM, enhancedError, {
+        operation: 'NFS file download',
+        connection: connection.name,
+        remotePath,
+        localPath
+      });
+      
       resolve({
         success: false,
-        error: `Download failed: ${error.message}`
+        ...createErrorResponse(enhancedError)
       });
     }
   });
