@@ -138,35 +138,58 @@ function validateMountOptions(mountOptions) {
     return { valid: true, warnings: [], errors: [] };
   }
   
+  // Split options by comma and check each individually
+  const options = mountOptions.split(',').map(opt => opt.trim());
+  
   // SMB/CIFS-only options that should not be used with NFS
+  // Using exact match or starts-with to avoid false positives
   const smbOnlyOptions = [
-    'uid=', 'gid=', 'file_mode=', 'dir_mode=', 
-    'username=', 'password=', 'domain=', 'credentials=',
-    'sec=', 'vers=1.', 'vers=2.', 'vers=3.', // SMB versions
-    'iocharset=', 'codepage='
+    { pattern: /^uid=/, name: 'uid=', description: 'User ID mapping (SMB only)' },
+    { pattern: /^gid=/, name: 'gid=', description: 'Group ID mapping (SMB only)' },
+    { pattern: /^file_mode=/, name: 'file_mode=', description: 'File permission mask (SMB only)' },
+    { pattern: /^dir_mode=/, name: 'dir_mode=', description: 'Directory permission mask (SMB only)' },
+    { pattern: /^username=/, name: 'username=', description: 'Authentication username (SMB only)' },
+    { pattern: /^password=/, name: 'password=', description: 'Authentication password (SMB only)' },
+    { pattern: /^domain=/, name: 'domain=', description: 'Windows domain (SMB only)' },
+    { pattern: /^credentials=/, name: 'credentials=', description: 'Credentials file (SMB only)' },
+    { pattern: /^iocharset=/, name: 'iocharset=', description: 'Character set (SMB only)' },
+    { pattern: /^codepage=/, name: 'codepage=', description: 'Code page (SMB only)' }
   ];
   
+  // SMB version patterns (not NFS versions which are simply vers=3 or vers=4)
+  const smbVersionPattern = /^vers=(1\.|2\.|3\.[0-9])/;
+  
   // Check for SMB/CIFS-specific options
-  const optionsLower = mountOptions.toLowerCase();
-  for (const smbOption of smbOnlyOptions) {
-    if (optionsLower.includes(smbOption)) {
-      errors.push(`Invalid NFS option detected: "${smbOption}" is a SMB/CIFS option and not compatible with NFS mounts`);
+  for (const option of options) {
+    const optionLower = option.toLowerCase();
+    
+    // Check SMB-only options
+    for (const smbOption of smbOnlyOptions) {
+      if (smbOption.pattern.test(optionLower)) {
+        errors.push(`Invalid NFS option detected: "${smbOption.name}" is a SMB/CIFS option and not compatible with NFS mounts`);
+        break; // Only report each option once
+      }
+    }
+    
+    // Check for SMB version format (e.g., vers=1.0, vers=2.1, vers=3.1.1)
+    if (smbVersionPattern.test(optionLower)) {
+      errors.push(`Invalid NFS option detected: "${option}" appears to be a SMB/CIFS version format. Use "vers=3" or "vers=4" for NFS.`);
     }
   }
   
   // Synology-specific recommendations
-  const hasNfsVersion = /vers=/i.test(mountOptions);
+  const hasNfsVersion = /\bvers=[34]\b/i.test(mountOptions);
   if (!hasNfsVersion) {
     warnings.push('No NFS version specified. Synology servers often work best with "vers=3". Consider adding "vers=3" or "vers=4" to mount options.');
   }
   
   // Check for Synology NFSv4 issues
-  if (/vers=4/i.test(mountOptions)) {
+  if (/\bvers=4\b/i.test(mountOptions)) {
     warnings.push('Using NFSv4. If connection fails with Synology, try "vers=3" as Synology often defaults to NFSv3.');
   }
   
   // Recommend _netdev for network mounts in fstab
-  if (mountOptions && !/_netdev/i.test(mountOptions)) {
+  if (mountOptions && !/\b_netdev\b/i.test(mountOptions)) {
     warnings.push('Consider adding "_netdev" option for reliable network mount handling, especially for automatic mounts.');
   }
   
