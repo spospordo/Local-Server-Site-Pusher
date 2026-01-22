@@ -75,6 +75,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.2.16] - 2026-01-22
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #372 from spospordo/copilot/improve-device-name-display
+  - Final code quality improvements: eliminate duplication and improve robustness
+  - Address code review feedback: improve custom icon handling and error handling
+  - Complete implementation and testing of media center improvements
+  - Add color and icon customization support to media center devices
+  - Initial plan
+
+
 ## [2.2.15] - 2026-01-21
 
 ### Patch Update
