@@ -5,8 +5,10 @@ WORKDIR /app
 
 # Install build dependencies for sharp (especially needed for ARM64)
 # libvips-dev provides the native libraries that sharp requires
+# nfs-common provides NFS client support for network drive mounting
 RUN apt-get update && apt-get install -y \
     libvips-dev \
+    nfs-common \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files (package-lock.json is excluded via .dockerignore to avoid platform conflicts)

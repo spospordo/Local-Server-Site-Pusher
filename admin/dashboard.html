@@ -4865,6 +4865,31 @@
                         <div id="importAlert" class="alert" style="margin-top: 1rem;"></div>
                     </div>
                 </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- NFS Network Drive Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🌐 NFS Network Drive
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <p style="margin-bottom: 1rem;">Configure NFS (Network File System) network drives to automatically backup and restore data to/from remote storage.</p>
+                        
+                        <div id="nfsConnectionsList" style="margin-bottom: 1rem;">
+                            <!-- NFS connections will be loaded here -->
+                        </div>
+                        
+                        <button onclick="showAddNfsConnection()" class="btn btn-primary">
+                            ➕ Add NFS Connection
+                        </button>
+                        
+                        <div id="nfsAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -5546,6 +5571,123 @@
                         <button type="submit" class="btn">Save</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- NFS Connection Modal -->
+    <div id="nfsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="nfsModalTitle">Add NFS Connection</h3>
+                <span class="close" onclick="closeNfsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="nfsModalAlert" class="alert" style="display: none;"></div>
+                <form id="nfsConnectionForm" onsubmit="saveNfsConnection(event)">
+                    <input type="hidden" id="nfsConnectionId">
+                    
+                    <div class="form-group">
+                        <label for="nfsConnectionName">Connection Name *</label>
+                        <input type="text" id="nfsConnectionName" required placeholder="e.g., Backup Server">
+                        <small class="help-text">Friendly name for this NFS connection</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nfsHost">NFS Server Host/IP *</label>
+                        <input type="text" id="nfsHost" required placeholder="e.g., 192.168.1.100 or server.local">
+                        <small class="help-text">IP address or hostname of the NFS server</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nfsExportPath">Export Path *</label>
+                        <input type="text" id="nfsExportPath" required placeholder="e.g., /volume1/backups">
+                        <small class="help-text">NFS export path on the server (must start with /)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nfsMountOptions">Mount Options (Optional)</label>
+                        <input type="text" id="nfsMountOptions" placeholder="e.g., vers=4,soft,timeo=30">
+                        <small class="help-text">Additional NFS mount options (e.g., vers=4, soft, timeo=30)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="nfsReadOnly">
+                            Mount as Read-Only
+                        </label>
+                        <small class="help-text">Check if the share should be mounted as read-only</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="nfsUseForBackups" checked>
+                            Use for Backups
+                        </label>
+                        <small class="help-text">Enable automatic backup upload to this location</small>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" onclick="testNfsConnection()" class="btn btn-secondary" id="nfsTestBtn">
+                            🔍 Test Connection
+                        </button>
+                        <button type="button" onclick="closeNfsModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- NFS Backup Manager Modal -->
+    <div id="nfsBackupModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>📁 NFS Backup Manager</h3>
+                <span class="close" onclick="closeNfsBackupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="nfsBackupModalAlert" class="alert" style="display: none;"></div>
+                
+                <h4 style="margin-bottom: 1rem;">Connection: <span id="nfsBackupConnectionName"></span></h4>
+                
+                <!-- Upload Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📤 Upload Backup
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <button onclick="uploadBackupToNfs()" class="btn btn-primary" id="nfsUploadBtn">
+                            📤 Upload Current Configuration
+                        </button>
+                        <small class="help-text" style="display: block; margin-top: 0.5rem;">
+                            This will export your current configuration and upload it to the NFS share
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Available Backups Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📥 Available Backups
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <div id="nfsBackupsList" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Backups list will be loaded here -->
+                        </div>
+                        <button onclick="loadNfsBackups()" class="btn btn-secondary" style="margin-top: 1rem;">
+                            🔄 Refresh List
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -8442,6 +8584,7 @@
                     loadConfig();
                     setupStorageSlider();
                     loadMediaStreamingConfig();
+                    loadNfsConnections();
                 }
             } else if (subTabName === 'settings-logs') {
                 const logsSections = document.querySelectorAll('.settings-logs-section');
@@ -14423,6 +14566,456 @@
             document.getElementById('backupFileInput').value = '';
             document.getElementById('backupPreview').style.display = 'none';
             document.getElementById('importAlert').style.display = 'none';
+        }
+
+        // ========================================
+        // NFS Network Drive Functions
+        // ========================================
+        
+        let currentNfsConnectionId = null;
+        
+        // Load NFS connections
+        async function loadNfsConnections() {
+            try {
+                const response = await fetch('/admin/api/nfs/connections');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayNfsConnections(data.connections);
+                } else {
+                    showNfsAlert('Failed to load connections', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load NFS connections:', error);
+                showNfsAlert('Failed to load connections: ' + error.message, 'error');
+            }
+        }
+        
+        // Display NFS connections list
+        function displayNfsConnections(connections) {
+            const list = document.getElementById('nfsConnectionsList');
+            
+            if (connections.length === 0) {
+                list.innerHTML = '<p style="color: #666; font-style: italic;">No NFS connections configured. Click "Add NFS Connection" to get started.</p>';
+                return;
+            }
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+            
+            connections.forEach(conn => {
+                const statusBadge = conn.mounted 
+                    ? '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.85rem;">✓ Mounted</span>'
+                    : '<span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.85rem;">Unmounted</span>';
+                
+                const backupBadge = conn.useForBackups 
+                    ? '<span style="background: #17a2b8; color: white; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.85rem; margin-left: 0.5rem;">📁 Backup</span>'
+                    : '';
+                
+                html += `
+                    <div style="border: 1px solid #ddd; border-radius: 5px; padding: 1rem; background: #f8f9fa;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                            <div>
+                                <h4 style="margin: 0 0 0.5rem 0; color: #333;">${escapeHtml(conn.name)}</h4>
+                                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.25rem;">
+                                    📡 ${escapeHtml(conn.host)}:${escapeHtml(conn.exportPath)}
+                                </div>
+                                <div>
+                                    ${statusBadge}
+                                    ${backupBadge}
+                                    ${conn.readOnly ? '<span style="background: #ffc107; color: #000; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.85rem; margin-left: 0.5rem;">Read-Only</span>' : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
+                                ${!conn.mounted ? `<button onclick="mountNfsConnection('${conn.id}')" class="btn btn-sm btn-success">Mount</button>` : ''}
+                                ${conn.mounted ? `<button onclick="unmountNfsConnection('${conn.id}')" class="btn btn-sm btn-secondary">Unmount</button>` : ''}
+                                ${conn.useForBackups ? `<button onclick="openNfsBackupManager('${conn.id}', '${escapeHtml(conn.name)}')" class="btn btn-sm btn-primary">Manage Backups</button>` : ''}
+                                <button onclick="editNfsConnection('${conn.id}')" class="btn btn-sm btn-secondary">✏️ Edit</button>
+                                <button onclick="deleteNfsConnection('${conn.id}')" class="btn btn-sm btn-danger">🗑️ Delete</button>
+                            </div>
+                        </div>
+                        ${conn.mountPoint ? `<div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">Mount point: ${escapeHtml(conn.mountPoint)}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            list.innerHTML = html;
+        }
+        
+        // Show NFS alert message
+        function showNfsAlert(message, type = 'info') {
+            const alert = document.getElementById('nfsAlert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Show add NFS connection modal
+        function showAddNfsConnection() {
+            document.getElementById('nfsModalTitle').textContent = 'Add NFS Connection';
+            document.getElementById('nfsConnectionForm').reset();
+            document.getElementById('nfsConnectionId').value = '';
+            document.getElementById('nfsUseForBackups').checked = true;
+            document.getElementById('nfsModalAlert').style.display = 'none';
+            document.getElementById('nfsModal').style.display = 'flex';
+        }
+        
+        // Edit NFS connection
+        async function editNfsConnection(connectionId) {
+            try {
+                const response = await fetch(`/admin/api/nfs/connections/${connectionId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const conn = data.connection;
+                    
+                    document.getElementById('nfsModalTitle').textContent = 'Edit NFS Connection';
+                    document.getElementById('nfsConnectionId').value = conn.id;
+                    document.getElementById('nfsConnectionName').value = conn.name;
+                    document.getElementById('nfsHost').value = conn.host;
+                    document.getElementById('nfsExportPath').value = conn.exportPath;
+                    document.getElementById('nfsMountOptions').value = conn.mountOptions || '';
+                    document.getElementById('nfsReadOnly').checked = conn.readOnly || false;
+                    document.getElementById('nfsUseForBackups').checked = conn.useForBackups !== false;
+                    document.getElementById('nfsModalAlert').style.display = 'none';
+                    document.getElementById('nfsModal').style.display = 'flex';
+                } else {
+                    showNfsAlert('Failed to load connection details', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load connection:', error);
+                showNfsAlert('Failed to load connection: ' + error.message, 'error');
+            }
+        }
+        
+        // Test NFS connection
+        async function testNfsConnection() {
+            const testBtn = document.getElementById('nfsTestBtn');
+            const alert = document.getElementById('nfsModalAlert');
+            
+            const connection = {
+                name: document.getElementById('nfsConnectionName').value,
+                host: document.getElementById('nfsHost').value,
+                exportPath: document.getElementById('nfsExportPath').value,
+                mountOptions: document.getElementById('nfsMountOptions').value,
+                readOnly: document.getElementById('nfsReadOnly').checked
+            };
+            
+            if (!connection.name || !connection.host || !connection.exportPath) {
+                alert.textContent = 'Please fill in all required fields';
+                alert.className = 'alert alert-error';
+                alert.style.display = 'block';
+                return;
+            }
+            
+            testBtn.disabled = true;
+            testBtn.textContent = '🔄 Testing...';
+            alert.textContent = 'Testing connection...';
+            alert.className = 'alert';
+            alert.style.display = 'block';
+            
+            try {
+                const response = await fetch('/admin/api/nfs/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(connection)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert.textContent = '✅ Connection successful!';
+                    alert.className = 'alert alert-success';
+                } else {
+                    alert.textContent = `❌ Connection failed: ${data.error}`;
+                    alert.className = 'alert alert-error';
+                    
+                    if (data.requiresInstall) {
+                        alert.innerHTML += '<br><br><strong>Note:</strong> NFS client tools need to be installed on the server. Run: <code>apt-get install nfs-common</code>';
+                    }
+                }
+            } catch (error) {
+                console.error('Test failed:', error);
+                alert.textContent = `❌ Test failed: ${error.message}`;
+                alert.className = 'alert alert-error';
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🔍 Test Connection';
+            }
+        }
+        
+        // Save NFS connection
+        async function saveNfsConnection(event) {
+            event.preventDefault();
+            
+            const alert = document.getElementById('nfsModalAlert');
+            const connectionId = document.getElementById('nfsConnectionId').value;
+            
+            const connection = {
+                name: document.getElementById('nfsConnectionName').value,
+                host: document.getElementById('nfsHost').value,
+                exportPath: document.getElementById('nfsExportPath').value,
+                mountOptions: document.getElementById('nfsMountOptions').value,
+                readOnly: document.getElementById('nfsReadOnly').checked,
+                useForBackups: document.getElementById('nfsUseForBackups').checked
+            };
+            
+            alert.textContent = 'Saving...';
+            alert.className = 'alert';
+            alert.style.display = 'block';
+            
+            try {
+                const url = connectionId 
+                    ? `/admin/api/nfs/connections/${connectionId}`
+                    : '/admin/api/nfs/connections';
+                
+                const method = connectionId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(connection)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeNfsModal();
+                    showNfsAlert(`✅ Connection ${connectionId ? 'updated' : 'added'} successfully`, 'success');
+                    await loadNfsConnections();
+                } else {
+                    alert.textContent = `❌ Failed: ${data.error}`;
+                    alert.className = 'alert alert-error';
+                }
+            } catch (error) {
+                console.error('Save failed:', error);
+                alert.textContent = `❌ Save failed: ${error.message}`;
+                alert.className = 'alert alert-error';
+            }
+        }
+        
+        // Close NFS modal
+        function closeNfsModal() {
+            document.getElementById('nfsModal').style.display = 'none';
+            document.getElementById('nfsConnectionForm').reset();
+        }
+        
+        // Mount NFS connection
+        async function mountNfsConnection(connectionId) {
+            try {
+                showNfsAlert('Mounting...', 'info');
+                
+                const response = await fetch(`/admin/api/nfs/connections/${connectionId}/mount`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNfsAlert('✅ Mounted successfully', 'success');
+                    await loadNfsConnections();
+                } else {
+                    showNfsAlert(`❌ Mount failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Mount failed:', error);
+                showNfsAlert(`❌ Mount failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Unmount NFS connection
+        async function unmountNfsConnection(connectionId) {
+            try {
+                showNfsAlert('Unmounting...', 'info');
+                
+                const response = await fetch(`/admin/api/nfs/connections/${connectionId}/unmount`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNfsAlert('✅ Unmounted successfully', 'success');
+                    await loadNfsConnections();
+                } else {
+                    showNfsAlert(`❌ Unmount failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Unmount failed:', error);
+                showNfsAlert(`❌ Unmount failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Delete NFS connection
+        async function deleteNfsConnection(connectionId) {
+            if (!confirm('Are you sure you want to delete this NFS connection? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                showNfsAlert('Deleting...', 'info');
+                
+                const response = await fetch(`/admin/api/nfs/connections/${connectionId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNfsAlert('✅ Connection deleted', 'success');
+                    await loadNfsConnections();
+                } else {
+                    showNfsAlert(`❌ Delete failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Delete failed:', error);
+                showNfsAlert(`❌ Delete failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Open NFS backup manager
+        function openNfsBackupManager(connectionId, connectionName) {
+            currentNfsConnectionId = connectionId;
+            document.getElementById('nfsBackupConnectionName').textContent = connectionName;
+            document.getElementById('nfsBackupModalAlert').style.display = 'none';
+            document.getElementById('nfsBackupModal').style.display = 'flex';
+            loadNfsBackups();
+        }
+        
+        // Close NFS backup modal
+        function closeNfsBackupModal() {
+            document.getElementById('nfsBackupModal').style.display = 'none';
+            currentNfsConnectionId = null;
+        }
+        
+        // Upload backup to NFS
+        async function uploadBackupToNfs() {
+            if (!currentNfsConnectionId) return;
+            
+            const alert = document.getElementById('nfsBackupModalAlert');
+            const uploadBtn = document.getElementById('nfsUploadBtn');
+            
+            if (!confirm('Upload current configuration to NFS backup location?')) {
+                return;
+            }
+            
+            uploadBtn.disabled = true;
+            alert.textContent = 'Uploading backup...';
+            alert.className = 'alert';
+            alert.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/admin/api/nfs/connections/${currentNfsConnectionId}/upload-backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert.textContent = '✅ Backup uploaded successfully';
+                    alert.className = 'alert alert-success';
+                    setTimeout(() => loadNfsBackups(), 1000);
+                } else {
+                    alert.textContent = `❌ Upload failed: ${data.error}`;
+                    alert.className = 'alert alert-error';
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                alert.textContent = `❌ Upload failed: ${error.message}`;
+                alert.className = 'alert alert-error';
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        // Load NFS backups list
+        async function loadNfsBackups() {
+            if (!currentNfsConnectionId) return;
+            
+            const list = document.getElementById('nfsBackupsList');
+            list.innerHTML = '<p style="color: #666; font-style: italic;">Loading backups...</p>';
+            
+            try {
+                const response = await fetch(`/admin/api/nfs/connections/${currentNfsConnectionId}/backups`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.backups.length === 0) {
+                        list.innerHTML = '<p style="color: #666; font-style: italic;">No backups found on NFS share.</p>';
+                    } else {
+                        let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+                        
+                        data.backups.forEach(backup => {
+                            html += `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                                    <div>
+                                        <div style="font-weight: 500;">${escapeHtml(backup.name)}</div>
+                                        <div style="font-size: 0.85rem; color: #666;">${escapeHtml(backup.path)}</div>
+                                    </div>
+                                    <button onclick="restoreBackupFromNfs('${escapeHtml(backup.path)}')" class="btn btn-sm btn-success">
+                                        ↓ Restore
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                        list.innerHTML = html;
+                    }
+                } else {
+                    list.innerHTML = `<p style="color: #dc3545;">❌ Failed to load backups: ${escapeHtml(data.error)}</p>`;
+                }
+            } catch (error) {
+                console.error('Failed to load backups:', error);
+                list.innerHTML = `<p style="color: #dc3545;">❌ Failed to load backups: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+        
+        // Restore backup from NFS
+        async function restoreBackupFromNfs(remotePath) {
+            if (!currentNfsConnectionId) return;
+            
+            if (!confirm('Are you sure you want to restore from this backup? This will overwrite your current configuration. Existing credentials will be preserved.')) {
+                return;
+            }
+            
+            const alert = document.getElementById('nfsBackupModalAlert');
+            
+            alert.textContent = 'Downloading and restoring backup...';
+            alert.className = 'alert';
+            alert.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/admin/api/nfs/connections/${currentNfsConnectionId}/restore-backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ remotePath })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert.textContent = '✅ Backup restored successfully! The page will reload...';
+                    alert.className = 'alert alert-success';
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alert.textContent = `❌ Restore failed: ${data.error}`;
+                    alert.className = 'alert alert-error';
+                }
+            } catch (error) {
+                console.error('Restore failed:', error);
+                alert.textContent = `❌ Restore failed: ${error.message}`;
+                alert.className = 'alert alert-error';
+            }
         }
 
         // ========================================
