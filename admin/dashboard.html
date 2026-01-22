@@ -203,6 +203,57 @@
             border: 1px solid #f5c6cb;
         }
         
+        .error-details {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .error-details strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .error-section {
+            margin-bottom: 1rem;
+        }
+        
+        .error-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .error-code {
+            display: inline-block;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin-left: 0.5rem;
+        }
+        
+        .error-solution {
+            white-space: pre-line;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .error-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .error-link:hover {
+            text-decoration: underline;
+        }
+        
         .warning-box {
             background: #fff3cd;
             color: #856404;
@@ -14731,16 +14782,64 @@
                     alert.textContent = '✅ Connection successful!';
                     alert.className = 'alert alert-success';
                 } else {
-                    alert.textContent = `❌ Connection failed: ${data.error}`;
-                    alert.className = 'alert alert-error';
+                    // Build detailed error message with HTML
+                    let errorHtml = `<strong>❌ Connection Failed: ${data.error}</strong>`;
                     
-                    if (data.requiresInstall) {
-                        alert.innerHTML += '<br><br><strong>Note:</strong> NFS client tools need to be installed on the server. Run: <code>apt-get install nfs-common</code>';
+                    // Create error details section
+                    if (data.code || data.details || data.solution || data.documentationUrl) {
+                        errorHtml += '<div class="error-details">';
+                        
+                        // Error code
+                        if (data.code) {
+                            errorHtml += `<div class="error-section">`;
+                            errorHtml += `<strong>Error Code:</strong>`;
+                            errorHtml += `<span class="error-code">${data.code}</span>`;
+                            errorHtml += `</div>`;
+                        }
+                        
+                        // Error details
+                        if (data.details) {
+                            errorHtml += `<div class="error-section">`;
+                            errorHtml += `<strong>Details:</strong>`;
+                            errorHtml += `<div>${data.details}</div>`;
+                            errorHtml += `</div>`;
+                        }
+                        
+                        // Solution/diagnostic steps
+                        if (data.solution) {
+                            errorHtml += `<div class="error-section">`;
+                            errorHtml += `<strong>Suggested Actions:</strong>`;
+                            errorHtml += `<div class="error-solution">${data.solution}</div>`;
+                            errorHtml += `</div>`;
+                        }
+                        
+                        // Documentation link
+                        if (data.documentationUrl) {
+                            errorHtml += `<div class="error-section">`;
+                            errorHtml += `<strong>📚 Documentation:</strong>`;
+                            errorHtml += `<a href="${data.documentationUrl}" target="_blank" rel="noopener noreferrer" class="error-link">`;
+                            errorHtml += `View NFS Troubleshooting Guide →`;
+                            errorHtml += `</a>`;
+                            errorHtml += `</div>`;
+                        }
+                        
+                        errorHtml += '</div>';
                     }
+                    
+                    // Handle requiresInstall for backward compatibility
+                    if (data.requiresInstall) {
+                        errorHtml += '<div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.05); border-radius: 4px;">';
+                        errorHtml += '<strong>Note:</strong> NFS client tools need to be installed on the server. ';
+                        errorHtml += 'Run: <code style="background: rgba(0,0,0,0.1); padding: 0.2rem 0.5rem; border-radius: 3px;">apt-get install nfs-common</code>';
+                        errorHtml += '</div>';
+                    }
+                    
+                    alert.innerHTML = errorHtml;
+                    alert.className = 'alert alert-error';
                 }
             } catch (error) {
                 console.error('Test failed:', error);
-                alert.textContent = `❌ Test failed: ${error.message}`;
+                alert.innerHTML = `<strong>❌ Test failed: ${error.message}</strong>`;
                 alert.className = 'alert alert-error';
             } finally {
                 testBtn.disabled = false;
