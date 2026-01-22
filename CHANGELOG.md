@@ -75,6 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.3.1] - 2026-01-22
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #376 from spospordo/copilot/improve-error-handling
+  - Add feature summary documentation
+  - Address code review feedback: move imports and improve documentation
+  - Enhance finance.js error handling and add comprehensive ERROR_HANDLING.md documentation
+  - Enhance server.js error handling with logger integration
+  - Add error-helper module and enhance NFS/GitHub error handling
+  - Initial plan
+
+
 ## [2.3.0] - 2026-01-22
 
 ### Minor Update
