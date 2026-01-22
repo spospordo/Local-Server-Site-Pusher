@@ -75,6 +75,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.3.0] - 2026-01-22
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #374 from spospordo/copilot/add-nfs-network-drive-connection
+  - docs: add comprehensive NFS testing guide
+  - docs: add NFS documentation and update README
+  - feat: add NFS UI to admin dashboard
+  - feat: add NFS module and server-side API endpoints
+  - Initial plan
+
+
 ## [2.2.16] - 2026-01-22
 
 ### Patch Update
