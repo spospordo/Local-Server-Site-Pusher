@@ -10,7 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync, exec } = require('child_process');
 const logger = require('./logger');
-const { formatNFSMountError, logError, createErrorResponse } = require('./error-helper');
+const { formatNFSMountError, formatFileSystemError, logError, createErrorResponse } = require('./error-helper');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const NFS_CONFIG_FILE = path.join(CONFIG_DIR, 'nfs-config.json.enc');
@@ -742,7 +742,6 @@ async function uploadFile(connectionId, localPath, remotePath) {
         remotePath
       });
     } catch (error) {
-      const { formatFileSystemError } = require('./error-helper');
       const enhancedError = formatFileSystemError(error, 'upload file', destPath);
       
       logError(logger.categories.SYSTEM, enhancedError, {
@@ -815,7 +814,6 @@ async function downloadFile(connectionId, remotePath, localPath) {
         localPath
       });
     } catch (error) {
-      const { formatFileSystemError } = require('./error-helper');
       const enhancedError = formatFileSystemError(error, 'download file', sourcePath);
       
       logError(logger.categories.SYSTEM, enhancedError, {

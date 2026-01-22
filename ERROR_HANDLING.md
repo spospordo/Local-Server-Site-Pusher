@@ -84,9 +84,12 @@ Provides RPC service troubleshooting:
 
 #### Client Not Installed
 Provides installation instructions for multiple OS types:
-- Debian/Ubuntu: `apt-get install nfs-common`
-- RHEL/CentOS: `yum install nfs-utils`
-- Alpine: `apk add nfs-utils`
+- **Debian/Ubuntu**: `sudo apt-get install nfs-common`
+- **RHEL/CentOS/Fedora**: `sudo yum install nfs-utils`
+- **Alpine Linux**: `apk add nfs-utils` (as root or in Docker)
+- **Arch Linux**: `sudo pacman -S nfs-utils`
+
+**Note**: Root privileges (sudo) are required for package installation on most systems.
 
 ### GitHub Module (`modules/github-upload.js`)
 
