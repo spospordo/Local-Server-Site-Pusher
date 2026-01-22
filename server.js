@@ -5374,6 +5374,29 @@ app.post('/admin/api/nfs/connections/:id/restore-backup', requireAuth, async (re
   }
 });
 
+// Get Synology recommended mount options
+app.get('/admin/api/nfs/synology-options', requireAuth, (req, res) => {
+  try {
+    const options = nfs.getSynologyRecommendedOptions();
+    res.json({ success: true, options });
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to get Synology options: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get options: ' + err.message });
+  }
+});
+
+// Validate mount options
+app.post('/admin/api/nfs/validate-options', requireAuth, (req, res) => {
+  try {
+    const { mountOptions } = req.body;
+    const validation = nfs.validateMountOptions(mountOptions);
+    res.json({ success: true, validation });
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to validate mount options: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Validation failed: ' + err.message });
+  }
+});
+
 // Webhook Management API Endpoints
 // Get all webhooks
 app.get('/admin/api/webhooks', requireAuth, (req, res) => {

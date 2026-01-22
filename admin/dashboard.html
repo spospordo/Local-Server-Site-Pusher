@@ -5658,8 +5658,16 @@
                     
                     <div class="form-group">
                         <label for="nfsMountOptions">Mount Options (Optional)</label>
-                        <input type="text" id="nfsMountOptions" placeholder="e.g., vers=4,soft,timeo=30">
-                        <small class="help-text">Additional NFS mount options (e.g., vers=4, soft, timeo=30)</small>
+                        <input type="text" id="nfsMountOptions" placeholder="e.g., rw,_netdev,vers=3" oninput="validateNfsMountOptions()">
+                        <small class="help-text">
+                            Additional NFS mount options. 
+                            <strong>For Synology:</strong> Use <code>rw,_netdev,vers=3</code> (recommended)
+                            <br>
+                            <a href="#" onclick="useSynologyTemplate(event, 'basic')">Use Synology Template</a> | 
+                            <a href="#" onclick="useSynologyTemplate(event, 'reliable')">Reliable</a> | 
+                            <a href="#" onclick="useSynologyTemplate(event, 'highPerformance')">High Performance</a>
+                        </small>
+                        <div id="nfsMountOptionsWarning" class="alert" style="display: none; margin-top: 0.5rem; padding: 0.5rem; font-size: 0.9em;"></div>
                     </div>
                     
                     <div class="form-group">
@@ -14750,6 +14758,63 @@
             return div.innerHTML;
         }
         
+        // Validate NFS mount options in real-time
+        async function validateNfsMountOptions() {
+            const mountOptions = document.getElementById('nfsMountOptions').value;
+            const warningDiv = document.getElementById('nfsMountOptionsWarning');
+            
+            if (!mountOptions || mountOptions.trim() === '') {
+                warningDiv.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/nfs/validate-options', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mountOptions })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.validation) {
+                    const { errors, warnings } = data.validation;
+                    
+                    if (errors && errors.length > 0) {
+                        warningDiv.innerHTML = '<strong>❌ Errors:</strong><br>' + errors.map(e => escapeHtml(e)).join('<br>');
+                        warningDiv.className = 'alert alert-error';
+                        warningDiv.style.display = 'block';
+                    } else if (warnings && warnings.length > 0) {
+                        warningDiv.innerHTML = '<strong>⚠️ Warnings:</strong><br>' + warnings.map(w => escapeHtml(w)).join('<br>');
+                        warningDiv.className = 'alert alert-warning';
+                        warningDiv.style.display = 'block';
+                    } else {
+                        warningDiv.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Validation error:', error);
+            }
+        }
+        
+        // Use Synology template for mount options
+        async function useSynologyTemplate(event, templateType) {
+            event.preventDefault();
+            
+            try {
+                const response = await fetch('/admin/api/nfs/synology-options');
+                const data = await response.json();
+                
+                if (data.success && data.options) {
+                    const template = data.options[templateType] || data.options.basic;
+                    document.getElementById('nfsMountOptions').value = template;
+                    validateNfsMountOptions();
+                }
+            } catch (error) {
+                console.error('Failed to load Synology template:', error);
+            }
+        }
+        
         // Test NFS connection
         async function testNfsConnection() {
             const testBtn = document.getElementById('nfsTestBtn');
@@ -14786,7 +14851,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert.textContent = '✅ Connection successful!';
+                    let successMsg = '✅ Connection successful!';
+                    
+                    // Display warnings if any
+                    if (data.warnings && data.warnings.length > 0) {
+                        successMsg += '\n\n⚠️ Warnings:\n' + data.warnings.join('\n');
+                    }
+                    
+                    alert.textContent = successMsg;
                     alert.className = 'alert alert-success';
                 } else {
                     // Build detailed error message with HTML (escaped for security)
@@ -14890,12 +14962,24 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    let message = `✅ Connection ${connectionId ? 'updated' : 'added'} successfully`;
+                    
+                    // Show warnings if any
+                    if (data.warnings && data.warnings.length > 0) {
+                        message += '\n\n⚠️ Warnings:\n' + data.warnings.join('\n');
+                    }
+                    
                     closeNfsModal();
-                    showNfsAlert(`✅ Connection ${connectionId ? 'updated' : 'added'} successfully`, 'success');
+                    showNfsAlert(message, 'success');
                     await loadNfsConnections();
                 } else {
                     alert.textContent = `❌ Failed: ${data.error}`;
                     alert.className = 'alert alert-error';
+                    
+                    // Show warnings even on failure if available
+                    if (data.warnings && data.warnings.length > 0) {
+                        alert.textContent += '\n\n⚠️ ' + data.warnings.join('\n');
+                    }
                 }
             } catch (error) {
                 console.error('Save failed:', error);

@@ -127,10 +127,74 @@ function saveConfig(config) {
 }
 
 /**
+ * Validate mount options for NFS compatibility
+ * Detects SMB/CIFS-specific options that are not compatible with NFS
+ */
+function validateMountOptions(mountOptions) {
+  const warnings = [];
+  const errors = [];
+  
+  if (!mountOptions || mountOptions.trim() === '') {
+    return { valid: true, warnings: [], errors: [] };
+  }
+  
+  // SMB/CIFS-only options that should not be used with NFS
+  const smbOnlyOptions = [
+    'uid=', 'gid=', 'file_mode=', 'dir_mode=', 
+    'username=', 'password=', 'domain=', 'credentials=',
+    'sec=', 'vers=1.', 'vers=2.', 'vers=3.', // SMB versions
+    'iocharset=', 'codepage='
+  ];
+  
+  // Check for SMB/CIFS-specific options
+  const optionsLower = mountOptions.toLowerCase();
+  for (const smbOption of smbOnlyOptions) {
+    if (optionsLower.includes(smbOption)) {
+      errors.push(`Invalid NFS option detected: "${smbOption}" is a SMB/CIFS option and not compatible with NFS mounts`);
+    }
+  }
+  
+  // Synology-specific recommendations
+  const hasNfsVersion = /vers=/i.test(mountOptions);
+  if (!hasNfsVersion) {
+    warnings.push('No NFS version specified. Synology servers often work best with "vers=3". Consider adding "vers=3" or "vers=4" to mount options.');
+  }
+  
+  // Check for Synology NFSv4 issues
+  if (/vers=4/i.test(mountOptions)) {
+    warnings.push('Using NFSv4. If connection fails with Synology, try "vers=3" as Synology often defaults to NFSv3.');
+  }
+  
+  // Recommend _netdev for network mounts in fstab
+  if (mountOptions && !/_netdev/i.test(mountOptions)) {
+    warnings.push('Consider adding "_netdev" option for reliable network mount handling, especially for automatic mounts.');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    warnings,
+    errors
+  };
+}
+
+/**
+ * Generate recommended mount options for Synology NFS servers
+ */
+function getSynologyRecommendedOptions() {
+  return {
+    basic: 'rw,_netdev,vers=3',
+    reliable: 'rw,_netdev,vers=3,soft,timeo=30',
+    highPerformance: 'rw,_netdev,vers=3,rsize=8192,wsize=8192,noatime',
+    readOnly: 'ro,_netdev,vers=3'
+  };
+}
+
+/**
  * Validate NFS connection parameters
  */
 function validateConnection(connection) {
   const errors = [];
+  const warnings = [];
   
   if (!connection.name || connection.name.trim() === '') {
     errors.push('Connection name is required');
@@ -149,9 +213,17 @@ function validateConnection(connection) {
     errors.push('Export path must start with /');
   }
   
+  // Validate mount options
+  if (connection.mountOptions) {
+    const optionValidation = validateMountOptions(connection.mountOptions);
+    errors.push(...optionValidation.errors);
+    warnings.push(...optionValidation.warnings);
+  }
+  
   return {
     valid: errors.length === 0,
-    errors
+    errors,
+    warnings
   };
 }
 
@@ -198,10 +270,14 @@ async function testConnection(connection) {
     if (!validation.valid) {
       resolve({
         success: false,
-        error: validation.errors.join(', ')
+        error: validation.errors.join(', '),
+        warnings: validation.warnings
       });
       return;
     }
+    
+    // Include warnings even if validation passes
+    const responseWarnings = validation.warnings;
     
     // Check NFS support
     const nfsSupport = isNfsSupported();
@@ -304,7 +380,8 @@ async function testConnection(connection) {
             
             resolve({
               success: true,
-              message: 'Connection successful'
+              message: 'Connection successful',
+              warnings: responseWarnings
             });
           });
         } catch (testError) {
@@ -527,7 +604,8 @@ function addConnection(connection) {
   if (!validation.valid) {
     return {
       success: false,
-      error: validation.errors.join(', ')
+      error: validation.errors.join(', '),
+      warnings: validation.warnings
     };
   }
   
@@ -545,7 +623,8 @@ function addConnection(connection) {
     logger.info(logger.categories.SYSTEM, `[NFS] Added connection: ${connection.name}`);
     return {
       success: true,
-      connection
+      connection,
+      warnings: validation.warnings
     };
   }
   
@@ -586,7 +665,8 @@ function updateConnection(connectionId, updates) {
   if (!validation.valid) {
     return {
       success: false,
-      error: validation.errors.join(', ')
+      error: validation.errors.join(', '),
+      warnings: validation.warnings
     };
   }
   
@@ -596,7 +676,8 @@ function updateConnection(connectionId, updates) {
     logger.info(logger.categories.SYSTEM, `[NFS] Updated connection: ${updatedConnection.name}`);
     return {
       success: true,
-      connection: updatedConnection
+      connection: updatedConnection,
+      warnings: validation.warnings
     };
   }
   
@@ -897,6 +978,8 @@ module.exports = {
   saveConfig,
   isNfsSupported,
   validateConnection,
+  validateMountOptions,
+  getSynologyRecommendedOptions,
   testConnection,
   mountConnection,
   unmountConnection,
