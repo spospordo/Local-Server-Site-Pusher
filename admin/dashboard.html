@@ -14743,6 +14743,13 @@
             }
         }
         
+        // Helper function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         // Test NFS connection
         async function testNfsConnection() {
             const testBtn = document.getElementById('nfsTestBtn');
@@ -14782,8 +14789,8 @@
                     alert.textContent = '✅ Connection successful!';
                     alert.className = 'alert alert-success';
                 } else {
-                    // Build detailed error message with HTML
-                    let errorHtml = `<strong>❌ Connection Failed: ${data.error}</strong>`;
+                    // Build detailed error message with HTML (escaped for security)
+                    let errorHtml = `<strong>❌ Connection Failed: ${escapeHtml(data.error)}</strong>`;
                     
                     // Create error details section
                     if (data.code || data.details || data.solution || data.documentationUrl) {
@@ -14793,7 +14800,7 @@
                         if (data.code) {
                             errorHtml += `<div class="error-section">`;
                             errorHtml += `<strong>Error Code:</strong>`;
-                            errorHtml += `<span class="error-code">${data.code}</span>`;
+                            errorHtml += `<span class="error-code">${escapeHtml(data.code)}</span>`;
                             errorHtml += `</div>`;
                         }
                         
@@ -14801,7 +14808,7 @@
                         if (data.details) {
                             errorHtml += `<div class="error-section">`;
                             errorHtml += `<strong>Details:</strong>`;
-                            errorHtml += `<div>${data.details}</div>`;
+                            errorHtml += `<div>${escapeHtml(data.details)}</div>`;
                             errorHtml += `</div>`;
                         }
                         
@@ -14809,15 +14816,15 @@
                         if (data.solution) {
                             errorHtml += `<div class="error-section">`;
                             errorHtml += `<strong>Suggested Actions:</strong>`;
-                            errorHtml += `<div class="error-solution">${data.solution}</div>`;
+                            errorHtml += `<div class="error-solution">${escapeHtml(data.solution)}</div>`;
                             errorHtml += `</div>`;
                         }
                         
-                        // Documentation link
+                        // Documentation link (URL is escaped too)
                         if (data.documentationUrl) {
                             errorHtml += `<div class="error-section">`;
                             errorHtml += `<strong>📚 Documentation:</strong>`;
-                            errorHtml += `<a href="${data.documentationUrl}" target="_blank" rel="noopener noreferrer" class="error-link">`;
+                            errorHtml += `<a href="${escapeHtml(data.documentationUrl)}" target="_blank" rel="noopener noreferrer" class="error-link">`;
                             errorHtml += `View NFS Troubleshooting Guide →`;
                             errorHtml += `</a>`;
                             errorHtml += `</div>`;
@@ -14839,7 +14846,7 @@
                 }
             } catch (error) {
                 console.error('Test failed:', error);
-                alert.innerHTML = `<strong>❌ Test failed: ${error.message}</strong>`;
+                alert.innerHTML = `<strong>❌ Test failed: ${escapeHtml(error.message)}</strong>`;
                 alert.className = 'alert alert-error';
             } finally {
                 testBtn.disabled = false;
