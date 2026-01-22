@@ -1,6 +1,8 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { formatGitHubError, logError, createErrorResponse } = require('./error-helper');
+const logger = require('./logger');
 
 let config = null;
 let gitConfigPath = null;
@@ -447,7 +449,14 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
     return { success: true, message: 'Changes pushed successfully to GitHub' };
     
   } catch (error) {
-    console.error('❌ [GitHub] Push failed:', error.message);
+    const repoIdentifier = `${config?.vidiots?.githubPages?.repoOwner}/${config?.vidiots?.githubPages?.repoName}`;
+    const enhancedError = formatGitHubError(error, repoIdentifier, 'push');
+    
+    logError(logger.categories.GITHUB, enhancedError, {
+      operation: 'GitHub push',
+      repository: repoIdentifier,
+      repoPath: normalizedRepoPath
+    });
     
     // Check if this is a "fetch first" error (remote has newer commits)
     if (error.message.includes('fetch first') || error.message.includes('Updates were rejected')) {
@@ -471,12 +480,23 @@ async function pushToGitHub(repoPath, commitMessage = 'Automated vidiots update'
         return { success: true, message: 'Changes pushed successfully after resolving conflicts' };
         
       } catch (pullError) {
-        console.error('❌ [GitHub] Pull and retry failed:', pullError.message);
-        return { success: false, error: `Failed to resolve conflicts: ${pullError.message}` };
+        const pullEnhancedError = formatGitHubError(pullError, repoIdentifier, 'pull and retry');
+        logError(logger.categories.GITHUB, pullEnhancedError, {
+          operation: 'GitHub pull and retry',
+          context: 'After detecting remote changes'
+        });
+        
+        return { 
+          success: false, 
+          ...createErrorResponse(pullEnhancedError)
+        };
       }
     }
     
-    return { success: false, error: error.message };
+    return { 
+      success: false, 
+      ...createErrorResponse(enhancedError)
+    };
   }
 }
 

@@ -1,0 +1,484 @@
+/**
+ * Error Helper Module
+ * 
+ * Provides enhanced error handling utilities with detailed error messages,
+ * context information, and potential solutions for common issues.
+ */
+
+const logger = require('./logger');
+
+/**
+ * Custom error classes for different error types
+ */
+
+class NFSError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'NFSError';
+    this.code = options.code || 'NFS_ERROR';
+    this.host = options.host;
+    this.path = options.path;
+    this.details = options.details;
+    this.solution = options.solution;
+    this.documentationUrl = options.documentationUrl;
+  }
+
+  toJSON() {
+    return {
+      error: this.message,
+      code: this.code,
+      host: this.host,
+      path: this.path,
+      details: this.details,
+      solution: this.solution,
+      documentationUrl: this.documentationUrl
+    };
+  }
+}
+
+class GitHubError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'GitHubError';
+    this.code = options.code || 'GITHUB_ERROR';
+    this.repository = options.repository;
+    this.details = options.details;
+    this.solution = options.solution;
+    this.documentationUrl = options.documentationUrl;
+  }
+
+  toJSON() {
+    return {
+      error: this.message,
+      code: this.code,
+      repository: this.repository,
+      details: this.details,
+      solution: this.solution,
+      documentationUrl: this.documentationUrl
+    };
+  }
+}
+
+class FileSystemError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'FileSystemError';
+    this.code = options.code || 'FS_ERROR';
+    this.path = options.path;
+    this.operation = options.operation;
+    this.details = options.details;
+    this.solution = options.solution;
+  }
+
+  toJSON() {
+    return {
+      error: this.message,
+      code: this.code,
+      path: this.path,
+      operation: this.operation,
+      details: this.details,
+      solution: this.solution
+    };
+  }
+}
+
+/**
+ * Enhanced error message builders
+ */
+
+/**
+ * Format NFS mount errors with detailed context and solutions
+ */
+function formatNFSMountError(error, connection) {
+  const host = connection?.host || 'unknown';
+  const exportPath = connection?.exportPath || 'unknown';
+  const errorMsg = error.message || error.stderr || String(error);
+  
+  // Detect common NFS error patterns
+  if (error.code === 'EACCES' || errorMsg.includes('access denied') || errorMsg.includes('Permission denied')) {
+    return new NFSError('NFS mount failed due to permission issues', {
+      code: 'NFS_PERMISSION_DENIED',
+      host,
+      path: exportPath,
+      details: `Cannot access NFS share at ${host}:${exportPath}`,
+      solution: [
+        '1. Verify the export is configured in /etc/exports on the NFS server',
+        '2. Ensure your client IP/network is allowed in the exports configuration',
+        '3. Check NFS export permissions (rw vs ro, sync vs async)',
+        '4. Verify no firewall is blocking NFS ports (2049, 111)',
+        '5. Try mounting manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
+    });
+  }
+  
+  if (error.code === 'ETIMEDOUT' || error.code === 'ETIMEOUT' || errorMsg.includes('timeout')) {
+    return new NFSError('NFS mount timed out - server unreachable', {
+      code: 'NFS_TIMEOUT',
+      host,
+      path: exportPath,
+      details: `Cannot reach NFS server at ${host}`,
+      solution: [
+        '1. Verify the NFS server IP address or hostname is correct',
+        '2. Check if the NFS server is running and accessible on your network',
+        '3. Test connectivity: ping ' + host,
+        '4. Verify NFS service is running on server: systemctl status nfs-server',
+        '5. Check firewall rules allow NFS traffic (ports 2049, 111)',
+        '6. If using hostname, verify DNS resolution is working'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#network-issues'
+    });
+  }
+  
+  if (error.code === 'ENETUNREACH' || error.code === 'EHOSTUNREACH' || errorMsg.includes('Network is unreachable') || errorMsg.includes('No route to host')) {
+    return new NFSError('Cannot reach NFS server - network unreachable', {
+      code: 'NFS_NETWORK_UNREACHABLE',
+      host,
+      path: exportPath,
+      details: `Network path to ${host} is not available`,
+      solution: [
+        '1. Verify the server IP address is on the same network or routable',
+        '2. Check network connectivity: ping ' + host,
+        '3. Verify network configuration in docker-compose.yml if using Docker',
+        '4. If server is on different subnet, check routing configuration',
+        '5. Try using IP address instead of hostname if DNS might be an issue'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#network-issues'
+    });
+  }
+  
+  if (error.code === 'ENOENT' || errorMsg.includes('does not exist') || errorMsg.includes('No such file')) {
+    return new NFSError('NFS export path not found', {
+      code: 'NFS_PATH_NOT_FOUND',
+      host,
+      path: exportPath,
+      details: `The export path ${exportPath} does not exist on server ${host}`,
+      solution: [
+        '1. Verify the export path is correct (check for typos)',
+        '2. List available exports on server: showmount -e ' + host,
+        '3. Check /etc/exports on the NFS server for configured exports',
+        '4. Ensure the export path exists on the NFS server filesystem',
+        '5. Export path must start with / (e.g., /mnt/share not mnt/share)'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#configuration'
+    });
+  }
+  
+  if (errorMsg.includes('rpc') || errorMsg.includes('RPC') || errorMsg.includes('portmap')) {
+    return new NFSError('NFS RPC service communication failed', {
+      code: 'NFS_RPC_ERROR',
+      host,
+      path: exportPath,
+      details: `Cannot communicate with NFS RPC services on ${host}`,
+      solution: [
+        '1. Verify rpcbind service is running on NFS server: systemctl status rpcbind',
+        '2. Check if port 111 (rpcbind) is accessible: telnet ' + host + ' 111',
+        '3. Ensure NFS server services are running: systemctl status nfs-server',
+        '4. Verify firewall allows RPC ports (111, 2049)',
+        '5. Try restarting NFS services on server if you have access'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
+    });
+  }
+  
+  if (errorMsg.includes('mount.nfs') && errorMsg.includes('not found')) {
+    return new NFSError('NFS client tools not installed', {
+      code: 'NFS_CLIENT_NOT_INSTALLED',
+      host,
+      path: exportPath,
+      details: 'NFS client utilities (mount.nfs) are not available on this system',
+      solution: [
+        '1. Install NFS client packages:',
+        '   - Debian/Ubuntu: apt-get install nfs-common',
+        '   - RHEL/CentOS: yum install nfs-utils',
+        '   - Alpine: apk add nfs-utils',
+        '2. Rebuild the Docker container if using containers',
+        '3. Verify installation: which mount.nfs'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#installation'
+    });
+  }
+  
+  // Generic NFS error with basic troubleshooting
+  return new NFSError('NFS mount operation failed', {
+    code: 'NFS_MOUNT_FAILED',
+    host,
+    path: exportPath,
+    details: errorMsg,
+    solution: [
+      '1. Check the error details above for specific issues',
+      '2. Verify NFS server is running and accessible: ping ' + host,
+      '3. Test mount manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
+      '4. Check NFS server logs for additional information',
+      '5. Review NFS troubleshooting guide below'
+    ].join('\n'),
+    documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
+  });
+}
+
+/**
+ * Format file system errors with context and solutions
+ */
+function formatFileSystemError(error, operation, filePath) {
+  const errorCode = error.code || 'UNKNOWN';
+  const errorMsg = error.message || String(error);
+  
+  if (errorCode === 'EACCES' || errorCode === 'EPERM') {
+    return new FileSystemError('Permission denied', {
+      code: errorCode,
+      path: filePath,
+      operation,
+      details: `Cannot ${operation} ${filePath} due to insufficient permissions`,
+      solution: [
+        '1. Check file/directory permissions: ls -la ' + (filePath || ''),
+        '2. Verify the application has appropriate access rights',
+        '3. If running in Docker, check volume mount permissions',
+        '4. Ensure the parent directory is writable if creating files',
+        '5. Consider using chmod to adjust permissions if appropriate'
+      ].join('\n')
+    });
+  }
+  
+  if (errorCode === 'ENOENT') {
+    return new FileSystemError('File or directory not found', {
+      code: errorCode,
+      path: filePath,
+      operation,
+      details: `Cannot ${operation} ${filePath} - path does not exist`,
+      solution: [
+        '1. Verify the file path is correct',
+        '2. Check if parent directories exist',
+        '3. Ensure the file was not deleted by another process',
+        '4. If expecting a config file, it may need to be created first',
+        '5. Check the application logs for the expected path'
+      ].join('\n')
+    });
+  }
+  
+  if (errorCode === 'ENOSPC') {
+    return new FileSystemError('Disk space full', {
+      code: errorCode,
+      path: filePath,
+      operation,
+      details: `Cannot ${operation} ${filePath} - no space left on device`,
+      solution: [
+        '1. Check disk space: df -h',
+        '2. Remove unnecessary files to free up space',
+        '3. Check for large log files that can be rotated/deleted',
+        '4. If using Docker, check container and host disk space',
+        '5. Consider expanding storage or moving to larger volume'
+      ].join('\n')
+    });
+  }
+  
+  if (errorCode === 'EISDIR') {
+    return new FileSystemError('Path is a directory', {
+      code: errorCode,
+      path: filePath,
+      operation,
+      details: `Cannot ${operation} ${filePath} as a file - it is a directory`,
+      solution: [
+        '1. Check if you specified the correct path',
+        '2. If trying to read/write, ensure path points to a file not a directory',
+        '3. Use appropriate directory operations for directories',
+        '4. Verify the path construction in your code'
+      ].join('\n')
+    });
+  }
+  
+  return new FileSystemError('File system operation failed', {
+    code: errorCode,
+    path: filePath,
+    operation,
+    details: errorMsg,
+    solution: [
+      '1. Check the error code and message for specific issues',
+      '2. Verify file path and permissions',
+      '3. Check system resources (disk space, inodes)',
+      '4. Review application logs for additional context'
+    ].join('\n')
+  });
+}
+
+/**
+ * Format GitHub operation errors with context and solutions
+ */
+function formatGitHubError(error, repository, operation) {
+  const errorMsg = error.message || String(error);
+  const statusCode = error.response?.status;
+  
+  if (statusCode === 401 || errorMsg.includes('Bad credentials') || errorMsg.includes('authentication')) {
+    return new GitHubError('GitHub authentication failed', {
+      code: 'GITHUB_AUTH_FAILED',
+      repository,
+      details: `Authentication to GitHub failed for repository: ${repository}`,
+      solution: [
+        '1. Verify your GitHub Personal Access Token is correct',
+        '2. Check if the token has expired (tokens can have expiration dates)',
+        '3. Ensure the token has the required scopes/permissions:',
+        '   - "repo" scope for private repositories',
+        '   - "public_repo" scope for public repositories',
+        '4. Generate a new token if needed: https://github.com/settings/tokens',
+        '5. Update the token in Settings > GitHub Configuration'
+      ].join('\n'),
+      documentationUrl: 'https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token'
+    });
+  }
+  
+  if (statusCode === 403) {
+    return new GitHubError('GitHub access forbidden', {
+      code: 'GITHUB_FORBIDDEN',
+      repository,
+      details: `Access denied for repository: ${repository}`,
+      solution: [
+        '1. Verify you have push access to the repository',
+        '2. Check if the repository exists and the name is correct',
+        '3. Ensure your token has the required scopes/permissions',
+        '4. Check if the repository is private and token has "repo" scope',
+        '5. Verify branch protection rules are not blocking pushes',
+        '6. If using organization repo, ensure your account has appropriate role'
+      ].join('\n'),
+      documentationUrl: 'https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository'
+    });
+  }
+  
+  if (statusCode === 404) {
+    return new GitHubError('GitHub repository not found', {
+      code: 'GITHUB_NOT_FOUND',
+      repository,
+      details: `Repository not found: ${repository}`,
+      solution: [
+        '1. Verify the repository name is correct (owner/repo format)',
+        '2. Check if the repository exists: https://github.com/' + (repository || ''),
+        '3. Ensure your token has access to the repository (especially for private repos)',
+        '4. If repository was renamed, update the configuration with new name',
+        '5. Verify you are using the correct GitHub account/organization'
+      ].join('\n')
+    });
+  }
+  
+  if (errorMsg.includes('rate limit') || statusCode === 429) {
+    return new GitHubError('GitHub API rate limit exceeded', {
+      code: 'GITHUB_RATE_LIMIT',
+      repository,
+      details: 'GitHub API rate limit has been exceeded',
+      solution: [
+        '1. Wait for the rate limit to reset (usually within an hour)',
+        '2. Authenticated requests have higher limits - ensure token is configured',
+        '3. Check rate limit status: https://docs.github.com/en/rest/rate-limit',
+        '4. Consider reducing the frequency of operations',
+        '5. For high-volume usage, review GitHub API rate limit documentation'
+      ].join('\n'),
+      documentationUrl: 'https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting'
+    });
+  }
+  
+  if (errorMsg.includes('large') || errorMsg.includes('size') || statusCode === 413) {
+    return new GitHubError('File too large for GitHub', {
+      code: 'GITHUB_FILE_TOO_LARGE',
+      repository,
+      details: 'File exceeds GitHub size limits',
+      solution: [
+        '1. GitHub has a 100MB file size limit and 1GB repository size warning',
+        '2. Consider using Git LFS for large files: https://git-lfs.github.com/',
+        '3. Compress large files if possible',
+        '4. Split large files into smaller chunks',
+        '5. Use .gitignore to exclude large build artifacts or media files',
+        '6. Review what files are being committed and remove unnecessary large files'
+      ].join('\n'),
+      documentationUrl: 'https://docs.github.com/en/repositories/working-with-files/managing-large-files'
+    });
+  }
+  
+  return new GitHubError(`GitHub ${operation} failed`, {
+    code: 'GITHUB_OPERATION_FAILED',
+    repository,
+    details: errorMsg,
+    solution: [
+      '1. Check the error message above for specific details',
+      '2. Verify repository name and access permissions',
+      '3. Check your internet connection and GitHub status',
+      '4. Review GitHub status page: https://www.githubstatus.com/',
+      '5. Check application logs for additional context'
+    ].join('\n'),
+    documentationUrl: 'https://docs.github.com/en/rest'
+  });
+}
+
+/**
+ * Log error with enhanced context
+ */
+function logError(category, error, context = {}) {
+  let errorDetails = {
+    message: error.message || String(error),
+    code: error.code,
+    ...context
+  };
+  
+  // Format error message with context
+  let logMessage = error.message || String(error);
+  
+  if (error instanceof NFSError || error instanceof GitHubError || error instanceof FileSystemError) {
+    // Custom error classes have structured information
+    const errorData = error.toJSON();
+    if (errorData.details) {
+      logMessage += `\nDetails: ${errorData.details}`;
+    }
+    if (errorData.solution) {
+      logMessage += `\nSolution:\n${errorData.solution}`;
+    }
+    if (errorData.documentationUrl) {
+      logMessage += `\nDocumentation: ${errorData.documentationUrl}`;
+    }
+  } else if (context.operation) {
+    logMessage = `${context.operation} failed: ${logMessage}`;
+  }
+  
+  logger.error(category, logMessage);
+  
+  return errorDetails;
+}
+
+/**
+ * Create error response with enhanced information
+ */
+function createErrorResponse(error, includeStack = false) {
+  if (error instanceof NFSError || error instanceof GitHubError || error instanceof FileSystemError) {
+    const response = error.toJSON();
+    if (includeStack && error.stack) {
+      response.stack = error.stack;
+    }
+    return response;
+  }
+  
+  // Standard error
+  const response = {
+    error: error.message || String(error)
+  };
+  
+  if (error.code) {
+    response.code = error.code;
+  }
+  
+  if (includeStack && error.stack) {
+    response.stack = error.stack;
+  }
+  
+  return response;
+}
+
+module.exports = {
+  // Error classes
+  NFSError,
+  GitHubError,
+  FileSystemError,
+  
+  // Formatters
+  formatNFSMountError,
+  formatFileSystemError,
+  formatGitHubError,
+  
+  // Utilities
+  logError,
+  createErrorResponse
+};

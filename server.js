@@ -8,6 +8,7 @@ const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
 const logger = require('./modules/logger');
+const { formatFileSystemError, logError, createErrorResponse } = require('./modules/error-helper');
 const vidiots = require('./modules/vidiots');
 const espresso = require('./modules/espresso');
 const githubUpload = require('./modules/github-upload');
@@ -1004,7 +1005,16 @@ app.post('/admin/api/config', requireAuth, (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update configuration: ' + err.message });
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Update configuration',
+      configWritable
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to update configuration',
+      details: err.message,
+      solution: 'Verify the configuration structure is valid JSON. Check that the config directory is writable if persistence is required.'
+    });
   }
 });
 
@@ -1058,7 +1068,17 @@ app.post('/admin/api/links', requireAuth, (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to add link: ' + err.message });
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Add useful link',
+      linkName: req.body.name,
+      linkUrl: req.body.url
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to add link',
+      details: err.message,
+      solution: 'Verify the URL is valid. Check application logs if the issue persists.'
+    });
   }
 });
 
@@ -1104,7 +1124,16 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to remove link: ' + err.message });
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Remove useful link',
+      linkId: req.params.id
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to remove link',
+      details: err.message,
+      solution: 'Verify the link ID is valid. Check application logs if the issue persists.'
+    });
   }
 });
 
@@ -1684,7 +1713,16 @@ app.post('/api/client/set-password', (req, res) => {
       res.status(500).json({ error: errorMessage });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to set password: ' + err.message });
+    logError(logger.categories.CLIENT, err, {
+      operation: 'Set client password',
+      hasExistingPassword: !!loadClientPasswordHash()
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to set password',
+      details: err.message,
+      solution: 'Check that the config directory exists and is writable. Verify sufficient disk space is available.'
+    });
   }
 });
 
@@ -1743,7 +1781,15 @@ app.post('/api/client/change-password', (req, res) => {
       res.status(500).json({ error: errorMessage });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to change password: ' + err.message });
+    logError(logger.categories.CLIENT, err, {
+      operation: 'Change client password'
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to change password',
+      details: err.message,
+      solution: 'Verify your current password is correct. Check that the config directory is writable and has sufficient space.'
+    });
   }
 });
 
@@ -1790,7 +1836,15 @@ app.post('/api/client/remove-password', (req, res) => {
       res.status(500).json({ error: 'Failed to remove password' });
     }
   } catch (err) {
-    res.status(500).json({ error: 'Failed to remove password: ' + err.message });
+    logError(logger.categories.CLIENT, err, {
+      operation: 'Remove client password'
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to remove password',
+      details: err.message,
+      solution: 'Verify your current password is correct. Check that the config directory is writable.'
+    });
   }
 });
 
