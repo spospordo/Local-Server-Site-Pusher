@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Tesseract = require('tesseract.js');
+const { formatFileSystemError, logError, createErrorResponse } = require('./error-helper');
+const logger = require('./logger');
 
 let config = null;
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
@@ -30,7 +32,10 @@ function ensureEncryptionKey() {
       console.log('🔐 [Finance] Generated new encryption key');
     }
   } catch (error) {
-    console.error('❌ [Finance] Error managing encryption key:', error.message);
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Manage encryption key',
+      keyPath
+    });
   }
 }
 
@@ -44,7 +49,10 @@ function getEncryptionKey() {
       return Buffer.from(fs.readFileSync(keyPath, 'utf8').trim(), 'hex');
     }
   } catch (error) {
-    console.error('❌ [Finance] Error reading encryption key:', error.message);
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Read encryption key',
+      keyPath
+    });
   }
   return null;
 }
@@ -68,8 +76,10 @@ function encrypt(text) {
     // Return IV + authTag + encrypted data
     return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
   } catch (error) {
-    console.error('❌ [Finance] Encryption error:', error.message);
-    throw error;
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Encrypt finance data'
+    });
+    throw new Error('Failed to encrypt finance data. Ensure encryption key is properly configured.');
   }
 }
 
@@ -98,8 +108,10 @@ function decrypt(encryptedData) {
     
     return decrypted;
   } catch (error) {
-    console.error('❌ [Finance] Decryption error:', error.message);
-    throw error;
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Decrypt finance data'
+    });
+    throw new Error('Failed to decrypt finance data. The data may be corrupted or the encryption key may have changed.');
   }
 }
 
@@ -155,7 +167,11 @@ function ensureFinanceDataFile() {
       console.log('📊 [Finance] Created default finance data file');
     }
   } catch (error) {
-    console.error('❌ [Finance] Error creating finance data file:', error.message);
+    const enhancedError = formatFileSystemError(error, 'create', dataPath);
+    logError(logger.categories.FINANCE, enhancedError, {
+      operation: 'Create finance data file',
+      dataPath
+    });
   }
 }
 
@@ -169,8 +185,17 @@ function saveFinanceData(data) {
     fs.writeFileSync(dataPath, encryptedData, { mode: 0o600 });
     return { success: true };
   } catch (error) {
-    console.error('❌ [Finance] Error saving finance data:', error.message);
-    return { success: false, error: error.message };
+    const enhancedError = formatFileSystemError(error, 'save', dataPath);
+    logError(logger.categories.FINANCE, enhancedError, {
+      operation: 'Save finance data',
+      dataPath
+    });
+    
+    return { 
+      success: false, 
+      error: error.message,
+      solution: 'Check that the config directory is writable and has sufficient disk space. Verify the encryption key is properly configured.'
+    };
   }
 }
 
@@ -186,7 +211,14 @@ function loadFinanceData() {
     }
     return getDefaultFinanceData();
   } catch (error) {
-    console.error('❌ [Finance] Error loading finance data:', error.message);
+    const enhancedError = formatFileSystemError(error, 'load', dataPath);
+    logError(logger.categories.FINANCE, enhancedError, {
+      operation: 'Load finance data',
+      dataPath,
+      fallback: 'Using default finance data'
+    });
+    
+    console.warn('⚠️ [Finance] Using default finance data due to load error. Your saved data may be inaccessible.');
     return getDefaultFinanceData();
   }
 }
