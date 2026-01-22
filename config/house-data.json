@@ -24,7 +24,9 @@
         "description": "",
         "x": 700,
         "y": 300,
-        "createdDate": "2026-01-21T00:21:00.192Z"
+        "createdDate": "2026-01-21T00:21:00.192Z",
+        "color": "#28a745",
+        "icon": "📺"
       },
       {
         "id": "1768956786546",
@@ -34,6 +36,18 @@
         "x": 300,
         "y": 300,
         "createdDate": "2026-01-21T00:53:06.546Z"
+      },
+      {
+        "id": "1768960159149",
+        "name": "Sony PlayStation 5 Gaming Console with Very Long Name",
+        "type": "console",
+        "description": "Gaming console in living room",
+        "x": 100,
+        "y": 100,
+        "color": "#dc3545",
+        "icon": "🎮",
+        "customIcon": "",
+        "createdDate": "2026-01-21T01:49:19.149Z"
       }
     ],
     "connections": [

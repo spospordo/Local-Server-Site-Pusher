@@ -5443,6 +5443,43 @@
                         <label for="deviceDescription">Description</label>
                         <textarea id="deviceDescription" rows="3" placeholder="Model number, notes, location, etc."></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="deviceColor">Color</label>
+                        <input type="color" id="deviceColor" value="#667eea" style="width: 100%; height: 40px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceIcon">Icon</label>
+                        <select id="deviceIcon">
+                            <option value="">Use type default</option>
+                            <option value="📺">📺 TV</option>
+                            <option value="📻">📻 Receiver</option>
+                            <option value="🎛️">🎛️ Amplifier</option>
+                            <option value="🔀">🔀 Switch</option>
+                            <option value="💿">💿 Record Player</option>
+                            <option value="🎮">🎮 Console/Remote</option>
+                            <option value="▶️">▶️ Player</option>
+                            <option value="🔊">🔊 Speaker</option>
+                            <option value="🎵">🎵 Music</option>
+                            <option value="🎧">🎧 Headphones</option>
+                            <option value="🎙️">🎙️ Microphone</option>
+                            <option value="📀">📀 CD/DVD</option>
+                            <option value="📱">📱 Phone/Tablet</option>
+                            <option value="💻">💻 Computer</option>
+                            <option value="🖥️">🖥️ Monitor</option>
+                            <option value="⚡">⚡ Power</option>
+                            <option value="🔌">🔌 Plug</option>
+                            <option value="📦">📦 Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceCustomIcon">Custom Icon (optional)</label>
+                        <input type="file" id="deviceCustomIcon" accept=".svg,.png,.jpg,.jpeg" style="width: 100%;" onchange="previewCustomIcon(event)">
+                        <small style="color: #666; display: block; margin-top: 0.25rem;">Upload SVG or PNG (will override selected icon)</small>
+                        <div id="customIconPreview" style="margin-top: 0.5rem; display: none;">
+                            <img id="customIconPreviewImg" style="max-width: 50px; max-height: 50px; border: 1px solid #ddd; padding: 5px;">
+                            <button type="button" onclick="clearCustomIcon()" class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.25rem 0.5rem;">Clear</button>
+                        </div>
+                    </div>
                     <div class="modal-actions">
                         <button type="button" onclick="closeDeviceModal()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn">Save</button>
@@ -14970,6 +15007,21 @@
         let draggedDevice = null;
         let currentCursor = 'move';
         let saveTimeout = null;
+        let customIconImages = new Map(); // Cache for loaded custom icon images
+        
+        // Standard device type icons (shared between list and canvas)
+        const deviceTypeIcons = {
+            'tv': '📺',
+            'receiver': '📻',
+            'amplifier': '🎛️',
+            'switch': '🔀',
+            'recordplayer': '💿',
+            'remote': '🎮',
+            'console': '🎮',
+            'player': '▶️',
+            'speaker': '🔊',
+            'other': '📦'
+        };
 
         async function loadMediaCenterData() {
             try {
@@ -15001,28 +15053,27 @@
                 return;
             }
             
-            const deviceTypeIcons = {
-                'tv': '📺',
-                'receiver': '📻',
-                'amplifier': '🎛️',
-                'switch': '🔀',
-                'recordplayer': '💿',
-                'remote': '🎮',
-                'console': '🎮',
-                'player': '▶️',
-                'speaker': '🔊',
-                'other': '📦'
-            };
-            
             let html = '<div style="display: grid; gap: 1rem;">';
             mediaCenterData.devices.forEach(device => {
-                const icon = deviceTypeIcons[device.type] || '📦';
+                // Determine which icon to use: custom > selected > type default
+                let iconHtml = '';
+                if (device.customIcon) {
+                    iconHtml = `<img src="${device.customIcon}" alt="device icon" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 0.5rem;">`;
+                } else if (device.icon) {
+                    iconHtml = `<span style="margin-right: 0.5rem;">${device.icon}</span>`;
+                } else {
+                    const icon = deviceTypeIcons[device.type] || '📦';
+                    iconHtml = `<span style="margin-right: 0.5rem;">${icon}</span>`;
+                }
+                
+                const deviceColor = device.color || '#667eea';
+                
                 html += `
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; border-left: 4px solid #667eea;">
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; border-left: 4px solid ${deviceColor};">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div style="flex: 1;">
-                                <div style="font-weight: 600; color: #333; font-size: 1.1rem;">
-                                    ${icon} ${device.name}
+                                <div style="font-weight: 600; color: #333; font-size: 1.1rem; word-wrap: break-word;">
+                                    ${iconHtml}${device.name}
                                 </div>
                                 <div style="color: #666; margin-top: 0.25rem;">
                                     Type: ${device.type}
@@ -15182,9 +15233,9 @@
                 const x = device.x + canvasOffset.x;
                 const y = device.y + canvasOffset.y;
                 
-                // Device is drawn as a 80x40 box centered at (x, y)
-                const halfWidth = 40;
-                const halfHeight = 20;
+                // Use dynamic box dimensions if available
+                const halfWidth = (device._boxWidth || 80) / 2;
+                const halfHeight = (device._boxHeight || 40) / 2;
                 
                 if (mouseX >= x - halfWidth && mouseX <= x + halfWidth &&
                     mouseY >= y - halfHeight && mouseY <= y + halfHeight) {
@@ -15260,20 +15311,89 @@
                 ctx.fillText(conn.connectionType, midX, midY + 5);
             });
             
-            // Draw devices
+            // Draw devices with dynamic sizing and text wrapping
             mediaCenterData.devices.forEach(device => {
                 const x = device.x + canvasOffset.x;
                 const y = device.y + canvasOffset.y;
                 
-                // Draw device box
-                ctx.fillStyle = device === selectedDevice ? '#764ba2' : '#667eea';
-                ctx.fillRect(x - 40, y - 20, 80, 40);
+                // Measure text to determine box size
+                ctx.font = '12px sans-serif';
+                const maxWidth = 150; // Max width for text
+                const deviceName = (device.name && device.name.trim()) ? device.name : 'Unnamed Device';
+                const words = deviceName.split(' ');
+                const lines = [];
+                let currentLine = words[0];
                 
-                // Draw device name
+                // Word wrap algorithm
+                for (let i = 1; i < words.length; i++) {
+                    const testLine = currentLine + ' ' + words[i];
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth) {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                lines.push(currentLine);
+                
+                // Calculate box dimensions based on text
+                const lineHeight = 14;
+                const padding = 10;
+                const iconSize = 16;
+                const boxWidth = Math.max(80, Math.min(maxWidth + padding * 2, 180));
+                const boxHeight = Math.max(40, lines.length * lineHeight + padding * 2 + iconSize);
+                
+                // Store dimensions for hit detection
+                device._boxWidth = boxWidth;
+                device._boxHeight = boxHeight;
+                
+                // Draw device box with custom color
+                const deviceColor = device.color || '#667eea';
+                ctx.fillStyle = device === selectedDevice ? '#764ba2' : deviceColor;
+                ctx.fillRect(x - boxWidth / 2, y - boxHeight / 2, boxWidth, boxHeight);
+                
+                // Draw icon (emoji or custom icon)
+                let iconYOffset = -boxHeight / 2 + padding + iconSize / 2;
+                
+                if (device.customIcon) {
+                    // Load and draw custom icon image
+                    if (!customIconImages.has(device.id)) {
+                        const img = new Image();
+                        img.onload = () => drawCanvas(); // Set onload before setting src
+                        img.src = device.customIcon;
+                        customIconImages.set(device.id, img);
+                    }
+                    
+                    const img = customIconImages.get(device.id);
+                    if (img.complete && img.naturalHeight !== 0) {
+                        const imgSize = iconSize;
+                        ctx.drawImage(img, x - imgSize / 2, y + iconYOffset - imgSize / 2, imgSize, imgSize);
+                    } else {
+                        // Show placeholder while loading
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '16px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🖼️', x, y + iconYOffset);
+                    }
+                } else {
+                    // Draw emoji icon
+                    const icon = device.icon || deviceTypeIcons[device.type] || '📦';
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(icon, x, y + iconYOffset);
+                }
+                
+                // Draw device name (wrapped)
                 ctx.fillStyle = '#fff';
                 ctx.font = '12px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText(device.name, x, y + 5);
+                let textYOffset = iconYOffset + lineHeight;
+                lines.forEach(line => {
+                    ctx.fillText(line, x, y + textYOffset);
+                    textYOffset += lineHeight;
+                });
             });
         }
 
@@ -15322,6 +15442,10 @@
             document.getElementById('deviceName').value = '';
             document.getElementById('deviceType').value = 'tv';
             document.getElementById('deviceDescription').value = '';
+            document.getElementById('deviceColor').value = '#667eea';
+            document.getElementById('deviceIcon').value = '';
+            document.getElementById('deviceCustomIcon').value = '';
+            document.getElementById('customIconPreview').style.display = 'none';
             document.getElementById('deviceModal').style.display = 'flex';
         }
 
@@ -15334,7 +15458,39 @@
             document.getElementById('deviceName').value = device.name;
             document.getElementById('deviceType').value = device.type;
             document.getElementById('deviceDescription').value = device.description || '';
+            document.getElementById('deviceColor').value = device.color || '#667eea';
+            document.getElementById('deviceIcon').value = device.icon || '';
+            
+            // Show custom icon preview if exists
+            if (device.customIcon) {
+                document.getElementById('customIconPreviewImg').src = device.customIcon;
+                document.getElementById('customIconPreview').style.display = 'block';
+            } else {
+                document.getElementById('customIconPreview').style.display = 'none';
+            }
+            
             document.getElementById('deviceModal').style.display = 'flex';
+        }
+
+        function clearCustomIcon() {
+            document.getElementById('deviceCustomIcon').value = '';
+            document.getElementById('customIconPreview').style.display = 'none';
+            // Mark that custom icon should be removed
+            document.getElementById('deviceCustomIcon').dataset.cleared = 'true';
+        }
+        
+        function previewCustomIcon(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('customIconPreviewImg').src = e.target.result;
+                    document.getElementById('customIconPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+                // Clear the cleared flag
+                delete event.target.dataset.cleared;
+            }
         }
 
         function closeDeviceModal() {
@@ -15348,9 +15504,43 @@
             const deviceData = {
                 name: document.getElementById('deviceName').value,
                 type: document.getElementById('deviceType').value,
-                description: document.getElementById('deviceDescription').value
+                description: document.getElementById('deviceDescription').value,
+                color: document.getElementById('deviceColor').value,
+                icon: document.getElementById('deviceIcon').value
             };
             
+            const customIconInput = document.getElementById('deviceCustomIcon');
+            
+            // Check if user cleared the custom icon
+            if (customIconInput.dataset.cleared === 'true') {
+                deviceData.customIcon = '';
+                await submitDevice(deviceId, deviceData);
+                return;
+            }
+            
+            // Handle custom icon upload
+            const customIconFile = customIconInput.files[0];
+            if (customIconFile) {
+                // Convert to base64
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    deviceData.customIcon = e.target.result;
+                    await submitDevice(deviceId, deviceData);
+                };
+                reader.readAsDataURL(customIconFile);
+            } else {
+                // Keep existing custom icon if editing
+                if (deviceId) {
+                    const existingDevice = mediaCenterData.devices.find(d => d.id === deviceId);
+                    if (existingDevice && existingDevice.customIcon) {
+                        deviceData.customIcon = existingDevice.customIcon;
+                    }
+                }
+                await submitDevice(deviceId, deviceData);
+            }
+        }
+        
+        async function submitDevice(deviceId, deviceData) {
             try {
                 let response;
                 if (deviceId) {
