@@ -144,20 +144,22 @@ function validateMountOptions(mountOptions) {
   // SMB/CIFS-only options that should not be used with NFS
   // Using exact match or starts-with to avoid false positives
   const smbOnlyOptions = [
-    { pattern: /^uid=/, name: 'uid=', description: 'User ID mapping (SMB only)' },
-    { pattern: /^gid=/, name: 'gid=', description: 'Group ID mapping (SMB only)' },
-    { pattern: /^file_mode=/, name: 'file_mode=', description: 'File permission mask (SMB only)' },
-    { pattern: /^dir_mode=/, name: 'dir_mode=', description: 'Directory permission mask (SMB only)' },
-    { pattern: /^username=/, name: 'username=', description: 'Authentication username (SMB only)' },
-    { pattern: /^password=/, name: 'password=', description: 'Authentication password (SMB only)' },
-    { pattern: /^domain=/, name: 'domain=', description: 'Windows domain (SMB only)' },
-    { pattern: /^credentials=/, name: 'credentials=', description: 'Credentials file (SMB only)' },
-    { pattern: /^iocharset=/, name: 'iocharset=', description: 'Character set (SMB only)' },
-    { pattern: /^codepage=/, name: 'codepage=', description: 'Code page (SMB only)' }
+    { pattern: /^file_mode=/, name: 'file_mode=', description: 'File permission mask (SMB only)', severity: 'error' },
+    { pattern: /^dir_mode=/, name: 'dir_mode=', description: 'Directory permission mask (SMB only)', severity: 'error' },
+    { pattern: /^username=/, name: 'username=', description: 'Authentication username (SMB only)', severity: 'error' },
+    { pattern: /^password=/, name: 'password=', description: 'Authentication password (SMB only)', severity: 'error' },
+    { pattern: /^domain=/, name: 'domain=', description: 'Windows domain (SMB only)', severity: 'error' },
+    { pattern: /^credentials=/, name: 'credentials=', description: 'Credentials file (SMB only)', severity: 'error' },
+    { pattern: /^iocharset=/, name: 'iocharset=', description: 'Character set (SMB only)', severity: 'error' },
+    { pattern: /^codepage=/, name: 'codepage=', description: 'Code page (SMB only)', severity: 'error' },
+    // uid/gid are primarily SMB options but can be used with NFS in some contexts, so warning instead of error
+    { pattern: /^uid=/, name: 'uid=', description: 'User ID (primarily for SMB, rarely needed for NFS)', severity: 'warning' },
+    { pattern: /^gid=/, name: 'gid=', description: 'Group ID (primarily for SMB, rarely needed for NFS)', severity: 'warning' }
   ];
   
   // SMB version patterns (not NFS versions which are simply vers=3 or vers=4)
-  const smbVersionPattern = /^vers=(1\.|2\.|3\.[0-9])/;
+  // Match vers=X.Y or vers=X.Y.Z format (SMB), but not vers=3 or vers=4 (NFS)
+  const smbVersionPattern = /^vers=(1\.|2\.|3\.\d+)/;
   
   // Check for SMB/CIFS-specific options
   for (const option of options) {
@@ -166,7 +168,12 @@ function validateMountOptions(mountOptions) {
     // Check SMB-only options
     for (const smbOption of smbOnlyOptions) {
       if (smbOption.pattern.test(optionLower)) {
-        errors.push(`Invalid NFS option detected: "${smbOption.name}" is a SMB/CIFS option and not compatible with NFS mounts`);
+        const message = `Option "${smbOption.name}" detected: ${smbOption.description}`;
+        if (smbOption.severity === 'error') {
+          errors.push(`Invalid NFS option: ${message}. This will likely cause mount failures.`);
+        } else {
+          warnings.push(`Unusual NFS option: ${message}. Only use if you specifically need this for your NFS setup.`);
+        }
         break; // Only report each option once
       }
     }

@@ -109,8 +109,9 @@ function formatNFSMountError(error, connection) {
         '5. Try mounting manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
         '',
         '⚠️ Synology-specific: Check "Squash" settings in Synology NFS permissions',
-        '   - Avoid "Map all users to admin" which can cause permission issues',
-        '   - Use "Map all users to admin" or "No mapping" depending on your needs',
+        '   - Common setting: "Map all users to admin" (easier, less secure)',
+        '   - Secure setting: "No mapping" (preserves user IDs, more secure)',
+        '   - Choose based on your security requirements',
         '   - Ensure the shared folder has appropriate permissions'
       ].join('\n'),
       documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
