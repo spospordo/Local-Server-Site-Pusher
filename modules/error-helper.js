@@ -106,7 +106,13 @@ function formatNFSMountError(error, connection) {
         '2. Ensure your client IP/network is allowed in the exports configuration',
         '3. Check NFS export permissions (rw vs ro, sync vs async)',
         '4. Verify no firewall is blocking NFS ports (2049, 111)',
-        '5. Try mounting manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test'
+        '5. Try mounting manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
+        '',
+        '⚠️ Synology-specific: Check "Squash" settings in Synology NFS permissions',
+        '   - Common setting: "Map all users to admin" (easier, less secure)',
+        '   - Secure setting: "No mapping" (preserves user IDs, more secure)',
+        '   - Choose based on your security requirements',
+        '   - Ensure the shared folder has appropriate permissions'
       ].join('\n'),
       documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
     });
@@ -124,7 +130,13 @@ function formatNFSMountError(error, connection) {
         '3. Test connectivity: ping ' + host,
         '4. Verify NFS service is running on server: systemctl status nfs-server',
         '5. Check firewall rules allow NFS traffic (ports 2049, 111)',
-        '6. If using hostname, verify DNS resolution is working'
+        '6. If using hostname, verify DNS resolution is working',
+        '',
+        '⚠️ Synology-specific: Ensure NFS service is enabled',
+        '   - Go to Control Panel > File Services > NFS',
+        '   - Check "Enable NFS" and "Enable NFSv3"',
+        '   - Consider enabling NFSv4 if supported by your DSM version',
+        '   - Verify network interface is correctly configured'
       ].join('\n'),
       documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#network-issues'
     });
@@ -158,7 +170,13 @@ function formatNFSMountError(error, connection) {
         '2. List available exports on server: showmount -e ' + host,
         '3. Check /etc/exports on the NFS server for configured exports',
         '4. Ensure the export path exists on the NFS server filesystem',
-        '5. Export path must start with / (e.g., /mnt/share not mnt/share)'
+        '5. Export path must start with / (e.g., /mnt/share not mnt/share)',
+        '',
+        '⚠️ Synology-specific: Export paths follow a specific format',
+        '   - Typical format: /volume1/ShareName or /volume2/ShareName',
+        '   - Check actual path in: Control Panel > Shared Folder',
+        '   - Verify NFS permissions are set in the shared folder settings',
+        '   - Example: /volume3/BackupShared/HomeServer'
       ].join('\n'),
       documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#configuration'
     });
@@ -175,7 +193,12 @@ function formatNFSMountError(error, connection) {
         '2. Check if port 111 (rpcbind) is accessible: telnet ' + host + ' 111',
         '3. Ensure NFS server services are running: systemctl status nfs-server',
         '4. Verify firewall allows RPC ports (111, 2049)',
-        '5. Try restarting NFS services on server if you have access'
+        '5. Try restarting NFS services on server if you have access',
+        '',
+        '⚠️ Synology-specific tips:',
+        '   - Synology may use different RPC port mappings',
+        '   - Verify NFS service is fully started (can take time after reboot)',
+        '   - Check DSM firewall rules if enabled'
       ].join('\n'),
       documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
     });
@@ -199,6 +222,37 @@ function formatNFSMountError(error, connection) {
     });
   }
   
+  // Check for NFS version mismatch issues (Synology-specific)
+  if (errorMsg.includes('Protocol not supported') || errorMsg.includes('wrong fs type') || 
+      errorMsg.includes('vers') || errorMsg.includes('version')) {
+    return new NFSError('NFS version mismatch or protocol issue', {
+      code: 'NFS_VERSION_MISMATCH',
+      host,
+      path: exportPath,
+      details: `NFS protocol version issue with ${host}:${exportPath}`,
+      solution: [
+        '⚠️ SYNOLOGY USERS: This is a common issue with Synology NFS!',
+        '',
+        '1. Try NFSv3 first (Synology default): Add "vers=3" to mount options',
+        '   Example: rw,_netdev,vers=3',
+        '',
+        '2. If NFSv3 fails, verify Synology NFS settings:',
+        '   - Go to Control Panel > File Services > NFS',
+        '   - Ensure "Enable NFSv3" is checked',
+        '   - Check if "Enable NFSv4" is available and enabled (DSM 7.0+)',
+        '',
+        '3. Recommended Synology mount options:',
+        '   - Basic: rw,_netdev,vers=3',
+        '   - Reliable: rw,_netdev,vers=3,soft,timeo=30',
+        '',
+        '4. Only try vers=4 if your Synology DSM version supports it',
+        '',
+        '5. Test manually: mount -t nfs -o vers=3 ' + host + ':' + exportPath + ' /mnt/test'
+      ].join('\n'),
+      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#synology-nfs-configuration'
+    });
+  }
+  
   // Generic NFS error with basic troubleshooting
   return new NFSError('NFS mount operation failed', {
     code: 'NFS_MOUNT_FAILED',
@@ -210,7 +264,13 @@ function formatNFSMountError(error, connection) {
       '2. Verify NFS server is running and accessible: ping ' + host,
       '3. Test mount manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
       '4. Check NFS server logs for additional information',
-      '5. Review NFS troubleshooting guide below'
+      '5. Review NFS troubleshooting guide below',
+      '',
+      '⚠️ If using Synology NAS:',
+      '   - Try adding "vers=3" to mount options',
+      '   - Verify NFS service is enabled in File Services',
+      '   - Check NFS permissions on the shared folder',
+      '   - Recommended: rw,_netdev,vers=3'
     ].join('\n'),
     documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
   });

@@ -269,6 +269,180 @@ Example combinations:
 - **High-performance mount**: `vers=4,tcp,rsize=65536,wsize=65536,noatime`
 - **Legacy compatibility**: `vers=3,tcp,soft,timeo=50`
 
+## Synology NFS Configuration
+
+### Overview
+
+Synology NAS devices are a popular choice for NFS network storage, but they require specific configuration to work reliably. This section provides Synology-specific guidance.
+
+### Enabling NFS on Synology
+
+1. **Enable NFS Service**
+   - Go to **Control Panel** > **File Services** > **NFS**
+   - Check **Enable NFS** service
+   - **Enable NFSv3** (required - most compatible)
+   - Consider **Enable NFSv4** if your DSM version supports it (DSM 7.0+)
+   - Click **Apply**
+
+2. **Configure Shared Folder for NFS**
+   - Go to **Control Panel** > **Shared Folder**
+   - Select the folder you want to export via NFS
+   - Click **Edit** > **NFS Permissions**
+   - Click **Create** to add a new NFS rule:
+     - **Server or IP address**: Enter your client IP or network (e.g., `192.168.1.0/24`)
+     - **Privilege**: Read/Write or Read Only
+     - **Squash**: Select **Map all users to admin** for simplicity, or **No mapping** for stricter security
+     - **Security**: `sys` (default)
+     - **Enable asynchronous**: Unchecked (more reliable)
+     - **Allow connections from non-privileged ports**: Checked
+     - **Allow users to access mounted subfolders**: Checked if needed
+   - Click **OK** and **Save**
+
+### Synology Export Path Format
+
+Synology uses a specific format for NFS export paths:
+
+**Format**: `/volume[number]/[SharedFolderName]/[optional/subfolder/path]`
+
+**Examples**:
+- Single volume: `/volume1/backups`
+- Multiple volumes: `/volume2/HomeBackup`
+- With subfolder: `/volume3/BackupShared/HomeServer`
+
+**Finding Your Path**:
+1. SSH into Synology or use File Station
+2. Run: `showmount -e localhost`
+3. Or check: **Control Panel** > **Shared Folder** > Note the volume location
+
+### Recommended Mount Options for Synology
+
+The system automatically validates mount options and provides recommendations for Synology servers.
+
+#### Basic (Most Compatible)
+```
+rw,_netdev,vers=3
+```
+Use this first - works with most Synology DSM versions.
+
+#### Reliable (Recommended for Production)
+```
+rw,_netdev,vers=3,soft,timeo=30
+```
+Handles network interruptions gracefully, good for backups.
+
+#### High Performance
+```
+rw,_netdev,vers=3,rsize=8192,wsize=8192,noatime
+```
+Better throughput, suitable for frequent large file transfers.
+
+#### Read-Only
+```
+ro,_netdev,vers=3
+```
+For backup browsing/restore only.
+
+### Common Synology NFS Issues
+
+#### Issue: "Protocol not supported" or Version Mismatch
+
+**Cause**: Attempting to use NFSv4 when Synology only has NFSv3 enabled, or using SMB options.
+
+**Solution**:
+1. Use `vers=3` in mount options (Synology default)
+2. Verify NFS service is enabled in Control Panel > File Services
+3. Check that "Enable NFSv3" is checked
+4. Avoid SMB/CIFS-specific options like `uid=`, `gid=`, `file_mode=`, `dir_mode=`
+
+**The system will warn you** if you use incompatible options.
+
+#### Issue: Permission Denied
+
+**Cause**: Client IP not allowed in NFS permissions or wrong Squash setting.
+
+**Solution**:
+1. Verify your client IP is in the NFS permissions list
+2. Check Squash setting - try "Map all users to admin" for troubleshooting
+3. Ensure the shared folder has appropriate permissions
+4. Verify no firewall rules blocking NFS ports (2049, 111)
+
+#### Issue: Connection Timeout
+
+**Cause**: Network issues, firewall, or NFS service not running.
+
+**Solution**:
+1. Test connectivity: `ping [synology-ip]`
+2. Verify NFS service is running on Synology
+3. Check firewall settings on both Synology and client
+4. Ensure correct IP/hostname
+5. Try IP address instead of hostname if DNS might be an issue
+
+#### Issue: Export Path Not Found
+
+**Cause**: Incorrect export path format or folder not shared via NFS.
+
+**Solution**:
+1. Verify export path format: `/volume1/ShareName`
+2. Check that the shared folder has NFS permissions configured
+3. List available exports: `showmount -e [synology-ip]`
+4. Path is case-sensitive
+
+### Invalid Options for NFS (SMB/CIFS Only)
+
+The following options are for SMB/CIFS mounts and **will cause errors** with NFS:
+
+**Do NOT use these with NFS**:
+- `uid=` - User ID mapping (SMB only)
+- `gid=` - Group ID mapping (SMB only)
+- `file_mode=` - File permission mask (SMB only)
+- `dir_mode=` - Directory permission mask (SMB only)
+- `username=` - Authentication username (SMB only)
+- `password=` - Authentication password (SMB only)
+- `domain=` - Windows domain (SMB only)
+- `credentials=` - Credentials file (SMB only)
+
+**The system automatically detects and blocks these options.**
+
+### Testing Your Synology NFS Connection
+
+1. **Use the Test Connection feature** before saving
+2. The system will validate your mount options
+3. Watch for warnings about NFS version or incompatible options
+4. Test with basic options first: `rw,_netdev,vers=3`
+5. If connection fails, the error message will provide specific guidance
+
+### Synology DSM Version Differences
+
+- **DSM 6.x**: NFSv3 is most reliable, NFSv4 may have issues
+- **DSM 7.0+**: NFSv4 support is improved but still test with NFSv3 first
+- **All versions**: NFSv3 with basic options is the safest starting point
+
+### Example fstab Line for Synology
+
+When the system generates an fstab entry for Synology, it follows this format:
+
+```
+[synology-ip]:/volume[X]/[ShareName] /mnt/mountpoint nfs rw,_netdev,vers=3 0 0
+```
+
+**Real example**:
+```
+192.168.1.100:/volume3/BackupShared/HomeServer /mnt/backup nfs rw,_netdev,vers=3,soft,timeo=30 0 0
+```
+
+### Quick Start for Synology Users
+
+1. **Enable NFS on Synology**: Control Panel > File Services > NFS > Enable NFS + Enable NFSv3
+2. **Share Folder**: Control Panel > Shared Folder > Edit > NFS Permissions > Add your client IP
+3. **Find Export Path**: Usually `/volume1/[YourSharedFolder]`
+4. **Add Connection in Admin UI**:
+   - Name: My Synology Backup
+   - Host: Your Synology IP
+   - Export Path: /volume1/backups
+   - Mount Options: Click "Use Synology Template" or enter: `rw,_netdev,vers=3`
+5. **Test Connection**: System will validate and provide feedback
+6. **Save and Mount**: If test succeeds, save and mount the connection
+
 ## API Reference
 
 For developers integrating with the NFS feature:

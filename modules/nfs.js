@@ -127,10 +127,108 @@ function saveConfig(config) {
 }
 
 /**
+ * Validate mount options for NFS compatibility
+ * Detects SMB/CIFS-specific options that are not compatible with NFS
+ */
+function validateMountOptions(mountOptions) {
+  const warnings = [];
+  const errors = [];
+  
+  if (!mountOptions || mountOptions.trim() === '') {
+    return { valid: true, warnings: [], errors: [] };
+  }
+  
+  // Split options by comma and check each individually
+  const options = mountOptions.split(',').map(opt => opt.trim());
+  
+  // SMB/CIFS-only options that should not be used with NFS
+  // Using exact match or starts-with to avoid false positives
+  const smbOnlyOptions = [
+    { pattern: /^file_mode=/, name: 'file_mode=', description: 'File permission mask (SMB only)', severity: 'error' },
+    { pattern: /^dir_mode=/, name: 'dir_mode=', description: 'Directory permission mask (SMB only)', severity: 'error' },
+    { pattern: /^username=/, name: 'username=', description: 'Authentication username (SMB only)', severity: 'error' },
+    { pattern: /^password=/, name: 'password=', description: 'Authentication password (SMB only)', severity: 'error' },
+    { pattern: /^domain=/, name: 'domain=', description: 'Windows domain (SMB only)', severity: 'error' },
+    { pattern: /^credentials=/, name: 'credentials=', description: 'Credentials file (SMB only)', severity: 'error' },
+    { pattern: /^iocharset=/, name: 'iocharset=', description: 'Character set (SMB only)', severity: 'error' },
+    { pattern: /^codepage=/, name: 'codepage=', description: 'Code page (SMB only)', severity: 'error' },
+    // uid/gid are primarily SMB options but can be used with NFS in some contexts, so warning instead of error
+    { pattern: /^uid=/, name: 'uid=', description: 'User ID (primarily for SMB, rarely needed for NFS)', severity: 'warning' },
+    { pattern: /^gid=/, name: 'gid=', description: 'Group ID (primarily for SMB, rarely needed for NFS)', severity: 'warning' }
+  ];
+  
+  // SMB version patterns (not NFS versions which are simply vers=3 or vers=4)
+  // Match SMB version formats: vers=1.0, vers=2.0, vers=2.1, vers=3.0, vers=3.1.1, etc.
+  // But NOT match NFS versions: vers=3 or vers=4
+  const smbVersionPattern = /^vers=(1\.0|2\.[01]|3\.[0-9]+)/;
+  
+  // Check for SMB/CIFS-specific options
+  for (const option of options) {
+    const optionLower = option.toLowerCase();
+    
+    // Check SMB-only options
+    for (const smbOption of smbOnlyOptions) {
+      if (smbOption.pattern.test(optionLower)) {
+        const message = `Option "${smbOption.name}" detected: ${smbOption.description}`;
+        if (smbOption.severity === 'error') {
+          errors.push(`Invalid NFS option: ${message}. This will likely cause mount failures.`);
+        } else {
+          warnings.push(`Unusual NFS option: ${message}. Only use if you specifically need this for your NFS setup.`);
+        }
+        break; // Only report each option once
+      }
+    }
+    
+    // Check for SMB version format (e.g., vers=1.0, vers=2.1, vers=3.1.1)
+    if (smbVersionPattern.test(optionLower)) {
+      errors.push(`Invalid NFS option detected: "${option}" appears to be a SMB/CIFS version format. Use "vers=3" or "vers=4" for NFS.`);
+    }
+  }
+  
+  // Synology-specific recommendations
+  // Check for NFS version in the options (vers=3 or vers=4)
+  const hasNfsVersion = options.some(opt => /^vers=[34]$/i.test(opt.trim()));
+  if (!hasNfsVersion) {
+    warnings.push('No NFS version specified. Synology servers often work best with "vers=3". Consider adding "vers=3" or "vers=4" to mount options.');
+  }
+  
+  // Check for Synology NFSv4 issues
+  const hasVers4 = options.some(opt => /^vers=4$/i.test(opt.trim()));
+  if (hasVers4) {
+    warnings.push('Using NFSv4. If connection fails with Synology, try "vers=3" as Synology often defaults to NFSv3.');
+  }
+  
+  // Recommend _netdev for network mounts in fstab
+  const hasNetdev = options.some(opt => /^_netdev$/i.test(opt.trim()));
+  if (!hasNetdev) {
+    warnings.push('Consider adding "_netdev" option for reliable network mount handling, especially for automatic mounts.');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    warnings,
+    errors
+  };
+}
+
+/**
+ * Generate recommended mount options for Synology NFS servers
+ */
+function getSynologyRecommendedOptions() {
+  return {
+    basic: 'rw,_netdev,vers=3',
+    reliable: 'rw,_netdev,vers=3,soft,timeo=30',
+    highPerformance: 'rw,_netdev,vers=3,rsize=8192,wsize=8192,noatime',
+    readOnly: 'ro,_netdev,vers=3'
+  };
+}
+
+/**
  * Validate NFS connection parameters
  */
 function validateConnection(connection) {
   const errors = [];
+  const warnings = [];
   
   if (!connection.name || connection.name.trim() === '') {
     errors.push('Connection name is required');
@@ -149,9 +247,17 @@ function validateConnection(connection) {
     errors.push('Export path must start with /');
   }
   
+  // Validate mount options
+  if (connection.mountOptions) {
+    const optionValidation = validateMountOptions(connection.mountOptions);
+    errors.push(...optionValidation.errors);
+    warnings.push(...optionValidation.warnings);
+  }
+  
   return {
     valid: errors.length === 0,
-    errors
+    errors,
+    warnings
   };
 }
 
@@ -198,10 +304,14 @@ async function testConnection(connection) {
     if (!validation.valid) {
       resolve({
         success: false,
-        error: validation.errors.join(', ')
+        error: validation.errors.join(', '),
+        warnings: validation.warnings
       });
       return;
     }
+    
+    // Include warnings even if validation passes
+    const responseWarnings = validation.warnings;
     
     // Check NFS support
     const nfsSupport = isNfsSupported();
@@ -304,7 +414,8 @@ async function testConnection(connection) {
             
             resolve({
               success: true,
-              message: 'Connection successful'
+              message: 'Connection successful',
+              warnings: responseWarnings
             });
           });
         } catch (testError) {
@@ -527,7 +638,8 @@ function addConnection(connection) {
   if (!validation.valid) {
     return {
       success: false,
-      error: validation.errors.join(', ')
+      error: validation.errors.join(', '),
+      warnings: validation.warnings
     };
   }
   
@@ -545,7 +657,8 @@ function addConnection(connection) {
     logger.info(logger.categories.SYSTEM, `[NFS] Added connection: ${connection.name}`);
     return {
       success: true,
-      connection
+      connection,
+      warnings: validation.warnings
     };
   }
   
@@ -586,7 +699,8 @@ function updateConnection(connectionId, updates) {
   if (!validation.valid) {
     return {
       success: false,
-      error: validation.errors.join(', ')
+      error: validation.errors.join(', '),
+      warnings: validation.warnings
     };
   }
   
@@ -596,7 +710,8 @@ function updateConnection(connectionId, updates) {
     logger.info(logger.categories.SYSTEM, `[NFS] Updated connection: ${updatedConnection.name}`);
     return {
       success: true,
-      connection: updatedConnection
+      connection: updatedConnection,
+      warnings: validation.warnings
     };
   }
   
@@ -897,6 +1012,8 @@ module.exports = {
   saveConfig,
   isNfsSupported,
   validateConnection,
+  validateMountOptions,
+  getSynologyRecommendedOptions,
   testConnection,
   mountConnection,
   unmountConnection,
