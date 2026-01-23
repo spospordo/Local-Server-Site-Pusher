@@ -40,3 +40,4 @@ uploads/cookies.jar
 # Uploaded template files from testing (these are test artifacts)
 uploads/espresso/templates/
 config/.gitconfig
+nfs-mounts/

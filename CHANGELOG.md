@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **NFS Network Drive Feature**: Removed NFS (Network File System) network drive functionality due to unreliable container mounting
+  - Removed NFS module (`modules/nfs.js`)
+  - Removed 15 NFS API endpoints
+  - Removed NFS UI components from admin dashboard
+  - Removed NFS backup/restore functions
+  - Removed NFS-specific error handling
+  - Removed NFS client package (`nfs-common`) from Docker image
+  - Removed documentation files (`NFS_NETWORK_DRIVE.md`, `NFS_TESTING_GUIDE.md`)
+  - **Migration Note**: Users currently using NFS for backups should export their configuration via the admin dashboard's Backup/Restore feature and store backups using alternative methods (local storage, cloud storage services, or manual file transfer)
+
 ### Added
 - **Finance Module - Account Merging (v2.3.0)**: Merge duplicate or split accounts into a single account
   - Multi-select interface with checkboxes to select accounts for merging

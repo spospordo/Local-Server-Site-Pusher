@@ -11,7 +11,6 @@ A containerized web application with admin interface for serving web content and
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
-💾 **NFS Network Drive**: Backup and restore configurations to/from NFS network storage (see [NFS_NETWORK_DRIVE.md](NFS_NETWORK_DRIVE.md))  
 
 ## Quick Start
 
@@ -373,24 +372,6 @@ Export and import your complete site configuration through the admin interface:
 1. Navigate to **Settings > General > Backup & Restore**
 2. Click **Download Backup File** to export all configurations
 3. Use **Import Data** to restore from a previously exported backup
-
-### NFS Network Drive Backups
-
-Automatically backup and restore configurations to/from NFS network storage:
-
-1. Navigate to **Settings > General > NFS Network Drive**
-2. Add your NFS server connection (requires NFS server details)
-3. Upload backups to remote NFS storage
-4. Restore configurations from NFS backups
-
-**Features:**
-- 🔐 Encrypted credential storage (AES-256-GCM)
-- 📤 Automatic backup upload to NFS
-- 📥 One-click restore from NFS
-- 🔍 Connection testing and validation
-- 🌐 Support for NFSv3 and NFSv4
-
-See [NFS_NETWORK_DRIVE.md](NFS_NETWORK_DRIVE.md) for complete setup and usage instructions.
 
 ## Home Assistant Integration
 

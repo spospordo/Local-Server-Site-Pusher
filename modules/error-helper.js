@@ -11,31 +11,6 @@ const logger = require('./logger');
  * Custom error classes for different error types
  */
 
-class NFSError extends Error {
-  constructor(message, options = {}) {
-    super(message);
-    this.name = 'NFSError';
-    this.code = options.code || 'NFS_ERROR';
-    this.host = options.host;
-    this.path = options.path;
-    this.details = options.details;
-    this.solution = options.solution;
-    this.documentationUrl = options.documentationUrl;
-  }
-
-  toJSON() {
-    return {
-      error: this.message,
-      code: this.code,
-      host: this.host,
-      path: this.path,
-      details: this.details,
-      solution: this.solution,
-      documentationUrl: this.documentationUrl
-    };
-  }
-}
-
 class GitHubError extends Error {
   constructor(message, options = {}) {
     super(message);
@@ -85,196 +60,6 @@ class FileSystemError extends Error {
 /**
  * Enhanced error message builders
  */
-
-/**
- * Format NFS mount errors with detailed context and solutions
- */
-function formatNFSMountError(error, connection) {
-  const host = connection?.host || 'unknown';
-  const exportPath = connection?.exportPath || 'unknown';
-  const errorMsg = error.message || error.stderr || String(error);
-  
-  // Detect common NFS error patterns
-  if (error.code === 'EACCES' || errorMsg.includes('access denied') || errorMsg.includes('Permission denied')) {
-    return new NFSError('NFS mount failed due to permission issues', {
-      code: 'NFS_PERMISSION_DENIED',
-      host,
-      path: exportPath,
-      details: `Cannot access NFS share at ${host}:${exportPath}`,
-      solution: [
-        '1. Verify the export is configured in /etc/exports on the NFS server',
-        '2. Ensure your client IP/network is allowed in the exports configuration',
-        '3. Check NFS export permissions (rw vs ro, sync vs async)',
-        '4. Verify no firewall is blocking NFS ports (2049, 111)',
-        '5. Try mounting manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
-        '',
-        '⚠️ Synology-specific: Check "Squash" settings in Synology NFS permissions',
-        '   - Common setting: "Map all users to admin" (easier, less secure)',
-        '   - Secure setting: "No mapping" (preserves user IDs, more secure)',
-        '   - Choose based on your security requirements',
-        '   - Ensure the shared folder has appropriate permissions'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
-    });
-  }
-  
-  if (error.code === 'ETIMEDOUT' || error.code === 'ETIMEOUT' || errorMsg.includes('timeout')) {
-    return new NFSError('NFS mount timed out - server unreachable', {
-      code: 'NFS_TIMEOUT',
-      host,
-      path: exportPath,
-      details: `Cannot reach NFS server at ${host}`,
-      solution: [
-        '1. Verify the NFS server IP address or hostname is correct',
-        '2. Check if the NFS server is running and accessible on your network',
-        '3. Test connectivity: ping ' + host,
-        '4. Verify NFS service is running on server: systemctl status nfs-server',
-        '5. Check firewall rules allow NFS traffic (ports 2049, 111)',
-        '6. If using hostname, verify DNS resolution is working',
-        '',
-        '⚠️ Synology-specific: Ensure NFS service is enabled',
-        '   - Go to Control Panel > File Services > NFS',
-        '   - Check "Enable NFS" and "Enable NFSv3"',
-        '   - Consider enabling NFSv4 if supported by your DSM version',
-        '   - Verify network interface is correctly configured'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#network-issues'
-    });
-  }
-  
-  if (error.code === 'ENETUNREACH' || error.code === 'EHOSTUNREACH' || errorMsg.includes('Network is unreachable') || errorMsg.includes('No route to host')) {
-    return new NFSError('Cannot reach NFS server - network unreachable', {
-      code: 'NFS_NETWORK_UNREACHABLE',
-      host,
-      path: exportPath,
-      details: `Network path to ${host} is not available`,
-      solution: [
-        '1. Verify the server IP address is on the same network or routable',
-        '2. Check network connectivity: ping ' + host,
-        '3. Verify network configuration in docker-compose.yml if using Docker',
-        '4. If server is on different subnet, check routing configuration',
-        '5. Try using IP address instead of hostname if DNS might be an issue'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#network-issues'
-    });
-  }
-  
-  if (error.code === 'ENOENT' || errorMsg.includes('does not exist') || errorMsg.includes('No such file')) {
-    return new NFSError('NFS export path not found', {
-      code: 'NFS_PATH_NOT_FOUND',
-      host,
-      path: exportPath,
-      details: `The export path ${exportPath} does not exist on server ${host}`,
-      solution: [
-        '1. Verify the export path is correct (check for typos)',
-        '2. List available exports on server: showmount -e ' + host,
-        '3. Check /etc/exports on the NFS server for configured exports',
-        '4. Ensure the export path exists on the NFS server filesystem',
-        '5. Export path must start with / (e.g., /mnt/share not mnt/share)',
-        '',
-        '⚠️ Synology-specific: Export paths follow a specific format',
-        '   - Typical format: /volume1/ShareName or /volume2/ShareName',
-        '   - Check actual path in: Control Panel > Shared Folder',
-        '   - Verify NFS permissions are set in the shared folder settings',
-        '   - Example: /volume3/BackupShared/HomeServer'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#configuration'
-    });
-  }
-  
-  if (errorMsg.includes('rpc') || errorMsg.includes('RPC') || errorMsg.includes('portmap')) {
-    return new NFSError('NFS RPC service communication failed', {
-      code: 'NFS_RPC_ERROR',
-      host,
-      path: exportPath,
-      details: `Cannot communicate with NFS RPC services on ${host}`,
-      solution: [
-        '1. Verify rpcbind service is running on NFS server: systemctl status rpcbind',
-        '2. Check if port 111 (rpcbind) is accessible: telnet ' + host + ' 111',
-        '3. Ensure NFS server services are running: systemctl status nfs-server',
-        '4. Verify firewall allows RPC ports (111, 2049)',
-        '5. Try restarting NFS services on server if you have access',
-        '',
-        '⚠️ Synology-specific tips:',
-        '   - Synology may use different RPC port mappings',
-        '   - Verify NFS service is fully started (can take time after reboot)',
-        '   - Check DSM firewall rules if enabled'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
-    });
-  }
-  
-  if (errorMsg.includes('mount.nfs') && errorMsg.includes('not found')) {
-    return new NFSError('NFS client tools not installed', {
-      code: 'NFS_CLIENT_NOT_INSTALLED',
-      host,
-      path: exportPath,
-      details: 'NFS client utilities (mount.nfs) are not available on this system',
-      solution: [
-        '1. Install NFS client packages:',
-        '   - Debian/Ubuntu: apt-get install nfs-common',
-        '   - RHEL/CentOS: yum install nfs-utils',
-        '   - Alpine: apk add nfs-utils',
-        '2. Rebuild the Docker container if using containers',
-        '3. Verify installation: which mount.nfs'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#installation'
-    });
-  }
-  
-  // Check for NFS version mismatch issues (Synology-specific)
-  if (errorMsg.includes('Protocol not supported') || errorMsg.includes('wrong fs type') || 
-      errorMsg.includes('vers') || errorMsg.includes('version')) {
-    return new NFSError('NFS version mismatch or protocol issue', {
-      code: 'NFS_VERSION_MISMATCH',
-      host,
-      path: exportPath,
-      details: `NFS protocol version issue with ${host}:${exportPath}`,
-      solution: [
-        '⚠️ SYNOLOGY USERS: This is a common issue with Synology NFS!',
-        '',
-        '1. Try NFSv3 first (Synology default): Add "vers=3" to mount options',
-        '   Example: rw,_netdev,vers=3',
-        '',
-        '2. If NFSv3 fails, verify Synology NFS settings:',
-        '   - Go to Control Panel > File Services > NFS',
-        '   - Ensure "Enable NFSv3" is checked',
-        '   - Check if "Enable NFSv4" is available and enabled (DSM 7.0+)',
-        '',
-        '3. Recommended Synology mount options:',
-        '   - Basic: rw,_netdev,vers=3',
-        '   - Reliable: rw,_netdev,vers=3,soft,timeo=30',
-        '',
-        '4. Only try vers=4 if your Synology DSM version supports it',
-        '',
-        '5. Test manually: mount -t nfs -o vers=3 ' + host + ':' + exportPath + ' /mnt/test'
-      ].join('\n'),
-      documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#synology-nfs-configuration'
-    });
-  }
-  
-  // Generic NFS error with basic troubleshooting
-  return new NFSError('NFS mount operation failed', {
-    code: 'NFS_MOUNT_FAILED',
-    host,
-    path: exportPath,
-    details: errorMsg,
-    solution: [
-      '1. Check the error details above for specific issues',
-      '2. Verify NFS server is running and accessible: ping ' + host,
-      '3. Test mount manually: mount -t nfs ' + host + ':' + exportPath + ' /mnt/test',
-      '4. Check NFS server logs for additional information',
-      '5. Review NFS troubleshooting guide below',
-      '',
-      '⚠️ If using Synology NAS:',
-      '   - Try adding "vers=3" to mount options',
-      '   - Verify NFS service is enabled in File Services',
-      '   - Check NFS permissions on the shared folder',
-      '   - Recommended: rw,_netdev,vers=3'
-    ].join('\n'),
-    documentationUrl: 'https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting'
-  });
-}
 
 /**
  * Format file system errors with context and solutions
@@ -478,7 +263,7 @@ function logError(category, error, context = {}) {
   // Format error message with context
   let logMessage = error.message || String(error);
   
-  if (error instanceof NFSError || error instanceof GitHubError || error instanceof FileSystemError) {
+  if (error instanceof GitHubError || error instanceof FileSystemError) {
     // Custom error classes have structured information
     const errorData = error.toJSON();
     if (errorData.details) {
@@ -503,7 +288,7 @@ function logError(category, error, context = {}) {
  * Create error response with enhanced information
  */
 function createErrorResponse(error, includeStack = false) {
-  if (error instanceof NFSError || error instanceof GitHubError || error instanceof FileSystemError) {
+  if (error instanceof GitHubError || error instanceof FileSystemError) {
     const response = error.toJSON();
     if (includeStack && error.stack) {
       response.stack = error.stack;
@@ -529,12 +314,10 @@ function createErrorResponse(error, includeStack = false) {
 
 module.exports = {
   // Error classes
-  NFSError,
   GitHubError,
   FileSystemError,
   
   // Formatters
-  formatNFSMountError,
   formatFileSystemError,
   formatGitHubError,
   
