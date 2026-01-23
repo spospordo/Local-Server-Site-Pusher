@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.3.4] - 2026-01-23
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #384 from spospordo/copilot/remove-nfs-feature-code
+  - Final cleanup: update .gitignore for NFS directories
+  - Remove remaining NFS documentation from README
+  - Remove NFS UI, documentation, and Docker dependencies
+  - Remove NFS module, API endpoints, and core functionality
+  - Initial plan
+
+
 ## [2.3.3] - 2026-01-23
 
 ### Patch Update
