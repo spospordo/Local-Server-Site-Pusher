@@ -86,6 +86,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.4.0] - 2026-01-23
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #386 from spospordo/copilot/support-nfs-storage-locations
+  - refactor: Address final code review feedback - cache initialization and constants
+  - docs: Add comprehensive implementation summary
+  - fix: Address code review feedback - race conditions, caching, and performance
+  - test: Add comprehensive tests for NFS storage functionality
+  - feat: Add NFS storage support with health monitoring and API endpoints
+  - Initial plan
+
+
 ## [2.3.4] - 2026-01-23
 
 ### Patch Update
