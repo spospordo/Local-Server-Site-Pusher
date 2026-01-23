@@ -543,7 +543,8 @@ function validateAndRepairConfig(config) {
     'client': defaultConfig.client,
     'drinkMixer': defaultConfig.drinkMixer,
     'vidiots': defaultConfig.vidiots,
-    'espresso': defaultConfig.espresso
+    'espresso': defaultConfig.espresso,
+    'nfsStorage': defaultConfig.nfsStorage
   };
   
   for (const [sectionPath, defaultValue] of Object.entries(requiredSections)) {
