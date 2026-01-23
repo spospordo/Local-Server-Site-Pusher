@@ -19,7 +19,6 @@ const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
 const house = require('./modules/house');
-const NFSStorageManager = require('./modules/nfs-storage');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -494,13 +493,6 @@ const defaultConfig = {
     "delaySeconds": 5,
     "runOnStartup": true,
     "forceOverwrite": false
-  },
-  "nfsStorage": {
-    "enabled": false,
-    "storagePaths": [],
-    "healthCheckInterval": 300000,
-    "autoFailover": true,
-    "fallbackToLocal": true
   }
 };
 
@@ -543,8 +535,7 @@ function validateAndRepairConfig(config) {
     'client': defaultConfig.client,
     'drinkMixer': defaultConfig.drinkMixer,
     'vidiots': defaultConfig.vidiots,
-    'espresso': defaultConfig.espresso,
-    'nfsStorage': defaultConfig.nfsStorage
+    'espresso': defaultConfig.espresso
   };
   
   for (const [sectionPath, defaultValue] of Object.entries(requiredSections)) {
@@ -715,32 +706,6 @@ house.init(config);
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
-
-// Initialize NFS Storage Manager
-let nfsStorage = null;
-let nfsStorageInitPromise = null;
-if (config.nfsStorage && config.nfsStorage.enabled) {
-  try {
-    nfsStorage = new NFSStorageManager(config.nfsStorage);
-    // Store the initialization promise - don't clear it until it's complete
-    // This prevents race conditions where API calls try to await a nullified promise
-    nfsStorageInitPromise = nfsStorage.initialize().then(() => {
-      logger.success(logger.categories.SYSTEM, 'NFS Storage Manager initialized successfully');
-      return true; // Return value to indicate success
-    }).catch(err => {
-      logger.error(logger.categories.SYSTEM, `NFS Storage Manager initialization failed: ${err.message}`);
-      throw err; // Re-throw to allow error handling
-    }).finally(() => {
-      // Only clear the promise reference after completion (success or failure)
-      // Use a timeout to ensure any pending await operations complete first
-      setTimeout(() => {
-        nfsStorageInitPromise = null;
-      }, 100);
-    });
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Failed to create NFS Storage Manager: ${err.message}`);
-  }
-}
 
 // Initialize multer configuration after config is loaded
 upload = multer({
@@ -6308,226 +6273,6 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete connection: ' + err.message });
-  }
-});
-
-// NFS Storage API Endpoints
-// Helper function to ensure NFS storage is ready
-async function ensureNFSStorageReady() {
-  if (nfsStorageInitPromise) {
-    await nfsStorageInitPromise;
-  }
-}
-
-// Mutex for toggle operations to prevent race conditions
-let toggleInProgress = false;
-
-// Get all storage paths with status
-app.get('/admin/api/nfs-storage/paths', requireAuth, async (req, res) => {
-  try {
-    await ensureNFSStorageReady();
-    
-    if (!nfsStorage) {
-      return res.json({
-        enabled: false,
-        paths: [],
-        message: 'NFS storage is not enabled'
-      });
-    }
-    
-    const paths = nfsStorage.getAllPathsWithStatus();
-    res.json({
-      enabled: true,
-      paths,
-      healthCheckInterval: nfsStorage.healthCheckInterval,
-      autoFailover: nfsStorage.autoFailover,
-      fallbackToLocal: nfsStorage.fallbackToLocal
-    });
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error getting NFS storage paths: ${err.message}`);
-    res.status(500).json({ error: 'Failed to get storage paths: ' + err.message });
-  }
-});
-
-// Get status of specific storage path
-app.get('/admin/api/nfs-storage/paths/:pathId/status', requireAuth, (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(404).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const status = nfsStorage.getPathStatus(req.params.pathId);
-    if (!status) {
-      return res.status(404).json({ error: 'Storage path not found' });
-    }
-    
-    res.json(status);
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error getting path status: ${err.message}`);
-    res.status(500).json({ error: 'Failed to get path status: ' + err.message });
-  }
-});
-
-// Get storage statistics for a path
-app.get('/admin/api/nfs-storage/paths/:pathId/stats', requireAuth, (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(404).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const stats = nfsStorage.getStorageStats(req.params.pathId);
-    if (!stats) {
-      return res.status(404).json({ error: 'Storage path not found or stats unavailable' });
-    }
-    
-    res.json(stats);
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error getting storage stats: ${err.message}`);
-    res.status(500).json({ error: 'Failed to get storage stats: ' + err.message });
-  }
-});
-
-// Add new storage path
-app.post('/admin/api/nfs-storage/paths', requireAuth, async (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(400).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const result = await nfsStorage.addStoragePath(req.body);
-    
-    if (result.success) {
-      // Save configuration
-      config.nfsStorage.storagePaths = nfsStorage.storagePaths;
-      if (configWritable && createConfigFile(configPath, config)) {
-        logger.success(logger.categories.SYSTEM, 'NFS storage configuration saved');
-      }
-      
-      res.json(result);
-    } else {
-      res.status(400).json(result);
-    }
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error adding storage path: ${err.message}`);
-    res.status(500).json({ error: 'Failed to add storage path: ' + err.message });
-  }
-});
-
-// Update storage path
-app.put('/admin/api/nfs-storage/paths/:pathId', requireAuth, async (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(400).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const result = await nfsStorage.updateStoragePath(req.params.pathId, req.body);
-    
-    if (result.success) {
-      // Save configuration
-      config.nfsStorage.storagePaths = nfsStorage.storagePaths;
-      if (configWritable && createConfigFile(configPath, config)) {
-        logger.success(logger.categories.SYSTEM, 'NFS storage configuration saved');
-      }
-      
-      res.json(result);
-    } else {
-      res.status(400).json(result);
-    }
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error updating storage path: ${err.message}`);
-    res.status(500).json({ error: 'Failed to update storage path: ' + err.message });
-  }
-});
-
-// Delete storage path
-app.delete('/admin/api/nfs-storage/paths/:pathId', requireAuth, (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(400).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const success = nfsStorage.removeStoragePath(req.params.pathId);
-    
-    if (success) {
-      // Save configuration
-      config.nfsStorage.storagePaths = nfsStorage.storagePaths;
-      if (configWritable && createConfigFile(configPath, config)) {
-        logger.success(logger.categories.SYSTEM, 'NFS storage configuration saved');
-      }
-      
-      res.json({ success: true, message: 'Storage path removed successfully' });
-    } else {
-      res.status(404).json({ error: 'Storage path not found' });
-    }
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error deleting storage path: ${err.message}`);
-    res.status(500).json({ error: 'Failed to delete storage path: ' + err.message });
-  }
-});
-
-// Trigger health check for all paths
-app.post('/admin/api/nfs-storage/health-check', requireAuth, async (req, res) => {
-  try {
-    if (!nfsStorage) {
-      return res.status(400).json({ error: 'NFS storage is not enabled' });
-    }
-    
-    const results = await nfsStorage.checkAllPaths();
-    res.json({
-      success: true,
-      results,
-      timestamp: Date.now()
-    });
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error running health check: ${err.message}`);
-    res.status(500).json({ error: 'Failed to run health check: ' + err.message });
-  }
-});
-
-// Enable/disable NFS storage
-app.post('/admin/api/nfs-storage/toggle', requireAuth, async (req, res) => {
-  try {
-    // Prevent concurrent toggle operations
-    if (toggleInProgress) {
-      return res.status(409).json({ 
-        error: 'Another toggle operation is in progress. Please wait.' 
-      });
-    }
-    
-    toggleInProgress = true;
-    
-    const { enabled } = req.body;
-    
-    config.nfsStorage = config.nfsStorage || {};
-    config.nfsStorage.enabled = enabled;
-    
-    if (enabled && !nfsStorage) {
-      // Initialize NFS storage
-      nfsStorage = new NFSStorageManager(config.nfsStorage);
-      await nfsStorage.initialize();
-      logger.success(logger.categories.SYSTEM, 'NFS Storage Manager enabled and initialized');
-    } else if (!enabled && nfsStorage) {
-      // Disable NFS storage
-      nfsStorage.destroy();
-      nfsStorage = null;
-      logger.info(logger.categories.SYSTEM, 'NFS Storage Manager disabled');
-    }
-    
-    // Save configuration
-    if (configWritable && createConfigFile(configPath, config)) {
-      logger.success(logger.categories.SYSTEM, 'NFS storage configuration saved');
-    }
-    
-    res.json({
-      success: true,
-      enabled: config.nfsStorage.enabled,
-      message: `NFS storage ${enabled ? 'enabled' : 'disabled'} successfully`
-    });
-  } catch (err) {
-    logger.error(logger.categories.SYSTEM, `Error toggling NFS storage: ${err.message}`);
-    res.status(500).json({ error: 'Failed to toggle NFS storage: ' + err.message });
-  } finally {
-    toggleInProgress = false;
   }
 });
 
