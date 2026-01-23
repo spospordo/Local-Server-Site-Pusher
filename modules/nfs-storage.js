@@ -189,13 +189,39 @@ class NFSStorageManager {
         result.status = 'degraded';
       }
 
-      // Check write permissions
-      const testFile = path.join(storagePath, `.nfs-test-${Date.now()}`);
+      // Check write permissions using fs.access first (faster, non-destructive)
       try {
-        fs.writeFileSync(testFile, 'test', { mode: 0o644 });
-        fs.unlinkSync(testFile);
+        fs.accessSync(storagePath, fs.constants.W_OK);
         result.writable = true;
+        
+        // Only perform actual write test on first check or if previous write test failed
+        // This reduces unnecessary I/O on frequent health checks
+        const cacheKey = `write-test-${storagePath}`;
+        const lastWriteTest = this.writeTestCache?.get(cacheKey) || 0;
+        const writeTestInterval = 3600000; // 1 hour
+        
+        if (Date.now() - lastWriteTest > writeTestInterval) {
+          // Perform actual write test
+          const testFile = path.join(storagePath, `.nfs-test-${Date.now()}`);
+          try {
+            fs.writeFileSync(testFile, 'test', { mode: 0o644 });
+            fs.unlinkSync(testFile);
+            
+            // Cache successful write test
+            if (!this.writeTestCache) {
+              this.writeTestCache = new Map();
+            }
+            this.writeTestCache.set(cacheKey, Date.now());
+          } catch (writeErr) {
+            result.writable = false;
+            if (!result.error) {
+              result.error = 'Path write test failed';
+            }
+            result.status = result.readable ? 'degraded' : 'unavailable';
+          }
+        }
       } catch (err) {
+        result.writable = false;
         if (!result.error) {
           result.error = 'Path is not writable';
         }
@@ -434,6 +460,7 @@ class NFSStorageManager {
 
   /**
    * Get storage statistics for a path
+   * Cached for 5 minutes to avoid expensive filesystem operations
    * @param {string} pathId - Storage path ID
    * @returns {Object|null} Storage statistics or null
    */
@@ -448,16 +475,29 @@ class NFSStorageManager {
       return null;
     }
 
+    // Check cache first (5 minute TTL)
+    if (!this.statsCache) {
+      this.statsCache = new Map();
+    }
+    
+    const cached = this.statsCache.get(pathId);
+    if (cached && (Date.now() - cached.timestamp) < 300000) {
+      return cached.stats;
+    }
+
     try {
-      // Get directory size (basic implementation)
-      // Note: For large NFS mounts, consider caching this
+      // Get directory size (limited to first level only for performance)
+      // For deep directory trees, this should be computed asynchronously
       const files = fs.readdirSync(storagePath.path);
       let totalSize = 0;
       let fileCount = 0;
+      
+      // Limit to first 1000 files to prevent blocking
+      const maxFiles = Math.min(files.length, 1000);
 
-      files.forEach(file => {
+      for (let i = 0; i < maxFiles; i++) {
         try {
-          const filePath = path.join(storagePath.path, file);
+          const filePath = path.join(storagePath.path, files[i]);
           const stats = fs.statSync(filePath);
           if (stats.isFile()) {
             totalSize += stats.size;
@@ -466,14 +506,24 @@ class NFSStorageManager {
         } catch (err) {
           // Skip files we can't access
         }
-      });
-
-      return {
+      }
+      
+      const result = {
         path: storagePath.path,
         totalSize,
         fileCount,
-        available: true
+        available: true,
+        limited: files.length > maxFiles,
+        totalFiles: files.length
       };
+      
+      // Cache the result
+      this.statsCache.set(pathId, {
+        stats: result,
+        timestamp: Date.now()
+      });
+
+      return result;
     } catch (err) {
       logger.error(logger.categories.SYSTEM, `[NFS Storage] Error getting stats for ${pathId}: ${err.message}`);
       return null;
@@ -487,6 +537,15 @@ class NFSStorageManager {
     this.stopHealthChecks();
     this.storagePaths = [];
     this.pathStatus.clear();
+    
+    // Clear caches
+    if (this.writeTestCache) {
+      this.writeTestCache.clear();
+    }
+    if (this.statsCache) {
+      this.statsCache.clear();
+    }
+    
     logger.info(logger.categories.SYSTEM, '[NFS Storage] Storage manager destroyed');
   }
 }

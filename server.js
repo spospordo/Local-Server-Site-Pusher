@@ -718,13 +718,16 @@ const ollama = new OllamaIntegration(configDir);
 
 // Initialize NFS Storage Manager
 let nfsStorage = null;
+let nfsStorageInitPromise = null;
 if (config.nfsStorage && config.nfsStorage.enabled) {
   try {
     nfsStorage = new NFSStorageManager(config.nfsStorage);
-    nfsStorage.initialize().then(() => {
+    nfsStorageInitPromise = nfsStorage.initialize().then(() => {
       logger.success(logger.categories.SYSTEM, 'NFS Storage Manager initialized successfully');
+      nfsStorageInitPromise = null; // Clear promise after completion
     }).catch(err => {
       logger.error(logger.categories.SYSTEM, `NFS Storage Manager initialization failed: ${err.message}`);
+      nfsStorageInitPromise = null; // Clear promise after error
     });
   } catch (err) {
     logger.error(logger.categories.SYSTEM, `Failed to create NFS Storage Manager: ${err.message}`);
@@ -6301,9 +6304,21 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
 });
 
 // NFS Storage API Endpoints
+// Helper function to ensure NFS storage is ready
+async function ensureNFSStorageReady() {
+  if (nfsStorageInitPromise) {
+    await nfsStorageInitPromise;
+  }
+}
+
+// Mutex for toggle operations to prevent race conditions
+let toggleInProgress = false;
+
 // Get all storage paths with status
-app.get('/admin/api/nfs-storage/paths', requireAuth, (req, res) => {
+app.get('/admin/api/nfs-storage/paths', requireAuth, async (req, res) => {
   try {
+    await ensureNFSStorageReady();
+    
     if (!nfsStorage) {
       return res.json({
         enabled: false,
@@ -6464,6 +6479,15 @@ app.post('/admin/api/nfs-storage/health-check', requireAuth, async (req, res) =>
 // Enable/disable NFS storage
 app.post('/admin/api/nfs-storage/toggle', requireAuth, async (req, res) => {
   try {
+    // Prevent concurrent toggle operations
+    if (toggleInProgress) {
+      return res.status(409).json({ 
+        error: 'Another toggle operation is in progress. Please wait.' 
+      });
+    }
+    
+    toggleInProgress = true;
+    
     const { enabled } = req.body;
     
     config.nfsStorage = config.nfsStorage || {};
@@ -6494,6 +6518,8 @@ app.post('/admin/api/nfs-storage/toggle', requireAuth, async (req, res) => {
   } catch (err) {
     logger.error(logger.categories.SYSTEM, `Error toggling NFS storage: ${err.message}`);
     res.status(500).json({ error: 'Failed to toggle NFS storage: ' + err.message });
+  } finally {
+    toggleInProgress = false;
   }
 });
 
