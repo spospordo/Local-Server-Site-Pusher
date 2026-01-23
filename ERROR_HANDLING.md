@@ -19,12 +19,10 @@ The application now features a comprehensive error handling system that provides
 The `modules/error-helper.js` module provides:
 
 1. **Custom Error Classes**
-   - `NFSError` - For NFS/network file system errors
    - `GitHubError` - For GitHub API and git operation errors
    - `FileSystemError` - For file system operation errors
 
 2. **Error Formatters**
-   - `formatNFSMountError()` - Enhances NFS mount errors with diagnostics
    - `formatGitHubError()` - Enhances GitHub operation errors
    - `formatFileSystemError()` - Enhances file system errors
 
@@ -36,60 +34,10 @@ The `modules/error-helper.js` module provides:
 
 All enhanced errors are logged through the centralized `logger` module, ensuring:
 - Consistent log formatting across the application
-- Categorized logs (SYSTEM, GITHUB, FINANCE, NFS, etc.)
+- Categorized logs (SYSTEM, GITHUB, FINANCE, etc.)
 - Structured log storage for debugging and monitoring
 
 ## Error Handling by Module
-
-### NFS Module (`modules/nfs.js`)
-
-The NFS module now detects and provides detailed solutions for:
-
-#### Permission Denied (EACCES)
-```json
-{
-  "error": "NFS mount failed due to permission issues",
-  "code": "NFS_PERMISSION_DENIED",
-  "host": "192.168.1.100",
-  "path": "/mnt/share",
-  "solution": "1. Verify the export is configured in /etc/exports on the NFS server\n2. Ensure your client IP/network is allowed...",
-  "documentationUrl": "https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting"
-}
-```
-
-#### Timeout (ETIMEDOUT)
-Provides network connectivity troubleshooting steps:
-- Verify IP address/hostname
-- Test connectivity with ping
-- Check NFS service status
-- Verify firewall rules
-
-#### Network Unreachable (ENETUNREACH)
-Provides routing and network configuration guidance:
-- Check network path and routing
-- Verify Docker network configuration
-- Suggest using IP instead of hostname
-
-#### Path Not Found (ENOENT)
-Provides export path validation steps:
-- Verify path spelling
-- List available exports with `showmount -e`
-- Check server-side exports configuration
-
-#### RPC Errors
-Provides RPC service troubleshooting:
-- Check rpcbind service status
-- Verify port accessibility
-- Firewall configuration checks
-
-#### Client Not Installed
-Provides installation instructions for multiple OS types:
-- **Debian/Ubuntu**: `sudo apt-get install nfs-common`
-- **RHEL/CentOS/Fedora**: `sudo yum install nfs-utils`
-- **Alpine Linux**: `apk add nfs-utils` (as root or in Docker)
-- **Arch Linux**: `sudo pacman -S nfs-utils`
-
-**Note**: Root privileges (sudo) are required for package installation on most systems.
 
 ### GitHub Module (`modules/github-upload.js`)
 
@@ -209,22 +157,21 @@ Documentation: URL
 
 1. **Use Custom Error Classes**
    ```javascript
-   const { NFSError } = require('./error-helper');
-   throw new NFSError('Mount failed', {
-     code: 'NFS_MOUNT_FAILED',
-     host: '192.168.1.100',
-     path: '/mnt/share',
-     solution: 'Check network connectivity...'
+   const { GitHubError } = require('./error-helper');
+   throw new GitHubError('Push failed', {
+     code: 'GITHUB_PUSH_FAILED',
+     repository: 'owner/repo',
+     solution: 'Check authentication...'
    });
    ```
 
 2. **Log with Context**
    ```javascript
    const { logError } = require('./error-helper');
-   logError(logger.categories.SYSTEM, error, {
-     operation: 'Mount NFS share',
-     host: connection.host,
-     path: connection.exportPath
+   logError(logger.categories.GITHUB, error, {
+     operation: 'Push to GitHub',
+     repository: repo,
+     branch: branch
    });
    ```
 
@@ -256,23 +203,6 @@ When you encounter an error:
    - Service availability
 
 ## Common Error Scenarios
-
-### NFS Mount Failures
-
-**Problem**: Cannot mount NFS share
-**Common Causes**:
-- Incorrect server IP or hostname
-- NFS server not running or unreachable
-- Export not configured on server
-- Firewall blocking NFS ports
-- Client tools not installed
-
-**Solution Path**:
-1. Check the detailed error message for specific issue
-2. Verify server connectivity: `ping <server-ip>`
-3. Check available exports: `showmount -e <server-ip>`
-4. Verify NFS service: `systemctl status nfs-server`
-5. Check firewall rules for ports 2049 and 111
 
 ### GitHub Push Failures
 
@@ -311,18 +241,6 @@ When you encounter an error:
 
 To verify error handling is working correctly:
 
-### NFS Errors
-```bash
-# Test with invalid host
-# Settings > NFS > Add connection with host "invalid.local"
-
-# Test with invalid path
-# Settings > NFS > Add connection with path "/nonexistent"
-
-# Test without NFS tools (in container)
-# docker exec container which mount.nfs
-```
-
 ### GitHub Errors
 ```bash
 # Test with invalid token
@@ -357,7 +275,6 @@ Logs are organized by category:
 - **DEPLOYMENT** - Deployment and build operations
 - **GITHUB** - GitHub integration
 - **FINANCE** - Finance module operations
-- **NFS** - NFS operations
 - **CLIENT** - Client interface operations
 - **SMART_MIRROR** - Smart mirror features
 
@@ -380,7 +297,6 @@ When adding new features or fixing bugs:
 
 ## Resources
 
-- [NFS Troubleshooting Guide](./NFS_NETWORK_DRIVE.md#troubleshooting)
 - [GitHub Documentation](https://docs.github.com/)
 - [Docker Volume Documentation](https://docs.docker.com/storage/volumes/)
 

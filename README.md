@@ -11,7 +11,6 @@ A containerized web application with admin interface for serving web content and
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
-💾 **NFS Network Drive**: Backup and restore configurations to/from NFS network storage (see [NFS_NETWORK_DRIVE.md](NFS_NETWORK_DRIVE.md))  
 
 ## Quick Start
 

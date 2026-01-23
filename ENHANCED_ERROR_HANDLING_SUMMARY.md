@@ -5,33 +5,6 @@ This feature enhances error handling throughout the Local-Server-Site-Pusher app
 
 ## Before vs After Examples
 
-### NFS Mount Errors
-
-#### Before:
-```
-Error: Mount failed: Permission denied
-```
-
-#### After:
-```
-Error: NFS mount failed due to permission issues
-Code: NFS_PERMISSION_DENIED
-Host: 192.168.1.100
-Path: /mnt/share
-Details: Cannot access NFS share at 192.168.1.100:/mnt/share
-
-Solution:
-1. Verify the export is configured in /etc/exports on the NFS server
-2. Ensure your client IP/network is allowed in the exports configuration
-3. Check NFS export permissions (rw vs ro, sync vs async)
-4. Verify no firewall is blocking NFS ports (2049, 111)
-5. Try mounting manually: mount -t nfs 192.168.1.100:/mnt/share /mnt/test
-
-Documentation: https://github.com/spospordo/Local-Server-Site-Pusher/blob/main/NFS_NETWORK_DRIVE.md#troubleshooting
-```
-
----
-
 ### GitHub Authentication Errors
 
 #### Before:
@@ -87,14 +60,6 @@ Solution:
 
 ## Error Types Covered
 
-### NFS Errors (modules/nfs.js)
-- ✅ **EACCES** - Permission denied with export configuration guidance
-- ✅ **ETIMEDOUT** - Timeout with network connectivity checks
-- ✅ **ENETUNREACH** - Network unreachable with routing guidance
-- ✅ **ENOENT** - Path not found with export verification steps
-- ✅ **RPC Errors** - RPC service troubleshooting
-- ✅ **Missing Client** - Installation instructions for multiple OS types
-
 ### GitHub Errors (modules/github-upload.js)
 - ✅ **401 Unauthorized** - Token validation and renewal guidance
 - ✅ **403 Forbidden** - Permission and access troubleshooting
@@ -120,12 +85,11 @@ Solution:
 
 ### Custom Error Classes
 ```javascript
-// Example: NFS Error
-const nfsError = new NFSError('Mount failed', {
-  code: 'NFS_PERMISSION_DENIED',
-  host: '192.168.1.100',
-  path: '/mnt/share',
-  solution: '1. Check exports...\n2. Verify permissions...',
+// Example: GitHub Error
+const githubError = new GitHubError('Push failed', {
+  code: 'GITHUB_PUSH_FAILED',
+  repository: 'owner/repo',
+  solution: '1. Check authentication...\n2. Verify permissions...',
   documentationUrl: 'https://...'
 });
 ```
@@ -133,19 +97,19 @@ const nfsError = new NFSError('Mount failed', {
 ### Error Formatters
 ```javascript
 // Automatically format errors with context
-const enhancedError = formatNFSMountError(
-  { code: 'EACCES', message: 'Permission denied' },
-  connection
+const enhancedError = formatGitHubError(
+  { code: 'GITHUB_AUTH_FAILED', message: 'Bad credentials' },
+  repository
 );
 ```
 
 ### Logger Integration
 ```javascript
 // All errors logged consistently
-logError(logger.categories.SYSTEM, enhancedError, {
-  operation: 'Mount NFS share',
-  host: connection.host,
-  path: connection.exportPath
+logError(logger.categories.GITHUB, enhancedError, {
+  operation: 'Push to GitHub',
+  repository: repo,
+  branch: branch
 });
 ```
 
@@ -188,7 +152,7 @@ Centralized error-helper module ensures consistent error formatting across all m
 ### 2. Easy Integration
 Simple functions make it easy to enhance errors throughout the codebase:
 ```javascript
-const { formatNFSMountError, logError } = require('./error-helper');
+const { formatGitHubError, logError } = require('./error-helper');
 ```
 
 ### 3. Maintainability
