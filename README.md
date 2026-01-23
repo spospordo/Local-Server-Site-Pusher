@@ -373,24 +373,6 @@ Export and import your complete site configuration through the admin interface:
 2. Click **Download Backup File** to export all configurations
 3. Use **Import Data** to restore from a previously exported backup
 
-### NFS Network Drive Backups
-
-Automatically backup and restore configurations to/from NFS network storage:
-
-1. Navigate to **Settings > General > NFS Network Drive**
-2. Add your NFS server connection (requires NFS server details)
-3. Upload backups to remote NFS storage
-4. Restore configurations from NFS backups
-
-**Features:**
-- 🔐 Encrypted credential storage (AES-256-GCM)
-- 📤 Automatic backup upload to NFS
-- 📥 One-click restore from NFS
-- 🔍 Connection testing and validation
-- 🌐 Support for NFSv3 and NFSv4
-
-See [NFS_NETWORK_DRIVE.md](NFS_NETWORK_DRIVE.md) for complete setup and usage instructions.
-
 ## Home Assistant Integration
 
 Add a RESTful sensor to your Home Assistant configuration:
