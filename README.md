@@ -11,6 +11,7 @@ A containerized web application with admin interface for serving web content and
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
+💾 **NFS Storage Support**: Use network-attached storage (NAS) like Synology, QNAP, or TrueNAS for backups and data storage with automatic health monitoring  
 
 ## Quick Start
 
@@ -362,6 +363,52 @@ Smart Mirror configuration is included in automated backups:
 ```
 
 See [PERSISTENCE.md](PERSISTENCE.md) for detailed information on configuration persistence.
+
+## NFS Storage Support
+
+Use network-attached storage (NAS) for backups, uploads, and data storage with automatic health monitoring and failover.
+
+### Features
+
+- ✅ Support for NFS-mounted storage from Synology, QNAP, TrueNAS, and other NAS devices
+- ✅ Multiple storage paths with different purposes (backups, media, uploads)
+- ✅ Automatic health monitoring and status reporting
+- ✅ Graceful failover to alternative storage when primary becomes unavailable
+- ✅ Fallback to local storage for high availability
+
+### Quick Setup
+
+1. **Mount NFS on Docker host:**
+   ```bash
+   sudo mkdir -p /mnt/nas/backups
+   sudo mount -t nfs 192.168.1.100:/volume1/backups /mnt/nas/backups
+   ```
+
+2. **Configure Docker Compose:**
+   ```yaml
+   services:
+     local-server:
+       volumes:
+         - ./config:/app/config
+         - ./uploads:/app/uploads
+         - /mnt/nas/backups:/app/nfs-storage/backups:rw
+   ```
+
+3. **Enable in Admin Panel:**
+   - Navigate to **Settings** → **NFS Storage**
+   - Enable NFS Storage
+   - Add storage path with path `/app/nfs-storage/backups`
+
+### Using NFS Storage
+
+Deploy with the NFS-specific compose file:
+
+```bash
+# Edit docker-compose.nfs.yml with your NFS mount paths
+docker-compose -f docker-compose.yml -f docker-compose.nfs.yml up -d
+```
+
+See [NFS_STORAGE_GUIDE.md](NFS_STORAGE_GUIDE.md) for complete setup instructions, troubleshooting, and best practices.
 
 ## Backup & Restore
 

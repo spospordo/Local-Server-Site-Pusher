@@ -1,0 +1,110 @@
+version: '3.8'
+
+# Docker Compose configuration for NFS storage setup
+# This file demonstrates how to configure Local-Server-Site-Pusher with NFS-mounted storage
+
+services:
+  local-server:
+    build: .
+    ports:
+      - "3000:3000"
+    
+    volumes:
+      # Required: Configuration persistence
+      - ./config:/app/config
+      
+      # Required: Upload persistence
+      - ./uploads:/app/uploads
+      
+      # NFS Storage Examples:
+      # These are bind mounts from host-mounted NFS shares
+      # Prerequisites: NFS shares must be mounted on the Docker host first
+      
+      # Example 1: Backups storage (read-write)
+      # Host mount: sudo mount -t nfs 192.168.1.100:/volume1/backups /mnt/nas/backups
+      - /mnt/nas/backups:/app/nfs-storage/backups:rw
+      
+      # Example 2: Media storage (read-write)
+      # Host mount: sudo mount -t nfs 192.168.1.100:/volume1/media /mnt/nas/media
+      - /mnt/nas/media:/app/nfs-storage/media:rw
+      
+      # Example 3: Archives storage (read-only)
+      # Host mount: sudo mount -t nfs 192.168.1.100:/volume1/archives /mnt/nas/archives
+      - /mnt/nas/archives:/app/nfs-storage/archives:ro
+      
+      # Local fallback storage (optional)
+      - ./local-storage:/app/local-storage:rw
+    
+    environment:
+      - NODE_ENV=production
+      
+      # Optional: Set a custom session secret for security
+      - SESSION_SECRET=your-secret-key-here-change-this
+      
+      # Optional: Configure auto-regeneration delay
+      - AUTO_REGENERATE_PUBLIC_DELAY=5
+    
+    # Important: Run as user that has access to NFS mounts
+    # Match this with the UID:GID that owns the host NFS mount points
+    user: "1000:1000"
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# SETUP INSTRUCTIONS:
+#
+# 1. Mount NFS shares on Docker host:
+#    sudo mkdir -p /mnt/nas/backups /mnt/nas/media /mnt/nas/archives
+#    sudo mount -t nfs 192.168.1.100:/volume1/backups /mnt/nas/backups
+#    sudo mount -t nfs 192.168.1.100:/volume1/media /mnt/nas/media
+#    sudo mount -t nfs 192.168.1.100:/volume1/archives /mnt/nas/archives
+#
+# 2. Make mounts permanent (add to /etc/fstab):
+#    192.168.1.100:/volume1/backups /mnt/nas/backups nfs defaults,_netdev 0 0
+#    192.168.1.100:/volume1/media /mnt/nas/media nfs defaults,_netdev 0 0
+#    192.168.1.100:/volume1/archives /mnt/nas/archives nfs ro,defaults,_netdev 0 0
+#
+# 3. Set correct permissions:
+#    sudo chown -R 1000:1000 /mnt/nas/backups /mnt/nas/media
+#    # archives is read-only, so ownership doesn't matter for writes
+#
+# 4. Create local directories:
+#    mkdir -p config uploads local-storage
+#    chown -R 1000:1000 config uploads local-storage
+#
+# 5. Start the container:
+#    docker-compose -f docker-compose.nfs.yml up -d
+#
+# 6. Configure storage paths in Admin Panel:
+#    - Navigate to http://localhost:3000/admin
+#    - Go to Settings → NFS Storage
+#    - Enable NFS Storage
+#    - Add storage paths:
+#      * Name: "NAS Backups", Path: "/app/nfs-storage/backups", Type: "nfs", Purpose: "backup"
+#      * Name: "NAS Media", Path: "/app/nfs-storage/media", Type: "nfs", Purpose: "media"
+#      * Name: "NAS Archives", Path: "/app/nfs-storage/archives", Type: "nfs", Purpose: "backup"
+#      * Name: "Local Fallback", Path: "/app/local-storage", Type: "local", Purpose: "general"
+#
+# TROUBLESHOOTING:
+#
+# Check if NFS is mounted on host:
+#   mount | grep nfs
+#   df -h | grep nfs
+#
+# Check if container can access paths:
+#   docker exec -it local-server ls -la /app/nfs-storage/backups
+#   docker exec -it local-server touch /app/nfs-storage/backups/test.txt
+#
+# View container logs:
+#   docker-compose -f docker-compose.nfs.yml logs -f
+#
+# Restart after NFS mount changes:
+#   docker-compose -f docker-compose.nfs.yml restart
+#
+# For detailed setup instructions, see NFS_STORAGE_GUIDE.md
