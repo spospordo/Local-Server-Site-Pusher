@@ -328,50 +328,6 @@ services:
 4. **Always Persist Config and Uploads**: These directories contain critical data
 5. **Backup Before Upgrading**: If migrating from the old `/app/public` mount strategy, backup any custom files first
 
-## NFS Storage for Network-Attached Storage
-
-Local-Server-Site-Pusher supports using NFS-mounted storage from NAS devices (Synology, QNAP, TrueNAS) for backups and data storage.
-
-### Quick Setup
-
-1. **Mount NFS on Docker host:**
-   ```bash
-   sudo mkdir -p /mnt/nas/backups
-   sudo mount -t nfs 192.168.1.100:/volume1/backups /mnt/nas/backups
-   
-   # Make permanent
-   echo "192.168.1.100:/volume1/backups /mnt/nas/backups nfs defaults,_netdev 0 0" | sudo tee -a /etc/fstab
-   ```
-
-2. **Update docker-compose.yml:**
-   ```yaml
-   services:
-     local-server:
-       volumes:
-         - ./config:/app/config
-         - ./uploads:/app/uploads
-         - /mnt/nas/backups:/app/nfs-storage/backups:rw
-   ```
-
-3. **Configure in Admin Panel:**
-   - Go to **Settings** → **NFS Storage**
-   - Enable NFS Storage
-   - Add storage path: `/app/nfs-storage/backups`
-
-### Using the NFS Compose File
-
-```bash
-# Use the dedicated NFS compose file
-docker-compose -f docker-compose.nfs.yml up -d
-```
-
-See [NFS_STORAGE_GUIDE.md](NFS_STORAGE_GUIDE.md) for:
-- Complete setup instructions for Synology, QNAP, TrueNAS
-- Troubleshooting NFS mount issues
-- Permission configuration
-- Multiple storage path examples
-- Health monitoring and failover
-
 ### CI/CD Integration
 
 For automated deployments, ensure:
