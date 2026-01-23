@@ -75,6 +75,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.3.3] - 2026-01-23
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #382 from spospordo/copilot/refine-nfs-feature-support
+  - Fix regex patterns for precise SMB/NFS version detection and option matching
+  - Refine validation: fix vers regex, make uid/gid warnings, clarify Synology guidance
+  - Fix validation logic to avoid false positives and correctly handle NFS options
+  - Add NFS mount option validation and Synology-specific guidance
+  - Initial plan
+
+
 ## [2.3.2] - 2026-01-22
 
 ### Patch Update
