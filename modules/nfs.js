@@ -158,8 +158,9 @@ function validateMountOptions(mountOptions) {
   ];
   
   // SMB version patterns (not NFS versions which are simply vers=3 or vers=4)
-  // Match vers=X.Y or vers=X.Y.Z format (SMB), but not vers=3 or vers=4 (NFS)
-  const smbVersionPattern = /^vers=(1\.|2\.|3\.\d+)/;
+  // Match SMB version formats: vers=1.0, vers=2.0, vers=2.1, vers=3.0, vers=3.1.1, etc.
+  // But NOT match NFS versions: vers=3 or vers=4
+  const smbVersionPattern = /^vers=(1\.0|2\.[01]|3\.[0-9]+)/;
   
   // Check for SMB/CIFS-specific options
   for (const option of options) {
@@ -185,18 +186,21 @@ function validateMountOptions(mountOptions) {
   }
   
   // Synology-specific recommendations
-  const hasNfsVersion = /\bvers=[34]\b/i.test(mountOptions);
+  // Check for NFS version in the options (vers=3 or vers=4)
+  const hasNfsVersion = options.some(opt => /^vers=[34]$/i.test(opt.trim()));
   if (!hasNfsVersion) {
     warnings.push('No NFS version specified. Synology servers often work best with "vers=3". Consider adding "vers=3" or "vers=4" to mount options.');
   }
   
   // Check for Synology NFSv4 issues
-  if (/\bvers=4\b/i.test(mountOptions)) {
+  const hasVers4 = options.some(opt => /^vers=4$/i.test(opt.trim()));
+  if (hasVers4) {
     warnings.push('Using NFSv4. If connection fails with Synology, try "vers=3" as Synology often defaults to NFSv3.');
   }
   
   // Recommend _netdev for network mounts in fstab
-  if (mountOptions && !/\b_netdev\b/i.test(mountOptions)) {
+  const hasNetdev = options.some(opt => /^_netdev$/i.test(opt.trim()));
+  if (!hasNetdev) {
     warnings.push('Consider adding "_netdev" option for reliable network mount handling, especially for automatic mounts.');
   }
   
