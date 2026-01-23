@@ -722,12 +722,20 @@ let nfsStorageInitPromise = null;
 if (config.nfsStorage && config.nfsStorage.enabled) {
   try {
     nfsStorage = new NFSStorageManager(config.nfsStorage);
+    // Store the initialization promise - don't clear it until it's complete
+    // This prevents race conditions where API calls try to await a nullified promise
     nfsStorageInitPromise = nfsStorage.initialize().then(() => {
       logger.success(logger.categories.SYSTEM, 'NFS Storage Manager initialized successfully');
-      nfsStorageInitPromise = null; // Clear promise after completion
+      return true; // Return value to indicate success
     }).catch(err => {
       logger.error(logger.categories.SYSTEM, `NFS Storage Manager initialization failed: ${err.message}`);
-      nfsStorageInitPromise = null; // Clear promise after error
+      throw err; // Re-throw to allow error handling
+    }).finally(() => {
+      // Only clear the promise reference after completion (success or failure)
+      // Use a timeout to ensure any pending await operations complete first
+      setTimeout(() => {
+        nfsStorageInitPromise = null;
+      }, 100);
     });
   } catch (err) {
     logger.error(logger.categories.SYSTEM, `Failed to create NFS Storage Manager: ${err.message}`);

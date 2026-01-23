@@ -42,6 +42,13 @@ class NFSStorageManager {
     this.fallbackToLocal = config.fallbackToLocal !== false; // true by default
     this.healthCheckTimer = null;
     this.pathStatus = new Map();
+    this.writeTestCache = new Map(); // Initialize cache in constructor
+    this.statsCache = new Map(); // Initialize cache in constructor
+    
+    // Configuration constants
+    this.WRITE_TEST_CACHE_TTL = 3600000; // 1 hour
+    this.STATS_CACHE_TTL = 300000; // 5 minutes
+    this.MAX_STATS_FILES = 1000; // Max files to scan for stats
     
     // Initialize status for all paths
     this.storagePaths.forEach(storagePath => {
@@ -197,10 +204,9 @@ class NFSStorageManager {
         // Only perform actual write test on first check or if previous write test failed
         // This reduces unnecessary I/O on frequent health checks
         const cacheKey = `write-test-${storagePath}`;
-        const lastWriteTest = this.writeTestCache?.get(cacheKey) || 0;
-        const writeTestInterval = 3600000; // 1 hour
+        const lastWriteTest = this.writeTestCache.get(cacheKey) || 0;
         
-        if (Date.now() - lastWriteTest > writeTestInterval) {
+        if (Date.now() - lastWriteTest > this.WRITE_TEST_CACHE_TTL) {
           // Perform actual write test
           const testFile = path.join(storagePath, `.nfs-test-${Date.now()}`);
           try {
@@ -208,9 +214,6 @@ class NFSStorageManager {
             fs.unlinkSync(testFile);
             
             // Cache successful write test
-            if (!this.writeTestCache) {
-              this.writeTestCache = new Map();
-            }
             this.writeTestCache.set(cacheKey, Date.now());
           } catch (writeErr) {
             result.writable = false;
@@ -476,12 +479,8 @@ class NFSStorageManager {
     }
 
     // Check cache first (5 minute TTL)
-    if (!this.statsCache) {
-      this.statsCache = new Map();
-    }
-    
     const cached = this.statsCache.get(pathId);
-    if (cached && (Date.now() - cached.timestamp) < 300000) {
+    if (cached && (Date.now() - cached.timestamp) < this.STATS_CACHE_TTL) {
       return cached.stats;
     }
 
@@ -492,8 +491,8 @@ class NFSStorageManager {
       let totalSize = 0;
       let fileCount = 0;
       
-      // Limit to first 1000 files to prevent blocking
-      const maxFiles = Math.min(files.length, 1000);
+      // Limit to prevent blocking
+      const maxFiles = Math.min(files.length, this.MAX_STATS_FILES);
 
       for (let i = 0; i < maxFiles; i++) {
         try {
