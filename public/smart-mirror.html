@@ -1535,6 +1535,24 @@
             return iconMap[iconCode] || '🌤️';
         }
 
+        // Get weather emoji from condition name
+        function getWeatherEmoji(condition) {
+            if (!condition) return '🌤️';
+            const conditionLower = condition.toLowerCase();
+            
+            if (conditionLower.includes('thunder') || conditionLower.includes('storm')) return '⛈️';
+            if (conditionLower.includes('drizzle')) return '🌧️';
+            if (conditionLower.includes('rain')) return '🌧️';
+            if (conditionLower.includes('snow')) return '🌨️';
+            if (conditionLower.includes('mist') || conditionLower.includes('fog') || conditionLower.includes('haze')) return '🌫️';
+            if (conditionLower.includes('clear')) return '☀️';
+            if (conditionLower.includes('cloud')) {
+                if (conditionLower.includes('few')) return '⛅';
+                return '☁️';
+            }
+            return '🌤️'; // Default
+        }
+
         // Update weather widget
         async function updateWeatherWidget(content, widgetConfig) {
             try {

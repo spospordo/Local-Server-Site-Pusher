@@ -1348,7 +1348,8 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
       const isMultiDay = durationDays > 1;
       
       // Include if it's vacation-related or a multi-day all-day event
-      return (isVacationKeyword || (isMultiDay && event.isAllDay)) && event.location;
+      // Location is preferred but not required for vacation-keyword events
+      return (isVacationKeyword && (event.location || isMultiDay)) || (isMultiDay && event.isAllDay && event.location);
     });
     
     logger.info(logger.categories.SMART_MIRROR, `Found ${vacationEvents.length} potential vacation events`);
@@ -1363,7 +1364,7 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
       
       const vacation = {
         title: event.title,
-        location: event.location,
+        location: event.location || 'Location TBD',
         start: event.start,
         end: event.end,
         daysFromNow: event.daysFromNow,
@@ -1374,7 +1375,7 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
         timezoneInfo: null
       };
       
-      // Only fetch weather if API key is provided
+      // Only fetch weather if API key is provided and location exists
       if (apiKey && event.location) {
         try {
           // Get timezone info for the location
@@ -1383,10 +1384,12 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
             vacation.timezone = tzInfo;
             
             // Calculate time difference from admin timezone
-            // For simplicity, we'll use the numeric offset difference
+            // Note: This is a simplified calculation using UTC offset differences
+            // For production, consider using a proper timezone library like moment-timezone
             const adminDate = new Date();
-            const adminOffset = -adminDate.getTimezoneOffset() / 60; // Local offset in hours
-            const hourDiff = tzInfo.timezone - adminOffset;
+            const adminOffsetHours = -adminDate.getTimezoneOffset() / 60; // Local offset in hours
+            const destOffsetHours = tzInfo.timezone; // Destination offset in hours
+            const hourDiff = destOffsetHours - adminOffsetHours;
             
             vacation.timezoneInfo = {
               location: tzInfo.location,
