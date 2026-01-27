@@ -6054,32 +6054,27 @@ app.get('/api/smart-mirror/vacation-weather', async (req, res) => {
       return res.json({ success: false, error: 'Weather API key not configured' });
     }
     
-    // Try to fetch 16-day forecast (max for free tier), fallback to 5-day, then current weather
-    let result = await smartMirror.fetchForecast(apiKey, location, 16, units);
+    // Try to fetch 5-day forecast, fallback to current weather
+    let result = await smartMirror.fetchForecast(apiKey, location, 5, units);
     
     if (!result.success) {
-      // Fallback to 5-day forecast
-      result = await smartMirror.fetchForecast(apiKey, location, 5, units);
-      
-      if (!result.success) {
-        // Fallback to current weather (3-day equivalent)
-        result = await smartMirror.fetchWeather(apiKey, location, units);
-        if (result.success) {
-          // Convert current weather to forecast format
-          result = {
-            success: true,
-            days: [{
-              date: new Date().toISOString().split('T')[0],
-              tempHigh: result.data.temp,
-              tempLow: result.data.tempMin,
-              condition: result.data.condition,
-              icon: result.data.icon,
-              description: result.data.description
-            }],
-            location: location,
-            isFallback: true
-          };
-        }
+      // Fallback to current weather
+      result = await smartMirror.fetchWeather(apiKey, location, units);
+      if (result.success) {
+        // Convert current weather to forecast format
+        result = {
+          success: true,
+          days: [{
+            date: new Date().toISOString().split('T')[0],
+            tempHigh: result.data.temp,
+            tempLow: result.data.tempMin,
+            condition: result.data.condition,
+            icon: result.data.icon,
+            description: result.data.description
+          }],
+          location: location,
+          isFallback: true
+        };
       }
     }
     

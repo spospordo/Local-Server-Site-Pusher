@@ -160,9 +160,8 @@ if (Math.abs(offsetDiff) >= 1) {
 ### 6. Weather Integration
 
 **Forecast Priority:**
-1. **16-day forecast** (OpenWeatherMap paid tier)
-2. **5-day forecast** (OpenWeatherMap free tier)
-3. **Current weather** (fallback with "forecast unavailable" note)
+1. **5-day forecast** (OpenWeatherMap free tier)
+2. **Current weather** (fallback with "forecast unavailable" note)
 
 **Weather Display:**
 - Shows weather for actual vacation dates

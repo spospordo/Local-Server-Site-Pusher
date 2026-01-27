@@ -1736,6 +1736,12 @@
 
         // Update vacation widget
         async function updateVacationWidget(content, widgetConfig) {
+            // Timezone conversion constants
+            const SECONDS_PER_MINUTE = 60;
+            const SECONDS_PER_HOUR = 3600;
+            const MILLISECONDS_PER_HOUR = 3600000;
+            const MIN_TIMEZONE_DIFF_HOURS = 1;
+            
             try {
                 // Fetch vacation data
                 const vacationResponse = await fetch('/api/smart-mirror/vacation');
@@ -1839,14 +1845,14 @@
                             
                             // Display local time if timezone differs from browser timezone
                             if (timezoneData.success && timezoneData.data) {
-                                const localOffset = new Date().getTimezoneOffset() * -60; // Browser offset in seconds
+                                const localOffset = new Date().getTimezoneOffset() * -SECONDS_PER_MINUTE; // Browser offset in seconds
                                 const destOffset = timezoneData.data.timezoneOffset;
-                                const offsetDiff = (destOffset - localOffset) / 3600; // Difference in hours
+                                const offsetDiff = (destOffset - localOffset) / SECONDS_PER_HOUR; // Difference in hours
                                 
-                                if (Math.abs(offsetDiff) >= 1) {
+                                if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
                                     // Calculate destination time
                                     const now = new Date();
-                                    const destTime = new Date(now.getTime() + offsetDiff * 3600000);
+                                    const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
                                     
                                     const timeDiv = document.createElement('div');
                                     timeDiv.style.fontSize = '0.85rem';
