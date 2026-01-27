@@ -5325,6 +5325,12 @@
                     <div class="form-group">
                         <label for="vacationDestination">Destination</label>
                         <input type="text" id="vacationDestination" placeholder="e.g., Hawaii">
+                        <div style="margin-top: 8px;">
+                            <button type="button" onclick="testVacationLocation()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
+                                🔍 Test Location for Weather
+                            </button>
+                            <div id="locationTestResult" style="margin-top: 8px; font-size: 0.85rem;"></div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="vacationNotes">Notes</label>
@@ -14614,6 +14620,7 @@
             document.getElementById('vacationEndDate').value = '';
             document.getElementById('vacationDestination').value = '';
             document.getElementById('vacationNotes').value = '';
+            document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
         }
         
@@ -14627,11 +14634,63 @@
             document.getElementById('vacationEndDate').value = date.endDate;
             document.getElementById('vacationDestination').value = date.destination || '';
             document.getElementById('vacationNotes').value = date.notes || '';
+            document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
         }
         
         function closeVacationDateModal() {
+            document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'none';
+        }
+        
+        // Test vacation location for weather availability
+        async function testVacationLocation() {
+            const destination = document.getElementById('vacationDestination').value.trim();
+            const resultDiv = document.getElementById('locationTestResult');
+            
+            if (!destination) {
+                resultDiv.innerHTML = '<div style="color: #ef4444;">⚠️ Please enter a destination first</div>';
+                return;
+            }
+            
+            // Show loading state
+            resultDiv.innerHTML = '<div style="color: #6b7280;">🔄 Testing location...</div>';
+            
+            try {
+                const response = await fetch('/admin/api/smart-mirror/test-location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ location: destination })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div style="color: #10b981; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">
+                            ✅ ${result.message}<br>
+                            <small style="opacity: 0.8;">
+                                Location: ${result.data?.location || destination}${result.data?.country ? ', ' + result.data.country : ''}<br>
+                                Current: ${result.data?.temperature || 'N/A'}° - ${result.data?.condition || 'N/A'}
+                            </small>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
+                            ❌ ${result.message || 'Location test failed'}<br>
+                            <small style="opacity: 0.8;">Please try a different location name or check spelling.</small>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
+                        ❌ Error testing location: ${err.message}<br>
+                        <small style="opacity: 0.8;">Please try again or check your connection.</small>
+                    </div>
+                `;
+            }
         }
         
         async function saveVacationDate(event) {
