@@ -6059,22 +6059,26 @@ app.get('/api/smart-mirror/vacation-weather', async (req, res) => {
     
     if (!result.success) {
       // Fallback to current weather
-      result = await smartMirror.fetchWeather(apiKey, location, units);
-      if (result.success) {
+      const weatherResult = await smartMirror.fetchWeather(apiKey, location, units);
+      if (weatherResult.success) {
         // Convert current weather to forecast format
+        const weatherData = weatherResult.data;
         result = {
           success: true,
           days: [{
             date: new Date().toISOString().split('T')[0],
-            tempHigh: result.data.temp,
-            tempLow: result.data.tempMin,
-            condition: result.data.condition,
-            icon: result.data.icon,
-            description: result.data.description
+            tempHigh: weatherData.temp,
+            tempLow: weatherData.tempMin,
+            condition: weatherData.condition,
+            icon: weatherData.icon,
+            description: weatherData.description
           }],
           location: location,
           isFallback: true
         };
+      } else {
+        // Keep the forecast error result
+        result = weatherResult;
       }
     }
     

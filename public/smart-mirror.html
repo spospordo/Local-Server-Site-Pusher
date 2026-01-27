@@ -1918,7 +1918,7 @@
                                     weatherContent.appendChild(condSpan);
                                     
                                     weatherDiv.appendChild(weatherContent);
-                                } else if (weatherData.isFallback) {
+                                } else if (weatherData.isFallback && weatherData.days && weatherData.days.length > 0) {
                                     // Show current weather as fallback
                                     const day = weatherData.days[0];
                                     const weatherIcon = getWeatherIcon(day.icon);
