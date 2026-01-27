@@ -19,7 +19,7 @@ This document describes the implementation of the Upcoming Vacation Widget for t
 - **`GET /api/smart-mirror/vacation-weather`**
   - Fetches weather forecast for a vacation destination
   - Query parameter: `location` (destination name)
-  - Attempts to fetch 16-day forecast, falls back to 5-day, then current weather
+  - Attempts to fetch 5-day forecast, falls back to current weather
   - Returns weather data with fallback indicator
 
 - **`GET /api/smart-mirror/vacation-timezone`**
