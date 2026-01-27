@@ -1333,8 +1333,8 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
       const locationLower = (event.location || '').toLowerCase();
       const descriptionLower = (event.description || '').toLowerCase();
       
-      // Check if it's a vacation-related event
-      const isVacationKeyword = titleLower.includes('vacation') || 
+      // Check if it's a vacation-related event by keyword
+      const hasVacationKeyword = titleLower.includes('vacation') || 
                                 titleLower.includes('trip') || 
                                 titleLower.includes('holiday') ||
                                 titleLower.includes('travel') ||
@@ -1347,9 +1347,12 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
       const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
       const isMultiDay = durationDays > 1;
       
-      // Include if it's vacation-related or a multi-day all-day event
-      // Location is preferred but not required for vacation-keyword events
-      return (isVacationKeyword && (event.location || isMultiDay)) || (isMultiDay && event.isAllDay && event.location);
+      // Include vacation-keyword events with location OR if multi-day
+      const hasVacationKeywordWithLocationOrMultiDay = hasVacationKeyword && (event.location || isMultiDay);
+      // Also include multi-day all-day events with location (like planned trips)
+      const isMultiDayAllDayWithLocation = isMultiDay && event.isAllDay && event.location;
+      
+      return hasVacationKeywordWithLocationOrMultiDay || isMultiDayAllDayWithLocation;
     });
     
     logger.info(logger.categories.SMART_MIRROR, `Found ${vacationEvents.length} potential vacation events`);
@@ -1385,7 +1388,10 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
             
             // Calculate time difference from admin timezone
             // Note: This is a simplified calculation using UTC offset differences
-            // For production, consider using a proper timezone library like moment-timezone
+            // Limitation: This does not account for daylight saving time (DST) transitions
+            // The calculation uses static UTC offsets at the time of the API call,
+            // which may be inaccurate during DST changes or for future vacation dates
+            // For production use with DST-aware timezones, consider using a library like moment-timezone
             const adminDate = new Date();
             const adminOffsetHours = -adminDate.getTimezoneOffset() / 60; // Local offset in hours
             const destOffsetHours = tzInfo.timezone; // Destination offset in hours
@@ -1422,21 +1428,19 @@ async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTim
               };
               logger.info(logger.categories.SMART_MIRROR, `Fetched vacation-specific forecast for ${event.location} (${vacationForecast.length} days)`);
             } else {
-              // Fallback to 3-day current forecast
-              const currentForecast = await fetchForecast(apiKey, event.location, 3, units);
-              if (currentForecast.success) {
-                vacation.weather = {
-                  type: 'current',
-                  days: currentForecast.days,
-                  location: currentForecast.location,
-                  units: currentForecast.units,
-                  fallback: true
-                };
-                logger.info(logger.categories.SMART_MIRROR, `Using 3-day fallback forecast for ${event.location}`);
-              }
+              // Fallback: use the first 3 days of the forecast we already have
+              // This avoids making another API call
+              vacation.weather = {
+                type: 'current',
+                days: forecastResult.days.slice(0, 3),
+                location: forecastResult.location,
+                units: forecastResult.units,
+                fallback: true
+              };
+              logger.info(logger.categories.SMART_MIRROR, `Using 3-day fallback forecast for ${event.location} (vacation dates not in forecast range)`);
             }
           } else {
-            // If forecast fails, try to get current weather only
+            // If forecast fails completely, try to get current weather only
             const weatherResult = await fetchWeather(apiKey, event.location, units);
             if (weatherResult.success) {
               vacation.weather = {

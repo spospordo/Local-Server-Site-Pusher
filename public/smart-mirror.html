@@ -1999,7 +1999,7 @@
                                     const tempDiv = document.createElement('div');
                                     tempDiv.className = 'vacation-weather-temp';
                                     const unit = vacation.weather.units === 'metric' ? '°C' : '°F';
-                                    tempDiv.textContent = `${day.tempHigh}°/${day.tempLow}°`;
+                                    tempDiv.textContent = `${day.tempHigh}${unit}/${day.tempLow}${unit}`;
                                     dayDiv.appendChild(tempDiv);
                                     
                                     const descDiv = document.createElement('div');
