@@ -165,6 +165,63 @@ async function testVacationWidget() {
             logError('Location validation button NOT found in admin dashboard');
         }
         
+        // NEW: Step 8a: Verify admin dashboard has vacation widget configuration section
+        logStep('8a', 'Verifying admin dashboard vacation widget configuration section');
+        
+        if (dashboardContent.includes('✈️ Vacation Widget (Upcoming Vacations)')) {
+            logSuccess('Vacation widget configuration section header found in admin dashboard');
+        } else {
+            logError('Vacation widget configuration section header NOT found in admin dashboard');
+        }
+        
+        if (dashboardContent.includes('vacationEnabled')) {
+            logSuccess('Vacation widget enable/disable control found in admin dashboard');
+        } else {
+            logError('Vacation widget enable/disable control NOT found in admin dashboard');
+        }
+        
+        if (dashboardContent.includes('vacationSize')) {
+            logSuccess('Vacation widget size selector found in admin dashboard');
+        } else {
+            logError('Vacation widget size selector NOT found in admin dashboard');
+        }
+        
+        if (dashboardContent.includes('vacationGridX') && dashboardContent.includes('vacationGridY')) {
+            logSuccess('Vacation widget grid position controls found in admin dashboard');
+        } else {
+            logError('Vacation widget grid position controls NOT found in admin dashboard');
+        }
+        
+        if (dashboardContent.includes('vacationApiKey')) {
+            logSuccess('Vacation widget API key field found in admin dashboard');
+        } else {
+            logError('Vacation widget API key field NOT found in admin dashboard');
+        }
+        
+        // Step 8b: Verify vacation widget in loadSmartMirrorConfig function
+        logStep('8b', 'Verifying vacation widget loading in admin dashboard');
+        
+        if (dashboardContent.includes("const vacation = config.widgets?.vacation")) {
+            logSuccess('Vacation widget loading code found in loadSmartMirrorConfig');
+        } else {
+            logError('Vacation widget loading code NOT found in loadSmartMirrorConfig');
+        }
+        
+        // Step 8c: Verify vacation widget in saveSmartMirrorConfig function
+        logStep('8c', 'Verifying vacation widget saving in admin dashboard');
+        
+        if (dashboardContent.includes("vacation: {") && dashboardContent.includes("parseInt(document.getElementById('vacationGridX').value)")) {
+            logSuccess('Vacation widget save code found in saveSmartMirrorConfig (portrait layout)');
+        } else {
+            logError('Vacation widget save code NOT found in saveSmartMirrorConfig (portrait layout)');
+        }
+        
+        if (dashboardContent.includes("vacation: {") && dashboardContent.includes("document.getElementById('vacationEnabled').value === 'true'")) {
+            logSuccess('Vacation widget save code found in saveSmartMirrorConfig (widgets config)');
+        } else {
+            logError('Vacation widget save code NOT found in saveSmartMirrorConfig (widgets config)');
+        }
+        
         // Step 9: Verify server.js has all required endpoints
         logStep('9', 'Verifying server.js has all vacation endpoints');
         const serverPath = path.join(__dirname, '..', 'server.js');
@@ -190,15 +247,19 @@ async function testVacationWidget() {
         // Summary
         log('\n=== Test Summary ===\n', 'blue');
         logSuccess('All core components are in place');
-        log('\nTo enable the vacation widget:', 'cyan');
+        logSuccess('Admin widget configuration section is integrated');
+        log('\nTo enable and use the vacation widget:', 'cyan');
         log('1. Navigate to the Smart Mirror settings in admin dashboard');
-        log('2. Enable the vacation widget');
-        log('3. Configure a weather API key (if not already configured)');
-        log('4. Add vacation dates in House > Vacation section');
-        log('5. Use the "Test Location for Weather" button to validate destinations');
-        log('6. View the smart mirror to see your upcoming vacations\n');
+        log('2. Scroll down to find the "✈️ Vacation Widget (Upcoming Vacations)" section');
+        log('3. Enable the vacation widget using the dropdown');
+        log('4. Configure a weather API key for destination weather (if not already configured)');
+        log('5. Adjust grid position and size as needed');
+        log('6. Click "Save Smart Mirror Settings"');
+        log('7. Add vacation dates in House > Vacation section');
+        log('8. Use the "Test Location for Weather" button to validate destinations');
+        log('9. View the smart mirror to see your upcoming vacations\n');
         
-        logSuccess('✨ Vacation widget implementation complete!');
+        logSuccess('✨ Vacation widget implementation complete with admin integration!');
         
     } catch (err) {
         logError(`Test failed with error: ${err.message}`);
