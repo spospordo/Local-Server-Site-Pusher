@@ -6076,10 +6076,9 @@ app.get('/api/smart-mirror/vacation-weather', async (req, res) => {
           location: location,
           isFallback: true
         };
-      } else {
-        // Keep the forecast error result
-        result = weatherResult;
       }
+      // If weather also failed, result still contains the original forecast error
+      // which is appropriate since that was the primary attempt
     }
     
     res.json(result);
