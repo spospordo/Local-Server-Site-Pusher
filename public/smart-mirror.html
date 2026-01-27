@@ -1078,7 +1078,8 @@
                 weather: '🌤️ Weather',
                 forecast: '🌦️ Forecast',
                 news: '📰 News',
-                media: '🎵 Now Playing'
+                media: '🎵 Now Playing',
+                vacation: '✈️ Upcoming Vacation'
             };
             return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -1118,6 +1119,9 @@
                     break;
                 case 'media':
                     updateMediaWidget(content, widgetConfig);
+                    break;
+                case 'vacation':
+                    updateVacationWidget(content, widgetConfig);
                     break;
             }
         }
@@ -1728,6 +1732,285 @@
                 content.innerHTML = '';
                 content.appendChild(errorDiv);
             }
+        }
+
+        // Update vacation widget
+        async function updateVacationWidget(content, widgetConfig) {
+            // Timezone conversion constants
+            const SECONDS_PER_MINUTE = 60;
+            const SECONDS_PER_HOUR = 3600;
+            const MILLISECONDS_PER_HOUR = 3600000;
+            const MIN_TIMEZONE_DIFF_HOURS = 1;
+            
+            try {
+                // Fetch vacation data
+                const vacationResponse = await fetch('/api/smart-mirror/vacation');
+                const vacationData = await vacationResponse.json();
+                
+                if (!vacationData.success) {
+                    throw new Error(vacationData.error || 'Failed to fetch vacation data');
+                }
+                
+                const vacations = vacationData.vacations || [];
+                
+                if (vacations.length === 0) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.style.opacity = '0.6';
+                    emptyDiv.style.textAlign = 'center';
+                    emptyDiv.style.padding = '20px 0';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '✈️';
+                    emptyDiv.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = 'No upcoming vacations';
+                    emptyDiv.appendChild(msgDiv);
+                    
+                    content.innerHTML = '';
+                    content.appendChild(emptyDiv);
+                    return;
+                }
+                
+                content.innerHTML = '';
+                
+                // Display up to 3 upcoming vacations
+                const displayVacations = vacations.slice(0, 3);
+                
+                for (const vacation of displayVacations) {
+                    const vacationDiv = document.createElement('div');
+                    vacationDiv.className = 'vacation-item';
+                    vacationDiv.style.marginBottom = '20px';
+                    vacationDiv.style.paddingBottom = '15px';
+                    vacationDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+                    
+                    // Destination header
+                    const headerDiv = document.createElement('div');
+                    headerDiv.style.display = 'flex';
+                    headerDiv.style.alignItems = 'center';
+                    headerDiv.style.marginBottom = '8px';
+                    
+                    const iconSpan = document.createElement('span');
+                    iconSpan.style.fontSize = '1.2rem';
+                    iconSpan.style.marginRight = '8px';
+                    iconSpan.textContent = '📍';
+                    headerDiv.appendChild(iconSpan);
+                    
+                    const destDiv = document.createElement('div');
+                    destDiv.style.fontSize = '1.1rem';
+                    destDiv.style.fontWeight = 'bold';
+                    destDiv.textContent = vacation.destination || 'Vacation';
+                    headerDiv.appendChild(destDiv);
+                    
+                    vacationDiv.appendChild(headerDiv);
+                    
+                    // Dates and countdown
+                    const startDate = new Date(vacation.startDate);
+                    const endDate = new Date(vacation.endDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    const dateDiv = document.createElement('div');
+                    dateDiv.style.fontSize = '0.9rem';
+                    dateDiv.style.marginBottom = '5px';
+                    dateDiv.textContent = formatDateRange(startDate, endDate);
+                    vacationDiv.appendChild(dateDiv);
+                    
+                    if (daysUntil > 0) {
+                        const countdownDiv = document.createElement('div');
+                        countdownDiv.style.fontSize = '0.85rem';
+                        countdownDiv.style.opacity = '0.8';
+                        countdownDiv.style.marginBottom = '8px';
+                        countdownDiv.textContent = `🗓️ ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} away`;
+                        vacationDiv.appendChild(countdownDiv);
+                    } else if (daysUntil === 0) {
+                        const countdownDiv = document.createElement('div');
+                        countdownDiv.style.fontSize = '0.85rem';
+                        countdownDiv.style.color = '#4ade80';
+                        countdownDiv.style.marginBottom = '8px';
+                        countdownDiv.textContent = '🎉 Today!';
+                        vacationDiv.appendChild(countdownDiv);
+                    }
+                    
+                    // Fetch weather and timezone if destination is provided
+                    if (vacation.destination && vacation.destination.trim()) {
+                        try {
+                            // Fetch timezone info
+                            const timezoneResponse = await fetch(`/api/smart-mirror/vacation-timezone?location=${encodeURIComponent(vacation.destination)}`);
+                            const timezoneData = await timezoneResponse.json();
+                            
+                            // Display local time if timezone differs from browser timezone
+                            if (timezoneData.success && timezoneData.data) {
+                                const localOffset = new Date().getTimezoneOffset() * -SECONDS_PER_MINUTE; // Browser offset in seconds
+                                const destOffset = timezoneData.data.timezoneOffset;
+                                const offsetDiff = (destOffset - localOffset) / SECONDS_PER_HOUR; // Difference in hours
+                                
+                                if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
+                                    // Calculate destination time
+                                    const now = new Date();
+                                    const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
+                                    
+                                    const timeDiv = document.createElement('div');
+                                    timeDiv.style.fontSize = '0.85rem';
+                                    timeDiv.style.marginBottom = '8px';
+                                    timeDiv.style.display = 'flex';
+                                    timeDiv.style.alignItems = 'center';
+                                    
+                                    const clockIcon = document.createElement('span');
+                                    clockIcon.textContent = '🕐 ';
+                                    clockIcon.style.marginRight = '4px';
+                                    timeDiv.appendChild(clockIcon);
+                                    
+                                    const timeText = document.createElement('span');
+                                    timeText.textContent = `Local: ${destTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} `;
+                                    timeDiv.appendChild(timeText);
+                                    
+                                    const offsetText = document.createElement('span');
+                                    offsetText.style.opacity = '0.7';
+                                    offsetText.textContent = `(${offsetDiff >= 0 ? '+' : ''}${offsetDiff.toFixed(0)}h)`;
+                                    timeDiv.appendChild(offsetText);
+                                    
+                                    vacationDiv.appendChild(timeDiv);
+                                }
+                            }
+                            
+                            // Fetch weather forecast
+                            const weatherResponse = await fetch(`/api/smart-mirror/vacation-weather?location=${encodeURIComponent(vacation.destination)}`);
+                            const weatherData = await weatherResponse.json();
+                            
+                            if (weatherData.success && weatherData.days && weatherData.days.length > 0) {
+                                const weatherDiv = document.createElement('div');
+                                weatherDiv.style.fontSize = '0.85rem';
+                                weatherDiv.style.marginTop = '8px';
+                                
+                                // Find weather for vacation dates
+                                const vacationDays = weatherData.days.filter(day => {
+                                    const dayDate = new Date(day.date);
+                                    return dayDate >= startDate && dayDate <= endDate;
+                                });
+                                
+                                if (vacationDays.length > 0) {
+                                    // Show average or first day weather
+                                    const firstDay = vacationDays[0];
+                                    const weatherIcon = getWeatherIcon(firstDay.icon);
+                                    
+                                    const weatherContent = document.createElement('div');
+                                    weatherContent.style.display = 'flex';
+                                    weatherContent.style.alignItems = 'center';
+                                    weatherContent.style.gap = '8px';
+                                    
+                                    const iconSpan = document.createElement('span');
+                                    iconSpan.style.fontSize = '1.3rem';
+                                    iconSpan.textContent = weatherIcon;
+                                    weatherContent.appendChild(iconSpan);
+                                    
+                                    const tempSpan = document.createElement('span');
+                                    tempSpan.textContent = `${firstDay.tempHigh}° / ${firstDay.tempLow}°`;
+                                    weatherContent.appendChild(tempSpan);
+                                    
+                                    const condSpan = document.createElement('span');
+                                    condSpan.style.opacity = '0.8';
+                                    condSpan.textContent = firstDay.condition || firstDay.description;
+                                    weatherContent.appendChild(condSpan);
+                                    
+                                    weatherDiv.appendChild(weatherContent);
+                                } else if (weatherData.isFallback && weatherData.days && weatherData.days.length > 0) {
+                                    // Show current weather as fallback
+                                    const day = weatherData.days[0];
+                                    const weatherIcon = getWeatherIcon(day.icon);
+                                    
+                                    const weatherContent = document.createElement('div');
+                                    weatherContent.style.display = 'flex';
+                                    weatherContent.style.alignItems = 'center';
+                                    weatherContent.style.gap = '8px';
+                                    
+                                    const iconSpan = document.createElement('span');
+                                    iconSpan.style.fontSize = '1.3rem';
+                                    iconSpan.textContent = weatherIcon;
+                                    weatherContent.appendChild(iconSpan);
+                                    
+                                    const tempSpan = document.createElement('span');
+                                    tempSpan.textContent = `${day.tempHigh}°`;
+                                    weatherContent.appendChild(tempSpan);
+                                    
+                                    const condSpan = document.createElement('span');
+                                    condSpan.style.opacity = '0.8';
+                                    condSpan.textContent = day.condition || day.description;
+                                    weatherContent.appendChild(condSpan);
+                                    
+                                    weatherDiv.appendChild(weatherContent);
+                                    
+                                    const fallbackNote = document.createElement('div');
+                                    fallbackNote.style.fontSize = '0.75rem';
+                                    fallbackNote.style.opacity = '0.6';
+                                    fallbackNote.style.marginTop = '4px';
+                                    fallbackNote.textContent = '(Current weather - forecast unavailable)';
+                                    weatherDiv.appendChild(fallbackNote);
+                                } else {
+                                    const noWeatherSpan = document.createElement('span');
+                                    noWeatherSpan.style.opacity = '0.6';
+                                    noWeatherSpan.textContent = '⛅ Weather forecast not available for dates';
+                                    weatherDiv.appendChild(noWeatherSpan);
+                                }
+                                
+                                vacationDiv.appendChild(weatherDiv);
+                            }
+                        } catch (weatherError) {
+                            console.error('Error fetching vacation weather/timezone:', weatherError);
+                            // Silently fail for weather - don't show error to user
+                        }
+                    }
+                    
+                    // Add notes if available
+                    if (vacation.notes && vacation.notes.trim()) {
+                        const notesDiv = document.createElement('div');
+                        notesDiv.style.fontSize = '0.8rem';
+                        notesDiv.style.opacity = '0.7';
+                        notesDiv.style.marginTop = '8px';
+                        notesDiv.style.fontStyle = 'italic';
+                        notesDiv.textContent = vacation.notes;
+                        vacationDiv.appendChild(notesDiv);
+                    }
+                    
+                    content.appendChild(vacationDiv);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching vacation data:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                
+                const iconDiv = document.createElement('div');
+                iconDiv.style.fontSize = '2rem';
+                iconDiv.style.marginBottom = '10px';
+                iconDiv.textContent = '⚠️';
+                errorDiv.appendChild(iconDiv);
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.textContent = error.message || 'Error loading vacation data';
+                errorDiv.appendChild(msgDiv);
+                
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+        
+        // Helper function to format date range
+        function formatDateRange(startDate, endDate) {
+            const options = { month: 'short', day: 'numeric' };
+            const start = startDate.toLocaleDateString('en-US', options);
+            const end = endDate.toLocaleDateString('en-US', options);
+            
+            if (startDate.getFullYear() !== new Date().getFullYear()) {
+                return `${start}, ${startDate.getFullYear()} - ${end}, ${endDate.getFullYear()}`;
+            }
+            
+            return `${start} - ${end}`;
         }
 
         // Show error message
