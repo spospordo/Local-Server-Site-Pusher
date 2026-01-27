@@ -136,6 +136,18 @@ function getDefaultWidgets() {
       calendarUrls: [],
       feedUrls: [],
       days: 5
+    },
+    vacation: {
+      enabled: false,
+      area: 'middle-left',
+      size: 'large',
+      calendarUrls: [], // Calendar feeds to extract vacation events from
+      apiKey: '', // OpenWeatherMap API key for weather data
+      units: 'imperial', // imperial or metric
+      adminTimezone: 'America/New_York', // Admin's timezone for comparison
+      location: '',
+      feedUrls: [],
+      days: 5
     }
   };
 }
@@ -149,7 +161,8 @@ function getDefaultPortraitLayout() {
     weather: { x: 0, y: 2, width: 2, height: 2 },
     forecast: { x: 0, y: 4, width: 4, height: 2 },
     news: { x: 2, y: 2, width: 2, height: 2 },
-    media: { x: 0, y: 4, width: 4, height: 2 }
+    media: { x: 0, y: 4, width: 4, height: 2 },
+    vacation: { x: 0, y: 4, width: 4, height: 2 }
   };
 }
 
@@ -162,7 +175,8 @@ function getDefaultLandscapeLayout() {
     weather: { x: 6, y: 0, width: 2, height: 1 },
     news: { x: 0, y: 1, width: 2, height: 2 },
     forecast: { x: 0, y: 3, width: 8, height: 1 },
-    media: { x: 6, y: 1, width: 2, height: 2 }
+    media: { x: 6, y: 1, width: 2, height: 2 },
+    vacation: { x: 0, y: 3, width: 6, height: 1 }
   };
 }
 
@@ -1254,6 +1268,206 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
   }
 }
 
+// Helper function to get timezone offset for a location using TimezoneDB or simple timezone conversion
+async function getTimezoneInfo(location, apiKey) {
+  try {
+    // For now, we'll use OpenWeatherMap's geocoding to get coordinates, then calculate timezone
+    // This is a simplified approach - in production, you might want to use a dedicated timezone API
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${apiKey}`;
+    const response = await axios.get(geoUrl, { timeout: 5000 });
+    
+    if (!response.data || response.data.length === 0) {
+      return null;
+    }
+    
+    const { lat, lon, name, country } = response.data[0];
+    
+    // Get timezone info using OpenWeatherMap's timezone endpoint (requires coordinates)
+    const timezoneUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    const tzResponse = await axios.get(timezoneUrl, { timeout: 5000 });
+    
+    // Calculate local time using timezone offset
+    const tzOffset = tzResponse.data.timezone; // Offset in seconds
+    const utcTime = new Date();
+    const localTime = new Date(utcTime.getTime() + tzOffset * 1000);
+    
+    return {
+      location: name,
+      country,
+      timezone: tzOffset / 3600, // Convert to hours
+      timezoneOffsetSeconds: tzOffset,
+      localTime: localTime.toISOString(),
+      coordinates: { lat, lon }
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Failed to get timezone info for ${location}: ${err.message}`);
+    return null;
+  }
+}
+
+// Fetch upcoming vacations with weather and timezone data
+async function fetchVacations(calendarUrls, apiKey, units = 'imperial', adminTimezone = 'America/New_York') {
+  logger.debug(logger.categories.SMART_MIRROR, 'Fetching upcoming vacations with weather and timezone data');
+  
+  if (!calendarUrls || calendarUrls.length === 0) {
+    const errorMsg = 'No calendar URLs configured for vacation widget';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg, vacations: [] };
+  }
+  
+  try {
+    // Fetch calendar events
+    const calendarResult = await fetchCalendarEvents(calendarUrls);
+    
+    if (!calendarResult.success) {
+      return { success: false, error: calendarResult.error, vacations: [] };
+    }
+    
+    const events = calendarResult.events || [];
+    const now = new Date();
+    
+    // Filter for vacation events (multi-day events with "vacation", "trip", "holiday" in title or location)
+    // Or events that are all-day and span multiple days
+    const vacationEvents = events.filter(event => {
+      const titleLower = (event.title || '').toLowerCase();
+      const locationLower = (event.location || '').toLowerCase();
+      const descriptionLower = (event.description || '').toLowerCase();
+      
+      // Check if it's a vacation-related event
+      const isVacationKeyword = titleLower.includes('vacation') || 
+                                titleLower.includes('trip') || 
+                                titleLower.includes('holiday') ||
+                                titleLower.includes('travel') ||
+                                locationLower.includes('vacation') ||
+                                descriptionLower.includes('vacation');
+      
+      // Check if it's a multi-day event
+      const start = new Date(event.start);
+      const end = event.end ? new Date(event.end) : start;
+      const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const isMultiDay = durationDays > 1;
+      
+      // Include if it's vacation-related or a multi-day all-day event
+      return (isVacationKeyword || (isMultiDay && event.isAllDay)) && event.location;
+    });
+    
+    logger.info(logger.categories.SMART_MIRROR, `Found ${vacationEvents.length} potential vacation events`);
+    
+    // Process each vacation to get weather and timezone info
+    const vacations = [];
+    
+    for (const event of vacationEvents.slice(0, 5)) { // Limit to 5 vacations
+      const start = new Date(event.start);
+      const end = event.end ? new Date(event.end) : start;
+      const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      
+      const vacation = {
+        title: event.title,
+        location: event.location,
+        start: event.start,
+        end: event.end,
+        daysFromNow: event.daysFromNow,
+        duration: durationDays,
+        isAllDay: event.isAllDay,
+        weather: null,
+        timezone: null,
+        timezoneInfo: null
+      };
+      
+      // Only fetch weather if API key is provided
+      if (apiKey && event.location) {
+        try {
+          // Get timezone info for the location
+          const tzInfo = await getTimezoneInfo(event.location, apiKey);
+          if (tzInfo) {
+            vacation.timezone = tzInfo;
+            
+            // Calculate time difference from admin timezone
+            // For simplicity, we'll use the numeric offset difference
+            const adminDate = new Date();
+            const adminOffset = -adminDate.getTimezoneOffset() / 60; // Local offset in hours
+            const hourDiff = tzInfo.timezone - adminOffset;
+            
+            vacation.timezoneInfo = {
+              location: tzInfo.location,
+              hourDifference: Math.round(hourDiff),
+              localTime: tzInfo.localTime,
+              showTimezone: Math.abs(hourDiff) >= 1 // Only show if at least 1 hour difference
+            };
+          }
+          
+          // Try to get forecast for vacation dates
+          const forecastResult = await fetchForecast(apiKey, event.location, 5, units);
+          
+          if (forecastResult.success && forecastResult.days) {
+            // Check if we have forecast data for at least one vacation day
+            const vacationStartDate = start.toISOString().split('T')[0];
+            const vacationEndDate = end.toISOString().split('T')[0];
+            
+            // Filter forecast days that fall within vacation dates
+            const vacationForecast = forecastResult.days.filter(day => {
+              return day.date >= vacationStartDate && day.date <= vacationEndDate;
+            });
+            
+            if (vacationForecast.length > 0) {
+              // We have at least one day of vacation forecast
+              vacation.weather = {
+                type: 'vacation',
+                days: vacationForecast,
+                location: forecastResult.location,
+                units: forecastResult.units
+              };
+              logger.info(logger.categories.SMART_MIRROR, `Fetched vacation-specific forecast for ${event.location} (${vacationForecast.length} days)`);
+            } else {
+              // Fallback to 3-day current forecast
+              const currentForecast = await fetchForecast(apiKey, event.location, 3, units);
+              if (currentForecast.success) {
+                vacation.weather = {
+                  type: 'current',
+                  days: currentForecast.days,
+                  location: currentForecast.location,
+                  units: currentForecast.units,
+                  fallback: true
+                };
+                logger.info(logger.categories.SMART_MIRROR, `Using 3-day fallback forecast for ${event.location}`);
+              }
+            }
+          } else {
+            // If forecast fails, try to get current weather only
+            const weatherResult = await fetchWeather(apiKey, event.location, units);
+            if (weatherResult.success) {
+              vacation.weather = {
+                type: 'current',
+                current: weatherResult.data,
+                location: weatherResult.data.location,
+                units: weatherResult.data.units
+              };
+            }
+          }
+        } catch (err) {
+          logger.error(logger.categories.SMART_MIRROR, `Failed to fetch weather/timezone for ${event.location}: ${err.message}`);
+          vacation.weather = { error: 'Unable to fetch weather data' };
+        }
+      }
+      
+      vacations.push(vacation);
+    }
+    
+    logger.success(logger.categories.SMART_MIRROR, `Processed ${vacations.length} vacations with weather and timezone data`);
+    
+    return {
+      success: true,
+      vacations,
+      count: vacations.length
+    };
+    
+  } catch (err) {
+    const errorMsg = `Failed to fetch vacations: ${err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg, vacations: [] };
+  }
+}
+
 // Fetch Home Assistant media player state
 async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
@@ -1897,6 +2111,7 @@ module.exports = {
   fetchNews,
   fetchWeather,
   fetchForecast,
+  fetchVacations,
   fetchHomeAssistantMedia,
   testWeatherConnection,
   testCalendarFeed,

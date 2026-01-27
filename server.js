@@ -5951,6 +5951,41 @@ app.get('/api/smart-mirror/media', (() => {
   };
 })());
 
+// Fetch vacation data with weather and timezone information
+app.get('/api/smart-mirror/vacation', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Vacation data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled', vacations: [] });
+    }
+    
+    if (!vacationConfig.calendarUrls || vacationConfig.calendarUrls.length === 0) {
+      return res.json({ success: false, error: 'Calendar URLs must be configured for vacation widget', vacations: [] });
+    }
+    
+    const result = await smartMirror.fetchVacations(
+      vacationConfig.calendarUrls,
+      vacationConfig.apiKey || '',
+      vacationConfig.units || 'imperial',
+      vacationConfig.adminTimezone || 'America/New_York'
+    );
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch vacation data', vacations: [] });
+  }
+});
+
 // House API Endpoints
 // Get vacation data
 app.get('/admin/api/house/vacation', requireAuth, (req, res) => {
