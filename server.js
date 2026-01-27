@@ -5951,6 +5951,184 @@ app.get('/api/smart-mirror/media', (() => {
   };
 })());
 
+// Fetch vacation data for smart mirror (public endpoint)
+app.get('/api/smart-mirror/vacation', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Vacation data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled' });
+    }
+    
+    // Get vacation data from house module
+    const vacationData = house.getVacationData();
+    
+    // Filter for upcoming vacations only (start date is today or in the future)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const upcomingVacations = (vacationData.dates || [])
+      .filter(vacation => {
+        const startDate = new Date(vacation.startDate);
+        return startDate >= today;
+      })
+      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+    
+    res.json({ 
+      success: true, 
+      vacations: upcomingVacations 
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch vacation data' });
+  }
+});
+
+// Test location for weather availability (for admin validation)
+app.post('/admin/api/smart-mirror/test-location', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Testing location for weather availability');
+  
+  try {
+    const { location } = req.body;
+    
+    if (!location) {
+      return res.status(400).json({ success: false, error: 'Location is required' });
+    }
+    
+    const config = smartMirror.loadConfig();
+    const apiKey = config.widgets?.weather?.apiKey || config.widgets?.forecast?.apiKey;
+    
+    if (!apiKey) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Weather API key not configured. Please configure a weather widget first.' 
+      });
+    }
+    
+    const units = config.widgets?.weather?.units || 'imperial';
+    const result = await smartMirror.testWeatherConnection(apiKey, location, units);
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Location test error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to test location' });
+  }
+});
+
+// Fetch weather forecast for a specific location (used by vacation widget)
+app.get('/api/smart-mirror/vacation-weather', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Vacation weather requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const { location } = req.query;
+    
+    if (!location) {
+      return res.status(400).json({ success: false, error: 'Location parameter is required' });
+    }
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled' });
+    }
+    
+    // Use weather API key from weather or forecast widget
+    const apiKey = config.widgets?.weather?.apiKey || config.widgets?.forecast?.apiKey;
+    const units = config.widgets?.weather?.units || config.widgets?.forecast?.units || 'imperial';
+    
+    if (!apiKey) {
+      return res.json({ success: false, error: 'Weather API key not configured' });
+    }
+    
+    // Try to fetch 16-day forecast (max for free tier), fallback to 5-day, then current weather
+    let result = await smartMirror.fetchForecast(apiKey, location, 16, units);
+    
+    if (!result.success) {
+      // Fallback to 5-day forecast
+      result = await smartMirror.fetchForecast(apiKey, location, 5, units);
+      
+      if (!result.success) {
+        // Fallback to current weather (3-day equivalent)
+        result = await smartMirror.fetchWeather(apiKey, location, units);
+        if (result.success) {
+          // Convert current weather to forecast format
+          result = {
+            success: true,
+            days: [{
+              date: new Date().toISOString().split('T')[0],
+              tempHigh: result.data.temp,
+              tempLow: result.data.tempMin,
+              condition: result.data.condition,
+              icon: result.data.icon,
+              description: result.data.description
+            }],
+            location: location,
+            isFallback: true
+          };
+        }
+      }
+    }
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation weather API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch vacation weather data' });
+  }
+});
+
+// Fetch timezone information for a location (used by vacation widget)
+app.get('/api/smart-mirror/vacation-timezone', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Vacation timezone requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const { location } = req.query;
+    
+    if (!location) {
+      return res.status(400).json({ success: false, error: 'Location parameter is required' });
+    }
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled' });
+    }
+    
+    // Use weather API key from weather or forecast widget
+    const apiKey = config.widgets?.weather?.apiKey || config.widgets?.forecast?.apiKey;
+    
+    if (!apiKey) {
+      return res.json({ success: false, error: 'Weather API key not configured' });
+    }
+    
+    const result = await smartMirror.fetchLocationTimezone(apiKey, location);
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation timezone API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch vacation timezone data' });
+  }
+});
+
 // House API Endpoints
 // Get vacation data
 app.get('/admin/api/house/vacation', requireAuth, (req, res) => {

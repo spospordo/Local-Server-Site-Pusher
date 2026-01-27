@@ -136,6 +136,17 @@ function getDefaultWidgets() {
       calendarUrls: [],
       feedUrls: [],
       days: 5
+    },
+    vacation: {
+      enabled: false,
+      area: 'bottom-right',
+      size: 'medium',
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      calendarUrls: [],
+      feedUrls: [],
+      days: 5
     }
   };
 }
@@ -149,7 +160,8 @@ function getDefaultPortraitLayout() {
     weather: { x: 0, y: 2, width: 2, height: 2 },
     forecast: { x: 0, y: 4, width: 4, height: 2 },
     news: { x: 2, y: 2, width: 2, height: 2 },
-    media: { x: 0, y: 4, width: 4, height: 2 }
+    media: { x: 0, y: 4, width: 4, height: 2 },
+    vacation: { x: 2, y: 4, width: 2, height: 2 }
   };
 }
 
@@ -162,7 +174,8 @@ function getDefaultLandscapeLayout() {
     weather: { x: 6, y: 0, width: 2, height: 1 },
     news: { x: 0, y: 1, width: 2, height: 2 },
     forecast: { x: 0, y: 3, width: 8, height: 1 },
-    media: { x: 6, y: 1, width: 2, height: 2 }
+    media: { x: 6, y: 1, width: 2, height: 2 },
+    vacation: { x: 6, y: 3, width: 2, height: 1 }
   };
 }
 
@@ -1883,6 +1896,41 @@ async function testHomeAssistantMedia(url, token, entityIds) {
   }
 }
 
+// Fetch timezone information for a location
+async function fetchLocationTimezone(apiKey, location) {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching timezone info for location: ${location}`);
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for timezone';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  try {
+    // Use OpenWeatherMap API to get coordinates and timezone offset
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}`;
+    logger.info(logger.categories.SMART_MIRROR, `Fetching timezone from OpenWeatherMap API for location: ${location}`);
+    
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    const timezoneData = {
+      location: data.name,
+      country: data.sys.country,
+      timezoneOffset: data.timezone, // Offset in seconds from UTC
+      lat: data.coord.lat,
+      lon: data.coord.lon
+    };
+    
+    logger.success(logger.categories.SMART_MIRROR, `Timezone data fetched successfully for ${data.name}: UTC${data.timezone >= 0 ? '+' : ''}${data.timezone / 3600}`);
+    return { success: true, data: timezoneData };
+  } catch (err) {
+    const errorMsg = `Failed to fetch timezone: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
@@ -1898,6 +1946,7 @@ module.exports = {
   fetchWeather,
   fetchForecast,
   fetchHomeAssistantMedia,
+  fetchLocationTimezone,
   testWeatherConnection,
   testCalendarFeed,
   testNewsFeed,
