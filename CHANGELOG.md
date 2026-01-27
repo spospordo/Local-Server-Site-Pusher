@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.4.3] - 2026-01-27
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #393 from spospordo/copilot/add-upcoming-vacations-widget-again
+  - Fix vacation widget grid constraints to match 4×6 portrait grid
+  - Update test to verify vacation widget admin integration
+  - Add vacation widget configuration to admin dashboard
+  - Initial plan
+
+
 ## [2.4.2] - 2026-01-27
 
 ### Patch Update
