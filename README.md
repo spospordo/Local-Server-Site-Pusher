@@ -307,7 +307,7 @@ See [OLLAMA_INTEGRATION.md](OLLAMA_INTEGRATION.md) for detailed documentation.
 
 ## Smart Mirror Dashboard
 
-Create a customizable smart mirror display with widgets for clock, calendar, weather, forecast, news feeds, and Home Assistant media players.
+Create a customizable smart mirror display with widgets for clock, calendar, weather, forecast, news feeds, Home Assistant media players, and intelligent notifications.
 
 ### Features
 
@@ -316,6 +316,8 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
 - 📅 **Calendar Integration**: Display upcoming events from iCal/ICS feeds
 - 📰 **News Feeds**: Show latest headlines from RSS feeds
 - 🎵 **Home Assistant Media Player**: Display now-playing information from your Home Assistant media players (Spotify, Chromecast, Sonos, Plex, etc.)
+- ✈️ **Vacation Widget**: Show upcoming vacations with countdown and weather
+- 📱 **Smart Widget**: Intelligent container that displays multiple sub-widgets (rain forecast, vacation alerts, media status) based on relevance
 - 🎨 **Grid Editor**: Visual drag-and-drop layout editor
 - 🌙 **Dark/Light Themes**: Built-in theme support
 - 🔐 **Persistent Configuration**: All settings including API keys persist across container restarts
@@ -331,10 +333,13 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
    - **Forecast**: Uses same API key as weather widget
    - **News**: Add RSS feed URLs
    - **Media**: Connect to Home Assistant for now-playing display (see [HOME_ASSISTANT_MEDIA_WIDGET.md](HOME_ASSISTANT_MEDIA_WIDGET.md))
+   - **Vacation**: Configure vacation dates in House section for countdown display
+   - **Smart Widget**: Intelligent multi-widget display for rain alerts, vacations, and media status (see [SMART_WIDGET.md](SMART_WIDGET.md))
 
 4. Get a free OpenWeatherMap API key at [openweathermap.org/api](https://openweathermap.org/api)
 5. For Home Assistant media widget setup, see the [detailed guide](HOME_ASSISTANT_MEDIA_WIDGET.md)
-6. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+6. For Smart Widget configuration, see the [Smart Widget documentation](SMART_WIDGET.md)
+7. View your Smart Mirror at `http://localhost:3000/smart-mirror`
 
 ### API Key Persistence
 
