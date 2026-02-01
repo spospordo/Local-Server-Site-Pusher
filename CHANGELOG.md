@@ -86,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.5.0] - 2026-02-01
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #399 from spospordo/copilot/fix-widget-appearance-editor
+  - fix: Update test to only check for correct vacation emoji
+  - feat: Add vacation widget to grid editor WIDGET_ICONS
+  - Initial plan
+
+
 ## [2.4.4] - 2026-02-01
 
 ### Patch Update
