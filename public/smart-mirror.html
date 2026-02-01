@@ -112,6 +112,30 @@
             text-overflow: ellipsis;
             max-width: 100%;
         }
+        
+        /* Additional timezone styles */
+        .clock-additional-timezone {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        body.theme-light .clock-additional-timezone {
+            border-top-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        .clock-additional-city {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .clock-additional-time {
+            font-size: 2rem;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+        }
 
         /* Calendar Widget */
         .calendar-container {
@@ -1103,7 +1127,7 @@
 
             switch (type) {
                 case 'clock':
-                    updateClockWidget(content);
+                    updateClockWidget(content, widgetConfig);
                     break;
                 case 'calendar':
                     updateCalendarWidget(content, widgetConfig);
@@ -1127,7 +1151,7 @@
         }
 
         // Update clock widget
-        function updateClockWidget(content) {
+        function updateClockWidget(content, widgetConfig) {
             const now = new Date();
             
             const timeStr = now.toLocaleTimeString('en-US', { 
@@ -1149,11 +1173,38 @@
                 day: 'numeric' 
             });
 
-            content.innerHTML = `
+            let html = `
                 <div class="clock-time">${timeStr}</div>
                 <div class="clock-time-24h">${time24Str}</div>
                 <div class="clock-date">${dateStr}</div>
             `;
+            
+            // Add additional timezones if configured
+            const additionalTimezones = widgetConfig?.additionalTimezones || [];
+            if (additionalTimezones.length > 0) {
+                additionalTimezones.forEach(tz => {
+                    if (tz.city && tz.timezone) {
+                        try {
+                            const tzTime = now.toLocaleTimeString('en-US', { 
+                                timeZone: tz.timezone,
+                                hour: '2-digit', 
+                                minute: '2-digit',
+                                hour12: true 
+                            });
+                            html += `
+                                <div class="clock-additional-timezone">
+                                    <div class="clock-additional-city">${tz.city}</div>
+                                    <div class="clock-additional-time">${tzTime}</div>
+                                </div>
+                            `;
+                        } catch (error) {
+                            console.error(`Invalid timezone: ${tz.timezone}`, error);
+                        }
+                    }
+                });
+            }
+            
+            content.innerHTML = html;
         }
 
         // Update calendar widget
