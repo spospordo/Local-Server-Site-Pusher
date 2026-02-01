@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.4.4] - 2026-02-01
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #397 from spospordo/copilot/update-clock-widget-timezones
+  - Remove test clock widget file
+  - Remove test files from public directory
+  - Complete multi-timezone clock widget implementation with UI testing
+  - Add multi-timezone support to clock widget
+  - Initial plan
+
+
 ## [2.4.3] - 2026-01-27
 
 ### Patch Update
