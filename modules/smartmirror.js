@@ -77,7 +77,8 @@ function getDefaultWidgets() {
       units: 'imperial',
       calendarUrls: [],
       feedUrls: [],
-      days: 5
+      days: 5,
+      additionalTimezones: []
     },
     calendar: {
       enabled: true,
