@@ -57,7 +57,7 @@ async function runTests() {
     const widgetIconsMatch = adminDashboard.match(/const WIDGET_ICONS\s*=\s*{([^}]+)}/s);
     if (!widgetIconsMatch) return false;
     const iconsContent = widgetIconsMatch[1];
-    return iconsContent.includes('vacation:') && (iconsContent.includes('🏖️') || iconsContent.includes('📍'));
+    return iconsContent.includes('vacation:') && iconsContent.includes('🏖️');
   })) passCount++;
   
   // Test 2: Check for vacation widget form fields
