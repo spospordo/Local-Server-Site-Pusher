@@ -4303,6 +4303,74 @@
 
                 <div class="section-divider"></div>
 
+                <!-- APIs and Connections Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🔌 APIs and Connections
+                        </span>
+                    </div>
+                    <div class="collapsible-content" style="display: none;">
+                        <p style="margin-bottom: 15px; color: #666;">
+                            Configure API keys and connection settings used by multiple widgets. Managing credentials here reduces duplication and simplifies maintenance.
+                        </p>
+
+                        <h4 style="margin-bottom: 15px;">🌤️ OpenWeatherMap API</h4>
+                        <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
+                            This API is used by the Weather Widget, Forecast Widget, Vacation Widget, and Smart Widget (Rain Forecast). 
+                            Get a free API key at <a href="https://openweathermap.org/api" target="_blank" style="color: #667eea;">openweathermap.org/api</a>.
+                        </p>
+
+                        <div class="form-group">
+                            <label for="centralWeatherApiKey">OpenWeatherMap API Key</label>
+                            <input type="password" id="centralWeatherApiKey" placeholder="Enter your OpenWeatherMap API key">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                This key will be used by all weather-related widgets (Weather, Forecast, Vacation, Rain Forecast)
+                            </small>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="centralWeatherLocation">Default Location</label>
+                                <input type="text" id="centralWeatherLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Default location for weather widgets (can be overridden per widget)
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="centralWeatherUnits">Default Temperature Units</label>
+                                <select id="centralWeatherUnits">
+                                    <option value="imperial">Fahrenheit (°F)</option>
+                                    <option value="metric">Celsius (°C)</option>
+                                </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Default units for all weather widgets
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="button" class="btn-test-connection" onclick="testCentralWeatherConnection()">
+                                🔍 Test OpenWeatherMap Connection
+                            </button>
+                            <div id="centralWeatherTestResult" class="test-result-container" style="display: none; margin-top: 10px;">
+                                <div class="test-result-content"></div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin-top: 20px; border-radius: 5px;">
+                            <strong style="color: #333;">💡 Note:</strong>
+                            <p style="margin: 8px 0 0 0; color: #666; font-size: 0.95rem;">
+                                Widget-specific settings (location, display options, refresh intervals) are configured in each widget's section below. 
+                                Only the API credentials are centralized here for easier management.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <h3>Widget Configuration</h3>
                 <p style="margin-bottom: 15px;">Enable and configure widgets for the Smart Mirror dashboard. Portrait mode uses a finer 4×6 grid (better vertical control), while landscape mode uses an 8×4 grid (better horizontal control).</p>
 
@@ -4489,16 +4557,12 @@
                                 <input type="number" id="weatherGridHeight" min="1" max="3" value="1">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="weatherLocation">Location</label>
-                            <input type="text" id="weatherLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
-                        </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="weatherApiKey">OpenWeatherMap API Key</label>
-                                <input type="password" id="weatherApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <label for="weatherLocation">Location</label>
+                                <input type="text" id="weatherLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
                                 <small style="color: #666; display: block; margin-top: 4px;">
-                                    Get a free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                    Leave blank to use default location from APIs & Connections section
                                 </small>
                             </div>
                             <div class="form-group">
@@ -4507,15 +4571,15 @@
                                     <option value="imperial">Fahrenheit (°F)</option>
                                     <option value="metric">Celsius (°C)</option>
                                 </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Leave as default to use units from APIs & Connections
+                                </small>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <button type="button" class="btn-test-connection" onclick="testWeatherConnection()">
-                                🔍 Test Weather Connection
-                            </button>
-                            <div id="weatherTestResult" class="test-result-container" style="display: none; margin-top: 10px;">
-                                <div class="test-result-content"></div>
-                            </div>
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ <strong>API Key:</strong> Configure your OpenWeatherMap API key in the <strong>APIs and Connections</strong> section above.
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -4565,16 +4629,12 @@
                                 <input type="number" id="forecastGridHeight" min="1" max="3" value="1">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="forecastLocation">Location</label>
-                            <input type="text" id="forecastLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
-                        </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="forecastApiKey">OpenWeatherMap API Key</label>
-                                <input type="password" id="forecastApiKey" placeholder="Enter your OpenWeatherMap API key">
+                                <label for="forecastLocation">Location</label>
+                                <input type="text" id="forecastLocation" placeholder="City, State or Zip Code (e.g., Seattle, WA)">
                                 <small style="color: #666; display: block; margin-top: 4px;">
-                                    Uses the same OpenWeatherMap API. Get a free key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                                    Leave blank to use default location from APIs & Connections section
                                 </small>
                             </div>
                             <div class="form-group">
@@ -4583,7 +4643,15 @@
                                     <option value="imperial">Fahrenheit (°F)</option>
                                     <option value="metric">Celsius (°C)</option>
                                 </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Leave as default to use units from APIs & Connections
+                                </small>
                             </div>
+                        </div>
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ <strong>API Key:</strong> Configure your OpenWeatherMap API key in the <strong>APIs and Connections</strong> section above.
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -4777,16 +4845,14 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="vacationApiKey">OpenWeatherMap API Key (for destination weather)</label>
-                            <input type="password" id="vacationApiKey" placeholder="Enter your API key for vacation weather data">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Used to fetch weather and timezone information for vacation destinations. Same API key as Weather widget can be used. Get one at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
-                            </small>
-                        </div>
-                        <div class="form-group">
                             <p style="margin-bottom: 10px; color: #666;">
                                 Configure vacation dates and destinations in the <strong>House → Vacation Dates</strong> section above. The widget will automatically display upcoming vacations with weather, timezone, and countdown information.
                             </p>
+                        </div>
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ <strong>API Key:</strong> Configure your OpenWeatherMap API key in the <strong>APIs and Connections</strong> section above. The same key is used for vacation destination weather.
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -4949,24 +5015,14 @@
 
                         <h4 style="margin-top: 20px; margin-bottom: 15px;">Shared Configuration</h4>
                         
-                        <div class="form-group">
-                            <label for="smartWidgetApiKey">OpenWeatherMap API Key (for Rain Forecast)</label>
-                            <input type="password" id="smartWidgetApiKey" placeholder="Enter your API key">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Required for Rain Forecast sub-widget. Get one at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 15px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ <strong>Rain Forecast API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
                             </small>
                         </div>
 
                         <div class="form-group">
-                            <label for="smartWidgetLocation">Location (for Rain Forecast)</label>
-                            <input type="text" id="smartWidgetLocation" placeholder="City name, e.g., San Francisco">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                City name for weather forecast lookups
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetUnits">Temperature Units</label>
+                            <label for="smartWidgetUnits">Temperature Units (for Rain Forecast)</label>
                             <select id="smartWidgetUnits">
                                 <option value="imperial">Imperial (°F)</option>
                                 <option value="metric">Metric (°C)</option>
@@ -10677,6 +10733,28 @@
                     // Load main settings
                     document.getElementById('smartMirrorEnabled').value = config.enabled ? 'true' : 'false';
                     document.getElementById('smartMirrorTheme').value = config.theme || 'dark';
+                    
+                    // Load centralized API configuration
+                    // Check if any widget has an API key to determine if central config exists
+                    const centralApiKey = config.widgets?.weather?.apiKey || 
+                                         config.widgets?.forecast?.apiKey || 
+                                         config.widgets?.vacation?.apiKey || 
+                                         config.widgets?.smartWidget?.apiKey;
+                    
+                    const centralApiKeyInput = document.getElementById('centralWeatherApiKey');
+                    if (centralApiKey) {
+                        centralApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
+                        centralApiKeyInput.dataset.hasKey = 'true';
+                    } else {
+                        centralApiKeyInput.placeholder = 'Enter your OpenWeatherMap API key';
+                        centralApiKeyInput.dataset.hasKey = 'false';
+                    }
+                    
+                    // Load default location and units from weather widget or smart widget
+                    const defaultLocation = config.widgets?.weather?.location || config.widgets?.smartWidget?.location || '';
+                    const defaultUnits = config.widgets?.weather?.units || config.widgets?.smartWidget?.units || 'imperial';
+                    document.getElementById('centralWeatherLocation').value = defaultLocation;
+                    document.getElementById('centralWeatherUnits').value = defaultUnits;
                     
                     // Get layouts (use old format as fallback)
                     const portraitLayout = config.layouts?.portrait || {};
