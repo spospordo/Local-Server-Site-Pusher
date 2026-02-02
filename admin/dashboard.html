@@ -10804,15 +10804,6 @@
                     document.getElementById('weatherGridHeight').value = weatherPortrait.height ?? 1;
                     document.getElementById('weatherLocation').value = weather.location || '';
                     document.getElementById('weatherUnits').value = weather.units || 'imperial';
-                    // Don't load API key for security, but show if one exists
-                    const weatherApiKeyInput = document.getElementById('weatherApiKey');
-                    if (weather.apiKey) {
-                        weatherApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
-                        weatherApiKeyInput.dataset.hasKey = 'true';
-                    } else {
-                        weatherApiKeyInput.placeholder = 'Enter your OpenWeatherMap API key';
-                        weatherApiKeyInput.dataset.hasKey = 'false';
-                    }
                     
                     // Load forecast widget config
                     const forecast = config.widgets?.forecast || {};
@@ -10825,15 +10816,6 @@
                     document.getElementById('forecastGridHeight').value = forecastPortrait.height ?? 1;
                     document.getElementById('forecastLocation').value = forecast.location || '';
                     document.getElementById('forecastUnits').value = forecast.units || 'imperial';
-                    // Don't load API key for security, but show if one exists
-                    const forecastApiKeyInput = document.getElementById('forecastApiKey');
-                    if (forecast.apiKey) {
-                        forecastApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
-                        forecastApiKeyInput.dataset.hasKey = 'true';
-                    } else {
-                        forecastApiKeyInput.placeholder = 'Enter your OpenWeatherMap API key';
-                        forecastApiKeyInput.dataset.hasKey = 'false';
-                    }
                     
                     // Load news widget config
                     const news = config.widgets?.news || {};
@@ -10879,15 +10861,6 @@
                     document.getElementById('vacationGridY').value = vacationPortrait.y ?? 4;
                     document.getElementById('vacationGridWidth').value = vacationPortrait.width ?? 2;
                     document.getElementById('vacationGridHeight').value = vacationPortrait.height ?? 2;
-                    // Don't load API key for security, but show if one exists
-                    const vacationApiKeyInput = document.getElementById('vacationApiKey');
-                    if (vacation.apiKey) {
-                        vacationApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
-                        vacationApiKeyInput.dataset.hasKey = 'true';
-                    } else {
-                        vacationApiKeyInput.placeholder = 'Enter your API key for vacation weather data';
-                        vacationApiKeyInput.dataset.hasKey = 'false';
-                    }
                     
                     // Load Smart Widget config
                     const smartWidget = config.widgets?.smartWidget || {};
@@ -10923,16 +10896,7 @@
                     document.getElementById('smartWidgetMediaEnabled').value = mediaSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetMediaPriority').value = mediaSubWidget.priority || 3;
                     
-                    // Shared configuration
-                    const smartWidgetApiKeyInput = document.getElementById('smartWidgetApiKey');
-                    if (smartWidget.apiKey) {
-                        smartWidgetApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
-                        smartWidgetApiKeyInput.dataset.hasKey = 'true';
-                    } else {
-                        smartWidgetApiKeyInput.placeholder = 'Enter your API key';
-                        smartWidgetApiKeyInput.dataset.hasKey = 'false';
-                    }
-                    document.getElementById('smartWidgetLocation').value = smartWidget.location || '';
+                    // Shared configuration (units only - API key and location are now centralized)
                     document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
                     
                     document.getElementById('smartWidgetHaUrl').value = smartWidget.homeAssistantUrl || '';
@@ -11128,24 +11092,24 @@
                             enabled: document.getElementById('weatherEnabled').value === 'true',
                             size: document.getElementById('weatherSize').value,
                             area: 'bottom-left',
-                            location: document.getElementById('weatherLocation').value,
+                            location: document.getElementById('weatherLocation').value.trim() || document.getElementById('centralWeatherLocation').value.trim(),
                             apiKey: preserveApiKey(
-                                document.getElementById('weatherApiKey').value,
+                                document.getElementById('centralWeatherApiKey').value,
                                 currentConfig?.widgets?.weather?.apiKey
                             ),
-                            units: document.getElementById('weatherUnits').value
+                            units: document.getElementById('weatherUnits').value || document.getElementById('centralWeatherUnits').value
                         },
                         forecast: {
                             enabled: document.getElementById('forecastEnabled').value === 'true',
                             size: 'large',
                             area: 'bottom-center',
-                            location: document.getElementById('forecastLocation').value,
+                            location: document.getElementById('forecastLocation').value.trim() || document.getElementById('centralWeatherLocation').value.trim(),
                             apiKey: preserveApiKey(
-                                document.getElementById('forecastApiKey').value,
+                                document.getElementById('centralWeatherApiKey').value,
                                 currentConfig?.widgets?.forecast?.apiKey
                             ),
                             days: parseInt(document.getElementById('forecastDays').value),
-                            units: document.getElementById('forecastUnits').value
+                            units: document.getElementById('forecastUnits').value || document.getElementById('centralWeatherUnits').value
                         },
                         news: {
                             enabled: document.getElementById('newsEnabled').value === 'true',
@@ -11169,7 +11133,7 @@
                             size: document.getElementById('vacationSize').value,
                             area: 'bottom-right',
                             apiKey: preserveApiKey(
-                                document.getElementById('vacationApiKey').value,
+                                document.getElementById('centralWeatherApiKey').value,
                                 currentConfig?.widgets?.vacation?.apiKey
                             )
                         },
@@ -11198,11 +11162,11 @@
                                 }
                             ],
                             apiKey: preserveApiKey(
-                                document.getElementById('smartWidgetApiKey').value,
+                                document.getElementById('centralWeatherApiKey').value,
                                 currentConfig?.widgets?.smartWidget?.apiKey
                             ),
-                            location: document.getElementById('smartWidgetLocation').value.trim(),
-                            units: document.getElementById('smartWidgetUnits').value,
+                            location: document.getElementById('centralWeatherLocation').value.trim(),
+                            units: document.getElementById('smartWidgetUnits').value || document.getElementById('centralWeatherUnits').value,
                             homeAssistantUrl: document.getElementById('smartWidgetHaUrl').value.trim(),
                             homeAssistantToken: preserveApiKey(
                                 document.getElementById('smartWidgetHaToken').value,
@@ -11511,12 +11475,12 @@
             return div.innerHTML;
         }
         
-        // Test weather widget connection
-        async function testWeatherConnection() {
-            const apiKey = document.getElementById('weatherApiKey').value.trim();
-            const location = document.getElementById('weatherLocation').value.trim();
-            const units = document.getElementById('weatherUnits').value;
-            const containerId = 'weatherTestResult';
+        // Test central weather API connection
+        async function testCentralWeatherConnection() {
+            const apiKey = document.getElementById('centralWeatherApiKey').value.trim();
+            const location = document.getElementById('centralWeatherLocation').value.trim();
+            const units = document.getElementById('centralWeatherUnits').value;
+            const containerId = 'centralWeatherTestResult';
             
             if (!apiKey || !location) {
                 displayTestResult(containerId, {
