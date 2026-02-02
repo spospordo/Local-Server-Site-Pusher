@@ -5882,6 +5882,77 @@ app.get('/api/smart-mirror/forecast', async (req, res) => {
   }
 });
 
+// Rain forecast endpoint for Smart Widget
+app.get('/api/smart-mirror/rain-forecast', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Rain forecast data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const smartWidgetConfig = config.widgets?.smartWidget;
+    
+    if (!smartWidgetConfig || !smartWidgetConfig.enabled) {
+      return res.json({ success: false, error: 'Smart Widget not enabled' });
+    }
+    
+    if (!smartWidgetConfig.apiKey || !smartWidgetConfig.location) {
+      return res.json({ success: false, error: 'Weather API key and location must be configured' });
+    }
+    
+    // Get 5-day forecast
+    const result = await smartMirror.fetchForecast(
+      smartWidgetConfig.apiKey,
+      smartWidgetConfig.location,
+      5,
+      smartWidgetConfig.units || 'imperial'
+    );
+    
+    if (!result.success) {
+      return res.json(result);
+    }
+    
+    // Analyze forecast for rain
+    const rainDays = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    result.forecast.days.forEach((day, index) => {
+      const dayDate = new Date(day.date);
+      const daysFromNow = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
+      
+      // Check if there's rain in the forecast
+      // Rain conditions include: Rain, Drizzle, Thunderstorm, or high precipitation probability
+      const hasRain = day.description.toLowerCase().includes('rain') ||
+                      day.description.toLowerCase().includes('drizzle') ||
+                      day.description.toLowerCase().includes('thunderstorm') ||
+                      (day.pop && day.pop.length > 0 && Math.max(...day.pop) > 0.3); // 30% or higher
+      
+      if (hasRain && daysFromNow >= 0) {
+        rainDays.push({
+          daysFromNow: daysFromNow,
+          date: day.date,
+          description: day.description,
+          precipitation: day.pop && day.pop.length > 0 ? Math.max(...day.pop) : 0
+        });
+      }
+    });
+    
+    res.json({
+      success: true,
+      hasRain: rainDays.length > 0,
+      rainDays: rainDays,
+      location: smartWidgetConfig.location
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Rain forecast API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch rain forecast data' });
+  }
+});
+
 // Fetch Home Assistant media player state
 // Using closure to encapsulate cache state for this endpoint only
 app.get('/api/smart-mirror/media', (() => {
@@ -6124,6 +6195,173 @@ app.get('/api/smart-mirror/vacation-timezone', async (req, res) => {
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Vacation timezone API error: ${err.message}`);
     res.status(500).json({ success: false, error: 'Failed to fetch vacation timezone data' });
+  }
+});
+
+// Smart Widget data aggregation endpoint
+app.get('/api/smart-mirror/smart-widget', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Smart Widget data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const smartWidgetConfig = config.widgets?.smartWidget;
+    
+    if (!smartWidgetConfig || !smartWidgetConfig.enabled) {
+      return res.json({ success: false, error: 'Smart Widget not enabled' });
+    }
+    
+    const subWidgets = smartWidgetConfig.subWidgets || [];
+    const activeSubWidgets = [];
+    
+    // Process each enabled sub-widget
+    for (const subWidget of subWidgets) {
+      if (!subWidget.enabled) continue;
+      
+      try {
+        let subWidgetData = null;
+        
+        switch (subWidget.type) {
+          case 'rainForecast':
+            // Check for rain in forecast
+            if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
+              const forecastResult = await smartMirror.fetchForecast(
+                smartWidgetConfig.apiKey,
+                smartWidgetConfig.location,
+                5,
+                smartWidgetConfig.units || 'imperial'
+              );
+              
+              if (forecastResult.success) {
+                const rainDays = [];
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                forecastResult.forecast.days.forEach((day) => {
+                  const dayDate = new Date(day.date);
+                  const daysFromNow = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
+                  
+                  const hasRain = day.description.toLowerCase().includes('rain') ||
+                                  day.description.toLowerCase().includes('drizzle') ||
+                                  day.description.toLowerCase().includes('thunderstorm') ||
+                                  (day.pop && day.pop.length > 0 && Math.max(...day.pop) > 0.3);
+                  
+                  if (hasRain && daysFromNow >= 0 && daysFromNow <= 5) {
+                    rainDays.push({
+                      daysFromNow: daysFromNow,
+                      date: day.date,
+                      description: day.description,
+                      precipitation: day.pop && day.pop.length > 0 ? Math.max(...day.pop) : 0
+                    });
+                  }
+                });
+                
+                if (rainDays.length > 0) {
+                  subWidgetData = {
+                    type: 'rainForecast',
+                    priority: subWidget.priority,
+                    hasContent: true,
+                    data: {
+                      hasRain: true,
+                      rainDays: rainDays,
+                      location: smartWidgetConfig.location
+                    }
+                  };
+                }
+              }
+            }
+            break;
+            
+          case 'upcomingVacation':
+            // Get next vacation from house module
+            const vacationData = house.getVacationData();
+            if (vacationData.dates && vacationData.dates.length > 0) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Find upcoming vacations
+              const upcomingVacations = vacationData.dates
+                .filter(vac => new Date(vac.startDate) >= today)
+                .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+              
+              if (upcomingVacations.length > 0) {
+                const nextVacation = upcomingVacations[0];
+                const startDate = new Date(nextVacation.startDate);
+                const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                
+                subWidgetData = {
+                  type: 'upcomingVacation',
+                  priority: subWidget.priority,
+                  hasContent: true,
+                  data: {
+                    destination: nextVacation.destination,
+                    startDate: nextVacation.startDate,
+                    endDate: nextVacation.endDate,
+                    daysUntil: daysUntil
+                  }
+                };
+              }
+            }
+            break;
+            
+          case 'homeAssistantMedia':
+            // Get media player status
+            if (smartWidgetConfig.homeAssistantUrl && smartWidgetConfig.homeAssistantToken) {
+              const entityIds = smartWidgetConfig.entityIds || [];
+              if (entityIds.length > 0) {
+                const mediaResult = await smartMirror.fetchMediaPlayers(
+                  smartWidgetConfig.homeAssistantUrl,
+                  smartWidgetConfig.homeAssistantToken,
+                  entityIds
+                );
+                
+                if (mediaResult.success && mediaResult.players && mediaResult.players.length > 0) {
+                  // Only include if media is actually playing
+                  const activePlayers = mediaResult.players.filter(p => 
+                    p.state === 'playing' || p.state === 'paused'
+                  );
+                  
+                  if (activePlayers.length > 0) {
+                    subWidgetData = {
+                      type: 'homeAssistantMedia',
+                      priority: subWidget.priority,
+                      hasContent: true,
+                      data: {
+                        players: activePlayers
+                      }
+                    };
+                  }
+                }
+              }
+            }
+            break;
+        }
+        
+        if (subWidgetData) {
+          activeSubWidgets.push(subWidgetData);
+        }
+      } catch (err) {
+        logger.error(logger.categories.SMART_MIRROR, `Error fetching sub-widget ${subWidget.type}: ${err.message}`);
+      }
+    }
+    
+    // Sort by priority
+    activeSubWidgets.sort((a, b) => a.priority - b.priority);
+    
+    res.json({
+      success: true,
+      displayMode: smartWidgetConfig.displayMode || 'cycle',
+      cycleSpeed: smartWidgetConfig.cycleSpeed || 10,
+      simultaneousMax: smartWidgetConfig.simultaneousMax || 2,
+      subWidgets: activeSubWidgets
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Smart Widget API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch Smart Widget data' });
   }
 });
 

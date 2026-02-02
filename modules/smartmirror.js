@@ -148,6 +148,28 @@ function getDefaultWidgets() {
       calendarUrls: [],
       feedUrls: [],
       days: 5
+    },
+    smartWidget: {
+      enabled: false,
+      area: 'middle-center',
+      size: 'large',
+      // Sub-widget management
+      subWidgets: [
+        { type: 'rainForecast', enabled: true, priority: 1 },
+        { type: 'upcomingVacation', enabled: true, priority: 2 },
+        { type: 'homeAssistantMedia', enabled: true, priority: 3 }
+      ],
+      // Display settings
+      displayMode: 'cycle', // 'cycle', 'simultaneous', or 'priority'
+      cycleSpeed: 10, // seconds between cycles
+      simultaneousMax: 2, // max sub-widgets to show at once in simultaneous mode
+      // Shared configuration for sub-widgets
+      apiKey: '', // For weather API (rain forecast)
+      location: '', // For weather location
+      units: 'imperial',
+      homeAssistantUrl: '', // For media widget
+      homeAssistantToken: '', // For media widget
+      entityIds: [] // Media player entity IDs
     }
   };
 }
@@ -162,7 +184,8 @@ function getDefaultPortraitLayout() {
     forecast: { x: 0, y: 4, width: 4, height: 2 },
     news: { x: 2, y: 2, width: 2, height: 2 },
     media: { x: 0, y: 4, width: 4, height: 2 },
-    vacation: { x: 2, y: 4, width: 2, height: 2 }
+    vacation: { x: 2, y: 4, width: 2, height: 2 },
+    smartWidget: { x: 0, y: 2, width: 4, height: 2 }
   };
 }
 
@@ -176,7 +199,8 @@ function getDefaultLandscapeLayout() {
     news: { x: 0, y: 1, width: 2, height: 2 },
     forecast: { x: 0, y: 3, width: 8, height: 1 },
     media: { x: 6, y: 1, width: 2, height: 2 },
-    vacation: { x: 6, y: 3, width: 2, height: 1 }
+    vacation: { x: 6, y: 3, width: 2, height: 1 },
+    smartWidget: { x: 2, y: 1, width: 4, height: 2 }
   };
 }
 

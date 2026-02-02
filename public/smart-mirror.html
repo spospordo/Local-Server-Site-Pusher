@@ -1147,6 +1147,9 @@
                 case 'vacation':
                     updateVacationWidget(content, widgetConfig);
                     break;
+                case 'smartWidget':
+                    updateSmartWidget(content, widgetConfig);
+                    break;
             }
         }
 
@@ -2049,6 +2052,297 @@
                 content.innerHTML = '';
                 content.appendChild(errorDiv);
             }
+        }
+        
+        // Smart Widget - Container for multiple sub-widgets
+        async function updateSmartWidget(content, widgetConfig) {
+            try {
+                // Fetch aggregated sub-widget data
+                const response = await fetch('/api/smart-mirror/smart-widget');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch Smart Widget data');
+                }
+                
+                // Clear previous content
+                content.innerHTML = '';
+                
+                const subWidgets = data.subWidgets || [];
+                
+                if (subWidgets.length === 0) {
+                    // No active sub-widgets
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'smart-widget-empty';
+                    emptyDiv.style.opacity = '0.6';
+                    emptyDiv.style.textAlign = 'center';
+                    emptyDiv.style.padding = '20px 0';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '📱';
+                    emptyDiv.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = 'No active notifications';
+                    emptyDiv.appendChild(msgDiv);
+                    
+                    content.appendChild(emptyDiv);
+                    return;
+                }
+                
+                // Create container based on display mode
+                const displayMode = data.displayMode || 'cycle';
+                const simultaneousMax = data.simultaneousMax || 2;
+                
+                if (displayMode === 'simultaneous') {
+                    // Show multiple sub-widgets at once
+                    const container = document.createElement('div');
+                    container.className = 'smart-widget-simultaneous';
+                    container.style.display = 'grid';
+                    container.style.gridTemplateColumns = `repeat(${Math.min(simultaneousMax, subWidgets.length)}, 1fr)`;
+                    container.style.gap = '15px';
+                    container.style.height = '100%';
+                    
+                    subWidgets.slice(0, simultaneousMax).forEach(subWidget => {
+                        const subDiv = renderSubWidget(subWidget);
+                        if (subDiv) container.appendChild(subDiv);
+                    });
+                    
+                    content.appendChild(container);
+                } else if (displayMode === 'priority') {
+                    // Show only the highest priority sub-widget with content
+                    if (subWidgets.length > 0) {
+                        const subDiv = renderSubWidget(subWidgets[0]);
+                        if (subDiv) content.appendChild(subDiv);
+                    }
+                } else {
+                    // Cycle mode - show one at a time, cycling through them
+                    const cycleSpeed = (data.cycleSpeed || 10) * 1000; // Convert to milliseconds
+                    
+                    // Initialize or get current cycle index
+                    if (!content.dataset.cycleIndex) {
+                        content.dataset.cycleIndex = '0';
+                    }
+                    
+                    const currentIndex = parseInt(content.dataset.cycleIndex) % subWidgets.length;
+                    const subDiv = renderSubWidget(subWidgets[currentIndex]);
+                    if (subDiv) content.appendChild(subDiv);
+                    
+                    // Update cycle index for next render
+                    content.dataset.cycleIndex = String((currentIndex + 1) % subWidgets.length);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching Smart Widget data:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                
+                const iconDiv = document.createElement('div');
+                iconDiv.style.fontSize = '2rem';
+                iconDiv.style.marginBottom = '10px';
+                iconDiv.textContent = '⚠️';
+                errorDiv.appendChild(iconDiv);
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.textContent = error.message || 'Error loading Smart Widget';
+                errorDiv.appendChild(msgDiv);
+                
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+        
+        // Render individual sub-widget
+        function renderSubWidget(subWidget) {
+            const container = document.createElement('div');
+            container.className = `smart-sub-widget smart-sub-widget-${subWidget.type}`;
+            container.style.padding = '15px';
+            container.style.borderRadius = '10px';
+            container.style.background = 'rgba(255, 255, 255, 0.05)';
+            
+            switch (subWidget.type) {
+                case 'rainForecast':
+                    return renderRainForecast(subWidget.data);
+                case 'upcomingVacation':
+                    return renderUpcomingVacation(subWidget.data);
+                case 'homeAssistantMedia':
+                    return renderHomeAssistantMedia(subWidget.data);
+                default:
+                    return null;
+            }
+        }
+        
+        // Render rain forecast sub-widget
+        function renderRainForecast(data) {
+            const container = document.createElement('div');
+            container.className = 'rain-forecast-widget';
+            container.style.textAlign = 'center';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.style.marginBottom = '10px';
+            iconDiv.textContent = '🌧️';
+            container.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.2rem';
+            titleDiv.style.fontWeight = '600';
+            titleDiv.style.marginBottom = '8px';
+            titleDiv.textContent = 'Rain Expected';
+            container.appendChild(titleDiv);
+            
+            // Show the earliest rain day
+            if (data.rainDays && data.rainDays.length > 0) {
+                const nextRain = data.rainDays[0];
+                const daysText = nextRain.daysFromNow === 0 ? 'Today' :
+                               nextRain.daysFromNow === 1 ? 'Tomorrow' :
+                               `In ${nextRain.daysFromNow} days`;
+                
+                const dayDiv = document.createElement('div');
+                dayDiv.style.fontSize = '1rem';
+                dayDiv.style.marginBottom = '5px';
+                dayDiv.textContent = daysText;
+                container.appendChild(dayDiv);
+                
+                if (nextRain.precipitation > 0) {
+                    const probDiv = document.createElement('div');
+                    probDiv.style.fontSize = '0.9rem';
+                    probDiv.style.opacity = '0.8';
+                    probDiv.textContent = `${Math.round(nextRain.precipitation * 100)}% chance`;
+                    container.appendChild(probDiv);
+                }
+            }
+            
+            return container;
+        }
+        
+        // Render upcoming vacation sub-widget
+        function renderUpcomingVacation(data) {
+            const container = document.createElement('div');
+            container.className = 'vacation-widget';
+            container.style.textAlign = 'center';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.style.marginBottom = '10px';
+            iconDiv.textContent = '✈️';
+            container.appendChild(iconDiv);
+            
+            const destDiv = document.createElement('div');
+            destDiv.style.fontSize = '1.2rem';
+            destDiv.style.fontWeight = '600';
+            destDiv.style.marginBottom = '8px';
+            destDiv.textContent = data.destination;
+            container.appendChild(destDiv);
+            
+            const daysDiv = document.createElement('div');
+            daysDiv.style.fontSize = '1rem';
+            daysDiv.style.marginBottom = '5px';
+            
+            if (data.daysUntil === 0) {
+                daysDiv.textContent = 'Starts Today!';
+                daysDiv.style.color = '#4CAF50';
+            } else if (data.daysUntil === 1) {
+                daysDiv.textContent = 'Tomorrow';
+            } else {
+                daysDiv.textContent = `In ${data.daysUntil} days`;
+            }
+            container.appendChild(daysDiv);
+            
+            const dateDiv = document.createElement('div');
+            dateDiv.style.fontSize = '0.9rem';
+            dateDiv.style.opacity = '0.8';
+            const startDate = new Date(data.startDate);
+            dateDiv.textContent = startDate.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+            container.appendChild(dateDiv);
+            
+            return container;
+        }
+        
+        // Render Home Assistant media sub-widget
+        function renderHomeAssistantMedia(data) {
+            const container = document.createElement('div');
+            container.className = 'media-widget';
+            
+            if (!data.players || data.players.length === 0) {
+                return null;
+            }
+            
+            // Show first active player
+            const player = data.players[0];
+            
+            // Container layout
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+            container.style.gap = '10px';
+            
+            // Artwork (if available)
+            if (player.artwork) {
+                const artDiv = document.createElement('div');
+                artDiv.style.width = '80px';
+                artDiv.style.height = '80px';
+                artDiv.style.borderRadius = '8px';
+                artDiv.style.overflow = 'hidden';
+                artDiv.style.marginBottom = '10px';
+                
+                const img = document.createElement('img');
+                img.src = player.artwork;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.onerror = () => {
+                    artDiv.style.display = 'none';
+                };
+                artDiv.appendChild(img);
+                container.appendChild(artDiv);
+            }
+            
+            // Icon (if no artwork)
+            if (!player.artwork) {
+                const iconDiv = document.createElement('div');
+                iconDiv.style.fontSize = '2.5rem';
+                iconDiv.style.marginBottom = '10px';
+                iconDiv.textContent = player.state === 'playing' ? '▶️' : '⏸️';
+                container.appendChild(iconDiv);
+            }
+            
+            // Title
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.1rem';
+            titleDiv.style.fontWeight = '600';
+            titleDiv.style.textAlign = 'center';
+            titleDiv.style.marginBottom = '5px';
+            titleDiv.textContent = player.title || 'Unknown';
+            container.appendChild(titleDiv);
+            
+            // Artist
+            if (player.artist) {
+                const artistDiv = document.createElement('div');
+                artistDiv.style.fontSize = '0.9rem';
+                artistDiv.style.opacity = '0.8';
+                artistDiv.style.textAlign = 'center';
+                artistDiv.textContent = player.artist;
+                container.appendChild(artistDiv);
+            }
+            
+            // Player name
+            const playerDiv = document.createElement('div');
+            playerDiv.style.fontSize = '0.8rem';
+            playerDiv.style.opacity = '0.6';
+            playerDiv.style.textAlign = 'center';
+            playerDiv.style.marginTop = '5px';
+            playerDiv.textContent = player.friendlyName || player.entityId;
+            container.appendChild(playerDiv);
+            
+            return container;
         }
         
         // Helper function to format date range

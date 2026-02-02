@@ -4793,6 +4793,222 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Smart Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📱 Smart Widget (Intelligent Multi-Widget Display)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="smartWidgetEnabled">Smart Widget</label>
+                                <select id="smartWidgetEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="smartWidgetSize">Size</label>
+                                <select id="smartWidgetSize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="smartWidgetGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="smartWidgetGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="smartWidgetGridY">Grid Position Y (0-5)</label>
+                                <input type="number" id="smartWidgetGridY" min="0" max="5" value="2">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="smartWidgetGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="smartWidgetGridWidth" min="1" max="4" value="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="smartWidgetGridHeight">Height (1-6 cells)</label>
+                                <input type="number" id="smartWidgetGridHeight" min="1" max="6" value="2">
+                            </div>
+                        </div>
+
+                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Display Settings</h4>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="smartWidgetDisplayMode">Display Mode</label>
+                                <select id="smartWidgetDisplayMode">
+                                    <option value="cycle">Cycle (rotate through sub-widgets)</option>
+                                    <option value="simultaneous">Simultaneous (show multiple at once)</option>
+                                    <option value="priority">Priority (show highest priority only)</option>
+                                </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Choose how sub-widgets are displayed
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="smartWidgetCycleSpeed">Cycle Speed (seconds)</label>
+                                <input type="number" id="smartWidgetCycleSpeed" min="5" max="60" value="10">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Time between cycles in cycle mode
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
+                            <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Maximum number of sub-widgets to show at once in simultaneous mode
+                            </small>
+                        </div>
+
+                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Sub-Widget Configuration</h4>
+                        
+                        <!-- Rain Forecast Sub-Widget -->
+                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+                            <h5 style="margin-bottom: 10px;">🌧️ Rain Forecast</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetRainEnabled">Enabled</label>
+                                    <select id="smartWidgetRainEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetRainPriority">Priority</label>
+                                    <input type="number" id="smartWidgetRainPriority" min="1" max="10" value="1">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Shows upcoming rain in the forecast (1, 3, or 5 days out). Requires Weather API configuration below.
+                            </p>
+                        </div>
+
+                        <!-- Upcoming Vacation Sub-Widget -->
+                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+                            <h5 style="margin-bottom: 10px;">✈️ Upcoming Vacation</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetVacationEnabled">Enabled</label>
+                                    <select id="smartWidgetVacationEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetVacationPriority">Priority</label>
+                                    <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Displays the next upcoming vacation from House → Vacation page.
+                            </p>
+                        </div>
+
+                        <!-- Home Assistant Media Sub-Widget -->
+                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+                            <h5 style="margin-bottom: 10px;">🎵 Home Assistant Media</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetMediaEnabled">Enabled</label>
+                                    <select id="smartWidgetMediaEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetMediaPriority">Priority</label>
+                                    <input type="number" id="smartWidgetMediaPriority" min="1" max="10" value="3">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
+                            </p>
+                        </div>
+
+                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Shared Configuration</h4>
+                        
+                        <div class="form-group">
+                            <label for="smartWidgetApiKey">OpenWeatherMap API Key (for Rain Forecast)</label>
+                            <input type="password" id="smartWidgetApiKey" placeholder="Enter your API key">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Required for Rain Forecast sub-widget. Get one at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smartWidgetLocation">Location (for Rain Forecast)</label>
+                            <input type="text" id="smartWidgetLocation" placeholder="City name, e.g., San Francisco">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                City name for weather forecast lookups
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smartWidgetUnits">Temperature Units</label>
+                            <select id="smartWidgetUnits">
+                                <option value="imperial">Imperial (°F)</option>
+                                <option value="metric">Metric (°C)</option>
+                            </select>
+                        </div>
+
+                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Settings (for Media Sub-Widget)</h5>
+
+                        <div class="form-group">
+                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
+                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Full URL to your Home Assistant instance
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
+                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
+                            <input type="text" id="smartWidgetEntityIds" placeholder="media_player.spotify,media_player.chromecast">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                One or more entity IDs, separated by commas
+                            </small>
+                        </div>
+
+                        <div class="form-group" style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <p style="margin: 0; color: #2e7d32; font-size: 0.95rem;">
+                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Smart Mirror Diagnostics -->
                 <h3>📊 Diagnostics & Troubleshooting</h3>
                 <p style="margin-bottom: 15px;">View deployment information and recent logs for troubleshooting Smart Mirror issues.</p>
@@ -10595,6 +10811,64 @@
                         vacationApiKeyInput.dataset.hasKey = 'false';
                     }
                     
+                    // Load Smart Widget config
+                    const smartWidget = config.widgets?.smartWidget || {};
+                    document.getElementById('smartWidgetEnabled').value = smartWidget.enabled === true ? 'true' : 'false';
+                    document.getElementById('smartWidgetSize').value = smartWidget.size || 'large';
+                    const smartWidgetPortrait = portraitLayout.smartWidget || smartWidget.gridPosition || { x: 0, y: 2, width: 4, height: 2 };
+                    document.getElementById('smartWidgetGridX').value = smartWidgetPortrait.x ?? 0;
+                    document.getElementById('smartWidgetGridY').value = smartWidgetPortrait.y ?? 2;
+                    document.getElementById('smartWidgetGridWidth').value = smartWidgetPortrait.width ?? 4;
+                    document.getElementById('smartWidgetGridHeight').value = smartWidgetPortrait.height ?? 2;
+                    
+                    // Display settings
+                    document.getElementById('smartWidgetDisplayMode').value = smartWidget.displayMode || 'cycle';
+                    document.getElementById('smartWidgetCycleSpeed').value = smartWidget.cycleSpeed || 10;
+                    document.getElementById('smartWidgetSimultaneousMax').value = smartWidget.simultaneousMax || 2;
+                    
+                    // Sub-widgets configuration
+                    const subWidgets = smartWidget.subWidgets || [
+                        { type: 'rainForecast', enabled: true, priority: 1 },
+                        { type: 'upcomingVacation', enabled: true, priority: 2 },
+                        { type: 'homeAssistantMedia', enabled: true, priority: 3 }
+                    ];
+                    
+                    const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1 };
+                    document.getElementById('smartWidgetRainEnabled').value = rainWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetRainPriority').value = rainWidget.priority || 1;
+                    
+                    const vacationSubWidget = subWidgets.find(sw => sw.type === 'upcomingVacation') || { enabled: true, priority: 2 };
+                    document.getElementById('smartWidgetVacationEnabled').value = vacationSubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetVacationPriority').value = vacationSubWidget.priority || 2;
+                    
+                    const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3 };
+                    document.getElementById('smartWidgetMediaEnabled').value = mediaSubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetMediaPriority').value = mediaSubWidget.priority || 3;
+                    
+                    // Shared configuration
+                    const smartWidgetApiKeyInput = document.getElementById('smartWidgetApiKey');
+                    if (smartWidget.apiKey) {
+                        smartWidgetApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
+                        smartWidgetApiKeyInput.dataset.hasKey = 'true';
+                    } else {
+                        smartWidgetApiKeyInput.placeholder = 'Enter your API key';
+                        smartWidgetApiKeyInput.dataset.hasKey = 'false';
+                    }
+                    document.getElementById('smartWidgetLocation').value = smartWidget.location || '';
+                    document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
+                    
+                    document.getElementById('smartWidgetHaUrl').value = smartWidget.homeAssistantUrl || '';
+                    const smartWidgetHaTokenInput = document.getElementById('smartWidgetHaToken');
+                    if (smartWidget.homeAssistantToken) {
+                        smartWidgetHaTokenInput.placeholder = '••••••••••••••••••••••••• (Token is set - leave blank to keep current)';
+                        smartWidgetHaTokenInput.dataset.hasToken = 'true';
+                    } else {
+                        smartWidgetHaTokenInput.placeholder = 'Enter your token';
+                        smartWidgetHaTokenInput.dataset.hasToken = 'false';
+                    }
+                    const entityIds = smartWidget.entityIds || [];
+                    document.getElementById('smartWidgetEntityIds').value = entityIds.join(',');
+                    
                     // Store landscape layouts and grid sizes in a global variable for later use
                     window.smartMirrorLayouts = {
                         portrait: portraitLayout,
@@ -10648,7 +10922,7 @@
                     initializeGridEditor();
                     
                     // Add event listeners to refresh grid when widgets are enabled/disabled
-                    ['clock', 'calendar', 'weather', 'forecast', 'news', 'media'].forEach(type => {
+                    ['clock', 'calendar', 'weather', 'forecast', 'news', 'media', 'vacation', 'smartWidget'].forEach(type => {
                         const enabledSelect = document.getElementById(`${type}Enabled`);
                         if (enabledSelect) {
                             enabledSelect.addEventListener('change', () => {
@@ -10738,6 +11012,12 @@
                         y: parseInt(document.getElementById('vacationGridY').value),
                         width: parseInt(document.getElementById('vacationGridWidth').value),
                         height: parseInt(document.getElementById('vacationGridHeight').value)
+                    },
+                    smartWidget: {
+                        x: parseInt(document.getElementById('smartWidgetGridX').value),
+                        y: parseInt(document.getElementById('smartWidgetGridY').value),
+                        width: parseInt(document.getElementById('smartWidgetGridWidth').value),
+                        height: parseInt(document.getElementById('smartWidgetGridHeight').value)
                     }
                 };
                 
@@ -10814,6 +11094,45 @@
                                 document.getElementById('vacationApiKey').value,
                                 currentConfig?.widgets?.vacation?.apiKey
                             )
+                        },
+                        smartWidget: {
+                            enabled: document.getElementById('smartWidgetEnabled').value === 'true',
+                            size: document.getElementById('smartWidgetSize').value,
+                            area: 'middle-center',
+                            displayMode: document.getElementById('smartWidgetDisplayMode').value,
+                            cycleSpeed: parseInt(document.getElementById('smartWidgetCycleSpeed').value),
+                            simultaneousMax: parseInt(document.getElementById('smartWidgetSimultaneousMax').value),
+                            subWidgets: [
+                                {
+                                    type: 'rainForecast',
+                                    enabled: document.getElementById('smartWidgetRainEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetRainPriority').value)
+                                },
+                                {
+                                    type: 'upcomingVacation',
+                                    enabled: document.getElementById('smartWidgetVacationEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetVacationPriority').value)
+                                },
+                                {
+                                    type: 'homeAssistantMedia',
+                                    enabled: document.getElementById('smartWidgetMediaEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetMediaPriority').value)
+                                }
+                            ],
+                            apiKey: preserveApiKey(
+                                document.getElementById('smartWidgetApiKey').value,
+                                currentConfig?.widgets?.smartWidget?.apiKey
+                            ),
+                            location: document.getElementById('smartWidgetLocation').value.trim(),
+                            units: document.getElementById('smartWidgetUnits').value,
+                            homeAssistantUrl: document.getElementById('smartWidgetHaUrl').value.trim(),
+                            homeAssistantToken: preserveApiKey(
+                                document.getElementById('smartWidgetHaToken').value,
+                                currentConfig?.widgets?.smartWidget?.homeAssistantToken
+                            ),
+                            entityIds: document.getElementById('smartWidgetEntityIds').value.split(',')
+                                .map(id => id.trim())
+                                .filter(id => id.length > 0)
                         }
                     },
                     layouts: {
