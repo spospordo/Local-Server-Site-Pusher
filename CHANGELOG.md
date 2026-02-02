@@ -86,6 +86,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.1] - 2026-02-02
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #405 from spospordo/copilot/fix-admin-portal-hanging
+  - Fix: Rename duplicate const entityIds variables to resolve admin portal hang
+  - Initial plan
+
+
 ## [2.6.0] - 2026-02-02
 
 ### Minor Update
