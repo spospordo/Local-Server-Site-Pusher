@@ -5053,6 +5053,29 @@
                                 Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
                             </p>
                         </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-bottom: 10px;">🎉 Party Sub-Widget</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetPartyEnabled">Enabled</label>
+                                    <select id="smartWidgetPartyEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetPartyPriority">Priority</label>
+                                    <input type="number" id="smartWidgetPartyPriority" min="1" max="10" value="4">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Shows upcoming party information from Party > Scheduling tab. Only displays when party date is set.
+                            </p>
+                        </div>
 
                         <h4 style="margin-top: 20px; margin-bottom: 15px;">Shared Configuration</h4>
                         
@@ -11369,7 +11392,8 @@
                     const subWidgets = smartWidget.subWidgets || [
                         { type: 'rainForecast', enabled: true, priority: 1 },
                         { type: 'upcomingVacation', enabled: true, priority: 2 },
-                        { type: 'homeAssistantMedia', enabled: true, priority: 3 }
+                        { type: 'homeAssistantMedia', enabled: true, priority: 3 },
+                        { type: 'party', enabled: true, priority: 4 }
                     ];
                     
                     const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1 };
@@ -11383,6 +11407,10 @@
                     const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3 };
                     document.getElementById('smartWidgetMediaEnabled').value = mediaSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetMediaPriority').value = mediaSubWidget.priority || 3;
+                    
+                    const partySubWidget = subWidgets.find(sw => sw.type === 'party') || { enabled: true, priority: 4 };
+                    document.getElementById('smartWidgetPartyEnabled').value = partySubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetPartyPriority').value = partySubWidget.priority || 4;
                     
                     // Shared configuration (units only - API key and location are now centralized)
                     document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
@@ -11647,6 +11675,11 @@
                                     type: 'homeAssistantMedia',
                                     enabled: document.getElementById('smartWidgetMediaEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetMediaPriority').value)
+                                },
+                                {
+                                    type: 'party',
+                                    enabled: document.getElementById('smartWidgetPartyEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetPartyPriority').value)
                                 }
                             ],
                             apiKey: preserveApiKey(
