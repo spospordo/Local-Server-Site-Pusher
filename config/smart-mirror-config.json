@@ -1,0 +1,32 @@
+{
+  "enabled": true,
+  "theme": "light",
+  "gridSize": 8,
+  "refreshInterval": 300000,
+  "widgets": {
+    "clock": {
+      "enabled": true,
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 4,
+        "height": 2
+      },
+      "size": "small",
+      "additionalTimezones": [
+        {
+          "city": "London",
+          "timezone": "Europe/London"
+        },
+        {
+          "city": "Tokyo",
+          "timezone": "Asia/Tokyo"
+        },
+        {
+          "city": "New York",
+          "timezone": "America/New_York"
+        }
+      ]
+    }
+  }
+}

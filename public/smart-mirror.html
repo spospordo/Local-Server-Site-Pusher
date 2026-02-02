@@ -2379,7 +2379,7 @@
                 if (config && config.widgets && config.widgets.clock && config.widgets.clock.enabled) {
                     const clockElement = document.getElementById('widget-clock');
                     if (clockElement) {
-                        updateClockWidget(clockElement);
+                        updateClockWidget(clockElement, config.widgets.clock);
                     }
                 }
             }, 1000);
