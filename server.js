@@ -6420,6 +6420,54 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               }
             }
             break;
+            
+          case 'party':
+            // Get next party from party scheduling
+            const partyScheduling = config.partyScheduling;
+            if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
+              const partyDate = new Date(partyScheduling.dateTime.date);
+              partyDate.setHours(0, 0, 0, 0);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Only show if party is upcoming or today
+              if (partyDate >= today) {
+                const daysUntil = Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
+                
+                // Count completed tasks
+                const totalTasks = partyScheduling.tasks ? partyScheduling.tasks.length : 0;
+                const completedTasks = partyScheduling.tasks ? partyScheduling.tasks.filter(t => t.completed).length : 0;
+                
+                // Count RSVP status
+                const invitees = partyScheduling.invitees || [];
+                const comingCount = invitees.filter(i => i.rsvp === 'coming').length;
+                const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
+                const pendingCount = invitees.filter(i => i.rsvp === 'pending').length;
+                
+                subWidgetData = {
+                  type: 'party',
+                  priority: subWidget.priority,
+                  hasContent: true,
+                  data: {
+                    dateTime: partyScheduling.dateTime,
+                    daysUntil: daysUntil,
+                    tasks: {
+                      total: totalTasks,
+                      completed: completedTasks
+                    },
+                    invitees: {
+                      coming: comingCount,
+                      notComing: notComingCount,
+                      pending: pendingCount,
+                      list: invitees
+                    },
+                    menu: partyScheduling.menu || [],
+                    events: partyScheduling.events || []
+                  }
+                };
+              }
+            }
+            break;
         }
         
         if (subWidgetData) {

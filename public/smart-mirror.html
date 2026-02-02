@@ -2170,6 +2170,8 @@
                     return renderUpcomingVacation(subWidget.data);
                 case 'homeAssistantMedia':
                     return renderHomeAssistantMedia(subWidget.data);
+                case 'party':
+                    return renderParty(subWidget.data);
                 default:
                     return null;
             }
@@ -2341,6 +2343,158 @@
             playerDiv.style.marginTop = '5px';
             playerDiv.textContent = player.friendlyName || player.entityId;
             container.appendChild(playerDiv);
+            
+            return container;
+        }
+        
+        // Render party sub-widget
+        function renderParty(data) {
+            const container = document.createElement('div');
+            container.className = 'party-widget';
+            container.style.padding = '10px';
+            
+            // Header with icon
+            const headerDiv = document.createElement('div');
+            headerDiv.style.textAlign = 'center';
+            headerDiv.style.marginBottom = '12px';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2rem';
+            iconDiv.style.marginBottom = '5px';
+            iconDiv.textContent = '🎉';
+            headerDiv.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.1rem';
+            titleDiv.style.fontWeight = '600';
+            
+            if (data.daysUntil === 0) {
+                titleDiv.textContent = 'Party Today!';
+                titleDiv.style.color = '#4CAF50';
+            } else if (data.daysUntil === 1) {
+                titleDiv.textContent = 'Party Tomorrow';
+            } else {
+                titleDiv.textContent = `Party in ${data.daysUntil} days`;
+            }
+            headerDiv.appendChild(titleDiv);
+            
+            // Date and time
+            if (data.dateTime.date) {
+                const dateDiv = document.createElement('div');
+                dateDiv.style.fontSize = '0.85rem';
+                dateDiv.style.opacity = '0.8';
+                dateDiv.style.marginTop = '3px';
+                
+                // Parse date in local timezone by extracting components
+                const dateParts = data.dateTime.date.split('-');
+                const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                let dateText = partyDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                
+                if (data.dateTime.startTime) {
+                    dateText += ` at ${data.dateTime.startTime}`;
+                }
+                
+                dateDiv.textContent = dateText;
+                headerDiv.appendChild(dateDiv);
+            }
+            
+            container.appendChild(headerDiv);
+            
+            // Content section
+            const contentDiv = document.createElement('div');
+            contentDiv.style.fontSize = '0.8rem';
+            contentDiv.style.marginTop = '10px';
+            
+            // Tasks status
+            if (data.tasks.total > 0) {
+                const tasksDiv = document.createElement('div');
+                tasksDiv.style.marginBottom = '6px';
+                tasksDiv.style.display = 'flex';
+                tasksDiv.style.alignItems = 'center';
+                tasksDiv.style.gap = '5px';
+                
+                const checkIcon = document.createElement('span');
+                checkIcon.textContent = '✓';
+                checkIcon.style.fontSize = '1rem';
+                const percentComplete = Math.round((data.tasks.completed / data.tasks.total) * 100);
+                checkIcon.style.color = percentComplete === 100 ? '#4CAF50' : '#FFC107';
+                tasksDiv.appendChild(checkIcon);
+                
+                const taskText = document.createElement('span');
+                taskText.textContent = `Tasks: ${data.tasks.completed}/${data.tasks.total} complete`;
+                tasksDiv.appendChild(taskText);
+                
+                contentDiv.appendChild(tasksDiv);
+            }
+            
+            // Invitees status
+            if (data.invitees.list.length > 0) {
+                const inviteesDiv = document.createElement('div');
+                inviteesDiv.style.marginBottom = '6px';
+                inviteesDiv.style.display = 'flex';
+                inviteesDiv.style.alignItems = 'center';
+                inviteesDiv.style.gap = '5px';
+                
+                const peopleIcon = document.createElement('span');
+                peopleIcon.textContent = '👥';
+                peopleIcon.style.fontSize = '1rem';
+                inviteesDiv.appendChild(peopleIcon);
+                
+                const inviteeText = document.createElement('span');
+                const parts = [];
+                if (data.invitees.coming > 0) parts.push(`${data.invitees.coming} coming`);
+                if (data.invitees.pending > 0) parts.push(`${data.invitees.pending} pending`);
+                if (data.invitees.notComing > 0) parts.push(`${data.invitees.notComing} not coming`);
+                inviteeText.textContent = `Guests: ${parts.join(', ')}`;
+                inviteesDiv.appendChild(inviteeText);
+                
+                contentDiv.appendChild(inviteesDiv);
+            }
+            
+            // Menu count
+            if (data.menu.length > 0) {
+                const menuDiv = document.createElement('div');
+                menuDiv.style.marginBottom = '6px';
+                menuDiv.style.display = 'flex';
+                menuDiv.style.alignItems = 'center';
+                menuDiv.style.gap = '5px';
+                
+                const menuIcon = document.createElement('span');
+                menuIcon.textContent = '🍽️';
+                menuIcon.style.fontSize = '1rem';
+                menuDiv.appendChild(menuIcon);
+                
+                const menuText = document.createElement('span');
+                menuText.textContent = `Menu: ${data.menu.length} items`;
+                menuDiv.appendChild(menuText);
+                
+                contentDiv.appendChild(menuDiv);
+            }
+            
+            // Events count
+            if (data.events.length > 0) {
+                const eventsDiv = document.createElement('div');
+                eventsDiv.style.display = 'flex';
+                eventsDiv.style.alignItems = 'center';
+                eventsDiv.style.gap = '5px';
+                
+                const eventsIcon = document.createElement('span');
+                eventsIcon.textContent = '📋';
+                eventsIcon.style.fontSize = '1rem';
+                eventsDiv.appendChild(eventsIcon);
+                
+                const eventsText = document.createElement('span');
+                eventsText.textContent = `Events: ${data.events.length} scheduled`;
+                eventsDiv.appendChild(eventsText);
+                
+                contentDiv.appendChild(eventsDiv);
+            }
+            
+            container.appendChild(contentDiv);
             
             return container;
         }

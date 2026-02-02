@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Sub-Widget Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .demo-container {
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4CAF50;
+        }
+        
+        .widget-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .widget {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .party-widget {
+            padding: 10px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        
+        .icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .title.today {
+            color: #4CAF50;
+        }
+        
+        .date {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+        
+        .content {
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        
+        .content-item {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .content-icon {
+            font-size: 1rem;
+        }
+        
+        .status-complete {
+            color: #4CAF50;
+        }
+        
+        .status-partial {
+            color: #FFC107;
+        }
+        
+        .example-label {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎉 Party Sub-Widget Demo</h1>
+        
+        <div class="widget-examples">
+            <!-- Example 1: Party Today -->
+            <div class="widget">
+                <div class="example-label">Party Today</div>
+                <div class="party-widget">
+                    <div class="header">
+                        <div class="icon">🎉</div>
+                        <div class="title today">Party Today!</div>
+                        <div class="date">Dec 25, 2024 at 18:00</div>
+                    </div>
+                    <div class="content">
+                        <div class="content-item">
+                            <span class="content-icon status-partial">✓</span>
+                            <span>Tasks: 4/6 complete</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">👥</span>
+                            <span>Guests: 12 coming, 2 pending</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">🍽️</span>
+                            <span>Menu: 8 items</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">📋</span>
+                            <span>Events: 5 scheduled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Example 2: Party Tomorrow -->
+            <div class="widget">
+                <div class="example-label">Party Tomorrow</div>
+                <div class="party-widget">
+                    <div class="header">
+                        <div class="icon">🎉</div>
+                        <div class="title">Party Tomorrow</div>
+                        <div class="date">Jan 15, 2025 at 19:30</div>
+                    </div>
+                    <div class="content">
+                        <div class="content-item">
+                            <span class="content-icon status-complete">✓</span>
+                            <span>Tasks: 5/5 complete</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">👥</span>
+                            <span>Guests: 8 coming, 1 not coming</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">🍽️</span>
+                            <span>Menu: 6 items</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">📋</span>
+                            <span>Events: 3 scheduled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Example 3: Party in 5 days -->
+            <div class="widget">
+                <div class="example-label">Party in 5 Days</div>
+                <div class="party-widget">
+                    <div class="header">
+                        <div class="icon">🎉</div>
+                        <div class="title">Party in 5 days</div>
+                        <div class="date">Jan 20, 2025 at 20:00</div>
+                    </div>
+                    <div class="content">
+                        <div class="content-item">
+                            <span class="content-icon status-partial">✓</span>
+                            <span>Tasks: 2/8 complete</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">👥</span>
+                            <span>Guests: 15 coming, 5 pending, 2 not coming</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">🍽️</span>
+                            <span>Menu: 12 items</span>
+                        </div>
+                        <div class="content-item">
+                            <span class="content-icon">📋</span>
+                            <span>Events: 7 scheduled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Example 4: Minimal Data -->
+            <div class="widget">
+                <div class="example-label">Minimal Data</div>
+                <div class="party-widget">
+                    <div class="header">
+                        <div class="icon">🎉</div>
+                        <div class="title">Party in 10 days</div>
+                        <div class="date">Jan 25, 2025 at 18:00</div>
+                    </div>
+                    <div class="content">
+                        <div class="content-item">
+                            <span class="content-icon">👥</span>
+                            <span>Guests: 3 coming</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; text-align: center; opacity: 0.7; font-size: 0.9rem;">
+            <p>These examples show how the party sub-widget displays on the smart mirror.</p>
+            <p>The widget adapts to show only available data from the Party > Scheduling tab.</p>
+        </div>
+    </div>
+</body>
+</html>
