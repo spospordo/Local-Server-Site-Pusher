@@ -2385,7 +2385,9 @@
                 dateDiv.style.opacity = '0.8';
                 dateDiv.style.marginTop = '3px';
                 
-                const partyDate = new Date(data.dateTime.date);
+                // Parse date in local timezone by extracting components
+                const dateParts = data.dateTime.date.split('-');
+                const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
                 let dateText = partyDate.toLocaleDateString('en-US', { 
                     month: 'short', 
                     day: 'numeric',

@@ -6426,6 +6426,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             const partyScheduling = config.partyScheduling;
             if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
               const partyDate = new Date(partyScheduling.dateTime.date);
+              partyDate.setHours(0, 0, 0, 0);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               
