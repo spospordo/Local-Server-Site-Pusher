@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.0] - 2026-02-02
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #401 from spospordo/copilot/add-smart-widget-display
+  - docs: Add detailed implementation summary for Smart Widget
+  - docs: Add Smart Widget documentation and update README
+  - feat: Add Smart Widget admin interface configuration
+  - feat: Add Smart Widget backend and frontend rendering
+  - Initial plan
+
+
 ## [2.5.0] - 2026-02-01
 
 ### Minor Update
