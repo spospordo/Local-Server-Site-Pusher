@@ -10789,8 +10789,8 @@
                         mediaTokenInput.placeholder = 'Enter your long-lived access token';
                         mediaTokenInput.dataset.hasToken = 'false';
                     }
-                    const entityIds = media.entityIds || [];
-                    document.getElementById('mediaEntityIds').value = entityIds.join('\n');
+                    const mediaEntityIds = media.entityIds || [];
+                    document.getElementById('mediaEntityIds').value = mediaEntityIds.join('\n');
                     
                     // Load vacation widget config
                     const vacation = config.widgets?.vacation || {};
@@ -10866,8 +10866,8 @@
                         smartWidgetHaTokenInput.placeholder = 'Enter your token';
                         smartWidgetHaTokenInput.dataset.hasToken = 'false';
                     }
-                    const entityIds = smartWidget.entityIds || [];
-                    document.getElementById('smartWidgetEntityIds').value = entityIds.join(',');
+                    const smartWidgetEntityIds = smartWidget.entityIds || [];
+                    document.getElementById('smartWidgetEntityIds').value = smartWidgetEntityIds.join(',');
                     
                     // Store landscape layouts and grid sizes in a global variable for later use
                     window.smartMirrorLayouts = {
