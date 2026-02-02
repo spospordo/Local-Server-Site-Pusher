@@ -1174,7 +1174,7 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
     
     // Initialize scheduling data
     config.partyScheduling = {
-      dateTime: dateTime,
+      dateTime,
       invitees: invitees || [],
       menu: menu || [],
       tasks: tasks || [],
