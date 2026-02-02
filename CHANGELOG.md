@@ -86,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.3] - 2026-02-02
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #407 from spospordo/copilot/add-apis-and-connections-section
+  - Fix JavaScript errors by updating to use centralized API key fields
+  - Changes before error encountered
+  - Initial plan
+
+
 ## [2.6.2] - 2026-02-02
 
 ### Patch Update
