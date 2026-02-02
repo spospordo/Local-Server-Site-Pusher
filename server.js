@@ -1136,6 +1136,87 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
   }
 });
 
+// API endpoints for party scheduling
+app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
+  try {
+    // Return scheduling data from config, or empty structure if not exists
+    const schedulingData = config.partyScheduling || {
+      dateTime: {
+        date: '',
+        startTime: '',
+        endTime: ''
+      },
+      invitees: [],
+      menu: [],
+      tasks: [],
+      events: []
+    };
+    res.json(schedulingData);
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Get party scheduling data'
+    });
+    res.status(500).json({ 
+      error: 'Failed to load scheduling data',
+      details: err.message
+    });
+  }
+});
+
+app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
+  try {
+    const { dateTime, invitees, menu, tasks, events } = req.body;
+    
+    // Validate required structure
+    if (!dateTime || typeof dateTime !== 'object') {
+      return res.status(400).json({ error: 'Invalid dateTime structure' });
+    }
+    
+    // Initialize scheduling data
+    config.partyScheduling = {
+      dateTime,
+      invitees: invitees || [],
+      menu: menu || [],
+      tasks: tasks || [],
+      events: events || []
+    };
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Scheduling data saved successfully',
+          persistent: true,
+          data: config.partyScheduling
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Scheduling data saved (in memory only - file save failed)',
+          persistent: false,
+          data: config.partyScheduling
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Scheduling data saved (in memory only)',
+        persistent: false,
+        data: config.partyScheduling
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Save party scheduling data'
+    });
+    res.status(500).json({ 
+      error: 'Failed to save scheduling data',
+      details: err.message
+    });
+  }
+});
+
 // API endpoint for system logs
 app.get('/admin/api/logs', requireAuth, (req, res) => {
   const category = req.query.category || null;
