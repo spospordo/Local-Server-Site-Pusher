@@ -272,6 +272,46 @@
             border-top: 1px solid #eee;
             margin: 1.5rem 0;
         }
+
+        .items-list {
+            margin-top: 1rem;
+        }
+
+        .item-card {
+            transition: all 0.2s ease;
+        }
+
+        .item-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .badge-warning {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .badge-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
         
         /* Grid Editor Styles */
         .grid-editor-container {
@@ -2203,6 +2243,7 @@
                 <button class="sub-tab active" onclick="showSubTab('party-links')">Useful Links</button>
                 <button class="sub-tab" onclick="showSubTab('party-drinks')">Drinks</button>
                 <button class="sub-tab" onclick="showSubTab('party-tournament')">Tournament</button>
+                <button class="sub-tab" onclick="showSubTab('party-scheduling')">Scheduling</button>
             </div>
             
             <!-- Sub-tabs for Server -->
@@ -5335,6 +5376,146 @@
             </div>
         </div>
 
+        <!-- Party Scheduling -->
+        <div class="card admin-section party-section party-scheduling-section">
+            <div class="card-header">
+                <h2>Party Scheduling & Planning</h2>
+            </div>
+            <div class="card-body">
+                <p>Plan and coordinate all aspects of your upcoming party.</p>
+                
+                <!-- Date & Time Section -->
+                <div class="section">
+                    <h3>📅 Date & Time</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="partyDate">Party Date</label>
+                            <input type="date" id="partyDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="partyStartTime">Start Time</label>
+                            <input type="time" id="partyStartTime" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="partyEndTime">End Time</label>
+                            <input type="time" id="partyEndTime" class="form-control">
+                        </div>
+                    </div>
+                    <button onclick="saveSchedulingData()" class="btn btn-primary">Save Date & Time</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Invitees Section -->
+                <div class="section">
+                    <h3>👥 Invitees & RSVP</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="inviteeName">Name</label>
+                            <input type="text" id="inviteeName" placeholder="Guest name">
+                        </div>
+                        <div class="form-group">
+                            <label for="inviteeRsvp">RSVP Status</label>
+                            <select id="inviteeRsvp">
+                                <option value="pending">Pending</option>
+                                <option value="coming">Coming</option>
+                                <option value="not-coming">Not Coming</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="addInvitee()" class="btn btn-success">Add Invitee</button>
+                    
+                    <h4 style="margin-top: 1rem;">Invitee List</h4>
+                    <div id="inviteesList" class="items-list">
+                        <!-- Invitees will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Menu Section -->
+                <div class="section">
+                    <h3>🍽️ Party Menu</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="menuItem">Dish/Item Name</label>
+                            <input type="text" id="menuItem" placeholder="e.g., Caesar Salad">
+                        </div>
+                        <div class="form-group">
+                            <label for="menuDescription">Description</label>
+                            <input type="text" id="menuDescription" placeholder="e.g., Fresh romaine with homemade dressing">
+                        </div>
+                        <div class="form-group">
+                            <label for="menuAssignee">Assigned To</label>
+                            <input type="text" id="menuAssignee" placeholder="Who's making this?">
+                        </div>
+                    </div>
+                    <button onclick="addMenuItem()" class="btn btn-success">Add Menu Item</button>
+                    
+                    <h4 style="margin-top: 1rem;">Menu Items</h4>
+                    <div id="menuList" class="items-list">
+                        <!-- Menu items will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Tasks Section -->
+                <div class="section">
+                    <h3>✓ Pre-Party Tasks</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskName">Task</label>
+                            <input type="text" id="taskName" placeholder="e.g., Clean living room">
+                        </div>
+                        <div class="form-group">
+                            <label for="taskAssignee">Assigned To</label>
+                            <input type="text" id="taskAssignee" placeholder="Who's responsible?">
+                        </div>
+                    </div>
+                    <button onclick="addTask()" class="btn btn-success">Add Task</button>
+                    
+                    <h4 style="margin-top: 1rem;">Task List</h4>
+                    <div id="tasksList" class="items-list">
+                        <!-- Tasks will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Events Section -->
+                <div class="section">
+                    <h3>🎉 Party Events Schedule</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="eventTime">Time</label>
+                            <input type="time" id="eventTime">
+                        </div>
+                        <div class="form-group">
+                            <label for="eventTitle">Event Title</label>
+                            <input type="text" id="eventTitle" placeholder="e.g., Dinner service">
+                        </div>
+                        <div class="form-group">
+                            <label for="eventDescription">Description</label>
+                            <input type="text" id="eventDescription" placeholder="Additional details">
+                        </div>
+                    </div>
+                    <button onclick="addPartyEvent()" class="btn btn-success">Add Event</button>
+                    
+                    <h4 style="margin-top: 1rem;">Events Timeline</h4>
+                    <div id="eventsList" class="items-list">
+                        <!-- Events will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <button onclick="saveSchedulingData()" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem;">💾 Save All Planning Data</button>
+                
+                <div id="schedulingAlert" class="alert" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+
         <!-- System Logs -->
         <div class="card admin-section dashboard-section">
             <div class="card-header">
@@ -6815,6 +6996,299 @@
             setTimeout(() => {
                 alert.style.display = 'none';
             }, 5000);
+        }
+
+        // Party Scheduling Functions
+        let currentSchedulingData = {
+            dateTime: { date: '', startTime: '', endTime: '' },
+            invitees: [],
+            menu: [],
+            tasks: [],
+            events: []
+        };
+
+        async function loadSchedulingData() {
+            try {
+                const response = await fetch('/admin/api/party/scheduling');
+                const data = await response.json();
+                currentSchedulingData = data;
+                
+                // Load date & time
+                document.getElementById('partyDate').value = data.dateTime.date || '';
+                document.getElementById('partyStartTime').value = data.dateTime.startTime || '';
+                document.getElementById('partyEndTime').value = data.dateTime.endTime || '';
+                
+                // Render lists
+                renderInvitees();
+                renderMenu();
+                renderTasks();
+                renderEvents();
+            } catch (err) {
+                console.error('Failed to load scheduling data:', err);
+                showAlert('Failed to load scheduling data', 'error', 'schedulingAlert');
+            }
+        }
+
+        async function saveSchedulingData() {
+            try {
+                // Get date & time
+                currentSchedulingData.dateTime = {
+                    date: document.getElementById('partyDate').value,
+                    startTime: document.getElementById('partyStartTime').value,
+                    endTime: document.getElementById('partyEndTime').value
+                };
+                
+                const response = await fetch('/admin/api/party/scheduling', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentSchedulingData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Planning data saved successfully!', 'success', 'schedulingAlert');
+                } else {
+                    showAlert('Failed to save: ' + result.error, 'error', 'schedulingAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving: ' + err.message, 'error', 'schedulingAlert');
+            }
+        }
+
+        function addInvitee() {
+            const name = document.getElementById('inviteeName').value.trim();
+            const rsvp = document.getElementById('inviteeRsvp').value;
+            
+            if (!name) {
+                showAlert('Please enter a name', 'error', 'schedulingAlert');
+                return;
+            }
+            
+            currentSchedulingData.invitees.push({
+                id: Date.now(),
+                name: name,
+                rsvp: rsvp
+            });
+            
+            document.getElementById('inviteeName').value = '';
+            document.getElementById('inviteeRsvp').value = 'pending';
+            renderInvitees();
+            saveSchedulingData();
+        }
+
+        function removeInvitee(id) {
+            currentSchedulingData.invitees = currentSchedulingData.invitees.filter(i => i.id !== id);
+            renderInvitees();
+            saveSchedulingData();
+        }
+
+        function toggleInviteeRsvp(id) {
+            const invitee = currentSchedulingData.invitees.find(i => i.id === id);
+            if (invitee) {
+                // Cycle through: pending -> coming -> not-coming -> pending
+                if (invitee.rsvp === 'pending') invitee.rsvp = 'coming';
+                else if (invitee.rsvp === 'coming') invitee.rsvp = 'not-coming';
+                else invitee.rsvp = 'pending';
+                
+                renderInvitees();
+                saveSchedulingData();
+            }
+        }
+
+        function renderInvitees() {
+            const container = document.getElementById('inviteesList');
+            if (!currentSchedulingData.invitees || currentSchedulingData.invitees.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 1rem;">No invitees added yet</div>';
+                return;
+            }
+            
+            container.innerHTML = currentSchedulingData.invitees.map(invitee => {
+                const rsvpClass = invitee.rsvp === 'coming' ? 'success' : 
+                                  invitee.rsvp === 'not-coming' ? 'danger' : 'warning';
+                const rsvpText = invitee.rsvp === 'coming' ? '✓ Coming' : 
+                                 invitee.rsvp === 'not-coming' ? '✗ Not Coming' : '? Pending';
+                
+                return `
+                    <div class="item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                        <div>
+                            <strong>${invitee.name}</strong>
+                            <span class="badge badge-${rsvpClass}" style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.85em;">${rsvpText}</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-secondary" onclick="toggleInviteeRsvp(${invitee.id})" style="margin-right: 0.25rem;">Toggle RSVP</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeInvitee(${invitee.id})">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addMenuItem() {
+            const item = document.getElementById('menuItem').value.trim();
+            const description = document.getElementById('menuDescription').value.trim();
+            const assignee = document.getElementById('menuAssignee').value.trim();
+            
+            if (!item) {
+                showAlert('Please enter a dish/item name', 'error', 'schedulingAlert');
+                return;
+            }
+            
+            currentSchedulingData.menu.push({
+                id: Date.now(),
+                item: item,
+                description: description,
+                assignee: assignee
+            });
+            
+            document.getElementById('menuItem').value = '';
+            document.getElementById('menuDescription').value = '';
+            document.getElementById('menuAssignee').value = '';
+            renderMenu();
+            saveSchedulingData();
+        }
+
+        function removeMenuItem(id) {
+            currentSchedulingData.menu = currentSchedulingData.menu.filter(m => m.id !== id);
+            renderMenu();
+            saveSchedulingData();
+        }
+
+        function renderMenu() {
+            const container = document.getElementById('menuList');
+            if (!currentSchedulingData.menu || currentSchedulingData.menu.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 1rem;">No menu items added yet</div>';
+                return;
+            }
+            
+            container.innerHTML = currentSchedulingData.menu.map(menuItem => `
+                <div class="item-card" style="padding: 0.75rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <strong style="font-size: 1.05em;">${menuItem.item}</strong>
+                            ${menuItem.description ? `<p style="margin: 0.25rem 0; color: #666;">${menuItem.description}</p>` : ''}
+                            ${menuItem.assignee ? `<p style="margin: 0.25rem 0; font-size: 0.9em;"><em>👤 ${menuItem.assignee}</em></p>` : ''}
+                        </div>
+                        <button class="btn btn-sm btn-danger" onclick="removeMenuItem(${menuItem.id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addTask() {
+            const name = document.getElementById('taskName').value.trim();
+            const assignee = document.getElementById('taskAssignee').value.trim();
+            
+            if (!name) {
+                showAlert('Please enter a task', 'error', 'schedulingAlert');
+                return;
+            }
+            
+            currentSchedulingData.tasks.push({
+                id: Date.now(),
+                name: name,
+                assignee: assignee,
+                completed: false
+            });
+            
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskAssignee').value = '';
+            renderTasks();
+            saveSchedulingData();
+        }
+
+        function removeTask(id) {
+            currentSchedulingData.tasks = currentSchedulingData.tasks.filter(t => t.id !== id);
+            renderTasks();
+            saveSchedulingData();
+        }
+
+        function toggleTaskComplete(id) {
+            const task = currentSchedulingData.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                renderTasks();
+                saveSchedulingData();
+            }
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasksList');
+            if (!currentSchedulingData.tasks || currentSchedulingData.tasks.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 1rem;">No tasks added yet</div>';
+                return;
+            }
+            
+            container.innerHTML = currentSchedulingData.tasks.map(task => `
+                <div class="item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 4px; ${task.completed ? 'opacity: 0.6; text-decoration: line-through;' : ''}">
+                    <div style="flex: 1;">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTaskComplete(${task.id})" style="margin-right: 0.5rem; transform: scale(1.2);">
+                        <strong>${task.name}</strong>
+                        ${task.assignee ? `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9em;">👤 ${task.assignee}</span>` : ''}
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="removeTask(${task.id})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function addPartyEvent() {
+            const time = document.getElementById('eventTime').value;
+            const title = document.getElementById('eventTitle').value.trim();
+            const description = document.getElementById('eventDescription').value.trim();
+            
+            if (!title) {
+                showAlert('Please enter an event title', 'error', 'schedulingAlert');
+                return;
+            }
+            
+            currentSchedulingData.events.push({
+                id: Date.now(),
+                time: time,
+                title: title,
+                description: description
+            });
+            
+            document.getElementById('eventTime').value = '';
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventDescription').value = '';
+            renderEvents();
+            saveSchedulingData();
+        }
+
+        function removeEvent(id) {
+            currentSchedulingData.events = currentSchedulingData.events.filter(e => e.id !== id);
+            renderEvents();
+            saveSchedulingData();
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('eventsList');
+            if (!currentSchedulingData.events || currentSchedulingData.events.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 1rem;">No events added yet</div>';
+                return;
+            }
+            
+            // Sort events by time
+            const sortedEvents = [...currentSchedulingData.events].sort((a, b) => {
+                if (!a.time) return 1;
+                if (!b.time) return -1;
+                return a.time.localeCompare(b.time);
+            });
+            
+            container.innerHTML = sortedEvents.map(event => `
+                <div class="item-card" style="padding: 0.75rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            ${event.time ? `<span style="font-weight: bold; color: #007bff; margin-right: 0.5rem;">🕐 ${event.time}</span>` : ''}
+                            <strong style="font-size: 1.05em;">${event.title}</strong>
+                            ${event.description ? `<p style="margin: 0.25rem 0; color: #666;">${event.description}</p>` : ''}
+                        </div>
+                        <button class="btn btn-sm btn-danger" onclick="removeEvent(${event.id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
         }
         
         // Handle authentication errors
@@ -8685,6 +9159,7 @@
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
                 else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
+                else if (subTabName === 'party-scheduling') targetTabText = 'Scheduling';
                 else if (subTabName === 'server-vidiots') targetTabText = 'Vidiots';
                 else if (subTabName === 'server-espresso') targetTabText = 'Espresso';
                 else if (subTabName === 'server-github') targetTabText = 'GitHub';
@@ -8760,6 +9235,13 @@
                 
                 if (shouldLoadData) {
                     loadTournaments();
+                }
+            } else if (subTabName === 'party-scheduling') {
+                const schedulingSections = document.querySelectorAll('.party-scheduling-section');
+                schedulingSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadSchedulingData();
                 }
             } else if (subTabName === 'server-vidiots') {
                 const vidiotsSections = document.querySelectorAll('.server-vidiots-section');
