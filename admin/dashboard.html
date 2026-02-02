@@ -7007,6 +7007,12 @@
             events: []
         };
 
+        // ID counter to prevent collisions with Date.now()
+        let schedulingIdCounter = 0;
+        function generateSchedulingId() {
+            return Date.now() + (schedulingIdCounter++);
+        }
+
         async function loadSchedulingData() {
             try {
                 const response = await fetch('/admin/api/party/scheduling');
@@ -7068,7 +7074,7 @@
             }
             
             currentSchedulingData.invitees.push({
-                id: Date.now(),
+                id: generateSchedulingId(),
                 name: name,
                 rsvp: rsvp
             });
@@ -7137,7 +7143,7 @@
             }
             
             currentSchedulingData.menu.push({
-                id: Date.now(),
+                id: generateSchedulingId(),
                 item: item,
                 description: description,
                 assignee: assignee
@@ -7187,7 +7193,7 @@
             }
             
             currentSchedulingData.tasks.push({
-                id: Date.now(),
+                id: generateSchedulingId(),
                 name: name,
                 assignee: assignee,
                 completed: false
@@ -7244,7 +7250,7 @@
             }
             
             currentSchedulingData.events.push({
-                id: Date.now(),
+                id: generateSchedulingId(),
                 time: time,
                 title: title,
                 description: description
