@@ -41,3 +41,4 @@ uploads/cookies.jar
 uploads/espresso/templates/
 config/.gitconfig
 nfs-mounts/
+config/smart-mirror-config.json
