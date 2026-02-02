@@ -811,6 +811,9 @@ function getPublicConfig(orientation = null) {
     if (widgetKey === 'calendar' && widget.calendarUrls) {
       publicConfig.widgets[widgetKey].calendarUrls = widget.calendarUrls;
     }
+    if (widgetKey === 'clock' && widget.additionalTimezones) {
+      publicConfig.widgets[widgetKey].additionalTimezones = widget.additionalTimezones;
+    }
     if (widgetKey === 'weather' && widget.location) {
       publicConfig.widgets[widgetKey].location = widget.location;
       publicConfig.widgets[widgetKey].units = widget.units || 'imperial';
