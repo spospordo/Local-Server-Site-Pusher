@@ -2349,6 +2349,12 @@
         
         // Render party sub-widget
         function renderParty(data) {
+            // Validate required data exists
+            if (!data || !data.dateTime || !data.dateTime.date || data.daysUntil === undefined) {
+                console.error('Party widget: Missing required data', data);
+                return null;
+            }
+            
             const container = document.createElement('div');
             container.className = 'party-widget';
             container.style.padding = '10px';
@@ -2385,21 +2391,41 @@
                 dateDiv.style.opacity = '0.8';
                 dateDiv.style.marginTop = '3px';
                 
-                // Parse date in local timezone by extracting components
-                const dateParts = data.dateTime.date.split('-');
-                const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-                let dateText = partyDate.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-                
-                if (data.dateTime.startTime) {
-                    dateText += ` at ${data.dateTime.startTime}`;
+                try {
+                    // Parse date in local timezone by extracting components
+                    // Expect YYYY-MM-DD format from server
+                    const dateParts = data.dateTime.date.split('-');
+                    if (dateParts.length !== 3) {
+                        throw new Error('Invalid date format');
+                    }
+                    const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                    
+                    // Validate parsed date
+                    if (isNaN(partyDate.getTime())) {
+                        throw new Error('Invalid date value');
+                    }
+                    
+                    let dateText = partyDate.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                    
+                    if (data.dateTime.startTime) {
+                        dateText += ` at ${data.dateTime.startTime}`;
+                    }
+                    
+                    dateDiv.textContent = dateText;
+                    headerDiv.appendChild(dateDiv);
+                } catch (err) {
+                    console.error('Party widget: Error parsing date', data.dateTime.date, err);
+                    // Show raw date as fallback
+                    dateDiv.textContent = data.dateTime.date;
+                    if (data.dateTime.startTime) {
+                        dateDiv.textContent += ` at ${data.dateTime.startTime}`;
+                    }
+                    headerDiv.appendChild(dateDiv);
                 }
-                
-                dateDiv.textContent = dateText;
-                headerDiv.appendChild(dateDiv);
             }
             
             container.appendChild(headerDiv);
@@ -2409,8 +2435,8 @@
             contentDiv.style.fontSize = '0.8rem';
             contentDiv.style.marginTop = '10px';
             
-            // Tasks status
-            if (data.tasks.total > 0) {
+            // Tasks status - with null check
+            if (data.tasks && data.tasks.total > 0) {
                 const tasksDiv = document.createElement('div');
                 tasksDiv.style.marginBottom = '6px';
                 tasksDiv.style.display = 'flex';
@@ -2431,8 +2457,8 @@
                 contentDiv.appendChild(tasksDiv);
             }
             
-            // Invitees status
-            if (data.invitees.list.length > 0) {
+            // Invitees status - with null check
+            if (data.invitees && data.invitees.list && data.invitees.list.length > 0) {
                 const inviteesDiv = document.createElement('div');
                 inviteesDiv.style.marginBottom = '6px';
                 inviteesDiv.style.display = 'flex';
@@ -2455,8 +2481,8 @@
                 contentDiv.appendChild(inviteesDiv);
             }
             
-            // Menu count
-            if (data.menu.length > 0) {
+            // Menu count - with null check
+            if (data.menu && data.menu.length > 0) {
                 const menuDiv = document.createElement('div');
                 menuDiv.style.marginBottom = '6px';
                 menuDiv.style.display = 'flex';
@@ -2475,8 +2501,8 @@
                 contentDiv.appendChild(menuDiv);
             }
             
-            // Events count
-            if (data.events.length > 0) {
+            // Events count - with null check
+            if (data.events && data.events.length > 0) {
                 const eventsDiv = document.createElement('div');
                 eventsDiv.style.display = 'flex';
                 eventsDiv.style.alignItems = 'center';

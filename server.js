@@ -6425,10 +6425,32 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             // Get next party from party scheduling
             const partyScheduling = config.partyScheduling;
             if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
-              const partyDate = new Date(partyScheduling.dateTime.date);
+              // Normalize date to string format (YYYY-MM-DD) for consistent handling
+              let dateString;
+              if (typeof partyScheduling.dateTime.date === 'string') {
+                dateString = partyScheduling.dateTime.date;
+              } else if (partyScheduling.dateTime.date instanceof Date) {
+                dateString = partyScheduling.dateTime.date.toISOString().split('T')[0];
+              } else {
+                // Try to parse whatever format it is
+                try {
+                  dateString = new Date(partyScheduling.dateTime.date).toISOString().split('T')[0];
+                } catch (err) {
+                  logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${partyScheduling.dateTime.date}`);
+                  break;
+                }
+              }
+              
+              const partyDate = new Date(dateString);
               partyDate.setHours(0, 0, 0, 0);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
+              
+              // Validate date is valid
+              if (isNaN(partyDate.getTime())) {
+                logger.error(logger.categories.SMART_MIRROR, `Invalid party date after parsing: ${dateString}`);
+                break;
+              }
               
               // Only show if party is upcoming or today
               if (partyDate >= today) {
@@ -6444,12 +6466,19 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
                 const pendingCount = invitees.filter(i => i.rsvp === 'pending').length;
                 
+                // Normalize dateTime to ensure date is always a string
+                const normalizedDateTime = {
+                  date: dateString,
+                  startTime: partyScheduling.dateTime.startTime || null,
+                  endTime: partyScheduling.dateTime.endTime || null
+                };
+                
                 subWidgetData = {
                   type: 'party',
                   priority: subWidget.priority,
                   hasContent: true,
                   data: {
-                    dateTime: partyScheduling.dateTime,
+                    dateTime: normalizedDateTime,
                     daysUntil: daysUntil,
                     tasks: {
                       total: totalTasks,
