@@ -53,6 +53,9 @@ Navigate to **Admin → Server → Smart Mirror → Smart Widget** to configure:
 - **Enabled**: Turn the Smart Widget on or off
 - **Size**: Small, Medium, or Large
 - **Grid Position**: X, Y coordinates and width/height on the grid
+  - **Tip**: Use the **Interactive Grid Layout Editor** to visually position the Smart Widget
+  - The grid editor allows you to drag and resize the Smart Widget on the dashboard layout
+  - Changes made in the grid editor automatically update the position fields
 
 #### Display Settings
 
@@ -289,6 +292,35 @@ Potential additions:
 
 ## Admin Setup Guide
 
+### Using the Interactive Grid Layout Editor
+
+The Smart Widget can be positioned and sized using the Interactive Grid Layout Editor:
+
+1. **Access the Grid Editor**:
+   - Navigate to **Admin → Server → Smart Mirror**
+   - Scroll to the **Interactive Grid Layout Editor** section at the top of the page
+
+2. **Position the Smart Widget**:
+   - Enable the Smart Widget if it's not already enabled
+   - The Smart Widget (🧠 icon) will appear on the grid canvas
+   - Click and drag the Smart Widget to move it to your desired position
+   - The widget will snap to grid cells automatically
+
+3. **Resize the Smart Widget**:
+   - Click the Smart Widget to select it (gold border appears)
+   - Drag the corner handles to resize the widget
+   - The widget can span multiple grid cells (1-4 width, 1-6 height)
+
+4. **Apply and Save Changes**:
+   - Click the **"Apply Changes"** button to sync the grid positions to form fields
+   - Scroll down and click **"Save Smart Mirror Configuration"** to persist changes
+   - Visit the Smart Mirror dashboard to see your new layout
+
+5. **Switch Between Orientations**:
+   - Use the **Portrait/Landscape** tabs to configure layouts for different screen orientations
+   - Each orientation has independent positioning
+   - Changes in one orientation don't affect the other
+
 ### Setting Up the Party Sub-Widget
 
 1. **Configure Party Information** (Admin → Party → Scheduling):
@@ -365,6 +397,14 @@ The party sub-widget includes robust error handling:
 - **Grid Position**: Inherits position from Smart Widget container settings
 
 ## Version History
+
+- **v2.6.6** (2026-02-03): Grid Editor Integration Fix
+  - Added Smart Widget to WIDGET_ICONS registry in admin dashboard
+  - Smart Widget now appears in Interactive Grid Layout Editor
+  - Created comprehensive test suite for grid editor integration (test-smart-widget-grid-editor.js)
+  - All 11 tests pass: WIDGET_ICONS registration, form fields validation, dynamic discovery
+  - Smart Widget can now be dragged, resized, and positioned using grid editor
+  - Resolves issue: "Ensure Smart Widget Displays in Interactive Grid Layout Editor"
 
 - **v2.5.1** (2026-02-03): Party sub-widget integration fix
   - Fixed missing party sub-widget in default configuration
