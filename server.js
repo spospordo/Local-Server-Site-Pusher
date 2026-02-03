@@ -6426,29 +6426,29 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             const partyScheduling = config.partyScheduling;
             if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
               // Normalize date to string format (YYYY-MM-DD) for consistent handling
-              let dateString;
+              let normalizedDateString;
               if (typeof partyScheduling.dateTime.date === 'string') {
-                dateString = partyScheduling.dateTime.date;
+                normalizedDateString = partyScheduling.dateTime.date;
               } else if (partyScheduling.dateTime.date instanceof Date) {
-                dateString = partyScheduling.dateTime.date.toISOString().split('T')[0];
+                normalizedDateString = partyScheduling.dateTime.date.toISOString().split('T')[0];
               } else {
                 // Try to parse whatever format it is
                 try {
-                  dateString = new Date(partyScheduling.dateTime.date).toISOString().split('T')[0];
+                  normalizedDateString = new Date(partyScheduling.dateTime.date).toISOString().split('T')[0];
                 } catch (err) {
                   logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${partyScheduling.dateTime.date}`);
                   break;
                 }
               }
               
-              const partyDate = new Date(dateString);
+              const partyDate = new Date(normalizedDateString);
               partyDate.setHours(0, 0, 0, 0);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               
               // Validate date is valid
               if (isNaN(partyDate.getTime())) {
-                logger.error(logger.categories.SMART_MIRROR, `Invalid party date after parsing: ${dateString}`);
+                logger.error(logger.categories.SMART_MIRROR, `Invalid party date after parsing: ${normalizedDateString}`);
                 break;
               }
               
@@ -6466,9 +6466,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
                 const pendingCount = invitees.filter(i => i.rsvp === 'pending').length;
                 
-                // Normalize dateTime to ensure date is always a string
+                // Normalize dateTime to ensure date is always a string in YYYY-MM-DD format
                 const normalizedDateTime = {
-                  date: dateString,
+                  date: normalizedDateString,
                   startTime: partyScheduling.dateTime.startTime || null,
                   endTime: partyScheduling.dateTime.endTime || null
                 };

@@ -2396,13 +2396,13 @@
                     // Expect YYYY-MM-DD format from server
                     const dateParts = data.dateTime.date.split('-');
                     if (dateParts.length !== 3) {
-                        throw new Error('Invalid date format');
+                        throw new Error(`Invalid date format: expected YYYY-MM-DD, received: ${data.dateTime.date}`);
                     }
                     const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
                     
                     // Validate parsed date
                     if (isNaN(partyDate.getTime())) {
-                        throw new Error('Invalid date value');
+                        throw new Error(`Invalid date value after parsing: ${data.dateTime.date}`);
                     }
                     
                     let dateText = partyDate.toLocaleDateString('en-US', { 
@@ -2418,13 +2418,19 @@
                     dateDiv.textContent = dateText;
                     headerDiv.appendChild(dateDiv);
                 } catch (err) {
-                    console.error('Party widget: Error parsing date', data.dateTime.date, err);
-                    // Show raw date as fallback
-                    dateDiv.textContent = data.dateTime.date;
-                    if (data.dateTime.startTime) {
-                        dateDiv.textContent += ` at ${data.dateTime.startTime}`;
+                    console.error('Party widget: Error parsing date', err.message);
+                    // Validate date string format before displaying as fallback
+                    // Only display if it matches expected pattern to prevent potential issues
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(data.dateTime.date)) {
+                        dateDiv.textContent = data.dateTime.date;
+                        if (data.dateTime.startTime) {
+                            dateDiv.textContent += ` at ${data.dateTime.startTime}`;
+                        }
+                        headerDiv.appendChild(dateDiv);
+                    } else {
+                        console.error('Party widget: Date format validation failed, hiding date display');
+                        // Don't display invalid date format
                     }
-                    headerDiv.appendChild(dateDiv);
                 }
             }
             
