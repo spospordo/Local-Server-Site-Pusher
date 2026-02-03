@@ -86,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.13] - 2026-02-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #427 from spospordo/copilot/ui-adjust-timezone-display
+  - Complete: Additional timezones display smaller and more secondary
+  - Make additional timezones smaller and more secondary in clock widget
+  - Initial plan
+
+
 ## [2.6.12] - 2026-02-03
 
 ### Patch Update
