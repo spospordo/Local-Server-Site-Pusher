@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.7] - 2026-02-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #415 from spospordo/copilot/update-interactive-grid-editor
+  - Fix version number consistency in documentation
+  - Update Smart Widget documentation with grid editor usage
+  - Add Smart Widget to WIDGET_ICONS for grid editor visibility
+  - Initial plan
+
+
 ## [2.6.6] - 2026-02-03
 
 ### Patch Update
