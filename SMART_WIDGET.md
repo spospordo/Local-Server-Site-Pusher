@@ -398,7 +398,7 @@ The party sub-widget includes robust error handling:
 
 ## Version History
 
-- **v2.6.7** (2026-02-03): Grid Editor Integration Fix
+- **v2.6.6** (2026-02-03): Grid Editor Integration Fix
   - Added Smart Widget to WIDGET_ICONS registry in admin dashboard
   - Smart Widget now appears in Interactive Grid Layout Editor
   - Created comprehensive test suite for grid editor integration (test-smart-widget-grid-editor.js)
