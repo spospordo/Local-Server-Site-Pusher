@@ -6424,8 +6424,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    const config = smartMirror.loadConfig();
-    const smartWidgetConfig = config.widgets?.smartWidget;
+    const smartMirrorConfig = smartMirror.loadConfig();
+    const smartWidgetConfig = smartMirrorConfig.widgets?.smartWidget;
     
     if (!smartWidgetConfig || !smartWidgetConfig.enabled) {
       return res.json({ success: false, error: 'Smart Widget not enabled' });
