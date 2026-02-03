@@ -157,7 +157,8 @@ function getDefaultWidgets() {
       subWidgets: [
         { type: 'rainForecast', enabled: true, priority: 1 },
         { type: 'upcomingVacation', enabled: true, priority: 2 },
-        { type: 'homeAssistantMedia', enabled: true, priority: 3 }
+        { type: 'homeAssistantMedia', enabled: true, priority: 3 },
+        { type: 'party', enabled: true, priority: 4 }
       ],
       // Display settings
       displayMode: 'cycle', // 'cycle', 'simultaneous', or 'priority'
