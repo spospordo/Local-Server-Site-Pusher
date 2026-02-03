@@ -279,7 +279,99 @@ Potential additions:
 - Check entity IDs are valid media players
 - Ensure media is actually playing or paused
 
+### Party Not Showing
+- Navigate to Admin → Party → Scheduling tab
+- Set a party date (must be today or in the future)
+- Enable party sub-widget in Admin → Smart Mirror → Smart Widget settings
+- Check that Smart Widget itself is enabled
+- Verify party date is not in the past
+- Review browser console for any JavaScript errors
+
+## Admin Setup Guide
+
+### Setting Up the Party Sub-Widget
+
+1. **Configure Party Information** (Admin → Party → Scheduling):
+   - Set the party date and time (required)
+   - Add invitees with RSVP status (optional)
+   - Create menu items (optional)
+   - Add pre-party tasks (optional)
+   - Schedule party events (optional)
+   - Click "Save"
+
+2. **Enable Smart Widget** (Admin → Smart Mirror):
+   - Scroll to "Smart Widget" section
+   - Set "Enabled" to "Yes"
+   - Choose display mode (cycle, simultaneous, or priority)
+   - Adjust cycle speed if using cycle mode
+
+3. **Enable Party Sub-Widget**:
+   - Find "🎉 Party Sub-Widget" section
+   - Set "Enabled" to "Yes"
+   - Set priority (default: 4, lower = higher priority)
+   - Click "Save Smart Mirror Configuration"
+
+4. **Verify Display**:
+   - Navigate to `/smart-mirror` in your browser
+   - Smart Widget should appear in the configured grid position
+   - Party information should display when party date is set
+
+### Error Handling
+
+The party sub-widget includes robust error handling:
+
+- **Missing Party Data**: If no party is configured, the widget simply won't display (no error shown to users)
+- **Past Party Date**: Parties that have already occurred are automatically hidden
+- **Incomplete Data**: All party fields except date are optional; the widget displays available data gracefully
+- **No Active Notifications**: When no sub-widgets have content, shows "No active notifications" message
+- **Invalid Configuration**: Server validates all data before sending to client
+
+### QA Steps for Verification
+
+1. **Test with Complete Party Data**:
+   - Configure all party fields (date, tasks, invitees, menu, events)
+   - Verify all information displays correctly
+   - Check countdown shows correct days until party
+
+2. **Test with Minimal Party Data**:
+   - Configure only party date
+   - Verify widget displays with just date/countdown
+   - Confirm no errors for missing optional fields
+
+3. **Test Edge Cases**:
+   - Set party date to today → should show "Party Today!" in green
+   - Set party date to tomorrow → should show "Party Tomorrow"
+   - Set party date to past → widget should not display
+   - Remove party date → widget should not display
+
+4. **Test Display Modes**:
+   - **Cycle**: Party rotates with other enabled sub-widgets
+   - **Simultaneous**: Party displays alongside other sub-widgets
+   - **Priority**: Party displays based on priority setting (default: 4)
+
+5. **Test Grid Layout**:
+   - Open Admin → Smart Mirror → Grid Editor
+   - Verify Smart Widget appears on the grid
+   - Drag to reposition, resize as needed
+   - Save changes and verify on smart mirror display
+
+### Constraints and Limitations
+
+- **Admin-Only Configuration**: Only admins can configure party data; end users see read-only display
+- **Date Requirement**: Party date must be set for widget to display
+- **Future Dates Only**: Past parties are automatically hidden
+- **Single Party**: Currently shows only one upcoming party (the next scheduled)
+- **No Real-time RSVP**: RSVP changes require page refresh to display
+- **Grid Position**: Inherits position from Smart Widget container settings
+
 ## Version History
+
+- **v2.5.1** (2026-02-03): Party sub-widget integration fix
+  - Fixed missing party sub-widget in default configuration
+  - Added party sub-widget to default subWidgets array (priority: 4)
+  - Updated documentation with party setup guide and QA steps
+  - Added troubleshooting section for party widget
+  - Documented constraints and error handling
 
 - **v2.5.0** (2026-02-01): Initial Smart Widget implementation
   - Added Smart Widget container with three sub-widgets
@@ -292,6 +384,7 @@ Potential additions:
 
 ## Related Documentation
 
+- [PARTY_WIDGET_IMPLEMENTATION.md](PARTY_WIDGET_IMPLEMENTATION.md) - Party widget details
 - [HOME_ASSISTANT_MEDIA_WIDGET.md](HOME_ASSISTANT_MEDIA_WIDGET.md) - Media widget setup
 - [VACATION_WIDGET.md](VACATION_WIDGET.md) - Vacation widget details
 - [SMART_MIRROR_GRID_POSITIONING.md](SMART_MIRROR_GRID_POSITIONING.md) - Grid layout system
