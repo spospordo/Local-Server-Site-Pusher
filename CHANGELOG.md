@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.8] - 2026-02-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #417 from spospordo/copilot/fix-party-sub-widget-display
+  - Add comprehensive resolution documentation for party widget display fix
+  - Address code review: Improve variable naming and error messages
+  - Add comprehensive test script for party widget bug fixes
+  - Fix party sub-widget display: Add robust data validation and date normalization
+  - Initial plan
+
+
 ## [2.6.7] - 2026-02-03
 
 ### Patch Update
