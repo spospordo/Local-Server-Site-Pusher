@@ -5533,6 +5533,20 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Weather Forecast Section -->
+                <div class="section">
+                    <h3>🌤️ Weather Forecast for Party Date</h3>
+                    <p style="margin-bottom: 1rem; opacity: 0.8;">View the weather forecast for your party date. Configure weather API in Smart Mirror settings.</p>
+                    
+                    <button onclick="loadPartyWeather()" class="btn btn-secondary" style="width: 100%;">🔄 Load Weather Forecast</button>
+                    
+                    <div id="partyWeatherContainer" style="display: none; margin-top: 1rem;">
+                        <div id="partyWeatherContent"></div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Validation & Preview Section -->
                 <div class="section">
                     <h3>🔍 Widget Validation & Preview</h3>
@@ -7597,6 +7611,131 @@
             } catch (error) {
                 // Re-throw to let calling function handle other errors
                 throw error;
+            }
+        }
+        
+        // Load weather forecast for party date
+        async function loadPartyWeather() {
+            const container = document.getElementById('partyWeatherContainer');
+            const content = document.getElementById('partyWeatherContent');
+            
+            try {
+                container.style.display = 'block';
+                content.innerHTML = '<div style="text-align: center; padding: 1rem;"><div class="spinner"></div><div style="margin-top: 0.5rem;">Loading weather...</div></div>';
+                
+                const response = await fetch('/admin/api/party/weather');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const weather = result.data;
+                    let html = '<div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">';
+                    
+                    // Header
+                    html += '<div style="text-align: center; margin-bottom: 1rem;">';
+                    html += '<div style="font-size: 1.1rem; font-weight: 600; color: #333;">Weather for Party Day</div>';
+                    if (weather.location) {
+                        html += '<div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">' + weather.location + '</div>';
+                    }
+                    html += '</div>';
+                    
+                    // Daily summary
+                    const summary = weather.summary;
+                    html += '<div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1rem;">';
+                    
+                    // Weather icon
+                    if (summary.icon) {
+                        html += '<img src="https://openweathermap.org/img/wn/' + summary.icon + '@2x.png" style="width: 60px; height: 60px;">';
+                    }
+                    
+                    // Temperature and condition
+                    html += '<div>';
+                    const tempUnit = weather.units === 'imperial' ? '°F' : '°C';
+                    html += '<div style="font-size: 1.3rem; font-weight: 600; color: #333;">';
+                    html += summary.tempHigh + tempUnit + ' / ' + summary.tempLow + tempUnit;
+                    html += '</div>';
+                    html += '<div style="font-size: 0.9rem; color: #666;">' + summary.condition + '</div>';
+                    if (summary.precipChance > 0) {
+                        html += '<div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">';
+                        html += summary.precipChance + '% chance of precipitation';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                    
+                    html += '</div>';
+                    
+                    // Hourly forecast (if within 3 days)
+                    if (weather.showHourly && weather.hourly && weather.hourly.length > 0) {
+                        html += '<div style="border-top: 1px solid #dee2e6; padding-top: 1rem; margin-top: 1rem;">';
+                        html += '<div style="font-size: 0.9rem; font-weight: 600; color: #333; margin-bottom: 0.75rem;">Hourly Forecast</div>';
+                        html += '<div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;">';
+                        
+                        // Show up to 8 hourly forecasts
+                        const hoursToShow = weather.hourly.slice(0, 8);
+                        hoursToShow.forEach(function(hourData) {
+                            html += '<div style="text-align: center; background: white; padding: 0.5rem; border-radius: 6px; border: 1px solid #e0e0e0; min-width: 70px;">';
+                            
+                            // Hour
+                            const hour12 = hourData.hour % 12 || 12;
+                            const ampm = hourData.hour < 12 ? 'am' : 'pm';
+                            html += '<div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">' + hour12 + ampm + '</div>';
+                            
+                            // Icon
+                            if (hourData.icon) {
+                                html += '<img src="https://openweathermap.org/img/wn/' + hourData.icon + '.png" style="width: 40px; height: 40px;">';
+                            }
+                            
+                            // Temperature
+                            html += '<div style="font-size: 0.85rem; font-weight: 600; color: #333;">' + hourData.temp + tempUnit + '</div>';
+                            
+                            // Precipitation
+                            if (hourData.precipChance > 20) {
+                                html += '<div style="font-size: 0.7rem; color: #666;">' + hourData.precipChance + '%</div>';
+                            }
+                            
+                            html += '</div>';
+                        });
+                        
+                        html += '</div>';
+                        html += '</div>';
+                    }
+                    
+                    // Info message
+                    if (weather.showHourly) {
+                        html += '<div style="margin-top: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 4px; font-size: 0.85rem; color: #1976d2;">';
+                        html += '✨ Party is within 3 days - showing hour-by-hour breakdown';
+                        html += '</div>';
+                    } else if (weather.daysUntil > 3) {
+                        html += '<div style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-radius: 4px; font-size: 0.85rem; color: #856404;">';
+                        html += 'ℹ️ Hourly forecast will be available 3 days before the party (' + weather.daysUntil + ' days remaining)';
+                        html += '</div>';
+                    }
+                    
+                    // Source
+                    html += '<div style="margin-top: 1rem; text-align: center; font-size: 0.75rem; color: #999;">Data from OpenWeatherMap</div>';
+                    
+                    html += '</div>';
+                    
+                    content.innerHTML = html;
+                } else {
+                    // Error handling
+                    let errorHTML = '<div style="background: #fff3cd; padding: 1rem; border-radius: 8px; border-left: 4px solid #ffc107;">';
+                    errorHTML += '<div style="font-weight: 600; color: #856404; margin-bottom: 0.5rem;">⚠️ Weather Data Unavailable</div>';
+                    errorHTML += '<div style="color: #856404; font-size: 0.9rem;">' + (result.error || 'Unknown error') + '</div>';
+                    
+                    if (result.hint) {
+                        errorHTML += '<div style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(255, 255, 255, 0.7); border-radius: 4px; font-size: 0.85rem; color: #856404;">';
+                        errorHTML += '💡 ' + result.hint;
+                        errorHTML += '</div>';
+                    }
+                    
+                    errorHTML += '</div>';
+                    content.innerHTML = errorHTML;
+                }
+            } catch (error) {
+                content.innerHTML = '<div style="background: #f8d7da; padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545; color: #721c24;">' +
+                    '<div style="font-weight: 600; margin-bottom: 0.5rem;">❌ Error Loading Weather</div>' +
+                    '<div style="font-size: 0.9rem;">' + error.message + '</div>' +
+                    '</div>';
             }
         }
         

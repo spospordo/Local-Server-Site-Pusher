@@ -1352,6 +1352,89 @@ app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
   }
 });
 
+// API endpoint to fetch weather for party date
+app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
+  try {
+    const schedulingData = config.partyScheduling;
+    
+    if (!schedulingData || !schedulingData.dateTime || !schedulingData.dateTime.date) {
+      return res.json({ 
+        success: false, 
+        error: 'No party date configured' 
+      });
+    }
+    
+    const weatherConfig = config.widgets?.weather;
+    
+    if (!weatherConfig || !weatherConfig.enabled) {
+      return res.json({ 
+        success: false, 
+        error: 'Weather widget not enabled',
+        hint: 'Enable weather in Smart Mirror settings to see weather forecasts'
+      });
+    }
+    
+    if (!weatherConfig.apiKey || !weatherConfig.location) {
+      return res.json({ 
+        success: false, 
+        error: 'Weather API not configured',
+        hint: 'Configure API key and location in Smart Mirror weather settings'
+      });
+    }
+    
+    const partyDate = schedulingData.dateTime.date;
+    
+    // Calculate days until party
+    const partyDateObj = new Date(partyDate);
+    partyDateObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
+    
+    try {
+      const weatherResult = await smartMirror.fetchWeatherForDate(
+        weatherConfig.apiKey,
+        weatherConfig.location,
+        partyDate,
+        weatherConfig.units || 'imperial'
+      );
+      
+      if (weatherResult.success) {
+        res.json({
+          success: true,
+          data: {
+            summary: weatherResult.summary,
+            hourly: weatherResult.hourly,
+            location: weatherResult.location,
+            units: weatherResult.units,
+            daysUntil: daysUntil,
+            showHourly: daysUntil <= 3 && daysUntil >= 0
+          }
+        });
+      } else {
+        res.json({
+          success: false,
+          error: weatherResult.error
+        });
+      }
+    } catch (err) {
+      logger.error(logger.categories.SMART_MIRROR, `Error fetching party weather: ${err.message}`);
+      res.json({
+        success: false,
+        error: 'Failed to fetch weather data'
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Fetch party weather'
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch weather data',
+      details: err.message
+    });
+  }
+});
+
 // API endpoint for system logs
 app.get('/admin/api/logs', requireAuth, (req, res) => {
   const category = req.query.category || null;
@@ -6631,6 +6714,35 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   endTime: partyScheduling.dateTime.endTime || null
                 };
                 
+                // Fetch weather for party date if weather widget is configured
+                let weatherData = null;
+                const weatherConfig = config.widgets?.weather;
+                if (weatherConfig && weatherConfig.enabled && weatherConfig.apiKey && weatherConfig.location) {
+                  try {
+                    const weatherResult = await smartMirror.fetchWeatherForDate(
+                      weatherConfig.apiKey,
+                      weatherConfig.location,
+                      normalizedDateString,
+                      weatherConfig.units || 'imperial'
+                    );
+                    
+                    if (weatherResult.success) {
+                      weatherData = {
+                        summary: weatherResult.summary,
+                        // Include hourly data only if within 3 days of party
+                        hourly: daysUntil <= 3 && daysUntil >= 0 ? weatherResult.hourly : null,
+                        units: weatherResult.units,
+                        location: weatherResult.location
+                      };
+                      logger.info(logger.categories.SMART_MIRROR, `Weather data fetched for party date ${normalizedDateString}`);
+                    } else {
+                      logger.warning(logger.categories.SMART_MIRROR, `Could not fetch weather for party: ${weatherResult.error}`);
+                    }
+                  } catch (err) {
+                    logger.error(logger.categories.SMART_MIRROR, `Error fetching weather for party: ${err.message}`);
+                  }
+                }
+                
                 subWidgetData = {
                   type: 'party',
                   priority: subWidget.priority,
@@ -6651,7 +6763,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       list: invitees
                     },
                     menu: partyScheduling.menu || [],
-                    events: partyScheduling.events || []
+                    events: partyScheduling.events || [],
+                    weather: weatherData
                   }
                 };
               }

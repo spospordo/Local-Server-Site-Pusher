@@ -1296,6 +1296,99 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
   }
 }
 
+// Fetch weather forecast for a specific date with hourly details
+async function fetchWeatherForDate(apiKey, location, targetDate, units = 'imperial') {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching weather for date ${targetDate} (units: ${units})`);
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for weather';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  if (!targetDate) {
+    const errorMsg = 'Target date is required';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  try {
+    // Use 5-day forecast endpoint (free tier) - provides 3-hour interval data
+    const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
+    logger.info(logger.categories.SMART_MIRROR, `Fetching forecast for date ${targetDate} from OpenWeatherMap API`);
+    
+    const response = await axios.get(url, { timeout: 10000 });
+    const data = response.data;
+    
+    // Normalize target date to YYYY-MM-DD format
+    const targetDateStr = typeof targetDate === 'string' ? targetDate : new Date(targetDate).toISOString().split('T')[0];
+    
+    // Filter forecast items for the target date
+    const hourlyItems = data.list.filter(item => {
+      const itemDate = new Date(item.dt * 1000).toISOString().split('T')[0];
+      return itemDate === targetDateStr;
+    });
+    
+    if (hourlyItems.length === 0) {
+      // Date is outside forecast range (>5 days)
+      logger.warning(logger.categories.SMART_MIRROR, `No forecast data available for ${targetDateStr}`);
+      return { success: false, error: 'Date outside forecast range (max 5 days)' };
+    }
+    
+    // Extract hourly forecast data
+    const hourlyForecast = hourlyItems.map(item => {
+      const itemDate = new Date(item.dt * 1000);
+      return {
+        time: itemDate.toISOString(),
+        hour: itemDate.getHours(),
+        temp: Math.round(item.main.temp),
+        feelsLike: Math.round(item.main.feels_like),
+        condition: item.weather[0]?.main || 'Unknown',
+        description: item.weather[0]?.description || '',
+        icon: item.weather[0]?.icon || '',
+        humidity: item.main.humidity,
+        windSpeed: Math.round(item.wind.speed),
+        precipChance: Math.round((item.pop || 0) * 100)
+      };
+    });
+    
+    // Calculate daily summary from hourly data
+    const temps = hourlyItems.map(item => item.main.temp);
+    const pops = hourlyItems.map(item => item.pop || 0);
+    const conditions = hourlyItems.map(item => item.weather[0]?.main);
+    
+    const conditionCounts = {};
+    conditions.forEach(c => conditionCounts[c] = (conditionCounts[c] || 0) + 1);
+    const mostCommonCondition = Object.keys(conditionCounts).reduce((a, b) => 
+      conditionCounts[a] > conditionCounts[b] ? a : b
+    );
+    
+    const summary = {
+      date: targetDateStr,
+      tempHigh: Math.round(Math.max(...temps)),
+      tempLow: Math.round(Math.min(...temps)),
+      condition: mostCommonCondition,
+      icon: hourlyItems[Math.floor(hourlyItems.length / 2)]?.weather[0]?.icon || hourlyItems[0]?.weather[0]?.icon || '',
+      precipChance: Math.round(Math.max(...pops) * 100)
+    };
+    
+    logger.success(logger.categories.SMART_MIRROR, `Weather data for ${targetDateStr} fetched successfully`);
+    return {
+      success: true,
+      location: data.city.name,
+      country: data.city.country,
+      date: targetDateStr,
+      summary,
+      hourly: hourlyForecast,
+      units
+    };
+  } catch (err) {
+    const errorMsg = `Failed to fetch weather for date: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 // Fetch Home Assistant media player state
 async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
@@ -1974,6 +2067,7 @@ module.exports = {
   fetchNews,
   fetchWeather,
   fetchForecast,
+  fetchWeatherForDate,
   fetchHomeAssistantMedia,
   fetchLocationTimezone,
   testWeatherConnection,

@@ -2482,6 +2482,140 @@
             
             container.appendChild(headerDiv);
             
+            // Weather section
+            if (data.weather && data.weather.summary) {
+                const weatherSection = document.createElement('div');
+                weatherSection.style.marginTop = '12px';
+                weatherSection.style.marginBottom = '12px';
+                weatherSection.style.padding = '10px';
+                weatherSection.style.background = 'rgba(255, 255, 255, 0.05)';
+                weatherSection.style.borderRadius = '8px';
+                weatherSection.style.textAlign = 'center';
+                
+                const weatherHeader = document.createElement('div');
+                weatherHeader.style.fontSize = '0.8rem';
+                weatherHeader.style.opacity = '0.7';
+                weatherHeader.style.marginBottom = '6px';
+                weatherHeader.textContent = '🌤️ Weather Forecast';
+                weatherSection.appendChild(weatherHeader);
+                
+                // Daily summary - always shown
+                const summaryDiv = document.createElement('div');
+                summaryDiv.style.marginBottom = '8px';
+                
+                // Weather icon
+                const iconCode = data.weather.summary.icon;
+                const iconUrl = iconCode ? `https://openweathermap.org/img/wn/${iconCode}@2x.png` : '';
+                if (iconUrl) {
+                    const iconImg = document.createElement('img');
+                    iconImg.src = iconUrl;
+                    iconImg.style.width = '40px';
+                    iconImg.style.height = '40px';
+                    iconImg.style.verticalAlign = 'middle';
+                    summaryDiv.appendChild(iconImg);
+                }
+                
+                // Temperature range
+                const tempDiv = document.createElement('div');
+                tempDiv.style.fontSize = '0.9rem';
+                tempDiv.style.fontWeight = '600';
+                const tempUnit = data.weather.units === 'imperial' ? '°F' : '°C';
+                tempDiv.textContent = `${data.weather.summary.tempHigh}${tempUnit} / ${data.weather.summary.tempLow}${tempUnit}`;
+                summaryDiv.appendChild(tempDiv);
+                
+                // Condition and precipitation
+                const conditionDiv = document.createElement('div');
+                conditionDiv.style.fontSize = '0.75rem';
+                conditionDiv.style.opacity = '0.8';
+                conditionDiv.style.marginTop = '3px';
+                conditionDiv.textContent = data.weather.summary.condition;
+                if (data.weather.summary.precipChance > 0) {
+                    conditionDiv.textContent += ` · ${data.weather.summary.precipChance}% precip`;
+                }
+                summaryDiv.appendChild(conditionDiv);
+                
+                weatherSection.appendChild(summaryDiv);
+                
+                // Hourly forecast - shown only within 3 days of party
+                if (data.weather.hourly && data.weather.hourly.length > 0) {
+                    const hourlyDiv = document.createElement('div');
+                    hourlyDiv.style.marginTop = '10px';
+                    hourlyDiv.style.paddingTop = '8px';
+                    hourlyDiv.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
+                    
+                    const hourlyHeader = document.createElement('div');
+                    hourlyHeader.style.fontSize = '0.75rem';
+                    hourlyHeader.style.opacity = '0.7';
+                    hourlyHeader.style.marginBottom = '6px';
+                    hourlyHeader.textContent = 'Hour-by-hour';
+                    hourlyDiv.appendChild(hourlyHeader);
+                    
+                    const hourlyContainer = document.createElement('div');
+                    hourlyContainer.style.display = 'flex';
+                    hourlyContainer.style.flexWrap = 'wrap';
+                    hourlyContainer.style.gap = '8px';
+                    hourlyContainer.style.justifyContent = 'center';
+                    
+                    // Show up to 8 hourly forecasts
+                    const hoursToShow = data.weather.hourly.slice(0, 8);
+                    hoursToShow.forEach(hourData => {
+                        const hourItem = document.createElement('div');
+                        hourItem.style.textAlign = 'center';
+                        hourItem.style.flex = '0 0 auto';
+                        hourItem.style.minWidth = '50px';
+                        
+                        // Hour label
+                        const hourLabel = document.createElement('div');
+                        hourLabel.style.fontSize = '0.7rem';
+                        hourLabel.style.opacity = '0.7';
+                        const hour12 = hourData.hour % 12 || 12;
+                        const ampm = hourData.hour < 12 ? 'am' : 'pm';
+                        hourLabel.textContent = `${hour12}${ampm}`;
+                        hourItem.appendChild(hourLabel);
+                        
+                        // Weather icon
+                        if (hourData.icon) {
+                            const hourIconImg = document.createElement('img');
+                            hourIconImg.src = `https://openweathermap.org/img/wn/${hourData.icon}.png`;
+                            hourIconImg.style.width = '30px';
+                            hourIconImg.style.height = '30px';
+                            hourItem.appendChild(hourIconImg);
+                        }
+                        
+                        // Temperature
+                        const hourTemp = document.createElement('div');
+                        hourTemp.style.fontSize = '0.75rem';
+                        hourTemp.style.fontWeight = '600';
+                        hourTemp.textContent = `${hourData.temp}${tempUnit}`;
+                        hourItem.appendChild(hourTemp);
+                        
+                        // Precipitation chance (if significant)
+                        if (hourData.precipChance > 20) {
+                            const precipDiv = document.createElement('div');
+                            precipDiv.style.fontSize = '0.65rem';
+                            precipDiv.style.opacity = '0.7';
+                            precipDiv.textContent = `${hourData.precipChance}%`;
+                            hourItem.appendChild(precipDiv);
+                        }
+                        
+                        hourlyContainer.appendChild(hourItem);
+                    });
+                    
+                    hourlyDiv.appendChild(hourlyContainer);
+                    weatherSection.appendChild(hourlyDiv);
+                }
+                
+                // Weather source note
+                const sourceDiv = document.createElement('div');
+                sourceDiv.style.fontSize = '0.65rem';
+                sourceDiv.style.opacity = '0.5';
+                sourceDiv.style.marginTop = '6px';
+                sourceDiv.textContent = 'OpenWeatherMap';
+                weatherSection.appendChild(sourceDiv);
+                
+                container.appendChild(weatherSection);
+            }
+            
             // Content section
             const contentDiv = document.createElement('div');
             contentDiv.style.fontSize = '0.8rem';

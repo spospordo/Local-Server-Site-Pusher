@@ -317,7 +317,8 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
 - 📰 **News Feeds**: Show latest headlines from RSS feeds
 - 🎵 **Home Assistant Media Player**: Display now-playing information from your Home Assistant media players (Spotify, Chromecast, Sonos, Plex, etc.)
 - ✈️ **Vacation Widget**: Show upcoming vacations with countdown and weather
-- 📱 **Smart Widget**: Intelligent container that displays multiple sub-widgets (rain forecast, vacation alerts, media status) based on relevance
+- 🎉 **Party Widget**: Display upcoming party details with guest list, tasks, menu, and weather forecast
+- 📱 **Smart Widget**: Intelligent container that displays multiple sub-widgets (rain forecast, vacation alerts, party info, media status) based on relevance
 - 🎨 **Grid Editor**: Visual drag-and-drop layout editor
 - 🌙 **Dark/Light Themes**: Built-in theme support
 - 🔐 **Persistent Configuration**: All settings including API keys persist across container restarts
@@ -334,12 +335,14 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
    - **News**: Add RSS feed URLs
    - **Media**: Connect to Home Assistant for now-playing display (see [HOME_ASSISTANT_MEDIA_WIDGET.md](HOME_ASSISTANT_MEDIA_WIDGET.md))
    - **Vacation**: Configure vacation dates in House section for countdown display
-   - **Smart Widget**: Intelligent multi-widget display for rain alerts, vacations, and media status (see [SMART_WIDGET.md](SMART_WIDGET.md))
+   - **Party**: Set party details in Party > Scheduling with automatic weather integration (see [PARTY_WEATHER_INTEGRATION.md](PARTY_WEATHER_INTEGRATION.md))
+   - **Smart Widget**: Intelligent multi-widget display for rain alerts, vacations, party info, and media status (see [SMART_WIDGET.md](SMART_WIDGET.md))
 
 4. Get a free OpenWeatherMap API key at [openweathermap.org/api](https://openweathermap.org/api)
 5. For Home Assistant media widget setup, see the [detailed guide](HOME_ASSISTANT_MEDIA_WIDGET.md)
 6. For Smart Widget configuration, see the [Smart Widget documentation](SMART_WIDGET.md)
-7. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+7. For Party weather integration, see the [Party Weather Integration guide](PARTY_WEATHER_INTEGRATION.md)
+8. View your Smart Mirror at `http://localhost:3000/smart-mirror`
 
 ### API Key Persistence
 
