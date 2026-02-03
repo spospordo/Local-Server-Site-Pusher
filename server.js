@@ -6593,7 +6593,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
               twoWeeksBefore.setHours(0, 0, 0, 0);
               
-              if (partyDate >= twoWeeksBefore && partyDate >= today) {
+              // Show widget if today is within the visibility window (2 weeks before through party day)
+              if (today >= twoWeeksBefore && today <= partyDate) {
                 const daysUntil = Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
                 
                 // Determine party phase
