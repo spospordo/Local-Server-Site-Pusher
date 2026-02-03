@@ -2163,18 +2163,32 @@
             container.style.borderRadius = '10px';
             container.style.background = 'rgba(255, 255, 255, 0.05)';
             
+            let innerContent = null;
             switch (subWidget.type) {
                 case 'rainForecast':
-                    return renderRainForecast(subWidget.data);
+                    innerContent = renderRainForecast(subWidget.data);
+                    break;
                 case 'upcomingVacation':
-                    return renderUpcomingVacation(subWidget.data);
+                    innerContent = renderUpcomingVacation(subWidget.data);
+                    break;
                 case 'homeAssistantMedia':
-                    return renderHomeAssistantMedia(subWidget.data);
+                    innerContent = renderHomeAssistantMedia(subWidget.data);
+                    break;
                 case 'party':
-                    return renderParty(subWidget.data);
+                    innerContent = renderParty(subWidget.data);
+                    break;
                 default:
                     return null;
             }
+            
+            // If the render function returned null (no content), return null
+            if (!innerContent) {
+                return null;
+            }
+            
+            // Wrap the inner content in the styled container
+            container.appendChild(innerContent);
+            return container;
         }
         
         // Render rain forecast sub-widget
