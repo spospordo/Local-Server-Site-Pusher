@@ -83,7 +83,8 @@ const expectedElements = [
     'tasks',
     'invitees',
     'menu',
-    'events'
+    'events',
+    'phase'
 ];
 
 let allFound = true;
@@ -97,6 +98,59 @@ expectedElements.forEach(element => {
 });
 
 if (!allFound) {
+    process.exit(1);
+}
+
+// Test 4.1: Check phase-based rendering
+console.log('\n✓ Test 4.1: Checking phase-based rendering logic...');
+if (smartMirrorContent.includes("data.phase === 'during'") || smartMirrorContent.includes('isDuringParty')) {
+    console.log('  ✅ Found phase detection logic');
+} else {
+    console.log('  ❌ Phase detection logic not found');
+    process.exit(1);
+}
+
+if (smartMirrorContent.includes('To-Do Items') || smartMirrorContent.includes('✓')) {
+    console.log('  ✅ Found tasks display section');
+} else {
+    console.log('  ❌ Tasks display section not found');
+    process.exit(1);
+}
+
+if (smartMirrorContent.includes('Events Schedule') || smartMirrorContent.includes('📋')) {
+    console.log('  ✅ Found events display section');
+} else {
+    console.log('  ❌ Events display section not found');
+    process.exit(1);
+}
+
+if (smartMirrorContent.includes('Guest List') || smartMirrorContent.includes('👥')) {
+    console.log('  ✅ Found guest list display section');
+} else {
+    console.log('  ❌ Guest list display section not found');
+    process.exit(1);
+}
+
+// Test 4.2: Check server-side phase calculation
+console.log('\n✓ Test 4.2: Checking server-side phase calculation...');
+if (serverContent.includes('twoWeeksBefore') || serverContent.includes('14')) {
+    console.log('  ✅ Found 2-week visibility window calculation');
+} else {
+    console.log('  ❌ 2-week visibility window not found');
+    process.exit(1);
+}
+
+if (serverContent.includes("phase:") && serverContent.includes("'during'") && serverContent.includes("'pre-party'")) {
+    console.log('  ✅ Found phase assignment logic');
+} else {
+    console.log('  ❌ Phase assignment logic not found');
+    process.exit(1);
+}
+
+if (serverContent.includes('isPartyStarted')) {
+    console.log('  ✅ Found party start time detection');
+} else {
+    console.log('  ❌ Party start time detection not found');
     process.exit(1);
 }
 

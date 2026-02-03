@@ -6587,15 +6587,38 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 break;
               }
               
-              // Only show if party is upcoming or today
-              if (partyDate >= today) {
+              // Determine if we should show the widget
+              // Show starting 2 weeks (14 days) before party through end of party day
+              const twoWeeksBefore = new Date(partyDate);
+              twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+              twoWeeksBefore.setHours(0, 0, 0, 0);
+              
+              // Show widget if today is within the visibility window (2 weeks before through party day)
+              if (today >= twoWeeksBefore && today <= partyDate) {
                 const daysUntil = Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
                 
-                // Count completed tasks
-                const totalTasks = partyScheduling.tasks ? partyScheduling.tasks.length : 0;
-                const completedTasks = partyScheduling.tasks ? partyScheduling.tasks.filter(t => t.completed).length : 0;
+                // Determine party phase
+                // Pre-party: 2 weeks before through start time
+                // During party: start time through end of day
+                const now = new Date();
+                let isPartyStarted = false;
                 
-                // Count RSVP status
+                if (daysUntil === 0 && partyScheduling.dateTime.startTime) {
+                  // Parse start time to check if party has started today
+                  const [startHour, startMinute] = partyScheduling.dateTime.startTime.split(':').map(n => parseInt(n, 10));
+                  const partyStartDateTime = new Date(partyDate);
+                  partyStartDateTime.setHours(startHour, startMinute, 0, 0);
+                  
+                  if (now >= partyStartDateTime) {
+                    isPartyStarted = true;
+                  }
+                }
+                
+                // Get all party data
+                const tasks = partyScheduling.tasks || [];
+                const totalTasks = tasks.length;
+                const completedTasks = tasks.filter(t => t.completed).length;
+                
                 const invitees = partyScheduling.invitees || [];
                 const comingCount = invitees.filter(i => i.rsvp === 'coming').length;
                 const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
@@ -6615,9 +6638,11 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   data: {
                     dateTime: normalizedDateTime,
                     daysUntil: daysUntil,
+                    phase: isPartyStarted ? 'during' : 'pre-party',
                     tasks: {
                       total: totalTasks,
-                      completed: completedTasks
+                      completed: completedTasks,
+                      list: tasks
                     },
                     invitees: {
                       coming: comingCount,

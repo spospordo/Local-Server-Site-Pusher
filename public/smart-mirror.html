@@ -2369,9 +2369,16 @@
                 return null;
             }
             
+            const PARTY_WIDGET_MAX_HEIGHT = '80vh'; // Maximum height for scrollable content
+            
             const container = document.createElement('div');
             container.className = 'party-widget';
             container.style.padding = '10px';
+            container.style.maxHeight = PARTY_WIDGET_MAX_HEIGHT;
+            container.style.overflowY = 'auto';
+            
+            // Determine phase
+            const isDuringParty = data.phase === 'during';
             
             // Header with icon
             const headerDiv = document.createElement('div');
@@ -2389,7 +2396,7 @@
             titleDiv.style.fontWeight = '600';
             
             if (data.daysUntil === 0) {
-                titleDiv.textContent = 'Party Today!';
+                titleDiv.textContent = isDuringParty ? 'Party in Progress!' : 'Party Today!';
                 titleDiv.style.color = '#4CAF50';
             } else if (data.daysUntil === 1) {
                 titleDiv.textContent = 'Party Tomorrow';
@@ -2397,6 +2404,14 @@
                 titleDiv.textContent = `Party in ${data.daysUntil} days`;
             }
             headerDiv.appendChild(titleDiv);
+            
+            // Phase indicator
+            const phaseDiv = document.createElement('div');
+            phaseDiv.style.fontSize = '0.75rem';
+            phaseDiv.style.opacity = '0.7';
+            phaseDiv.style.marginTop = '3px';
+            phaseDiv.textContent = isDuringParty ? '🎊 Enjoy the party!' : '📋 Party Planning';
+            headerDiv.appendChild(phaseDiv);
             
             // Date and time
             if (data.dateTime.date) {
@@ -2455,89 +2470,208 @@
             contentDiv.style.fontSize = '0.8rem';
             contentDiv.style.marginTop = '10px';
             
-            // Tasks status - with null check
-            if (data.tasks && data.tasks.total > 0) {
-                const tasksDiv = document.createElement('div');
-                tasksDiv.style.marginBottom = '6px';
-                tasksDiv.style.display = 'flex';
-                tasksDiv.style.alignItems = 'center';
-                tasksDiv.style.gap = '5px';
+            // Pre-party phase: Show tasks, invitees, menu, events
+            // During party phase: Show events, menu, invitees (NO tasks)
+            
+            // Tasks - only show in pre-party phase
+            if (!isDuringParty && data.tasks && data.tasks.list && data.tasks.list.length > 0) {
+                const tasksSection = document.createElement('div');
+                tasksSection.style.marginBottom = '15px';
                 
-                const checkIcon = document.createElement('span');
-                checkIcon.textContent = '✓';
-                checkIcon.style.fontSize = '1rem';
-                const percentComplete = Math.round((data.tasks.completed / data.tasks.total) * 100);
-                checkIcon.style.color = percentComplete === 100 ? '#4CAF50' : '#FFC107';
-                tasksDiv.appendChild(checkIcon);
+                const tasksHeader = document.createElement('div');
+                tasksHeader.style.fontWeight = '600';
+                tasksHeader.style.marginBottom = '8px';
+                tasksHeader.style.fontSize = '0.9rem';
+                tasksHeader.innerHTML = '✓ To-Do Items';
+                tasksSection.appendChild(tasksHeader);
                 
-                const taskText = document.createElement('span');
-                taskText.textContent = `Tasks: ${data.tasks.completed}/${data.tasks.total} complete`;
-                tasksDiv.appendChild(taskText);
+                data.tasks.list.forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.style.marginBottom = '5px';
+                    taskItem.style.paddingLeft = '10px';
+                    taskItem.style.opacity = task.completed ? '0.6' : '1';
+                    
+                    const checkbox = document.createElement('span');
+                    checkbox.textContent = task.completed ? '☑' : '☐';
+                    checkbox.style.marginRight = '5px';
+                    
+                    const taskText = document.createElement('span');
+                    taskText.textContent = task.name;
+                    if (task.completed) {
+                        taskText.style.textDecoration = 'line-through';
+                    }
+                    
+                    taskItem.appendChild(checkbox);
+                    taskItem.appendChild(taskText);
+                    
+                    if (task.assignee) {
+                        const assigneeText = document.createElement('span');
+                        assigneeText.textContent = ` (${task.assignee})`;
+                        assigneeText.style.opacity = '0.7';
+                        assigneeText.style.fontSize = '0.75rem';
+                        taskItem.appendChild(assigneeText);
+                    }
+                    
+                    tasksSection.appendChild(taskItem);
+                });
                 
-                contentDiv.appendChild(tasksDiv);
+                contentDiv.appendChild(tasksSection);
             }
             
-            // Invitees status - with null check
-            if (data.invitees && data.invitees.list && data.invitees.list.length > 0) {
-                const inviteesDiv = document.createElement('div');
-                inviteesDiv.style.marginBottom = '6px';
-                inviteesDiv.style.display = 'flex';
-                inviteesDiv.style.alignItems = 'center';
-                inviteesDiv.style.gap = '5px';
-                
-                const peopleIcon = document.createElement('span');
-                peopleIcon.textContent = '👥';
-                peopleIcon.style.fontSize = '1rem';
-                inviteesDiv.appendChild(peopleIcon);
-                
-                const inviteeText = document.createElement('span');
-                const parts = [];
-                if (data.invitees.coming > 0) parts.push(`${data.invitees.coming} coming`);
-                if (data.invitees.pending > 0) parts.push(`${data.invitees.pending} pending`);
-                if (data.invitees.notComing > 0) parts.push(`${data.invitees.notComing} not coming`);
-                inviteeText.textContent = `Guests: ${parts.join(', ')}`;
-                inviteesDiv.appendChild(inviteeText);
-                
-                contentDiv.appendChild(inviteesDiv);
-            }
-            
-            // Menu count - with null check
-            if (data.menu && data.menu.length > 0) {
-                const menuDiv = document.createElement('div');
-                menuDiv.style.marginBottom = '6px';
-                menuDiv.style.display = 'flex';
-                menuDiv.style.alignItems = 'center';
-                menuDiv.style.gap = '5px';
-                
-                const menuIcon = document.createElement('span');
-                menuIcon.textContent = '🍽️';
-                menuIcon.style.fontSize = '1rem';
-                menuDiv.appendChild(menuIcon);
-                
-                const menuText = document.createElement('span');
-                menuText.textContent = `Menu: ${data.menu.length} items`;
-                menuDiv.appendChild(menuText);
-                
-                contentDiv.appendChild(menuDiv);
-            }
-            
-            // Events count - with null check
+            // Events - show in both phases, but prioritize during party
             if (data.events && data.events.length > 0) {
-                const eventsDiv = document.createElement('div');
-                eventsDiv.style.display = 'flex';
-                eventsDiv.style.alignItems = 'center';
-                eventsDiv.style.gap = '5px';
+                const eventsSection = document.createElement('div');
+                eventsSection.style.marginBottom = '15px';
                 
-                const eventsIcon = document.createElement('span');
-                eventsIcon.textContent = '📋';
-                eventsIcon.style.fontSize = '1rem';
-                eventsDiv.appendChild(eventsIcon);
+                const eventsHeader = document.createElement('div');
+                eventsHeader.style.fontWeight = '600';
+                eventsHeader.style.marginBottom = '8px';
+                eventsHeader.style.fontSize = '0.9rem';
+                eventsHeader.innerHTML = '📋 Events Schedule';
+                eventsSection.appendChild(eventsHeader);
                 
-                const eventsText = document.createElement('span');
-                eventsText.textContent = `Events: ${data.events.length} scheduled`;
-                eventsDiv.appendChild(eventsText);
+                data.events.forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.style.marginBottom = '8px';
+                    eventItem.style.paddingLeft = '10px';
+                    
+                    const eventTitle = document.createElement('div');
+                    eventTitle.style.fontWeight = '500';
+                    
+                    if (event.time) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.textContent = event.time + ' - ';
+                        timeSpan.style.color = '#4CAF50';
+                        eventTitle.appendChild(timeSpan);
+                    }
+                    
+                    const titleSpan = document.createElement('span');
+                    titleSpan.textContent = event.title;
+                    eventTitle.appendChild(titleSpan);
+                    
+                    eventItem.appendChild(eventTitle);
+                    
+                    if (event.description) {
+                        const eventDesc = document.createElement('div');
+                        eventDesc.textContent = event.description;
+                        eventDesc.style.fontSize = '0.75rem';
+                        eventDesc.style.opacity = '0.7';
+                        eventDesc.style.marginTop = '2px';
+                        eventItem.appendChild(eventDesc);
+                    }
+                    
+                    eventsSection.appendChild(eventItem);
+                });
                 
-                contentDiv.appendChild(eventsDiv);
+                contentDiv.appendChild(eventsSection);
+            }
+            
+            // Menu - show in both phases
+            if (data.menu && data.menu.length > 0) {
+                const menuSection = document.createElement('div');
+                menuSection.style.marginBottom = '15px';
+                
+                const menuHeader = document.createElement('div');
+                menuHeader.style.fontWeight = '600';
+                menuHeader.style.marginBottom = '8px';
+                menuHeader.style.fontSize = '0.9rem';
+                menuHeader.innerHTML = '🍽️ Menu';
+                menuSection.appendChild(menuHeader);
+                
+                data.menu.forEach(item => {
+                    const menuItem = document.createElement('div');
+                    menuItem.style.marginBottom = '8px';
+                    menuItem.style.paddingLeft = '10px';
+                    
+                    const itemName = document.createElement('div');
+                    itemName.style.fontWeight = '500';
+                    itemName.textContent = item.name;
+                    menuItem.appendChild(itemName);
+                    
+                    if (item.description) {
+                        const itemDesc = document.createElement('div');
+                        itemDesc.textContent = item.description;
+                        itemDesc.style.fontSize = '0.75rem';
+                        itemDesc.style.opacity = '0.7';
+                        itemDesc.style.marginTop = '2px';
+                        menuItem.appendChild(itemDesc);
+                    }
+                    
+                    menuSection.appendChild(menuItem);
+                });
+                
+                contentDiv.appendChild(menuSection);
+            }
+            
+            // Invitees - show in both phases
+            if (data.invitees && data.invitees.list && data.invitees.list.length > 0) {
+                const inviteesSection = document.createElement('div');
+                inviteesSection.style.marginBottom = '15px';
+                
+                const inviteesHeader = document.createElement('div');
+                inviteesHeader.style.fontWeight = '600';
+                inviteesHeader.style.marginBottom = '8px';
+                inviteesHeader.style.fontSize = '0.9rem';
+                inviteesHeader.innerHTML = '👥 Guest List';
+                inviteesSection.appendChild(inviteesHeader);
+                
+                // Group by RSVP status
+                const coming = data.invitees.list.filter(i => i.rsvp === 'coming');
+                const pending = data.invitees.list.filter(i => i.rsvp === 'pending');
+                const notComing = data.invitees.list.filter(i => i.rsvp === 'not-coming');
+                
+                if (coming.length > 0) {
+                    const comingLabel = document.createElement('div');
+                    comingLabel.style.fontSize = '0.75rem';
+                    comingLabel.style.opacity = '0.7';
+                    comingLabel.style.marginTop = '5px';
+                    comingLabel.textContent = 'Coming:';
+                    inviteesSection.appendChild(comingLabel);
+                    
+                    coming.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `✓ ${invitee.name}`;
+                        inviteeItem.style.color = '#4CAF50';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (pending.length > 0) {
+                    const pendingLabel = document.createElement('div');
+                    pendingLabel.style.fontSize = '0.75rem';
+                    pendingLabel.style.opacity = '0.7';
+                    pendingLabel.style.marginTop = '5px';
+                    pendingLabel.textContent = 'Pending:';
+                    inviteesSection.appendChild(pendingLabel);
+                    
+                    pending.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `? ${invitee.name}`;
+                        inviteeItem.style.color = '#FFC107';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (notComing.length > 0) {
+                    const notComingLabel = document.createElement('div');
+                    notComingLabel.style.fontSize = '0.75rem';
+                    notComingLabel.style.opacity = '0.7';
+                    notComingLabel.style.marginTop = '5px';
+                    notComingLabel.textContent = 'Not Coming:';
+                    inviteesSection.appendChild(notComingLabel);
+                    
+                    notComing.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `✗ ${invitee.name}`;
+                        inviteeItem.style.opacity = '0.5';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                contentDiv.appendChild(inviteesSection);
             }
             
             container.appendChild(contentDiv);
