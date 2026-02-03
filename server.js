@@ -1217,6 +1217,141 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
   }
 });
 
+// API endpoint for party scheduling validation
+app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
+  try {
+    const schedulingData = config.partyScheduling || {
+      dateTime: {
+        date: '',
+        startTime: '',
+        endTime: ''
+      },
+      invitees: [],
+      menu: [],
+      tasks: [],
+      events: []
+    };
+    
+    const issues = [];
+    const warnings = [];
+    let isValid = true;
+    
+    // Check for required party date
+    if (!schedulingData.dateTime || !schedulingData.dateTime.date) {
+      issues.push({
+        field: 'dateTime.date',
+        severity: 'error',
+        message: 'Missing party date',
+        suggestion: 'Set a date for your party in the "Date & Time" section. The widget will not display without a valid party date.'
+      });
+      isValid = false;
+    } else {
+      // Validate date format
+      const dateStr = schedulingData.dateTime.date;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        issues.push({
+          field: 'dateTime.date',
+          severity: 'error',
+          message: 'Invalid date format',
+          suggestion: 'Date must be in YYYY-MM-DD format. Please re-enter the party date.'
+        });
+        isValid = false;
+      } else {
+        // Check if date is valid and not in the past
+        const partyDate = new Date(dateStr);
+        partyDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (isNaN(partyDate.getTime())) {
+          issues.push({
+            field: 'dateTime.date',
+            severity: 'error',
+            message: 'Invalid date value',
+            suggestion: 'The date entered is not a valid calendar date. Please correct it.'
+          });
+          isValid = false;
+        } else if (partyDate < today) {
+          warnings.push({
+            field: 'dateTime.date',
+            severity: 'warning',
+            message: 'Party date is in the past',
+            suggestion: 'The party date has already passed. The widget will not display past events. Update the date if this is incorrect.'
+          });
+        }
+      }
+    }
+    
+    // Check for time information (optional but good to know)
+    if (schedulingData.dateTime && !schedulingData.dateTime.startTime) {
+      warnings.push({
+        field: 'dateTime.startTime',
+        severity: 'info',
+        message: 'No start time specified',
+        suggestion: 'Consider adding a start time so guests know when to arrive.'
+      });
+    }
+    
+    // Check invitees (optional but commonly expected)
+    if (!schedulingData.invitees || schedulingData.invitees.length === 0) {
+      warnings.push({
+        field: 'invitees',
+        severity: 'info',
+        message: 'No invitees added',
+        suggestion: 'Add guests to track RSVPs and show invitation counts in the widget.'
+      });
+    }
+    
+    // Check tasks (optional but commonly expected)
+    if (!schedulingData.tasks || schedulingData.tasks.length === 0) {
+      warnings.push({
+        field: 'tasks',
+        severity: 'info',
+        message: 'No tasks added',
+        suggestion: 'Add pre-party tasks to track preparation progress in the widget.'
+      });
+    }
+    
+    // Check menu (optional but commonly expected)
+    if (!schedulingData.menu || schedulingData.menu.length === 0) {
+      warnings.push({
+        field: 'menu',
+        severity: 'info',
+        message: 'No menu items added',
+        suggestion: 'Add menu items to display what will be served at the party.'
+      });
+    }
+    
+    // Check events (optional)
+    if (!schedulingData.events || schedulingData.events.length === 0) {
+      warnings.push({
+        field: 'events',
+        severity: 'info',
+        message: 'No events scheduled',
+        suggestion: 'Add party events to show a timeline of activities.'
+      });
+    }
+    
+    res.json({
+      valid: isValid,
+      issues: issues,
+      warnings: warnings,
+      summary: isValid 
+        ? 'Party widget is ready to display' 
+        : 'Party widget cannot display - please fix the errors above',
+      data: schedulingData
+    });
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Validate party scheduling data'
+    });
+    res.status(500).json({ 
+      error: 'Failed to validate scheduling data',
+      details: err.message
+    });
+  }
+});
+
 // API endpoint for system logs
 app.get('/admin/api/logs', requireAuth, (req, res) => {
   const category = req.query.category || null;
