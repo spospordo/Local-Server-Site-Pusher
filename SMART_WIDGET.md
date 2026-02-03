@@ -33,6 +33,15 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
    - Displays playback status and player name
    - Only appears when media is actively playing or paused
 
+4. **🎉 Party**: Displays upcoming party information from Party → Scheduling
+   - Shows party countdown (days until party)
+   - Displays date and time
+   - Shows task completion status
+   - Lists guest RSVP summary (coming, pending, not coming)
+   - Displays menu item count
+   - Shows scheduled events count
+   - Only appears when a party date is set and is today or in the future
+
 ## Configuration
 
 ### Admin Interface
