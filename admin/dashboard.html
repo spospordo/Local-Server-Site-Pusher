@@ -7478,13 +7478,13 @@
                         }
                         previewHTML += '</div>';
                         
-                        // Date display
+                        // Date display (use browser locale for consistency with smart mirror)
                         const dateObj = new Date(data.dateTime.date);
-                        let dateText = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        let dateText = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                         if (data.dateTime.startTime) {
-                            dateText += ' at ' + data.dateTime.startTime;
+                            dateText += ` at ${data.dateTime.startTime}`;
                         }
-                        previewHTML += '<div style="font-size: 0.85rem; opacity: 0.8; margin-top: 3px;">' + dateText + '</div>';
+                        previewHTML += `<div style="font-size: 0.85rem; opacity: 0.8; margin-top: 3px;">${dateText}</div>`;
                         previewHTML += '</div>';
                         
                         // Content section
@@ -7554,7 +7554,7 @@
                         if (!data.events || data.events.length === 0) emptyFields.push('events');
                         
                         if (emptyFields.length > 0) {
-                            notesHTML += 'This widget will appear on the smart mirror. Empty fields shown in <em>italics</em> above (' + emptyFields.join(', ') + ') will not be displayed in the actual widget.';
+                            notesHTML += `This widget will appear on the smart mirror. Empty fields shown in <em>italics</em> above (${emptyFields.join(', ')}) will not be displayed in the actual widget.`;
                         } else {
                             notesHTML += 'This widget will appear on the smart mirror with all information shown above.';
                         }
