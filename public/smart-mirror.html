@@ -2369,10 +2369,12 @@
                 return null;
             }
             
+            const PARTY_WIDGET_MAX_HEIGHT = '80vh'; // Maximum height for scrollable content
+            
             const container = document.createElement('div');
             container.className = 'party-widget';
             container.style.padding = '10px';
-            container.style.maxHeight = '80vh';
+            container.style.maxHeight = PARTY_WIDGET_MAX_HEIGHT;
             container.style.overflowY = 'auto';
             
             // Determine phase

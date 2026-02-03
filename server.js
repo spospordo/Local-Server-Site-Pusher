@@ -6605,7 +6605,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 
                 if (daysUntil === 0 && partyScheduling.dateTime.startTime) {
                   // Parse start time to check if party has started today
-                  const [startHour, startMinute] = partyScheduling.dateTime.startTime.split(':').map(n => parseInt(n));
+                  const [startHour, startMinute] = partyScheduling.dateTime.startTime.split(':').map(n => parseInt(n, 10));
                   const partyStartDateTime = new Date(partyDate);
                   partyStartDateTime.setHours(startHour, startMinute, 0, 0);
                   
