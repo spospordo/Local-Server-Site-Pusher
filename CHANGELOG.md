@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.18] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #437 from spospordo/copilot/add-air-quality-widget
+  - Add implementation summary document
+  - Add Air Quality Widget documentation and demo pages
+  - Add Air Quality Widget - backend API, frontend display, and admin configuration
+  - Initial plan
+
+
 ## [2.6.17] - 2026-02-04
 
 ### Patch Update
