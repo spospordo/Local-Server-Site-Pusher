@@ -1141,6 +1141,13 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
   }
 });
 
+// Party ID generation
+// Counter to prevent ID collisions when multiple parties are created rapidly
+let partyIdCounter = 0;
+function generatePartyId() {
+  return Date.now() * 1000 + (partyIdCounter++ % 1000);
+}
+
 // Helper function to migrate single party data to multiple parties format
 function migrateToMultiParty() {
   // Check if we have old single-party data and no new multi-party data
@@ -1149,7 +1156,7 @@ function migrateToMultiParty() {
     
     // Create parties array with the existing party data
     config.parties = [{
-      id: Date.now(), // Generate unique ID
+      id: generatePartyId(), // Generate unique ID
       name: 'My Party',
       status: 'scheduled', // draft, scheduled, archived
       dateTime: config.partyScheduling.dateTime || { date: '', startTime: '', endTime: '' },
@@ -1223,7 +1230,7 @@ app.post('/admin/api/parties', requireAuth, (req, res) => {
     }
     
     const newParty = {
-      id: Date.now(),
+      id: generatePartyId(),
       name: name.trim(),
       status: 'draft',
       dateTime: { date: '', startTime: '', endTime: '' },
@@ -1697,7 +1704,7 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
       if (!party) {
         // Create a new party
         party = {
-          id: Date.now(),
+          id: generatePartyId(),
           name: 'My Party',
           status: 'draft',
           dateTime: { date: '', startTime: '', endTime: '' },
