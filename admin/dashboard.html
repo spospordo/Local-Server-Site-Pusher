@@ -6202,12 +6202,47 @@
         let unsavedChanges = new Set(); // Track sections with unsaved changes
 
         // Collapsible section functions
-        function toggleCollapsible(sectionId) {
-            const header = document.querySelector(`#${sectionId} .collapsible-header`);
-            const content = document.querySelector(`#${sectionId} .collapsible-content`);
+        
+        // Generate a stable section key from the header element
+        function generateSectionKey(header) {
+            const titleElement = header.querySelector('.collapsible-title');
+            if (titleElement) {
+                // Use text content to create a stable key (remove emojis and special chars, trim spaces)
+                const baseKey = titleElement.textContent.trim()
+                    .replace(/[^\w\s]/gi, '')
+                    .replace(/\s+/g, '-')
+                    .toLowerCase();
+                
+                // Add position as suffix to ensure uniqueness for sections with same title
+                const allHeaders = Array.from(document.querySelectorAll('.collapsible-header'));
+                const index = allHeaders.indexOf(header);
+                return index >= 0 ? `${baseKey}-${index}` : baseKey;
+            }
+            
+            // Fallback: use position in document as stable identifier
+            const allHeaders = Array.from(document.querySelectorAll('.collapsible-header'));
+            const index = allHeaders.indexOf(header);
+            return index >= 0 ? `section-index-${index}` : `section-unknown-${Date.now()}`;
+        }
+        
+        function toggleCollapsible(sectionIdOrElement) {
+            let header, content, sectionKey;
+            
+            // Handle both sectionId (string) and element (from onclick="toggleCollapsible(this)")
+            if (typeof sectionIdOrElement === 'string') {
+                // Called with sectionId
+                header = document.querySelector(`#${sectionIdOrElement} .collapsible-header`);
+                content = document.querySelector(`#${sectionIdOrElement} .collapsible-content`);
+                sectionKey = sectionIdOrElement;
+            } else {
+                // Called with element (this)
+                header = sectionIdOrElement;
+                content = header.nextElementSibling;
+                sectionKey = generateSectionKey(header);
+            }
             
             if (!header || !content) {
-                console.error(`Collapsible section ${sectionId} not found`);
+                console.error('Collapsible section not found', sectionIdOrElement);
                 return;
             }
 
@@ -6219,12 +6254,34 @@
                 header.classList.add('collapsed');
                 content.classList.remove('expanded');
                 content.classList.add('collapsed');
+                saveCollapsibleState(sectionKey, false);
             } else {
                 // Expand
                 header.classList.remove('collapsed');
                 header.classList.add('expanded');
                 content.classList.remove('collapsed');
                 content.classList.add('expanded');
+                saveCollapsibleState(sectionKey, true);
+            }
+        }
+        
+        function saveCollapsibleState(sectionKey, isExpanded) {
+            try {
+                const states = JSON.parse(localStorage.getItem('collapsibleStates') || '{}');
+                states[sectionKey] = isExpanded;
+                localStorage.setItem('collapsibleStates', JSON.stringify(states));
+            } catch (e) {
+                console.error('Failed to save collapsible state:', e);
+            }
+        }
+        
+        function loadCollapsibleState(sectionKey) {
+            try {
+                const states = JSON.parse(localStorage.getItem('collapsibleStates') || '{}');
+                return states[sectionKey];
+            } catch (e) {
+                console.error('Failed to load collapsible state:', e);
+                return null;
             }
         }
 
@@ -6269,26 +6326,61 @@
         }
 
         function initializeCollapsibleSections() {
-            // Initialize all collapsible sections as collapsed by default
-            const sections = [
-                'espresso-image-mapping',
-                'espresso-local-repo',
-                'espresso-template-source',
-                'github-repository-settings',
-                'github-git-identity'
-            ];
-
-            sections.forEach(sectionId => {
-                const header = document.querySelector(`#${sectionId} .collapsible-header`);
-                const content = document.querySelector(`#${sectionId} .collapsible-content`);
+            // Find all collapsible headers in the document
+            const allHeaders = document.querySelectorAll('.collapsible-header');
+            
+            allHeaders.forEach(header => {
+                const content = header.nextElementSibling;
+                if (!content || !content.classList.contains('collapsible-content')) {
+                    console.warn('Collapsible header without matching content:', header);
+                    return;
+                }
                 
-                if (header && content) {
-                    // Start collapsed
+                // Generate a unique key for this section using the shared helper
+                const sectionKey = generateSectionKey(header);
+                
+                // Check if there's a saved state
+                const savedState = loadCollapsibleState(sectionKey);
+                
+                // Determine initial state
+                let shouldBeExpanded;
+                if (savedState !== null && savedState !== undefined) {
+                    // Use saved state if available
+                    shouldBeExpanded = savedState;
+                } else if (header.classList.contains('expanded')) {
+                    // Use explicit expanded class if present
+                    shouldBeExpanded = true;
+                } else {
+                    // Default to collapsed
+                    shouldBeExpanded = false;
+                }
+                
+                // Apply the state
+                if (shouldBeExpanded) {
+                    header.classList.remove('collapsed');
+                    header.classList.add('expanded');
+                    content.classList.remove('collapsed');
+                    content.classList.add('expanded');
+                    // Remove inline display:none if present
+                    if (content.style.display === 'none') {
+                        content.style.display = '';
+                    }
+                } else {
+                    header.classList.remove('expanded');
                     header.classList.add('collapsed');
+                    content.classList.remove('expanded');
                     content.classList.add('collapsed');
-                    
-                    // Add click handler
-                    header.addEventListener('click', () => toggleCollapsible(sectionId));
+                    // Remove inline display:none in favor of class-based styling
+                    if (content.style.display === 'none') {
+                        content.style.display = '';
+                    }
+                }
+                
+                // Ensure click handler is attached (for sections with addEventListener)
+                // Skip if onclick is already set in HTML or listener already attached
+                if (!header.hasAttribute('onclick') && !header.dataset.listenerAttached) {
+                    header.addEventListener('click', () => toggleCollapsible(header));
+                    header.dataset.listenerAttached = 'true';
                 }
             });
 
