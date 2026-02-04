@@ -9,6 +9,18 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.26] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #453 from spospordo/copilot/add-apartment-sub-tab-finance
+  - Fix month calculation accuracy and remove duplicate utility functions
+  - Add frontend UI and JavaScript for apartment tracking
+  - Add backend support for apartment investment property tracking
+  - Initial plan
+
+
 ## [2.6.25] - 2026-02-04
 
 ### Patch Update
