@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.22] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #445 from spospordo/copilot/fix-flight-validation-deletion-actions
+  - Add comprehensive test suite for flight validation, deletion, and tracking fixes
+  - Update documentation for admin action bypass and enhanced tracked flights display
+  - Fix flight validation, deletion, and tracked flights display
+  - Initial plan
+
+
 ## [2.6.21] - 2026-02-04
 
 ### Patch Update
