@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.15] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #431 from spospordo/copilot/fix-collapse-expand-controls
+  - Further improve generateSectionKey to ensure uniqueness and prevent duplicate listeners
+  - Address code review feedback: extract generateSectionKey helper and use position-based fallback
+  - Testing complete: All collapse/expand controls working with state persistence
+  - Fix toggleCollapsible to handle both element and ID, add localStorage persistence
+  - Initial plan
+
+
 ## [2.6.14] - 2026-02-03
 
 ### Patch Update
