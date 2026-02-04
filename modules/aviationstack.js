@@ -20,6 +20,22 @@ let apiUsage = {
 };
 
 /**
+ * Get API key fingerprint for logging (last 4 characters only)
+ * Never logs the full key for security
+ * @param {string} apiKey - The API key to fingerprint
+ * @returns {string} Fingerprint like "...xyz9" or "none"
+ */
+function getApiKeyFingerprint(apiKey) {
+  if (!apiKey || typeof apiKey !== 'string') {
+    return 'none';
+  }
+  if (apiKey.length <= 4) {
+    return '...' + apiKey;
+  }
+  return '...' + apiKey.slice(-4);
+}
+
+/**
  * Reset API usage counter if new month
  */
 function resetUsageIfNewMonth() {
@@ -84,7 +100,8 @@ async function testConnection(apiKey) {
       limit: 1 // Minimal request to save quota
     };
 
-    logger.info(logger.categories.SMART_MIRROR, 'Testing AviationStack API connection');
+    const keyFingerprint = getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Testing AviationStack API connection with key ${keyFingerprint}`);
     
     const response = await axios.get(url, { params, timeout: 10000 });
     
@@ -183,7 +200,8 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       flight_date: flightDate
     };
 
-    logger.info(logger.categories.SMART_MIRROR, `Validating flight ${flightIata} on ${flightDate} using AviationStack API (API key present: ${!!apiKey}, key length: ${apiKey.length})`);
+    const keyFingerprint = getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Validating flight ${flightIata} on ${flightDate} using AviationStack API (key: ${keyFingerprint}, key length: ${apiKey.length})`);
     
     const response = await axios.get(url, { params, timeout: 10000 });
     
@@ -303,7 +321,8 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       flight_date: flightDate
     };
 
-    logger.info(logger.categories.SMART_MIRROR, `Fetching flight status for ${flightIata} on ${flightDate} using AviationStack API (API key present: ${!!apiKey})`);
+    const keyFingerprint = getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Fetching flight status for ${flightIata} on ${flightDate} using AviationStack API (key: ${keyFingerprint})`);
     
     const response = await axios.get(url, { params, timeout: 10000 });
     
@@ -397,5 +416,6 @@ module.exports = {
   validateFlight,
   getFlightStatus,
   getUsageStats,
-  isLimitReached
+  isLimitReached,
+  getApiKeyFingerprint
 };
