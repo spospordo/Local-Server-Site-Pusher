@@ -16396,10 +16396,14 @@
         let currentFlights = [];
         let flightIdCounter = 0;
         
+        function generateFlightId() {
+            return `flight-${++flightIdCounter}_${Date.now()}`;
+        }
+        
         function addFlightInfo() {
-            const flightId = ++flightIdCounter + '-' + Date.now().toString();
+            const flightId = generateFlightId();
             const flightDiv = document.createElement('div');
-            flightDiv.id = `flight-${flightId}`;
+            flightDiv.id = flightId;
             flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
             flightDiv.innerHTML = `
                 <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
@@ -16514,9 +16518,9 @@
             }
             
             flights.forEach((flight) => {
-                const flightId = ++flightIdCounter + '-' + Date.now().toString();
+                const flightId = generateFlightId();
                 const flightDiv = document.createElement('div');
-                flightDiv.id = `flight-${flightId}`;
+                flightDiv.id = flightId;
                 flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
                 flightDiv.dataset.validated = flight.validated ? 'true' : 'false';
                 
