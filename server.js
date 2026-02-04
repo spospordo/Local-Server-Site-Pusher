@@ -6636,9 +6636,12 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
     // Mock flight status - in a real implementation, this would call a flight tracking API
     // For demonstration, we'll return simulated data
     const flightDate = new Date(date);
+    flightDate.setHours(0, 0, 0, 0); // Normalize to start of day
     const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize to start of day
     const isPast = flightDate < now;
-    const isSoon = Math.abs(flightDate - now) < 24 * 60 * 60 * 1000; // Within 24 hours
+    const timeDiff = flightDate - now;
+    const isSoon = timeDiff >= 0 && timeDiff < 24 * 60 * 60 * 1000; // Today or tomorrow
     
     // Simulate different statuses based on timing
     let status = 'Scheduled';

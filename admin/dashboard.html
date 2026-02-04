@@ -16394,9 +16394,10 @@
         
         // Flight information management
         let currentFlights = [];
+        let flightIdCounter = 0;
         
         function addFlightInfo() {
-            const flightId = Date.now().toString();
+            const flightId = Date.now().toString() + '-' + (++flightIdCounter);
             const flightDiv = document.createElement('div');
             flightDiv.id = `flight-${flightId}`;
             flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
@@ -16512,8 +16513,8 @@
                 return;
             }
             
-            flights.forEach(flight => {
-                const flightId = Date.now().toString() + Math.random();
+            flights.forEach((flight, index) => {
+                const flightId = Date.now().toString() + '-' + index;
                 const flightDiv = document.createElement('div');
                 flightDiv.id = `flight-${flightId}`;
                 flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
