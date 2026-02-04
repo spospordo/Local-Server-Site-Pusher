@@ -11,6 +11,7 @@ A containerized web application with admin interface for serving web content and
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
+✈️ **Flight Tracking**: Real-time flight status with AviationStack API integration, intelligent rate limiting, and automated scheduling  
 
 ## Quick Start
 
@@ -343,6 +344,28 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
 6. For Smart Widget configuration, see the [Smart Widget documentation](SMART_WIDGET.md)
 7. For Party weather integration, see the [Party Weather Integration guide](PARTY_WEATHER_INTEGRATION.md)
 8. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+
+### Flight Tracking with AviationStack
+
+**New Feature**: Real-time flight tracking for vacation planning!
+
+**Features**:
+- ✈️ Live flight status updates (delays, gates, terminals)
+- 📊 Intelligent rate limiting (respects 100 calls/month free tier)
+- ⏰ Automated scheduling (daily, 3x daily for near flights, hourly for imminent)
+- 🔐 Secure API key management with connection testing
+- 📈 Usage tracking and visual indicators
+
+**Quick Setup**:
+1. Get free API key from [aviationstack.com](https://aviationstack.com/)
+2. Navigate to **Smart Mirror** → **APIs and Connections**
+3. Enter your AviationStack API key
+4. Click **Test Connection** to verify
+5. Add flights to vacations in **House** → **Vacation**
+6. Validate flights and enable tracking
+7. Flight status appears automatically on Smart Mirror
+
+**Documentation**: See [AVIATIONSTACK_INTEGRATION.md](AVIATIONSTACK_INTEGRATION.md) for complete setup and usage guide.
 
 ### API Key Persistence
 
