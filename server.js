@@ -1364,21 +1364,20 @@ app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
       });
     }
     
-    const weatherConfig = config.widgets?.weather;
+    // Check for weather configuration in either weather or forecast widget
+    const weatherConfig = config.widgets?.weather || {};
+    const forecastConfig = config.widgets?.forecast || {};
     
-    if (!weatherConfig || !weatherConfig.enabled) {
-      return res.json({ 
-        success: false, 
-        error: 'Weather widget not enabled',
-        hint: 'Enable weather in Smart Mirror settings to see weather forecasts'
-      });
-    }
+    // Get API key and location from either widget
+    const apiKey = weatherConfig.apiKey || forecastConfig.apiKey;
+    const location = weatherConfig.location || forecastConfig.location;
+    const units = weatherConfig.units || forecastConfig.units || 'imperial';
     
-    if (!weatherConfig.apiKey || !weatherConfig.location) {
+    if (!apiKey || !location) {
       return res.json({ 
         success: false, 
         error: 'Weather API not configured',
-        hint: 'Configure API key and location in Smart Mirror weather settings'
+        hint: 'Configure API key and location in Smart Mirror weather settings to see weather forecasts'
       });
     }
     
@@ -1393,10 +1392,10 @@ app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
     
     try {
       const weatherResult = await smartMirror.fetchWeatherForDate(
-        weatherConfig.apiKey,
-        weatherConfig.location,
+        apiKey,
+        location,
         partyDate,
-        weatherConfig.units || 'imperial'
+        units
       );
       
       if (weatherResult.success) {
@@ -6758,16 +6757,21 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   endTime: partyScheduling.dateTime.endTime || null
                 };
                 
-                // Fetch weather for party date if weather widget is configured
+                // Fetch weather for party date if weather API is configured
                 let weatherData = null;
-                const weatherConfig = config.widgets?.weather;
-                if (weatherConfig && weatherConfig.enabled && weatherConfig.apiKey && weatherConfig.location) {
+                const weatherConfig = config.widgets?.weather || {};
+                const forecastConfig = config.widgets?.forecast || {};
+                const weatherApiKey = weatherConfig.apiKey || forecastConfig.apiKey;
+                const weatherLocation = weatherConfig.location || forecastConfig.location;
+                const weatherUnits = weatherConfig.units || forecastConfig.units || 'imperial';
+                
+                if (weatherApiKey && weatherLocation) {
                   try {
                     const weatherResult = await smartMirror.fetchWeatherForDate(
-                      weatherConfig.apiKey,
-                      weatherConfig.location,
+                      weatherApiKey,
+                      weatherLocation,
                       normalizedDateString,
-                      weatherConfig.units || 'imperial'
+                      weatherUnits
                     );
                     
                     if (weatherResult.success) {
