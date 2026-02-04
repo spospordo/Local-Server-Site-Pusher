@@ -16888,7 +16888,12 @@
                     statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
                     flightDiv.dataset.validated = 'true';
                 } else {
-                    statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+                    // Check if error is related to missing API key
+                    if (result.error && result.error.includes('API key')) {
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+                    }
                     flightDiv.dataset.validated = 'false';
                 }
             } catch (err) {
