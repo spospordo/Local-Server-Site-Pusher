@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.17] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #435 from spospordo/copilot/update-vacation-widget-support
+  - Clean up test data - restore config to original state
+  - Add comprehensive implementation documentation for multiple vacations support
+  - Update documentation for multiple vacation support
+  - Implement multiple vacation support for Smart Widget vacation sub-widget
+  - Initial plan
+
+
 ## [2.6.16] - 2026-02-04
 
 ### Patch Update
