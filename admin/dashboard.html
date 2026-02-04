@@ -15859,21 +15859,719 @@
         }
         
         /**
-         * Manage apartment expenses (placeholder - to be implemented)
+         * Manage apartment expenses
          */
-        function manageApartmentExpenses(apartmentId) {
+        async function manageApartmentExpenses(apartmentId) {
             closeApartmentModal();
-            showAlert('Expense management UI coming soon! For now, you can add expenses via the edit form.', 'info');
-            editApartment(apartmentId);
+            
+            try {
+                // Fetch apartment data
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    showAlert('Failed to load property: ' + data.error, 'error');
+                    return;
+                }
+                
+                const apartment = data.apartment;
+                
+                // Create expense management modal
+                const modalHtml = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;" onclick="closeExpenseModal(event)">
+                        <div style="background: white; border-radius: 12px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;" onclick="event.stopPropagation()">
+                            <button onclick="closeExpenseModal()" style="position: absolute; top: 1rem; right: 1rem; background: #dc3545; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">×</button>
+                            
+                            <h2 style="margin: 0 0 0.5rem 0;">💸 Expense Management</h2>
+                            <p style="color: #666; margin: 0 0 1.5rem 0;">${escapeHtml(apartment.name)}</p>
+                            
+                            <!-- Add Expense Form -->
+                            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0 0 1rem 0;">Add New Expense</h3>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Expense Name *</label>
+                                        <input type="text" id="expenseName" placeholder="e.g., Property Tax" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Amount ($) *</label>
+                                        <input type="number" id="expenseAmount" step="0.01" placeholder="e.g., 1200" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Type *</label>
+                                        <select id="expenseType" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="one-time">One-Time</option>
+                                            <option value="monthly">Monthly Recurring</option>
+                                            <option value="annual">Annual Recurring</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Category</label>
+                                        <select id="expenseCategory" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="mortgage">Mortgage</option>
+                                            <option value="property-tax">Property Tax</option>
+                                            <option value="insurance">Insurance</option>
+                                            <option value="maintenance">Maintenance</option>
+                                            <option value="hoa">HOA Fees</option>
+                                            <option value="utilities">Utilities</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Date</label>
+                                        <input type="date" id="expenseDate" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 1rem;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Notes</label>
+                                    <textarea id="expenseNotes" rows="2" placeholder="Optional notes..." style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                                </div>
+                                <button onclick="addExpense('${apartmentId}')" class="btn btn-success">+ Add Expense</button>
+                            </div>
+                            
+                            <!-- Expenses List -->
+                            <div>
+                                <h3 style="margin: 0 0 1rem 0;">Existing Expenses</h3>
+                                <div id="expensesList" style="max-height: 400px; overflow-y: auto;">
+                                    ${renderExpensesList(apartment.expenses || [])}
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #ddd;">
+                                <button onclick="closeExpenseModal()" class="btn" style="background: #6c757d;">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert modal
+                const modalDiv = document.createElement('div');
+                modalDiv.id = 'expenseManagementModal';
+                modalDiv.innerHTML = modalHtml;
+                document.body.appendChild(modalDiv);
+                
+                // Set current date as default
+                document.getElementById('expenseDate').valueAsDate = new Date();
+                
+            } catch (err) {
+                console.error('Manage expenses error:', err);
+                showAlert('Failed to load expense management: ' + err.message, 'error');
+            }
         }
         
         /**
-         * Manage apartment income (placeholder - to be implemented)
+         * Render expenses list HTML
          */
-        function manageApartmentIncome(apartmentId) {
+        function renderExpensesList(expenses) {
+            if (!expenses || expenses.length === 0) {
+                return '<p style="color: #666; text-align: center; padding: 2rem;">No expenses added yet.</p>';
+            }
+            
+            return expenses.map(expense => `
+                <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 1.1rem;">${escapeHtml(expense.name)}</div>
+                        <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">
+                            <span style="background: ${getExpenseTypeColor(expense.type)}; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.5rem;">${getExpenseTypeLabel(expense.type)}</span>
+                            <span style="background: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${getCategoryLabel(expense.category)}</span>
+                        </div>
+                        ${expense.notes ? `<div style="color: #999; font-size: 0.85rem; margin-top: 0.25rem;">${escapeHtml(expense.notes)}</div>` : ''}
+                        <div style="color: #999; font-size: 0.85rem; margin-top: 0.25rem;">${formatDate(expense.date)}</div>
+                    </div>
+                    <div style="text-align: right; margin-left: 1rem;">
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #f44336;">$${formatCurrency(expense.amount)}</div>
+                        <button onclick="deleteExpense('${expense.id}')" style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * Get expense type color
+         */
+        function getExpenseTypeColor(type) {
+            switch (type) {
+                case 'one-time': return '#2196F3';
+                case 'monthly': return '#ff9800';
+                case 'annual': return '#9c27b0';
+                default: return '#757575';
+            }
+        }
+        
+        /**
+         * Get expense type label
+         */
+        function getExpenseTypeLabel(type) {
+            switch (type) {
+                case 'one-time': return 'One-Time';
+                case 'monthly': return 'Monthly';
+                case 'annual': return 'Annual';
+                default: return type;
+            }
+        }
+        
+        /**
+         * Get category label
+         */
+        function getCategoryLabel(category) {
+            switch (category) {
+                case 'property-tax': return 'Property Tax';
+                case 'hoa': return 'HOA';
+                default: return category.charAt(0).toUpperCase() + category.slice(1);
+            }
+        }
+        
+        /**
+         * Add expense to apartment
+         */
+        async function addExpense(apartmentId) {
+            const name = document.getElementById('expenseName').value.trim();
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const type = document.getElementById('expenseType').value;
+            const category = document.getElementById('expenseCategory').value;
+            const date = document.getElementById('expenseDate').value;
+            const notes = document.getElementById('expenseNotes').value.trim();
+            
+            if (!name) {
+                showAlert('Please enter an expense name', 'error');
+                return;
+            }
+            
+            if (!amount || amount <= 0) {
+                showAlert('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/expenses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name, amount, type, category, date, notes })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Expense added successfully', 'success');
+                    // Reload expense management modal
+                    closeExpenseModal();
+                    manageApartmentExpenses(apartmentId);
+                } else {
+                    showAlert('Failed to add expense: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Add expense error:', err);
+                showAlert('Failed to add expense: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Delete expense from apartment
+         */
+        async function deleteExpense(expenseId) {
+            if (!confirm('Are you sure you want to delete this expense?')) {
+                return;
+            }
+            
+            try {
+                // Get apartment ID from the current modal
+                const modal = document.getElementById('expenseManagementModal');
+                if (!modal) return;
+                
+                // Extract apartment ID from the modal's onclick attributes
+                const addButton = modal.querySelector('[onclick*="addExpense"]');
+                const apartmentId = addButton ? addButton.getAttribute('onclick').match(/'([^']+)'/)[1] : null;
+                
+                if (!apartmentId) {
+                    showAlert('Unable to determine apartment ID', 'error');
+                    return;
+                }
+                
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/expenses/${expenseId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Expense deleted successfully', 'success');
+                    // Reload expense management modal
+                    closeExpenseModal();
+                    manageApartmentExpenses(apartmentId);
+                } else {
+                    showAlert('Failed to delete expense: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Delete expense error:', err);
+                showAlert('Failed to delete expense: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Close expense management modal
+         */
+        function closeExpenseModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            
+            const modal = document.getElementById('expenseManagementModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        /**
+         * Manage apartment income and forecasted rent
+         */
+        async function manageApartmentIncome(apartmentId) {
             closeApartmentModal();
-            showAlert('Income management UI coming soon! For now, you can add income via the edit form.', 'info');
-            editApartment(apartmentId);
+            
+            try {
+                // Fetch apartment data
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    showAlert('Failed to load property: ' + data.error, 'error');
+                    return;
+                }
+                
+                const apartment = data.apartment;
+                
+                // Create income management modal
+                const modalHtml = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;" onclick="closeIncomeModal(event)">
+                        <div style="background: white; border-radius: 12px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;" onclick="event.stopPropagation()">
+                            <button onclick="closeIncomeModal()" style="position: absolute; top: 1rem; right: 1rem; background: #dc3545; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">×</button>
+                            
+                            <h2 style="margin: 0 0 0.5rem 0;">💰 Rent & Income Management</h2>
+                            <p style="color: #666; margin: 0 0 1.5rem 0;">${escapeHtml(apartment.name)}</p>
+                            
+                            <!-- Tab Navigation -->
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0;">
+                                <button onclick="switchIncomeTab('collected')" id="collectedTab" class="income-tab" style="padding: 0.75rem 1.5rem; border: none; background: transparent; cursor: pointer; font-weight: 600; border-bottom: 3px solid #4caf50; color: #4caf50;">Collected Rent</button>
+                                <button onclick="switchIncomeTab('forecasted')" id="forecastedTab" class="income-tab" style="padding: 0.75rem 1.5rem; border: none; background: transparent; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent; color: #666;">Forecasted Rent</button>
+                            </div>
+                            
+                            <!-- Collected Rent Section -->
+                            <div id="collectedSection">
+                                <!-- Add Collected Rent Form -->
+                                <div style="background: #e8f5e9; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                                    <h3 style="margin: 0 0 1rem 0;">Add Collected Rent</h3>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <div>
+                                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Month *</label>
+                                            <input type="month" id="collectedMonth" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Amount ($) *</label>
+                                            <input type="number" id="collectedAmount" step="0.01" placeholder="e.g., 1500" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                        <div style="display: flex; align-items: flex-end;">
+                                            <button onclick="addCollectedRent('${apartmentId}')" class="btn btn-success" style="width: 100%;">+ Add</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Notes</label>
+                                        <input type="text" id="collectedNotes" placeholder="Optional notes..." style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                </div>
+                                
+                                <!-- Collected Rent List -->
+                                <div>
+                                    <h3 style="margin: 0 0 1rem 0;">Collected Rent History</h3>
+                                    <div id="collectedIncomeList" style="max-height: 300px; overflow-y: auto;">
+                                        ${renderCollectedIncomeList(apartment.incomeEntries || [])}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Forecasted Rent Section -->
+                            <div id="forecastedSection" style="display: none;">
+                                <!-- Add Forecasted Rent Form -->
+                                <div style="background: #e3f2fd; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                                    <h3 style="margin: 0 0 1rem 0;">Add Forecasted Rent Period</h3>
+                                    <p style="color: #666; font-size: 0.9rem; margin: 0 0 1rem 0;">Define expected rent for a period of months (e.g., June-Sept at $1500/mo, Oct-Dec at $1600/mo)</p>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <div>
+                                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Start Month *</label>
+                                            <input type="month" id="forecastStartMonth" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">End Month *</label>
+                                            <input type="month" id="forecastEndMonth" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Amount/Month ($) *</label>
+                                            <input type="number" id="forecastAmount" step="0.01" placeholder="e.g., 1500" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                    </div>
+                                    <button onclick="addForecastedRent('${apartmentId}')" class="btn btn-success">+ Add Forecast Period</button>
+                                </div>
+                                
+                                <!-- Forecasted Rent List -->
+                                <div>
+                                    <h3 style="margin: 0 0 1rem 0;">Forecasted Rent Periods</h3>
+                                    <div id="forecastedRentList" style="max-height: 300px; overflow-y: auto;">
+                                        ${renderForecastedRentList(apartment.forecastedRent || [])}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #ddd;">
+                                <button onclick="closeIncomeModal()" class="btn" style="background: #6c757d;">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert modal
+                const modalDiv = document.createElement('div');
+                modalDiv.id = 'incomeManagementModal';
+                modalDiv.innerHTML = modalHtml;
+                document.body.appendChild(modalDiv);
+                
+                // Set current month as default for collected rent
+                const now = new Date();
+                const currentMonth = now.toISOString().substring(0, 7);
+                document.getElementById('collectedMonth').value = currentMonth;
+                
+            } catch (err) {
+                console.error('Manage income error:', err);
+                showAlert('Failed to load income management: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Switch between collected and forecasted tabs
+         */
+        function switchIncomeTab(tab) {
+            const collectedTab = document.getElementById('collectedTab');
+            const forecastedTab = document.getElementById('forecastedTab');
+            const collectedSection = document.getElementById('collectedSection');
+            const forecastedSection = document.getElementById('forecastedSection');
+            
+            if (tab === 'collected') {
+                collectedTab.style.borderBottom = '3px solid #4caf50';
+                collectedTab.style.color = '#4caf50';
+                forecastedTab.style.borderBottom = '3px solid transparent';
+                forecastedTab.style.color = '#666';
+                collectedSection.style.display = 'block';
+                forecastedSection.style.display = 'none';
+            } else {
+                forecastedTab.style.borderBottom = '3px solid #2196F3';
+                forecastedTab.style.color = '#2196F3';
+                collectedTab.style.borderBottom = '3px solid transparent';
+                collectedTab.style.color = '#666';
+                forecastedSection.style.display = 'block';
+                collectedSection.style.display = 'none';
+            }
+        }
+        
+        /**
+         * Render collected income list HTML
+         */
+        function renderCollectedIncomeList(incomeEntries) {
+            const collectedEntries = incomeEntries.filter(entry => entry.type === 'collected');
+            
+            if (collectedEntries.length === 0) {
+                return '<p style="color: #666; text-align: center; padding: 2rem;">No collected rent entries yet.</p>';
+            }
+            
+            // Sort by month descending
+            collectedEntries.sort((a, b) => b.month.localeCompare(a.month));
+            
+            return collectedEntries.map(entry => `
+                <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 1.1rem;">${formatMonthYear(entry.month)}</div>
+                        ${entry.notes ? `<div style="color: #999; font-size: 0.85rem; margin-top: 0.25rem;">${escapeHtml(entry.notes)}</div>` : ''}
+                    </div>
+                    <div style="text-align: right; margin-left: 1rem;">
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #4caf50;">$${formatCurrency(entry.amount)}</div>
+                        <button onclick="deleteIncome('${entry.id}')" style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * Render forecasted rent list HTML
+         */
+        function renderForecastedRentList(forecastedRent) {
+            if (!forecastedRent || forecastedRent.length === 0) {
+                return '<p style="color: #666; text-align: center; padding: 2rem;">No forecasted rent periods defined yet.</p>';
+            }
+            
+            return forecastedRent.map((period, index) => `
+                <div style="background: white; border: 1px solid #2196F3; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 1.1rem;">${formatMonthYear(period.startMonth)} → ${formatMonthYear(period.endMonth)}</div>
+                        <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">
+                            ${calculateMonthsDifference(period.startMonth, period.endMonth)} months
+                        </div>
+                    </div>
+                    <div style="text-align: right; margin-left: 1rem;">
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #2196F3;">$${formatCurrency(period.amount)}/mo</div>
+                        <button onclick="deleteForecastPeriod(${index})" style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * Format month-year (YYYY-MM to "Month Year")
+         */
+        function formatMonthYear(monthStr) {
+            if (!monthStr) return '';
+            const [year, month] = monthStr.split('-');
+            const date = new Date(year, parseInt(month) - 1);
+            return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+        
+        /**
+         * Calculate months difference
+         */
+        function calculateMonthsDifference(startMonth, endMonth) {
+            const [startYear, startMo] = startMonth.split('-').map(Number);
+            const [endYear, endMo] = endMonth.split('-').map(Number);
+            return (endYear - startYear) * 12 + (endMo - startMo) + 1;
+        }
+        
+        /**
+         * Add collected rent entry
+         */
+        async function addCollectedRent(apartmentId) {
+            const month = document.getElementById('collectedMonth').value;
+            const amount = parseFloat(document.getElementById('collectedAmount').value);
+            const notes = document.getElementById('collectedNotes').value.trim();
+            
+            if (!month) {
+                showAlert('Please select a month', 'error');
+                return;
+            }
+            
+            if (!amount || amount <= 0) {
+                showAlert('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/income`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ 
+                        amount, 
+                        type: 'collected', 
+                        month, 
+                        notes 
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Rent entry added successfully', 'success');
+                    // Reload income management modal
+                    closeIncomeModal();
+                    manageApartmentIncome(apartmentId);
+                } else {
+                    showAlert('Failed to add rent entry: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Add collected rent error:', err);
+                showAlert('Failed to add rent entry: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Add forecasted rent period
+         */
+        async function addForecastedRent(apartmentId) {
+            const startMonth = document.getElementById('forecastStartMonth').value;
+            const endMonth = document.getElementById('forecastEndMonth').value;
+            const amount = parseFloat(document.getElementById('forecastAmount').value);
+            
+            if (!startMonth || !endMonth) {
+                showAlert('Please select start and end months', 'error');
+                return;
+            }
+            
+            if (startMonth > endMonth) {
+                showAlert('Start month must be before or equal to end month', 'error');
+                return;
+            }
+            
+            if (!amount || amount <= 0) {
+                showAlert('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            try {
+                // First, get current forecasted rent data
+                const getResponse = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const getData = await getResponse.json();
+                if (!getData.success) {
+                    showAlert('Failed to load property data', 'error');
+                    return;
+                }
+                
+                const currentForecast = getData.apartment.forecastedRent || [];
+                
+                // Add new period
+                currentForecast.push({ startMonth, endMonth, amount });
+                
+                // Update forecasted rent
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/forecasted-rent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(currentForecast)
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Forecast period added successfully', 'success');
+                    // Reload income management modal
+                    closeIncomeModal();
+                    manageApartmentIncome(apartmentId);
+                    // Switch to forecasted tab
+                    setTimeout(() => switchIncomeTab('forecasted'), 100);
+                } else {
+                    showAlert('Failed to add forecast period: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Add forecasted rent error:', err);
+                showAlert('Failed to add forecast period: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Delete income entry
+         */
+        async function deleteIncome(incomeId) {
+            if (!confirm('Are you sure you want to delete this rent entry?')) {
+                return;
+            }
+            
+            try {
+                // Get apartment ID from the current modal
+                const modal = document.getElementById('incomeManagementModal');
+                if (!modal) return;
+                
+                // Extract apartment ID from the modal's onclick attributes
+                const addButton = modal.querySelector('[onclick*="addCollectedRent"]');
+                const apartmentId = addButton ? addButton.getAttribute('onclick').match(/'([^']+)'/)[1] : null;
+                
+                if (!apartmentId) {
+                    showAlert('Unable to determine apartment ID', 'error');
+                    return;
+                }
+                
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/income/${incomeId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Rent entry deleted successfully', 'success');
+                    // Reload income management modal
+                    closeIncomeModal();
+                    manageApartmentIncome(apartmentId);
+                } else {
+                    showAlert('Failed to delete rent entry: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Delete income error:', err);
+                showAlert('Failed to delete rent entry: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Delete forecasted rent period
+         */
+        async function deleteForecastPeriod(periodIndex) {
+            if (!confirm('Are you sure you want to delete this forecast period?')) {
+                return;
+            }
+            
+            try {
+                // Get apartment ID from the current modal
+                const modal = document.getElementById('incomeManagementModal');
+                if (!modal) return;
+                
+                const addButton = modal.querySelector('[onclick*="addForecastedRent"]');
+                const apartmentId = addButton ? addButton.getAttribute('onclick').match(/'([^']+)'/)[1] : null;
+                
+                if (!apartmentId) {
+                    showAlert('Unable to determine apartment ID', 'error');
+                    return;
+                }
+                
+                // Get current forecasted rent data
+                const getResponse = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const getData = await getResponse.json();
+                if (!getData.success) {
+                    showAlert('Failed to load property data', 'error');
+                    return;
+                }
+                
+                const currentForecast = getData.apartment.forecastedRent || [];
+                
+                // Remove the period at the specified index
+                currentForecast.splice(periodIndex, 1);
+                
+                // Update forecasted rent
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}/forecasted-rent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(currentForecast)
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Forecast period deleted successfully', 'success');
+                    // Reload income management modal
+                    closeIncomeModal();
+                    manageApartmentIncome(apartmentId);
+                    // Switch to forecasted tab
+                    setTimeout(() => switchIncomeTab('forecasted'), 100);
+                } else {
+                    showAlert('Failed to delete forecast period: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Delete forecast period error:', err);
+                showAlert('Failed to delete forecast period: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Close income management modal
+         */
+        function closeIncomeModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            
+            const modal = document.getElementById('incomeManagementModal');
+            if (modal) {
+                modal.remove();
+            }
         }
         
         
