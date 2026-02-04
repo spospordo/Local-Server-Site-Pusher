@@ -6103,9 +6103,20 @@ app.get('/admin/api/flight-api/tracked-flights', requireAuth, (req, res) => {
   
   try {
     const flights = flightScheduler.getTrackedFlights();
+    
+    // Enhance each flight with cached data if available
+    const enhancedFlights = flights.map(flight => {
+      const cachedData = flightScheduler.getCachedFlightData(`${flight.flightIata}_${flight.date}`);
+      return {
+        ...flight,
+        cachedData: cachedData || null,
+        hasCachedData: !!cachedData
+      };
+    });
+    
     res.json({
       success: true,
-      flights: flights
+      flights: enhancedFlights
     });
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Tracked flights error: ${err.message}`);
@@ -6688,7 +6699,8 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
     }
     
     // Use real AviationStack API validation
-    const result = await aviationstack.validateFlight(apiKey, flightNumber, date);
+    // Admin actions bypass the limit check but still count toward API usage
+    const result = await aviationstack.validateFlight(apiKey, flightNumber, date, true);
     res.json(result);
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Flight validation error: ${err.message}`);
