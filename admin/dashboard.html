@@ -2200,6 +2200,22 @@
             gap: 1rem;
             justify-content: flex-end;
         }
+        
+        /* Party card styles */
+        .party-card {
+            transition: all 0.2s ease;
+        }
+        
+        .party-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .party-card.selected {
+            border-color: #2196f3 !important;
+            background: #e3f2fd !important;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
     </style>
     <!-- Chart.js for Finance Module -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" 
@@ -5597,8 +5613,58 @@
                 <h2>Party Scheduling & Planning</h2>
             </div>
             <div class="card-body">
-                <p>Plan and coordinate all aspects of your upcoming party.</p>
+                <p>Plan and coordinate all aspects of your parties. Manage multiple events with ease.</p>
                 
+                <!-- Party Management Section -->
+                <div class="section" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin: 0;">🎉 My Parties</h3>
+                        <button onclick="createNewParty()" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>➕</span> New Party
+                        </button>
+                    </div>
+                    
+                    <!-- Party List/Selector -->
+                    <div id="partyListContainer">
+                        <!-- Party cards will be loaded here -->
+                    </div>
+                    
+                    <!-- Current Party Selector -->
+                    <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 4px; display: none;" id="currentPartySelector">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.85em; color: #6c757d; margin-bottom: 0.25rem;">Currently Editing:</div>
+                                <div style="font-size: 1.15em; font-weight: bold;" id="currentPartyName">No party selected</div>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="partyStatusSelect" class="form-control" style="width: auto;" onchange="updateCurrentPartyStatus()">
+                                    <option value="draft">📝 Draft</option>
+                                    <option value="scheduled">📅 Scheduled</option>
+                                    <option value="archived">📦 Archived</option>
+                                </select>
+                                <button onclick="archiveCurrentParty()" class="btn btn-sm btn-danger" title="Archive this party">
+                                    🗑️ Archive
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+                
+                <!-- Date & Time Section -->
+                <div class="section">
+                    <h3>📝 Party Details</h3>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="partyName">Party Name *</label>
+                            <input type="text" id="partyName" class="form-control" placeholder="e.g., Summer BBQ, Birthday Party" onchange="saveSchedulingData()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Date & Time Section -->
                 <div class="section">
                     <h3>📅 Date & Time</h3>
@@ -7362,7 +7428,12 @@
         }
 
         // Party Scheduling Functions
+        let allParties = []; // Store all parties
+        let currentPartyId = null; // Currently selected party
         let currentSchedulingData = {
+            id: null,
+            name: '',
+            status: 'draft',
             dateTime: { date: '', startTime: '', endTime: '' },
             invitees: [],
             menu: [],
@@ -7376,49 +7447,279 @@
             return Date.now() + (schedulingIdCounter++);
         }
 
-        async function loadSchedulingData() {
+        // Load all parties
+        async function loadParties() {
             try {
-                const response = await fetch('/admin/api/party/scheduling');
+                const response = await fetch('/admin/api/parties');
                 const data = await response.json();
-                currentSchedulingData = data;
+                allParties = data.parties || [];
+                renderPartyList();
                 
-                // Load date & time
-                document.getElementById('partyDate').value = data.dateTime.date || '';
-                document.getElementById('partyStartTime').value = data.dateTime.startTime || '';
-                document.getElementById('partyEndTime').value = data.dateTime.endTime || '';
+                // Load the first non-archived party or create a new one
+                if (allParties.length > 0) {
+                    const activeParty = allParties.find(p => p.status !== 'archived');
+                    if (activeParty) {
+                        await loadParty(activeParty.id);
+                    } else {
+                        // All parties archived, load first one
+                        await loadParty(allParties[0].id);
+                    }
+                } else {
+                    // No parties exist, show empty state
+                    showEmptyPartyState();
+                }
+            } catch (err) {
+                console.error('Failed to load parties:', err);
+                showAlert('Failed to load parties', 'error', 'schedulingAlert');
+            }
+        }
+
+        // Render party list
+        function renderPartyList() {
+            const container = document.getElementById('partyListContainer');
+            
+            if (allParties.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #6c757d;">
+                        <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+                        <p>No parties yet. Click "New Party" to get started!</p>
+                    </div>
+                `;
+                document.getElementById('currentPartySelector').style.display = 'none';
+                return;
+            }
+            
+            // Group parties by status
+            const scheduled = allParties.filter(p => p.status === 'scheduled');
+            const drafts = allParties.filter(p => p.status === 'draft');
+            const archived = allParties.filter(p => p.status === 'archived');
+            
+            let html = '<div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">';
+            
+            // Helper to render party cards
+            const renderPartyCard = (party) => {
+                const isSelected = party.id === currentPartyId;
+                const statusEmoji = party.status === 'scheduled' ? '📅' : party.status === 'draft' ? '📝' : '📦';
+                const statusColor = party.status === 'scheduled' ? '#28a745' : party.status === 'draft' ? '#ffc107' : '#6c757d';
+                const dateStr = party.date ? new Date(party.date).toLocaleDateString() : 'No date set';
+                
+                return `
+                    <div class="party-card ${isSelected ? 'selected' : ''}" 
+                         onclick="loadParty(${party.id})"
+                         style="flex: 0 0 calc(33.333% - 0.5rem); min-width: 200px; padding: 1rem; background: ${isSelected ? '#e3f2fd' : 'white'}; 
+                                border: 2px solid ${isSelected ? '#2196f3' : '#dee2e6'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <div style="font-weight: bold; font-size: 1.05em; flex: 1;">${party.name}</div>
+                            <span style="font-size: 1.25em;" title="${party.status}">${statusEmoji}</span>
+                        </div>
+                        <div style="font-size: 0.85em; color: #6c757d; margin-bottom: 0.25rem;">📅 ${dateStr}</div>
+                        <div style="font-size: 0.85em; color: #6c757d;">👥 ${party.inviteeCount} invitees</div>
+                    </div>
+                `;
+            };
+            
+            // Render each group
+            if (scheduled.length > 0) {
+                html += '<div style="flex: 0 0 100%; margin-top: 0.5rem;"><strong style="color: #28a745;">📅 Scheduled</strong></div>';
+                scheduled.forEach(p => html += renderPartyCard(p));
+            }
+            
+            if (drafts.length > 0) {
+                html += '<div style="flex: 0 0 100%; margin-top: 0.5rem;"><strong style="color: #ffc107;">📝 Drafts</strong></div>';
+                drafts.forEach(p => html += renderPartyCard(p));
+            }
+            
+            if (archived.length > 0) {
+                html += '<div style="flex: 0 0 100%; margin-top: 0.5rem;"><strong style="color: #6c757d;">📦 Archived</strong></div>';
+                archived.forEach(p => html += renderPartyCard(p));
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Load a specific party
+        async function loadParty(partyId) {
+            try {
+                const response = await fetch(`/admin/api/parties/${partyId}`);
+                const party = await response.json();
+                
+                currentPartyId = partyId;
+                currentSchedulingData = party;
+                
+                // Update UI
+                document.getElementById('currentPartySelector').style.display = 'block';
+                document.getElementById('currentPartyName').textContent = party.name;
+                document.getElementById('partyStatusSelect').value = party.status || 'draft';
+                
+                // Load form fields
+                document.getElementById('partyName').value = party.name || '';
+                document.getElementById('partyDate').value = party.dateTime?.date || '';
+                document.getElementById('partyStartTime').value = party.dateTime?.startTime || '';
+                document.getElementById('partyEndTime').value = party.dateTime?.endTime || '';
                 
                 // Render lists
                 renderInvitees();
                 renderMenu();
                 renderTasks();
                 renderEvents();
+                
+                // Update party list selection
+                renderPartyList();
             } catch (err) {
-                console.error('Failed to load scheduling data:', err);
-                showAlert('Failed to load scheduling data', 'error', 'schedulingAlert');
+                console.error('Failed to load party:', err);
+                showAlert('Failed to load party', 'error', 'schedulingAlert');
             }
         }
 
-        async function saveSchedulingData() {
+        // Show empty state when no party selected
+        function showEmptyPartyState() {
+            document.getElementById('currentPartySelector').style.display = 'none';
+            document.getElementById('partyName').value = '';
+            document.getElementById('partyDate').value = '';
+            document.getElementById('partyStartTime').value = '';
+            document.getElementById('partyEndTime').value = '';
+            currentSchedulingData = {
+                id: null,
+                name: '',
+                status: 'draft',
+                dateTime: { date: '', startTime: '', endTime: '' },
+                invitees: [],
+                menu: [],
+                tasks: [],
+                events: []
+            };
+            renderInvitees();
+            renderMenu();
+            renderTasks();
+            renderEvents();
+        }
+
+        // Create a new party
+        async function createNewParty() {
+            const partyName = prompt('Enter a name for your new party:', 'My Party');
+            if (!partyName || partyName.trim() === '') {
+                return;
+            }
+            
             try {
-                // Get date & time
-                currentSchedulingData.dateTime = {
-                    date: document.getElementById('partyDate').value,
-                    startTime: document.getElementById('partyStartTime').value,
-                    endTime: document.getElementById('partyEndTime').value
+                const response = await fetch('/admin/api/parties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: partyName.trim() })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Party created successfully!', 'success', 'schedulingAlert');
+                    await loadParties(); // Reload all parties
+                    await loadParty(result.party.id); // Load the new party
+                } else {
+                    showAlert('Failed to create party: ' + result.error, 'error', 'schedulingAlert');
+                }
+            } catch (err) {
+                showAlert('Error creating party: ' + err.message, 'error', 'schedulingAlert');
+            }
+        }
+
+        // Update current party status
+        async function updateCurrentPartyStatus() {
+            if (!currentPartyId) return;
+            
+            const newStatus = document.getElementById('partyStatusSelect').value;
+            
+            try {
+                const response = await fetch(`/admin/api/parties/${currentPartyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Party status updated!', 'success', 'schedulingAlert');
+                    await loadParties(); // Reload to update status badge
+                } else {
+                    showAlert('Failed to update status: ' + result.error, 'error', 'schedulingAlert');
+                }
+            } catch (err) {
+                showAlert('Error updating status: ' + err.message, 'error', 'schedulingAlert');
+            }
+        }
+
+        // Archive current party
+        async function archiveCurrentParty() {
+            if (!currentPartyId) return;
+            
+            if (!confirm('Are you sure you want to archive this party? You can still view it later.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/parties/${currentPartyId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Party archived successfully!', 'success', 'schedulingAlert');
+                    await loadParties(); // Reload all parties and switch to another
+                } else {
+                    showAlert('Failed to archive party: ' + result.error, 'error', 'schedulingAlert');
+                }
+            } catch (err) {
+                showAlert('Error archiving party: ' + err.message, 'error', 'schedulingAlert');
+            }
+        }
+
+        // Legacy function for backward compatibility - now loads all parties
+        async function loadSchedulingData() {
+            await loadParties();
+        }
+
+        async function saveSchedulingData() {
+            if (!currentPartyId) {
+                showAlert('No party selected. Please create a party first.', 'error', 'schedulingAlert');
+                return;
+            }
+            
+            try {
+                // Get all form data
+                const partyName = document.getElementById('partyName').value.trim();
+                if (!partyName) {
+                    showAlert('Please enter a party name', 'error', 'schedulingAlert');
+                    return;
+                }
+                
+                const updateData = {
+                    name: partyName,
+                    dateTime: {
+                        date: document.getElementById('partyDate').value,
+                        startTime: document.getElementById('partyStartTime').value,
+                        endTime: document.getElementById('partyEndTime').value
+                    },
+                    invitees: currentSchedulingData.invitees,
+                    menu: currentSchedulingData.menu,
+                    tasks: currentSchedulingData.tasks,
+                    events: currentSchedulingData.events
                 };
                 
-                const response = await fetch('/admin/api/party/scheduling', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(currentSchedulingData)
+                const response = await fetch(`/admin/api/parties/${currentPartyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
                     showAlert('Planning data saved successfully!', 'success', 'schedulingAlert');
+                    currentSchedulingData = result.party;
+                    document.getElementById('currentPartyName').textContent = result.party.name;
+                    await loadParties(); // Reload to update party list
                 } else {
                     showAlert('Failed to save: ' + result.error, 'error', 'schedulingAlert');
                 }
@@ -7662,8 +7963,13 @@
         
         // Validate party data for widget display
         async function validatePartyData() {
+            if (!currentPartyId) {
+                showAlert('No party selected. Please create or select a party first.', 'error', 'schedulingAlert');
+                return;
+            }
+            
             try {
-                const response = await fetch('/admin/api/party/scheduling/validate');
+                const response = await fetch(`/admin/api/parties/${currentPartyId}/validate`);
                 const result = await response.json();
                 
                 const container = document.getElementById('validationResults');
@@ -7731,8 +8037,13 @@
         
         // Show widget preview
         async function showWidgetPreview() {
+            if (!currentPartyId) {
+                showAlert('No party selected. Please create or select a party first.', 'error', 'schedulingAlert');
+                return;
+            }
+            
             try {
-                const response = await fetch('/admin/api/party/scheduling/validate');
+                const response = await fetch(`/admin/api/parties/${currentPartyId}/validate`);
                 const result = await response.json();
                 
                 const container = document.getElementById('widgetPreview');
@@ -7917,6 +8228,11 @@
         
         // Load weather forecast for party date
         async function loadPartyWeather() {
+            if (!currentPartyId) {
+                showAlert('No party selected. Please create or select a party first.', 'error', 'schedulingAlert');
+                return;
+            }
+            
             const container = document.getElementById('partyWeatherContainer');
             const content = document.getElementById('partyWeatherContent');
             
@@ -7924,7 +8240,7 @@
                 container.style.display = 'block';
                 content.innerHTML = '<div style="text-align: center; padding: 1rem;"><div class="spinner"></div><div style="margin-top: 0.5rem;">Loading weather...</div></div>';
                 
-                const response = await fetch('/admin/api/party/weather');
+                const response = await fetch(`/admin/api/parties/${currentPartyId}/weather`);
                 const result = await response.json();
                 
                 if (result.success) {

@@ -1141,25 +1141,536 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
   }
 });
 
-// API endpoints for party scheduling
-app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
+// Party ID generation
+// Counter to prevent ID collisions when multiple parties are created rapidly
+let partyIdCounter = 0;
+function generatePartyId() {
+  return Date.now() * 1000 + (partyIdCounter++ % 1000);
+}
+
+// Helper function to migrate single party data to multiple parties format
+function migrateToMultiParty() {
+  // Check if we have old single-party data and no new multi-party data
+  if (config.partyScheduling && !config.parties) {
+    logger.info(logger.categories.SYSTEM, 'Migrating single party data to multi-party format');
+    
+    // Create parties array with the existing party data
+    config.parties = [{
+      id: generatePartyId(), // Generate unique ID
+      name: 'My Party',
+      status: 'scheduled', // draft, scheduled, archived
+      dateTime: config.partyScheduling.dateTime || { date: '', startTime: '', endTime: '' },
+      invitees: config.partyScheduling.invitees || [],
+      menu: config.partyScheduling.menu || [],
+      tasks: config.partyScheduling.tasks || [],
+      events: config.partyScheduling.events || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }];
+    
+    // Keep the old data for backward compatibility temporarily
+    // It will be removed in future versions
+    
+    // Save the migrated config
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    logger.info(logger.categories.SYSTEM, 'Migration complete: 1 party migrated');
+  } else if (!config.parties) {
+    // Initialize empty parties array if nothing exists
+    config.parties = [];
+  }
+}
+
+// Ensure migration runs on server start
+migrateToMultiParty();
+
+// API endpoints for multi-party scheduling
+
+// List all parties
+app.get('/admin/api/parties', requireAuth, (req, res) => {
   try {
-    // Return scheduling data from config, or empty structure if not exists
-    const schedulingData = config.partyScheduling || {
-      dateTime: {
-        date: '',
-        startTime: '',
-        endTime: ''
-      },
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const parties = config.parties || [];
+    
+    // Return basic info for each party (not full data)
+    const partyList = parties.map(party => ({
+      id: party.id,
+      name: party.name,
+      status: party.status,
+      date: party.dateTime?.date || '',
+      inviteeCount: party.invitees?.length || 0,
+      createdAt: party.createdAt,
+      updatedAt: party.updatedAt
+    }));
+    
+    res.json({ parties: partyList });
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'List parties'
+    });
+    res.status(500).json({ 
+      error: 'Failed to list parties',
+      details: err.message
+    });
+  }
+});
+
+// Create a new party
+app.post('/admin/api/parties', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const { name } = req.body;
+    
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Party name is required' });
+    }
+    
+    const newParty = {
+      id: generatePartyId(),
+      name: name.trim(),
+      status: 'draft',
+      dateTime: { date: '', startTime: '', endTime: '' },
       invitees: [],
       menu: [],
       tasks: [],
-      events: []
+      events: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+    
+    config.parties.push(newParty);
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party created successfully',
+          persistent: true,
+          party: newParty
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party created (in memory only - file save failed)',
+          persistent: false,
+          party: newParty
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party created (in memory only)',
+        persistent: false,
+        party: newParty
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Create party'
+    });
+    res.status(500).json({ 
+      error: 'Failed to create party',
+      details: err.message
+    });
+  }
+});
+
+// Get a specific party
+app.get('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    res.json(party);
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Get party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to get party',
+      details: err.message
+    });
+  }
+});
+
+// Update a specific party
+app.put('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const partyIndex = config.parties.findIndex(p => p.id === partyId);
+    
+    if (partyIndex === -1) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    const { name, status, dateTime, invitees, menu, tasks, events } = req.body;
+    
+    // Update party data
+    const party = config.parties[partyIndex];
+    
+    if (name !== undefined) party.name = name;
+    if (status !== undefined && ['draft', 'scheduled', 'archived'].includes(status)) {
+      party.status = status;
+    }
+    if (dateTime !== undefined) party.dateTime = dateTime;
+    if (invitees !== undefined) party.invitees = invitees;
+    if (menu !== undefined) party.menu = menu;
+    if (tasks !== undefined) party.tasks = tasks;
+    if (events !== undefined) party.events = events;
+    
+    party.updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party updated successfully',
+          persistent: true,
+          party: party
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party updated (in memory only - file save failed)',
+          persistent: false,
+          party: party
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party updated (in memory only)',
+        persistent: false,
+        party: party
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Update party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to update party',
+      details: err.message
+    });
+  }
+});
+
+// Archive/Delete a specific party
+app.delete('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const partyIndex = config.parties.findIndex(p => p.id === partyId);
+    
+    if (partyIndex === -1) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    // Archive instead of delete (soft delete)
+    config.parties[partyIndex].status = 'archived';
+    config.parties[partyIndex].updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party archived successfully',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party archived (in memory only - file save failed)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party archived (in memory only)',
+        persistent: false
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Archive party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to archive party',
+      details: err.message
+    });
+  }
+});
+
+// Validate a specific party
+app.get('/admin/api/parties/:id/validate', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    const issues = [];
+    const warnings = [];
+    let isValid = true;
+    
+    // Check for required party date
+    if (!party.dateTime || !party.dateTime.date) {
+      issues.push({
+        field: 'dateTime.date',
+        severity: 'error',
+        message: 'Missing party date',
+        suggestion: 'Set a date for your party in the "Date & Time" section. The widget will not display without a valid party date.'
+      });
+      isValid = false;
+    } else {
+      // Validate date format
+      const dateStr = party.dateTime.date;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        issues.push({
+          field: 'dateTime.date',
+          severity: 'error',
+          message: 'Invalid date format',
+          suggestion: 'Date must be in YYYY-MM-DD format. Please re-enter the party date.'
+        });
+        isValid = false;
+      } else {
+        // Check if date is valid and not in the past
+        const partyDate = new Date(dateStr);
+        partyDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (isNaN(partyDate.getTime())) {
+          issues.push({
+            field: 'dateTime.date',
+            severity: 'error',
+            message: 'Invalid date value',
+            suggestion: 'The date entered is not a valid calendar date. Please correct it.'
+          });
+          isValid = false;
+        } else if (partyDate < today) {
+          warnings.push({
+            field: 'dateTime.date',
+            severity: 'warning',
+            message: 'Party date is in the past',
+            suggestion: 'The party date has already passed. The widget will not display past events. Update the date if this is incorrect.'
+          });
+        }
+      }
+    }
+    
+    // Check for time information (optional but good to know)
+    if (party.dateTime && !party.dateTime.startTime) {
+      warnings.push({
+        field: 'dateTime.startTime',
+        severity: 'info',
+        message: 'No start time specified',
+        suggestion: 'Consider adding a start time so guests know when to arrive.'
+      });
+    }
+    
+    // Check invitees (optional but commonly expected)
+    if (!party.invitees || party.invitees.length === 0) {
+      warnings.push({
+        field: 'invitees',
+        severity: 'info',
+        message: 'No invitees added',
+        suggestion: 'Add guests to track RSVPs and show invitation counts in the widget.'
+      });
+    }
+    
+    // Check tasks (optional but commonly expected)
+    if (!party.tasks || party.tasks.length === 0) {
+      warnings.push({
+        field: 'tasks',
+        severity: 'info',
+        message: 'No tasks added',
+        suggestion: 'Add pre-party tasks to track preparation progress in the widget.'
+      });
+    }
+    
+    // Check menu (optional but commonly expected)
+    if (!party.menu || party.menu.length === 0) {
+      warnings.push({
+        field: 'menu',
+        severity: 'info',
+        message: 'No menu items added',
+        suggestion: 'Add menu items to display what will be served at the party.'
+      });
+    }
+    
+    // Check events (optional)
+    if (!party.events || party.events.length === 0) {
+      warnings.push({
+        field: 'events',
+        severity: 'info',
+        message: 'No events scheduled',
+        suggestion: 'Add party events to show a timeline of activities.'
+      });
+    }
+    
+    res.json({
+      valid: isValid,
+      issues: issues,
+      warnings: warnings,
+      summary: isValid 
+        ? 'Party widget is ready to display' 
+        : 'Party widget cannot display - please fix the errors above',
+      data: party
+    });
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Validate party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to validate party',
+      details: err.message
+    });
+  }
+});
+
+// Get weather for a specific party
+app.get('/admin/api/parties/:id/weather', requireAuth, async (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    if (!party.dateTime || !party.dateTime.date) {
+      return res.status(400).json({ 
+        error: 'No party date configured' 
+      });
+    }
+    
+    // Get weather API configuration from smart mirror settings
+    const smConfig = smartMirror.getConfig();
+    const weatherApiKey = smConfig?.widgets?.weather?.apiKey || smConfig?.widgets?.clock?.apiKey;
+    const location = smConfig?.widgets?.weather?.location || smConfig?.widgets?.clock?.location;
+    
+    if (!weatherApiKey || !location) {
+      return res.status(400).json({ 
+        error: 'Weather API not configured. Please configure weather settings in Smart Mirror.' 
+      });
+    }
+    
+    const partyDate = party.dateTime.date;
+    
+    // Calculate days until party
+    const partyDateObj = new Date(partyDate);
+    partyDateObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
+    
+    // Build weather API request
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${weatherApiKey}&units=imperial&cnt=40`;
+    
+    try {
+      const response = await axios.get(weatherUrl);
+      res.json({
+        partyDate,
+        daysUntil,
+        forecast: response.data
+      });
+    } catch (weatherErr) {
+      logger.error(logger.categories.SMART_MIRROR, `Error fetching party weather: ${weatherErr.message}`);
+      res.status(500).json({ 
+        error: 'Failed to fetch weather data',
+        details: weatherErr.response?.data?.message || weatherErr.message
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Fetch party weather',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch weather',
+      details: err.message
+    });
+  }
+});
+
+// Legacy API endpoints for backward compatibility (deprecated)
+// These will proxy to the new multi-party API using the first scheduled party
+app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // For backward compatibility, return the first scheduled/draft party
+    // or the old single party data if it still exists
+    let schedulingData;
+    
+    if (config.parties && config.parties.length > 0) {
+      // Find first non-archived party
+      const activeParty = config.parties.find(p => p.status !== 'archived');
+      if (activeParty) {
+        schedulingData = {
+          id: activeParty.id, // Include ID for frontend to know which party it's working with
+          dateTime: activeParty.dateTime,
+          invitees: activeParty.invitees,
+          menu: activeParty.menu,
+          tasks: activeParty.tasks,
+          events: activeParty.events
+        };
+      } else {
+        // All parties are archived, return empty
+        schedulingData = {
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: []
+        };
+      }
+    } else if (config.partyScheduling) {
+      // Fallback to old single party data
+      schedulingData = config.partyScheduling;
+    } else {
+      // No data at all
+      schedulingData = {
+        dateTime: { date: '', startTime: '', endTime: '' },
+        invitees: [],
+        menu: [],
+        tasks: [],
+        events: []
+      };
+    }
+    
     res.json(schedulingData);
   } catch (err) {
     logError(logger.categories.SYSTEM, err, {
-      operation: 'Get party scheduling data'
+      operation: 'Get party scheduling data (legacy)'
     });
     res.status(500).json({ 
       error: 'Failed to load scheduling data',
@@ -1170,14 +1681,53 @@ app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
 
 app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
   try {
-    const { dateTime, invitees, menu, tasks, events } = req.body;
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const { id, dateTime, invitees, menu, tasks, events } = req.body;
     
     // Validate required structure
     if (!dateTime || typeof dateTime !== 'object') {
       return res.status(400).json({ error: 'Invalid dateTime structure' });
     }
     
-    // Initialize scheduling data
+    // If ID is provided, update that specific party; otherwise update first active party
+    let party;
+    if (id) {
+      const partyIndex = config.parties.findIndex(p => p.id === id);
+      if (partyIndex === -1) {
+        return res.status(404).json({ error: 'Party not found' });
+      }
+      party = config.parties[partyIndex];
+    } else {
+      // Find first active party or create one if none exists
+      party = config.parties.find(p => p.status !== 'archived');
+      if (!party) {
+        // Create a new party
+        party = {
+          id: generatePartyId(),
+          name: 'My Party',
+          status: 'draft',
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        config.parties.push(party);
+      }
+    }
+    
+    // Update party data
+    party.dateTime = dateTime;
+    party.invitees = invitees || [];
+    party.menu = menu || [];
+    party.tasks = tasks || [];
+    party.events = events || [];
+    party.updatedAt = new Date().toISOString();
+    
+    // Also keep updating the old single-party data for backward compatibility
     config.partyScheduling = {
       dateTime,
       invitees: invitees || [],
@@ -1193,14 +1743,14 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
           success: true, 
           message: 'Scheduling data saved successfully',
           persistent: true,
-          data: config.partyScheduling
+          data: party
         });
       } else {
         res.json({ 
           success: true, 
           message: 'Scheduling data saved (in memory only - file save failed)',
           persistent: false,
-          data: config.partyScheduling
+          data: party
         });
       }
     } else {
@@ -1208,12 +1758,12 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
         success: true, 
         message: 'Scheduling data saved (in memory only)',
         persistent: false,
-        data: config.partyScheduling
+        data: party
       });
     }
   } catch (err) {
     logError(logger.categories.SYSTEM, err, {
-      operation: 'Save party scheduling data'
+      operation: 'Save party scheduling data (legacy)'
     });
     res.status(500).json({ 
       error: 'Failed to save scheduling data',
@@ -1222,20 +1772,35 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
   }
 });
 
-// API endpoint for party scheduling validation
+// API endpoint for party scheduling validation (legacy)
 app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
   try {
-    const schedulingData = config.partyScheduling || {
-      dateTime: {
-        date: '',
-        startTime: '',
-        endTime: ''
-      },
-      invitees: [],
-      menu: [],
-      tasks: [],
-      events: []
-    };
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // Get first active party or old single party data
+    let schedulingData;
+    if (config.parties && config.parties.length > 0) {
+      const activeParty = config.parties.find(p => p.status !== 'archived');
+      if (activeParty) {
+        schedulingData = activeParty;
+      } else {
+        schedulingData = {
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: []
+        };
+      }
+    } else {
+      schedulingData = config.partyScheduling || {
+        dateTime: { date: '', startTime: '', endTime: '' },
+        invitees: [],
+        menu: [],
+        tasks: [],
+        events: []
+      };
+    }
     
     const issues = [];
     const warnings = [];
@@ -1357,10 +1922,18 @@ app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
   }
 });
 
-// API endpoint to fetch weather for party date
+// API endpoint to fetch weather for party date (legacy)
 app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
   try {
-    const schedulingData = config.partyScheduling;
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // Get first active party
+    let schedulingData;
+    if (config.parties && config.parties.length > 0) {
+      schedulingData = config.parties.find(p => p.status !== 'archived');
+    } else {
+      schedulingData = config.partyScheduling;
+    }
     
     if (!schedulingData || !schedulingData.dateTime || !schedulingData.dateTime.date) {
       return res.json({ 
@@ -7002,21 +7575,67 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'party':
-            // Get next party from party scheduling
-            const partyScheduling = config.partyScheduling;
-            if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
+            // Get next active party from parties array
+            migrateToMultiParty(); // Ensure migration has run
+            
+            // Find the next upcoming party (scheduled or draft status, not archived)
+            let nextParty = null;
+            if (config.parties && config.parties.length > 0) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Get all active parties (not archived) with dates
+              const activeParties = config.parties
+                .filter(p => p.status !== 'archived' && p.dateTime?.date)
+                .map(p => {
+                  const partyDate = new Date(p.dateTime.date);
+                  partyDate.setHours(0, 0, 0, 0);
+                  return { ...p, parsedDate: partyDate };
+                })
+                .filter(p => !isNaN(p.parsedDate.getTime()));
+              
+              // Sort by date (soonest first) and find the first one that's in the display window
+              activeParties.sort((a, b) => a.parsedDate - b.parsedDate);
+              
+              for (const party of activeParties) {
+                const twoWeeksBefore = new Date(party.parsedDate);
+                twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+                twoWeeksBefore.setHours(0, 0, 0, 0);
+                
+                // Show widget if today is within the visibility window (2 weeks before through party day)
+                if (today >= twoWeeksBefore && today <= party.parsedDate) {
+                  nextParty = party;
+                  break;
+                }
+              }
+              
+              // If no party in display window, get the next upcoming one (for future reference)
+              if (!nextParty) {
+                nextParty = activeParties.find(p => p.parsedDate >= today);
+              }
+            }
+            
+            // Fallback to old single party data if no parties array
+            if (!nextParty && config.partyScheduling?.dateTime?.date) {
+              nextParty = {
+                ...config.partyScheduling,
+                parsedDate: new Date(config.partyScheduling.dateTime.date)
+              };
+            }
+            
+            if (nextParty && nextParty.dateTime && nextParty.dateTime.date) {
               // Normalize date to string format (YYYY-MM-DD) for consistent handling
               let normalizedDateString;
-              if (typeof partyScheduling.dateTime.date === 'string') {
-                normalizedDateString = partyScheduling.dateTime.date;
-              } else if (partyScheduling.dateTime.date instanceof Date) {
-                normalizedDateString = partyScheduling.dateTime.date.toISOString().split('T')[0];
+              if (typeof nextParty.dateTime.date === 'string') {
+                normalizedDateString = nextParty.dateTime.date;
+              } else if (nextParty.dateTime.date instanceof Date) {
+                normalizedDateString = nextParty.dateTime.date.toISOString().split('T')[0];
               } else {
                 // Try to parse whatever format it is
                 try {
-                  normalizedDateString = new Date(partyScheduling.dateTime.date).toISOString().split('T')[0];
+                  normalizedDateString = new Date(nextParty.dateTime.date).toISOString().split('T')[0];
                 } catch (err) {
-                  logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${partyScheduling.dateTime.date}`);
+                  logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${nextParty.dateTime.date}`);
                   break;
                 }
               }
@@ -7048,9 +7667,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 const now = new Date();
                 let isPartyStarted = false;
                 
-                if (daysUntil === 0 && partyScheduling.dateTime.startTime) {
+                if (daysUntil === 0 && nextParty.dateTime.startTime) {
                   // Parse start time to check if party has started today
-                  const [startHour, startMinute] = partyScheduling.dateTime.startTime.split(':').map(n => parseInt(n, 10));
+                  const [startHour, startMinute] = nextParty.dateTime.startTime.split(':').map(n => parseInt(n, 10));
                   const partyStartDateTime = new Date(partyDate);
                   partyStartDateTime.setHours(startHour, startMinute, 0, 0);
                   
@@ -7060,11 +7679,11 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 }
                 
                 // Get all party data
-                const tasks = partyScheduling.tasks || [];
+                const tasks = nextParty.tasks || [];
                 const totalTasks = tasks.length;
                 const completedTasks = tasks.filter(t => t.completed).length;
                 
-                const invitees = partyScheduling.invitees || [];
+                const invitees = nextParty.invitees || [];
                 const comingCount = invitees.filter(i => i.rsvp === 'coming').length;
                 const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
                 const pendingCount = invitees.filter(i => i.rsvp === 'pending').length;
@@ -7072,8 +7691,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 // Normalize dateTime to ensure date is always a string in YYYY-MM-DD format
                 const normalizedDateTime = {
                   date: normalizedDateString,
-                  startTime: partyScheduling.dateTime.startTime || null,
-                  endTime: partyScheduling.dateTime.endTime || null
+                  startTime: nextParty.dateTime.startTime || null,
+                  endTime: nextParty.dateTime.endTime || null
                 };
                 
                 // Fetch weather for party date if weather API is configured
@@ -7118,6 +7737,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     dateTime: normalizedDateTime,
                     daysUntil: daysUntil,
                     phase: isPartyStarted ? 'during' : 'pre-party',
+                    name: nextParty.name || 'My Party', // Include party name
                     tasks: {
                       total: totalTasks,
                       completed: completedTasks,
@@ -7129,8 +7749,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       pending: pendingCount,
                       list: invitees
                     },
-                    menu: partyScheduling.menu || [],
-                    events: partyScheduling.events || [],
+                    menu: nextParty.menu || [],
+                    events: nextParty.events || [],
                     weather: weatherData
                   }
                 };
