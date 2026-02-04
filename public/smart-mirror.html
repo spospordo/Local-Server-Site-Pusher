@@ -2720,6 +2720,51 @@
                 });
                 vacationDiv.appendChild(dateDiv);
                 
+                // Add flight information if tracking enabled and flights exist
+                if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
+                    const validatedFlights = vacation.flights.filter(f => f.validated);
+                    if (validatedFlights.length > 0) {
+                        const flightDiv = document.createElement('div');
+                        flightDiv.style.marginTop = '10px';
+                        flightDiv.style.fontSize = '0.85rem';
+                        flightDiv.style.opacity = '0.9';
+                        flightDiv.style.padding = '8px';
+                        flightDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+                        flightDiv.style.borderRadius = '5px';
+                        
+                        // Show first flight only in compact view
+                        const flight = validatedFlights[0];
+                        const flightInfoDiv = document.createElement('div');
+                        flightInfoDiv.style.display = 'flex';
+                        flightInfoDiv.style.alignItems = 'center';
+                        flightInfoDiv.style.justifyContent = 'center';
+                        flightInfoDiv.style.gap = '6px';
+                        
+                        const planeIcon = document.createElement('span');
+                        planeIcon.textContent = '✈️';
+                        flightInfoDiv.appendChild(planeIcon);
+                        
+                        const flightNum = document.createElement('span');
+                        flightNum.style.fontWeight = '600';
+                        flightNum.textContent = flight.flightNumber;
+                        flightInfoDiv.appendChild(flightNum);
+                        
+                        flightDiv.appendChild(flightInfoDiv);
+                        
+                        // If multiple flights, show count
+                        if (validatedFlights.length > 1) {
+                            const countDiv = document.createElement('div');
+                            countDiv.style.fontSize = '0.75rem';
+                            countDiv.style.opacity = '0.7';
+                            countDiv.style.marginTop = '4px';
+                            countDiv.textContent = `+${validatedFlights.length - 1} more`;
+                            flightDiv.appendChild(countDiv);
+                        }
+                        
+                        vacationDiv.appendChild(flightDiv);
+                    }
+                }
+                
                 container.appendChild(vacationDiv);
             });
             
