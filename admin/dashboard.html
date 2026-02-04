@@ -5995,6 +5995,23 @@
                         <label for="vacationNotes">Notes</label>
                         <textarea id="vacationNotes" rows="3" placeholder="Additional information..."></textarea>
                     </div>
+                    
+                    <!-- Flight Information Section -->
+                    <div class="form-group" style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 20px;">
+                        <h4 style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>✈️ Flight Information</span>
+                            <button type="button" onclick="addFlightInfo()" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.3rem 0.6rem;">
+                                ➕ Add Flight
+                            </button>
+                        </h4>
+                        <div id="flightsList" style="margin-bottom: 15px;">
+                            <!-- Flight entries will be added here dynamically -->
+                        </div>
+                        <div style="padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.85rem; color: #666;">
+                            <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking.
+                        </div>
+                    </div>
+                    
                     <div class="modal-actions">
                         <button type="button" onclick="closeVacationDateModal()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn">Save</button>
@@ -16225,21 +16242,57 @@
                 return;
             }
             
-            container.innerHTML = dates.map(date => `
-                <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #667eea;">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <strong>${date.startDate} to ${date.endDate}</strong>
-                            ${date.destination ? `<br><span style="color: #666;">📍 ${date.destination}</span>` : ''}
-                            ${date.notes ? `<br><span style="color: #666;">${date.notes}</span>` : ''}
+            container.innerHTML = dates.map(date => {
+                const flights = date.flights || [];
+                const hasFlights = flights.length > 0;
+                const trackingEnabled = date.flightTrackingEnabled === true;
+                
+                let flightsHtml = '';
+                if (hasFlights) {
+                    flightsHtml = `
+                        <div style="margin-top: 8px; padding: 8px; background: #fff; border-radius: 4px;">
+                            <div style="font-weight: 600; margin-bottom: 4px; color: #555;">✈️ Flights:</div>
+                            ${flights.map(flight => {
+                                const validatedBadge = flight.validated ? 
+                                    '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; margin-left: 6px;">✓ Validated</span>' : 
+                                    '<span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; margin-left: 6px;">⏳ Pending</span>';
+                                return `
+                                    <div style="font-size: 0.9rem; color: #666; margin-left: 10px;">
+                                        ${flight.airline} ${flight.flightNumber} on ${flight.date}${validatedBadge}
+                                    </div>
+                                `;
+                            }).join('')}
+                            <div style="margin-top: 6px;">
+                                <label style="display: inline-flex; align-items: center; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" ${trackingEnabled ? 'checked' : ''} 
+                                           onchange="toggleFlightTracking('${date.id}', this.checked)"
+                                           style="margin-right: 6px;">
+                                    <span style="color: ${trackingEnabled ? '#4CAF50' : '#999'}; font-weight: 500;">
+                                        ${trackingEnabled ? '✓ Flight Tracking Enabled' : 'Enable Flight Tracking'}
+                                    </span>
+                                </label>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn" style="padding: 0.5rem;" onclick="editVacationDate('${date.id}')">✏️</button>
-                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteVacationDateConfirm('${date.id}')">🗑️</button>
+                    `;
+                }
+                
+                return `
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #667eea;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <strong>${date.startDate} to ${date.endDate}</strong>
+                                ${date.destination ? `<br><span style="color: #666;">📍 ${date.destination}</span>` : ''}
+                                ${date.notes ? `<br><span style="color: #666;">${date.notes}</span>` : ''}
+                                ${flightsHtml}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" style="padding: 0.5rem;" onclick="editVacationDate('${date.id}')">✏️</button>
+                                <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteVacationDateConfirm('${date.id}')">🗑️</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         // Render pets
@@ -16315,6 +16368,7 @@
             document.getElementById('vacationDestination').value = '';
             document.getElementById('vacationNotes').value = '';
             document.getElementById('locationTestResult').innerHTML = '';
+            document.getElementById('flightsList').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
         }
         
@@ -16329,12 +16383,211 @@
             document.getElementById('vacationDestination').value = date.destination || '';
             document.getElementById('vacationNotes').value = date.notes || '';
             document.getElementById('locationTestResult').innerHTML = '';
+            loadFlightsIntoModal(date.flights || []);
             document.getElementById('vacationDateModal').style.display = 'flex';
         }
         
         function closeVacationDateModal() {
             document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'none';
+        }
+        
+        // Flight information management
+        let currentFlights = [];
+        let flightIdCounter = 0;
+        
+        function generateFlightId() {
+            return `flight-${++flightIdCounter}_${Date.now()}`;
+        }
+        
+        function addFlightInfo() {
+            const flightId = generateFlightId();
+            const flightDiv = document.createElement('div');
+            flightDiv.id = flightId;
+            flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
+            flightDiv.innerHTML = `
+                <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 120px;">
+                        <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Airline Code</label>
+                        <input type="text" class="flight-airline" placeholder="e.g., AA" 
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1; min-width: 120px;">
+                        <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Flight Number</label>
+                        <input type="text" class="flight-number" placeholder="e.g., 123" 
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Date</label>
+                        <input type="date" class="flight-date" 
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" onclick="validateFlight('${flightId}')" class="btn btn-secondary" 
+                            style="font-size: 0.8rem; padding: 0.3rem 0.6rem; flex-shrink: 0;">
+                        🔍 Validate
+                    </button>
+                    <div class="flight-status" style="flex: 1; font-size: 0.85rem; color: #666;"></div>
+                    <button type="button" onclick="removeFlight('${flightId}')" class="btn btn-danger" 
+                            style="font-size: 0.8rem; padding: 0.3rem 0.6rem; flex-shrink: 0;">
+                        ✕
+                    </button>
+                </div>
+            `;
+            document.getElementById('flightsList').appendChild(flightDiv);
+        }
+        
+        function removeFlight(flightId) {
+            const flightDiv = document.getElementById(`flight-${flightId}`);
+            if (flightDiv) {
+                flightDiv.remove();
+            }
+        }
+        
+        async function validateFlight(flightId) {
+            const flightDiv = document.getElementById(`flight-${flightId}`);
+            const airline = flightDiv.querySelector('.flight-airline').value.trim();
+            const flightNumber = flightDiv.querySelector('.flight-number').value.trim();
+            const date = flightDiv.querySelector('.flight-date').value;
+            const statusDiv = flightDiv.querySelector('.flight-status');
+            
+            if (!airline || !flightNumber || !date) {
+                statusDiv.innerHTML = '<span style="color: #ef4444;">⚠️ Please fill all fields</span>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<span style="color: #6b7280;">🔄 Validating...</span>';
+            
+            try {
+                const response = await fetch('/admin/api/vacation/validate-flight', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        airline: airline,
+                        flightNumber: airline + flightNumber,
+                        date: date 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                    flightDiv.dataset.validated = 'true';
+                } else {
+                    statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+                    flightDiv.dataset.validated = 'false';
+                }
+            } catch (err) {
+                statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${err.message}</span>`;
+                flightDiv.dataset.validated = 'false';
+            }
+        }
+        
+        function collectFlightData() {
+            const flightsList = document.getElementById('flightsList');
+            const flightDivs = flightsList.querySelectorAll('[id^="flight-"]');
+            const flights = [];
+            
+            flightDivs.forEach(flightDiv => {
+                const airline = flightDiv.querySelector('.flight-airline').value.trim();
+                const flightNumber = flightDiv.querySelector('.flight-number').value.trim();
+                const date = flightDiv.querySelector('.flight-date').value;
+                const validated = flightDiv.dataset.validated === 'true';
+                
+                if (airline && flightNumber && date) {
+                    flights.push({
+                        airline: airline,
+                        flightNumber: airline + flightNumber,
+                        date: date,
+                        validated: validated
+                    });
+                }
+            });
+            
+            return flights;
+        }
+        
+        function loadFlightsIntoModal(flights) {
+            const flightsList = document.getElementById('flightsList');
+            flightsList.innerHTML = '';
+            
+            if (!flights || flights.length === 0) {
+                return;
+            }
+            
+            flights.forEach((flight) => {
+                const flightId = generateFlightId();
+                const flightDiv = document.createElement('div');
+                flightDiv.id = flightId;
+                flightDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;';
+                flightDiv.dataset.validated = flight.validated ? 'true' : 'false';
+                
+                // Extract airline code from flight number (e.g., "AA123" -> "AA")
+                const airlineCode = flight.airline || flight.flightNumber.replace(/\d+$/, '');
+                const numberOnly = flight.flightNumber.replace(/^[A-Z]+/i, '');
+                
+                flightDiv.innerHTML = `
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 120px;">
+                            <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Airline Code</label>
+                            <input type="text" class="flight-airline" value="${airlineCode}" placeholder="e.g., AA" 
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div style="flex: 1; min-width: 120px;">
+                            <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Flight Number</label>
+                            <input type="text" class="flight-number" value="${numberOnly}" placeholder="e.g., 123" 
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div style="flex: 1; min-width: 140px;">
+                            <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Date</label>
+                            <input type="date" class="flight-date" value="${flight.date}" 
+                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" onclick="validateFlight('${flightId}')" class="btn btn-secondary" 
+                                style="font-size: 0.8rem; padding: 0.3rem 0.6rem; flex-shrink: 0;">
+                            🔍 Validate
+                        </button>
+                        <div class="flight-status" style="flex: 1; font-size: 0.85rem; color: #666;">
+                            ${flight.validated ? '<span style="color: #10b981;">✅ Validated</span>' : '<span style="color: #ff9800;">⏳ Pending</span>'}
+                        </div>
+                        <button type="button" onclick="removeFlight('${flightId}')" class="btn btn-danger" 
+                                style="font-size: 0.8rem; padding: 0.3rem 0.6rem; flex-shrink: 0;">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                flightsList.appendChild(flightDiv);
+            });
+        }
+        
+        async function toggleFlightTracking(vacationId, enabled) {
+            try {
+                const response = await fetch('/admin/api/vacation/toggle-flight-tracking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        vacationId: vacationId,
+                        enabled: enabled 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`✅ Flight tracking ${enabled ? 'enabled' : 'disabled'}!`, 'success', 'vacationAlert');
+                    loadHouseVacationData();
+                } else {
+                    alert('Failed to toggle flight tracking: ' + result.error);
+                    loadHouseVacationData(); // Reload to reset checkbox
+                }
+            } catch (err) {
+                alert('Failed to toggle flight tracking: ' + err.message);
+                loadHouseVacationData(); // Reload to reset checkbox
+            }
         }
         
         // Test vacation location for weather availability
@@ -16395,7 +16648,8 @@
                 startDate: document.getElementById('vacationStartDate').value,
                 endDate: document.getElementById('vacationEndDate').value,
                 destination: document.getElementById('vacationDestination').value,
-                notes: document.getElementById('vacationNotes').value
+                notes: document.getElementById('vacationNotes').value,
+                flights: collectFlightData()
             };
             
             try {
