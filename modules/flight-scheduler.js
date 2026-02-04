@@ -277,7 +277,7 @@ function initScheduler() {
     await updateFlightsByFrequency('daily');
   }, {
     scheduled: true,
-    timezone: "America/New_York" // Adjust timezone as needed
+    timezone: "America/New_York" // Default timezone - updates are server time. Users should match server timezone.
   });
   
   // Schedule noon update at 12pm (for flights 3 days away)

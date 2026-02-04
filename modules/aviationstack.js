@@ -8,7 +8,7 @@ const logger = require('./logger');
  * API Documentation: https://aviationstack.com/documentation
  */
 
-const AVIATIONSTACK_BASE_URL = 'http://api.aviationstack.com/v1';
+const AVIATIONSTACK_BASE_URL = 'https://api.aviationstack.com/v1';
 
 // API usage tracking
 let apiUsage = {

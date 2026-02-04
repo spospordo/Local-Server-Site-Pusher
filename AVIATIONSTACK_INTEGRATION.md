@@ -235,6 +235,18 @@ cron.schedule('0 17 * * *', updateThriceDaily);
 cron.schedule('0 * * * *', updateHourly);
 ```
 
+**Timezone Configuration**: The scheduler uses the server's timezone (default: America/New_York). Update times are based on server time. For Docker deployments, you can set the timezone using the `TZ` environment variable:
+
+```bash
+docker run -e TZ=America/Los_Angeles ...
+```
+
+Or in docker-compose.yml:
+```yaml
+environment:
+  - TZ=America/Los_Angeles
+```
+
 ### Rate Limiting
 
 The system implements several strategies to stay within the 100 calls/month limit:
