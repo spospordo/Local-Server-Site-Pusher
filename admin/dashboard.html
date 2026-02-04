@@ -9021,6 +9021,10 @@
             return div.innerHTML;
         }
         
+        function formatCurrency(value) {
+            return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        
         // Load initial data
         async function initializeAdmin() {
             // Load system information first
@@ -15484,7 +15488,7 @@
                 name: document.getElementById('apartmentName').value.trim(),
                 address: document.getElementById('apartmentAddress').value.trim(),
                 purchasePrice: parseFloat(document.getElementById('apartmentPurchasePrice').value) || 0,
-                purchaseDate: document.getElementById('apartmentPurchaseDate').value || new Date().toISOString(),
+                purchaseDate: document.getElementById('apartmentPurchaseDate').value || new Date().toISOString().substring(0, 10),
                 mortgageAmount: parseFloat(document.getElementById('apartmentMortgageAmount').value) || 0,
                 mortgageRate: parseFloat(document.getElementById('apartmentMortgageRate').value) || 0,
                 mortgageTermMonths: parseInt(document.getElementById('apartmentMortgageTermMonths').value) || 360,
@@ -15872,30 +15876,6 @@
             editApartment(apartmentId);
         }
         
-        /**
-         * Format currency
-         */
-        function formatCurrency(value) {
-            return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-        
-        /**
-         * Format date
-         */
-        function formatDate(dateString) {
-            if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-        }
-        
-        /**
-         * Escape HTML
-         */
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
         
         // Demo Finance Functions
         let demoFinanceChart = null;

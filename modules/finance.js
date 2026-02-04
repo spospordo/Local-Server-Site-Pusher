@@ -2696,9 +2696,11 @@ function calculateSuggestedRent(apartmentId) {
     let mortgageInterest = 0;
     
     if (apartment.mortgageAmount > 0) {
-      const monthsSincePurchase = Math.floor(
-        (new Date() - new Date(apartment.purchaseDate)) / (1000 * 60 * 60 * 24 * 30)
-      );
+      const purchaseDate = new Date(apartment.purchaseDate);
+      const currentDate = new Date();
+      const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
+        + (currentDate.getMonth() - purchaseDate.getMonth());
+      
       const breakdown = calculateMortgageBreakdown(
         apartment.mortgageAmount,
         apartment.mortgageRate,
@@ -2706,8 +2708,11 @@ function calculateSuggestedRent(apartmentId) {
         monthsSincePurchase
       );
       mortgagePayment = breakdown.monthlyPayment;
-      mortgagePrincipal = breakdown.monthlyPayment - (breakdown.remaining * apartment.mortgageRate / 12 / 100);
-      mortgageInterest = breakdown.remaining * apartment.mortgageRate / 12 / 100;
+      
+      // Calculate current month's principal and interest
+      const monthlyRate = apartment.mortgageRate / 12 / 100;
+      mortgageInterest = breakdown.remaining * monthlyRate;
+      mortgagePrincipal = mortgagePayment - mortgageInterest;
     }
     
     // Total monthly cost
@@ -2819,9 +2824,10 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
       
       // Add mortgage payment
       if (apartment.mortgageAmount > 0) {
-        const monthsSincePurchase = Math.floor(
-          (currentDate - new Date(apartment.purchaseDate)) / (1000 * 60 * 60 * 24 * 30)
-        );
+        const purchaseDate = new Date(apartment.purchaseDate);
+        const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
+          + (currentDate.getMonth() - purchaseDate.getMonth());
+        
         const breakdown = calculateMortgageBreakdown(
           apartment.mortgageAmount,
           apartment.mortgageRate,
