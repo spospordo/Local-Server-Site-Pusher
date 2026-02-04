@@ -6535,6 +6535,147 @@ app.get('/api/smart-mirror/vacation-timezone', async (req, res) => {
   }
 });
 
+// Admin endpoint to validate flight information
+app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Validating flight information');
+  
+  try {
+    const { flightNumber, airline, date } = req.body;
+    
+    if (!flightNumber || !airline || !date) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Flight number, airline, and date are required' 
+      });
+    }
+    
+    // Mock validation - in a real implementation, this would call a flight API
+    // For now, we'll accept any flight with proper format
+    const flightRegex = /^[A-Z]{2,3}\d{1,4}$/i;
+    if (!flightRegex.test(flightNumber)) {
+      return res.json({
+        success: false,
+        error: 'Invalid flight number format. Expected format: AB123 or ABC1234'
+      });
+    }
+    
+    // Simulate successful validation
+    res.json({
+      success: true,
+      message: 'Flight validated successfully',
+      flightInfo: {
+        flightNumber: flightNumber.toUpperCase(),
+        airline: airline,
+        date: date,
+        validated: true
+      }
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight validation error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to validate flight' });
+  }
+});
+
+// Admin endpoint to toggle flight tracking for a vacation
+app.post('/admin/api/vacation/toggle-flight-tracking', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Toggling flight tracking');
+  
+  try {
+    const { vacationId, enabled } = req.body;
+    
+    if (!vacationId) {
+      return res.status(400).json({ success: false, error: 'Vacation ID is required' });
+    }
+    
+    const vacationData = house.getVacationData();
+    const vacation = vacationData.dates.find(d => d.id === vacationId);
+    
+    if (!vacation) {
+      return res.status(404).json({ success: false, error: 'Vacation not found' });
+    }
+    
+    // Update flight tracking status
+    const result = house.updateVacationDate(vacationId, {
+      ...vacation,
+      flightTrackingEnabled: enabled === true
+    });
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Toggle flight tracking error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to toggle flight tracking' });
+  }
+});
+
+// Public endpoint to fetch flight status for smart mirror display
+app.get('/api/smart-mirror/flight-status', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight status requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const { flightNumber, airline, date } = req.query;
+    
+    if (!flightNumber || !airline || !date) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Flight number, airline, and date are required' 
+      });
+    }
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled' });
+    }
+    
+    // Mock flight status - in a real implementation, this would call a flight tracking API
+    // For demonstration, we'll return simulated data
+    const flightDate = new Date(date);
+    const now = new Date();
+    const isPast = flightDate < now;
+    const isSoon = Math.abs(flightDate - now) < 24 * 60 * 60 * 1000; // Within 24 hours
+    
+    // Simulate different statuses based on timing
+    let status = 'Scheduled';
+    let gate = null;
+    let terminal = null;
+    let departureTime = null;
+    let arrivalTime = null;
+    
+    if (isPast) {
+      status = 'Completed';
+    } else if (isSoon) {
+      status = Math.random() > 0.7 ? 'Delayed' : 'On Time';
+      gate = `${String.fromCharCode(65 + Math.floor(Math.random() * 5))}${Math.floor(Math.random() * 30) + 1}`;
+      terminal = Math.floor(Math.random() * 3) + 1;
+      departureTime = new Date(flightDate.getTime() + (Math.random() - 0.5) * 60 * 60 * 1000).toISOString();
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        flightNumber: flightNumber.toUpperCase(),
+        airline: airline,
+        date: date,
+        status: status,
+        gate: gate,
+        terminal: terminal,
+        departureTime: departureTime,
+        arrivalTime: arrivalTime,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight status API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch flight status' });
+  }
+});
+
 // Smart Widget data aggregation endpoint
 app.get('/api/smart-mirror/smart-widget', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Smart Widget data requested');

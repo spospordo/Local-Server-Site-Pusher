@@ -2164,6 +2164,139 @@
                         }
                     }
                     
+                    // Display flight information if tracking is enabled
+                    if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
+                        try {
+                            const flightDiv = document.createElement('div');
+                            flightDiv.style.marginTop = '12px';
+                            flightDiv.style.padding = '8px';
+                            flightDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+                            flightDiv.style.borderRadius = '5px';
+                            flightDiv.style.fontSize = '0.85rem';
+                            
+                            // Fetch flight status for each validated flight
+                            for (const flight of vacation.flights) {
+                                if (!flight.validated) continue; // Only show validated flights
+                                
+                                const flightItemDiv = document.createElement('div');
+                                flightItemDiv.style.marginBottom = '8px';
+                                flightItemDiv.style.paddingBottom = '8px';
+                                if (vacation.flights.indexOf(flight) < vacation.flights.length - 1) {
+                                    flightItemDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+                                }
+                                
+                                try {
+                                    const statusResponse = await fetch(
+                                        `/api/smart-mirror/flight-status?flightNumber=${encodeURIComponent(flight.flightNumber)}&airline=${encodeURIComponent(flight.airline)}&date=${encodeURIComponent(flight.date)}`
+                                    );
+                                    const statusData = await statusResponse.json();
+                                    
+                                    if (statusData.success && statusData.data) {
+                                        const flightStatus = statusData.data;
+                                        
+                                        // Flight header
+                                        const headerDiv = document.createElement('div');
+                                        headerDiv.style.display = 'flex';
+                                        headerDiv.style.alignItems = 'center';
+                                        headerDiv.style.gap = '6px';
+                                        headerDiv.style.marginBottom = '4px';
+                                        
+                                        const iconSpan = document.createElement('span');
+                                        iconSpan.textContent = '✈️';
+                                        headerDiv.appendChild(iconSpan);
+                                        
+                                        const flightNumSpan = document.createElement('span');
+                                        flightNumSpan.style.fontWeight = 'bold';
+                                        flightNumSpan.textContent = flightStatus.flightNumber;
+                                        headerDiv.appendChild(flightNumSpan);
+                                        
+                                        // Status badge
+                                        const statusSpan = document.createElement('span');
+                                        statusSpan.style.padding = '2px 6px';
+                                        statusSpan.style.borderRadius = '3px';
+                                        statusSpan.style.fontSize = '0.75rem';
+                                        statusSpan.style.fontWeight = 'bold';
+                                        
+                                        if (flightStatus.status === 'On Time') {
+                                            statusSpan.style.background = '#10b981';
+                                            statusSpan.style.color = '#fff';
+                                        } else if (flightStatus.status === 'Delayed') {
+                                            statusSpan.style.background = '#ef4444';
+                                            statusSpan.style.color = '#fff';
+                                        } else if (flightStatus.status === 'Completed') {
+                                            statusSpan.style.background = '#6b7280';
+                                            statusSpan.style.color = '#fff';
+                                        } else {
+                                            statusSpan.style.background = '#3b82f6';
+                                            statusSpan.style.color = '#fff';
+                                        }
+                                        statusSpan.textContent = flightStatus.status;
+                                        headerDiv.appendChild(statusSpan);
+                                        
+                                        flightItemDiv.appendChild(headerDiv);
+                                        
+                                        // Flight details
+                                        if (flightStatus.gate || flightStatus.terminal) {
+                                            const detailsDiv = document.createElement('div');
+                                            detailsDiv.style.opacity = '0.8';
+                                            detailsDiv.style.fontSize = '0.8rem';
+                                            detailsDiv.style.marginLeft = '20px';
+                                            
+                                            const details = [];
+                                            if (flightStatus.terminal) details.push(`Terminal ${flightStatus.terminal}`);
+                                            if (flightStatus.gate) details.push(`Gate ${flightStatus.gate}`);
+                                            
+                                            detailsDiv.textContent = details.join(' • ');
+                                            flightItemDiv.appendChild(detailsDiv);
+                                        }
+                                    } else {
+                                        // Show basic flight info without status
+                                        const headerDiv = document.createElement('div');
+                                        headerDiv.style.display = 'flex';
+                                        headerDiv.style.alignItems = 'center';
+                                        headerDiv.style.gap = '6px';
+                                        headerDiv.style.opacity = '0.7';
+                                        
+                                        const iconSpan = document.createElement('span');
+                                        iconSpan.textContent = '✈️';
+                                        headerDiv.appendChild(iconSpan);
+                                        
+                                        const flightNumSpan = document.createElement('span');
+                                        flightNumSpan.textContent = `${flight.flightNumber} - Status unavailable`;
+                                        headerDiv.appendChild(flightNumSpan);
+                                        
+                                        flightItemDiv.appendChild(headerDiv);
+                                    }
+                                } catch (flightError) {
+                                    console.error(`Error fetching flight status for ${flight.flightNumber}:`, flightError);
+                                    // Show basic flight info on error
+                                    const headerDiv = document.createElement('div');
+                                    headerDiv.style.display = 'flex';
+                                    headerDiv.style.alignItems = 'center';
+                                    headerDiv.style.gap = '6px';
+                                    headerDiv.style.opacity = '0.7';
+                                    
+                                    const iconSpan = document.createElement('span');
+                                    iconSpan.textContent = '✈️';
+                                    headerDiv.appendChild(iconSpan);
+                                    
+                                    const flightNumSpan = document.createElement('span');
+                                    flightNumSpan.textContent = `${flight.flightNumber} - Error loading status`;
+                                    headerDiv.appendChild(flightNumSpan);
+                                    
+                                    flightItemDiv.appendChild(headerDiv);
+                                }
+                                
+                                flightDiv.appendChild(flightItemDiv);
+                            }
+                            
+                            vacationDiv.appendChild(flightDiv);
+                        } catch (error) {
+                            console.error('Error displaying flight information:', error);
+                            // Silently fail - don't show error to user
+                        }
+                    }
+                    
                     // Add notes if available
                     if (vacation.notes && vacation.notes.trim()) {
                         const notesDiv = document.createElement('div');
