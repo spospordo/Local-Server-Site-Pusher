@@ -86,6 +86,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.20] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #441 from spospordo/copilot/enhance-vacation-widget-flight-tracking
+  - Refactor: Extract flight ID generation into helper function for DRY
+  - Final code review fixes: improve ID generation and date window calculation
+  - Fix code review issues: date comparison and ID generation
+  - Complete flight tracking feature with UI, validation, and smart mirror integration
+  - Add flight tracking backend and UI - initial implementation
+  - Initial plan
+
+
 ## [2.6.19] - 2026-02-04
 
 ### Patch Update
