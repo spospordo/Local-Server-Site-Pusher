@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Widget Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            padding: 40px;
+        }
+
+        .demo-container {
+            display: grid;
+            grid-template-columns: repeat(3, 200px);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: 200px;
+        }
+
+        .widget-header {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+
+        .widget-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .air-quality-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            gap: 8px;
+        }
+
+        .air-quality-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .air-quality-aqi {
+            font-size: 2.5rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .air-quality-label {
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .air-quality-forecast {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+
+        .air-quality-day {
+            text-align: center;
+        }
+
+        .air-quality-day-label {
+            opacity: 0.6;
+            font-size: 0.75rem;
+            margin-bottom: 3px;
+        }
+
+        .air-quality-day-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .air-quality-temp {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+
+        .widget.air-quality-favorable {
+            background: rgba(76, 175, 80, 0.2) !important;
+            border: 2px solid rgba(76, 175, 80, 0.6) !important;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(76, 175, 80, 0.6);
+            }
+        }
+
+        .aqi-good { color: #4CAF50; }
+        .aqi-fair { color: #8BC34A; }
+        .aqi-moderate { color: #FFC107; }
+        .aqi-poor { color: #FF9800; }
+        .aqi-very-poor { color: #F44336; }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+
+        .description {
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌬️ Air Quality Widget Demo</h1>
+    <p class="description">Compact, single-tile widget showing current AQI and forecasts</p>
+
+    <h2>Different AQI Levels</h2>
+    <div class="demo-container">
+        <!-- Good AQI with Highlight -->
+        <div class="widget air-quality-favorable">
+            <div class="widget-header">🌬️ Air Quality</div>
+            <div class="widget-content">
+                <div class="air-quality-container">
+                    <div class="air-quality-icon">😊</div>
+                    <div class="air-quality-aqi aqi-good">1</div>
+                    <div class="air-quality-label aqi-good">Good</div>
+                    <div class="air-quality-forecast">
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Today</div>
+                            <div class="air-quality-day-value aqi-good">Good</div>
+                        </div>
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Tomorrow</div>
+                            <div class="air-quality-day-value aqi-good">Good</div>
+                        </div>
+                    </div>
+                    <div class="air-quality-temp">Current: 72°F</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fair AQI -->
+        <div class="widget">
+            <div class="widget-header">🌬️ Air Quality</div>
+            <div class="widget-content">
+                <div class="air-quality-container">
+                    <div class="air-quality-icon">🙂</div>
+                    <div class="air-quality-aqi aqi-fair">2</div>
+                    <div class="air-quality-label aqi-fair">Fair</div>
+                    <div class="air-quality-forecast">
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Today</div>
+                            <div class="air-quality-day-value aqi-fair">Fair</div>
+                        </div>
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Tomorrow</div>
+                            <div class="air-quality-day-value aqi-good">Good</div>
+                        </div>
+                    </div>
+                    <div class="air-quality-temp">Current: 68°F</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Moderate AQI -->
+        <div class="widget">
+            <div class="widget-header">🌬️ Air Quality</div>
+            <div class="widget-content">
+                <div class="air-quality-container">
+                    <div class="air-quality-icon">😐</div>
+                    <div class="air-quality-aqi aqi-moderate">3</div>
+                    <div class="air-quality-label aqi-moderate">Moderate</div>
+                    <div class="air-quality-forecast">
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Today</div>
+                            <div class="air-quality-day-value aqi-moderate">Moderate</div>
+                        </div>
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Tomorrow</div>
+                            <div class="air-quality-day-value aqi-moderate">Moderate</div>
+                        </div>
+                    </div>
+                    <div class="air-quality-temp">Current: 78°F</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Poor AQI -->
+        <div class="widget">
+            <div class="widget-header">🌬️ Air Quality</div>
+            <div class="widget-content">
+                <div class="air-quality-container">
+                    <div class="air-quality-icon">😷</div>
+                    <div class="air-quality-aqi aqi-poor">4</div>
+                    <div class="air-quality-label aqi-poor">Poor</div>
+                    <div class="air-quality-forecast">
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Today</div>
+                            <div class="air-quality-day-value aqi-poor">Poor</div>
+                        </div>
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Tomorrow</div>
+                            <div class="air-quality-day-value aqi-moderate">Moderate</div>
+                        </div>
+                    </div>
+                    <div class="air-quality-temp">Current: 82°F</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Very Poor AQI -->
+        <div class="widget">
+            <div class="widget-header">🌬️ Air Quality</div>
+            <div class="widget-content">
+                <div class="air-quality-container">
+                    <div class="air-quality-icon">🤢</div>
+                    <div class="air-quality-aqi aqi-very-poor">5</div>
+                    <div class="air-quality-label aqi-very-poor">Very Poor</div>
+                    <div class="air-quality-forecast">
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Today</div>
+                            <div class="air-quality-day-value aqi-very-poor">V. Poor</div>
+                        </div>
+                        <div class="air-quality-day">
+                            <div class="air-quality-day-label">Tomorrow</div>
+                            <div class="air-quality-day-value aqi-poor">Poor</div>
+                        </div>
+                    </div>
+                    <div class="air-quality-temp">Current: 75°F</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>Special Features</h2>
+    <div class="description">
+        <ul style="list-style-position: inside;">
+            <li><strong>Favorable Conditions Highlight:</strong> Widget glows green when AQI is "Good" (1) and temperature ≤ 75°F</li>
+            <li><strong>Color Coding:</strong> AQI levels are color-coded for quick visual understanding</li>
+            <li><strong>Compact Design:</strong> Fits in a single grid tile (1x1) without losing clarity</li>
+            <li><strong>Forecast Display:</strong> Shows both today and tomorrow's air quality predictions</li>
+        </ul>
+    </div>
+</body>
+</html>
