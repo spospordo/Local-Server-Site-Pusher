@@ -22,7 +22,18 @@ This document describes the integration of AviationStack API as the official fli
 - **Monthly call tracking** - Monitor API usage against free tier limit (100 calls/month)
 - **Visual usage indicators** - Progress bar and percentage display
 - **Warning system** - Alerts when approaching monthly limit
-- **Automatic limit enforcement** - Prevents exceeding configured monthly limit
+- **Smart limit enforcement** - Admin actions bypass limits but still count toward usage
+- **Automatic limit enforcement** - Scheduled updates respect configured monthly limit
+
+#### Admin Action Bypass
+Admin-triggered actions (manual validation, status checks) always execute regardless of rate limits:
+- ✅ **Flight validation** from vacation modal always works
+- ✅ **Manual update** from tracked flights panel always works  
+- ✅ **API test connection** always works
+- ⚠️ These actions still count toward monthly API quota
+- 🔄 Scheduled automatic updates are blocked when limit is reached
+
+This ensures admins can always validate and check flights, but prevents automated updates from exceeding the monthly limit.
 
 ### ⏰ Intelligent Update Scheduling
 The system automatically adjusts update frequency based on flight proximity:
@@ -100,6 +111,11 @@ This schedule maximizes data freshness while staying well within the 100 calls/m
 **View Tracked Flights**
 - Lists all flights currently being tracked
 - Shows update frequency for each flight
+- Displays cached flight data including:
+  - Airline name and flight status
+  - Departure and arrival airports
+  - Last update timestamp
+  - Warning if no cached data available yet
 - Color-coded by priority:
   - 🔴 Red: Hourly updates (within 6 hours)
   - 🟠 Orange: 3x daily (within 3 days)
@@ -118,11 +134,13 @@ When adding flights to vacations:
 2. Enter flight number (e.g., "AA123")
 3. Select flight date
 4. Click **🔍 Validate**
-5. System checks with AviationStack API
+5. System checks with AviationStack API (always executes, even if monthly limit reached)
 6. Shows validation result:
    - ✅ **Validated**: Flight found, tracking enabled
    - ⏳ **Pending**: Validation in progress
    - ❌ **Error**: Flight not found or API error
+
+**Note**: Admin validation requests always execute and count toward the monthly API quota. They are not blocked by rate limits to ensure admins can always verify flight information.
 
 ### Smart Mirror Display
 

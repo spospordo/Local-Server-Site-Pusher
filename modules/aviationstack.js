@@ -143,9 +143,10 @@ async function testConnection(apiKey) {
  * @param {string} apiKey - AviationStack API key
  * @param {string} flightIata - Flight IATA code (e.g., "AA123")
  * @param {string} flightDate - Flight date in YYYY-MM-DD format
+ * @param {boolean} bypassLimit - If true, bypasses limit check (for admin actions)
  * @returns {Promise<Object>} Validation result
  */
-async function validateFlight(apiKey, flightIata, flightDate) {
+async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = false) {
   if (!apiKey) {
     return {
       success: false,
@@ -160,7 +161,7 @@ async function validateFlight(apiKey, flightIata, flightDate) {
     };
   }
 
-  if (isLimitReached()) {
+  if (!bypassLimit && isLimitReached()) {
     logger.warning(logger.categories.SMART_MIRROR, 'AviationStack API monthly limit reached');
     return {
       success: false,
@@ -256,9 +257,10 @@ async function validateFlight(apiKey, flightIata, flightDate) {
  * @param {string} apiKey - AviationStack API key
  * @param {string} flightIata - Flight IATA code (e.g., "AA123")
  * @param {string} flightDate - Flight date in YYYY-MM-DD format
+ * @param {boolean} bypassLimit - If true, bypasses limit check (for admin actions)
  * @returns {Promise<Object>} Flight status data
  */
-async function getFlightStatus(apiKey, flightIata, flightDate) {
+async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = false) {
   if (!apiKey) {
     return {
       success: false,
@@ -273,7 +275,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate) {
     };
   }
 
-  if (isLimitReached()) {
+  if (!bypassLimit && isLimitReached()) {
     logger.warning(logger.categories.SMART_MIRROR, 'AviationStack API monthly limit reached');
     return {
       success: false,

@@ -12886,14 +12886,52 @@
                             const frequencyColor = flight.updateFrequency === 'hourly' ? '#dc2626' :
                                                    flight.updateFrequency === 'thriceDaily' ? '#f59e0b' : '#3b82f6';
                             
+                            // Display cached flight data if available
+                            let statusInfo = '';
+                            if (flight.hasCachedData && flight.cachedData) {
+                                const cached = flight.cachedData;
+                                statusInfo = `
+                                    <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px; font-size: 0.85rem;">
+                                        <div style="color: #333; font-weight: 500;">
+                                            ${cached.airline?.name || 'Unknown Airline'}
+                                        </div>
+                                        <div style="color: #666; margin-top: 4px;">
+                                            Status: <strong style="color: ${cached.status === 'active' ? '#10b981' : cached.status === 'scheduled' ? '#3b82f6' : '#6b7280'};">${cached.status || 'Unknown'}</strong>
+                                        </div>
+                                        ${cached.departure ? `
+                                            <div style="color: #666; margin-top: 4px;">
+                                                From: ${cached.departure.airport || 'N/A'} (${cached.departure.iata || 'N/A'})
+                                            </div>
+                                        ` : ''}
+                                        ${cached.arrival ? `
+                                            <div style="color: #666; margin-top: 4px;">
+                                                To: ${cached.arrival.airport || 'N/A'} (${cached.arrival.iata || 'N/A'})
+                                            </div>
+                                        ` : ''}
+                                        ${cached.cachedAt ? `
+                                            <div style="color: #999; margin-top: 6px; font-size: 0.8rem;">
+                                                Last updated: ${new Date(cached.cachedAt).toLocaleString()}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            } else {
+                                statusInfo = `
+                                    <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 4px; font-size: 0.85rem; color: #856404;">
+                                        ⚠️ No cached data available yet. Flight will be updated according to schedule.
+                                    </div>
+                                `;
+                            }
+                            
                             html += `
                                 <div style="background: #f8f9fa; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid ${frequencyColor};">
                                     <div style="display: flex; justify-content: space-between; align-items: start;">
-                                        <div>
+                                        <div style="flex: 1;">
                                             <strong style="color: #333;">✈️ ${flight.flightIata}</strong>
                                             <div style="color: #666; font-size: 0.9rem; margin-top: 4px;">
                                                 📅 ${flight.date}
                                             </div>
+                                            ${statusInfo}
                                         </div>
                                         <div style="text-align: right;">
                                             <span style="background: ${frequencyColor}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem;">
@@ -16761,14 +16799,14 @@
         }
         
         function removeFlight(flightId) {
-            const flightDiv = document.getElementById(`flight-${flightId}`);
+            const flightDiv = document.getElementById(flightId);
             if (flightDiv) {
                 flightDiv.remove();
             }
         }
         
         async function validateFlight(flightId) {
-            const flightDiv = document.getElementById(`flight-${flightId}`);
+            const flightDiv = document.getElementById(flightId);
             const airline = flightDiv.querySelector('.flight-airline').value.trim();
             const flightNumber = flightDiv.querySelector('.flight-number').value.trim();
             const date = flightDiv.querySelector('.flight-date').value;
