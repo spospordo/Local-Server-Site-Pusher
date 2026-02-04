@@ -4900,6 +4900,81 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Air Quality Widget -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🌬️ Air Quality Widget (Compact AQI Display)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="airQualityEnabled">Air Quality Widget</label>
+                                <select id="airQualityEnabled">
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="airQualitySize">Size</label>
+                                <select id="airQualitySize">
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="airQualityGridX">Grid Position X (0-3)</label>
+                                <input type="number" id="airQualityGridX" min="0" max="3" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="airQualityGridY">Grid Position Y (0-5)</label>
+                                <input type="number" id="airQualityGridY" min="0" max="5" value="4">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="airQualityGridWidth">Width (1-4 cells)</label>
+                                <input type="number" id="airQualityGridWidth" min="1" max="4" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="airQualityGridHeight">Height (1-6 cells)</label>
+                                <input type="number" id="airQualityGridHeight" min="1" max="6" value="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="airQualityHighlight">Highlight Favorable Conditions</label>
+                            <select id="airQualityHighlight">
+                                <option value="true">Enabled (highlight when AQI is good and temp ≤ 75°F)</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                When enabled, the widget will glow green when air quality is "Good" (AQI=1) and temperature is 75°F or less, indicating favorable outdoor conditions.
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <p style="margin-bottom: 10px; color: #666;">
+                                The Air Quality Widget displays current AQI (Air Quality Index) and forecasts for today and tomorrow. It uses the OpenWeatherMap Air Pollution API to provide real-time air quality data including PM2.5, PM10, and other pollutants.
+                            </p>
+                            <p style="margin-bottom: 10px; color: #666;">
+                                <strong>AQI Scale:</strong><br>
+                                1 = Good (😊) | 2 = Fair (🙂) | 3 = Moderate (😐) | 4 = Poor (😷) | 5 = Very Poor (🤢)
+                            </p>
+                        </div>
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ <strong>API Key:</strong> Configure your OpenWeatherMap API key in the <strong>APIs and Connections</strong> section above. The same key is used for weather and air quality data.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Smart Widget -->
                 <div class="collapsible-section">
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -11856,6 +11931,17 @@
                     document.getElementById('vacationGridWidth').value = vacationPortrait.width ?? 2;
                     document.getElementById('vacationGridHeight').value = vacationPortrait.height ?? 2;
                     
+                    // Load Air Quality widget config
+                    const airQuality = config.widgets?.airQuality || {};
+                    document.getElementById('airQualityEnabled').value = airQuality.enabled === true ? 'true' : 'false';
+                    document.getElementById('airQualitySize').value = airQuality.size || 'small';
+                    document.getElementById('airQualityHighlight').value = airQuality.highlightFavorableConditions !== false ? 'true' : 'false';
+                    const airQualityPortrait = portraitLayout.airQuality || airQuality.gridPosition || { x: 0, y: 4, width: 1, height: 1 };
+                    document.getElementById('airQualityGridX').value = airQualityPortrait.x ?? 0;
+                    document.getElementById('airQualityGridY').value = airQualityPortrait.y ?? 4;
+                    document.getElementById('airQualityGridWidth').value = airQualityPortrait.width ?? 1;
+                    document.getElementById('airQualityGridHeight').value = airQualityPortrait.height ?? 1;
+                    
                     // Load Smart Widget config
                     const smartWidget = config.widgets?.smartWidget || {};
                     document.getElementById('smartWidgetEnabled').value = smartWidget.enabled === true ? 'true' : 'false';
@@ -12054,6 +12140,12 @@
                         width: parseInt(document.getElementById('vacationGridWidth').value),
                         height: parseInt(document.getElementById('vacationGridHeight').value)
                     },
+                    airQuality: {
+                        x: parseInt(document.getElementById('airQualityGridX').value),
+                        y: parseInt(document.getElementById('airQualityGridY').value),
+                        width: parseInt(document.getElementById('airQualityGridWidth').value),
+                        height: parseInt(document.getElementById('airQualityGridHeight').value)
+                    },
                     smartWidget: {
                         x: parseInt(document.getElementById('smartWidgetGridX').value),
                         y: parseInt(document.getElementById('smartWidgetGridY').value),
@@ -12135,6 +12227,18 @@
                                 document.getElementById('centralWeatherApiKey').value,
                                 currentConfig?.widgets?.vacation?.apiKey
                             )
+                        },
+                        airQuality: {
+                            enabled: document.getElementById('airQualityEnabled').value === 'true',
+                            size: document.getElementById('airQualitySize').value,
+                            area: 'bottom-right',
+                            apiKey: preserveApiKey(
+                                document.getElementById('centralWeatherApiKey').value,
+                                currentConfig?.widgets?.airQuality?.apiKey
+                            ),
+                            location: document.getElementById('centralWeatherLocation').value.trim(),
+                            units: document.getElementById('centralWeatherUnits').value,
+                            highlightFavorableConditions: document.getElementById('airQualityHighlight').value === 'true'
                         },
                         smartWidget: {
                             enabled: document.getElementById('smartWidgetEnabled').value === 'true',
