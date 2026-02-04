@@ -4474,6 +4474,33 @@
                             </div>
                         </div>
 
+                        <!-- Flight API Diagnostics Section -->
+                        <div id="flightApiDiagnostics" style="background: #f0fff4; border-left: 4px solid #10b981; padding: 15px; margin-top: 15px; border-radius: 5px; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <strong style="color: #333;">🔍 API Configuration Diagnostics</strong>
+                                <button type="button" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85rem;" onclick="showFlightApiDiagnostics()">
+                                    🔄 Refresh
+                                </button>
+                            </div>
+                            <div style="margin: 10px 0; color: #666; font-size: 0.9rem;">
+                                <div style="margin-bottom: 5px;">
+                                    <strong>API Key Status:</strong> <span id="diagApiKeyStatus">-</span>
+                                </div>
+                                <div style="margin-bottom: 5px;">
+                                    <strong>API Key Fingerprint:</strong> <code id="diagApiKeyFingerprint" style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">-</code>
+                                </div>
+                                <div style="margin-bottom: 5px;">
+                                    <strong>API Enabled:</strong> <span id="diagApiEnabled">-</span>
+                                </div>
+                                <div style="margin-bottom: 5px;">
+                                    <strong>Provider:</strong> <span id="diagApiProvider">-</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 4px; font-size: 0.85rem;">
+                                <strong>ℹ️ Troubleshooting:</strong> If validation fails, compare this fingerprint with the key you tested. They should match.
+                            </div>
+                        </div>
+
                         <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-top: 20px; border-radius: 5px;">
                             <strong style="color: #333;">ℹ️ Rate Limiting & Update Schedule</strong>
                             <p style="margin: 8px 0 0 0; color: #666; font-size: 0.95rem;">
@@ -11938,9 +11965,10 @@
                     if (flightApi.apiKey) {
                         flightApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
                         flightApiKeyInput.dataset.hasKey = 'true';
-                        // Show usage stats if API key exists
+                        // Show usage stats and diagnostics if API key exists
                         document.getElementById('flightApiUsage').style.display = 'block';
                         refreshFlightApiUsage();
+                        showFlightApiDiagnostics();
                     } else {
                         flightApiKeyInput.placeholder = 'Enter your AviationStack API key';
                         flightApiKeyInput.dataset.hasKey = 'false';
@@ -12793,6 +12821,8 @@
                 if (result.success) {
                     document.getElementById('flightApiUsage').style.display = 'block';
                     await refreshFlightApiUsage();
+                    // Also show diagnostics to help with troubleshooting
+                    await showFlightApiDiagnostics();
                 }
             } catch (error) {
                 displayTestResult(containerId, {
@@ -12834,6 +12864,28 @@
                 }
             } catch (error) {
                 console.error('Failed to refresh Flight API usage:', error);
+            }
+        }
+        
+        // Show Flight API diagnostics (key fingerprint, config status)
+        async function showFlightApiDiagnostics() {
+            try {
+                const response = await fetch('/admin/api/flight-api/diagnostics');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const diag = result.diagnostics;
+                    
+                    document.getElementById('diagApiKeyStatus').textContent = diag.apiKeyConfigured ? 
+                        `✅ Configured (${diag.apiKeyLength} chars)` : '❌ Not configured';
+                    document.getElementById('diagApiKeyFingerprint').textContent = diag.apiKeyFingerprint;
+                    document.getElementById('diagApiEnabled').textContent = diag.enabled ? '✅ Enabled' : '❌ Disabled';
+                    document.getElementById('diagApiProvider').textContent = diag.provider;
+                    
+                    document.getElementById('flightApiDiagnostics').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Failed to load Flight API diagnostics:', error);
             }
         }
         
@@ -16836,11 +16888,30 @@
                     statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
                     flightDiv.dataset.validated = 'true';
                 } else {
-                    statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+                    // Escape HTML in error message to prevent XSS
+                    const escapeHtml = (str) => {
+                        const div = document.createElement('div');
+                        div.textContent = str;
+                        return div.innerHTML;
+                    };
+                    const safeError = escapeHtml(result.error || 'Unknown error');
+                    
+                    // Check if error is related to missing API key
+                    if (result.error && result.error.includes('API key')) {
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span>`;
+                    }
                     flightDiv.dataset.validated = 'false';
                 }
             } catch (err) {
-                statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${err.message}</span>`;
+                // Escape HTML in error message to prevent XSS
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+                statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${escapeHtml(err.message)}</span>`;
                 flightDiv.dataset.validated = 'false';
             }
         }

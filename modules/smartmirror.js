@@ -735,6 +735,13 @@ function saveConfig(newConfig) {
         ...existingConfig.flightApi,
         ...configToSave.flightApi
       };
+      
+      // Explicitly preserve API key if not provided in new config
+      if (!configToSave.flightApi.apiKey && existingConfig.flightApi.apiKey) {
+        logger.info(logger.categories.SMART_MIRROR, 'Preserving existing flight API key');
+        configToSave.flightApi.apiKey = existingConfig.flightApi.apiKey;
+      }
+      
       logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
     }
     

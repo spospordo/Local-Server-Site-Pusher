@@ -6058,6 +6058,9 @@ app.post('/admin/api/flight-api/test-connection', requireAuth, async (req, res) 
       });
     }
     
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Testing connection with API key ${keyFingerprint}`);
+    
     // Test the connection
     const result = await aviationstack.testConnection(apiKey);
     
@@ -6093,6 +6096,36 @@ app.get('/admin/api/flight-api/usage', requireAuth, (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get usage statistics'
+    });
+  }
+});
+
+// Get Flight API configuration diagnostic info (API key fingerprint)
+// This is a temporary diagnostic endpoint for troubleshooting API key issues
+app.get('/admin/api/flight-api/diagnostics', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight API diagnostics requested');
+  
+  try {
+    const config = smartMirror.loadConfig();
+    const apiKey = config.flightApi?.apiKey;
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    
+    res.json({
+      success: true,
+      diagnostics: {
+        apiKeyConfigured: !!apiKey,
+        apiKeyFingerprint: keyFingerprint,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        enabled: config.flightApi?.enabled || false,
+        provider: config.flightApi?.provider || 'aviationstack',
+        monthlyLimit: config.flightApi?.monthlyLimit || 100
+      }
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API diagnostics error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get diagnostics'
     });
   }
 });
@@ -6675,7 +6708,8 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
     const config = smartMirror.loadConfig();
     const apiKey = config.flightApi?.apiKey;
     
-    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Checking for AviationStack API key (present: ${!!apiKey}, enabled: ${config.flightApi?.enabled})`);
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Loaded AviationStack API key from config (key: ${keyFingerprint}, enabled: ${config.flightApi?.enabled})`);
     
     if (!apiKey) {
       logger.warning(logger.categories.SMART_MIRROR, 'Flight validation: AviationStack API key not configured, using format-only validation');
@@ -6785,7 +6819,8 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
     // If no cached data and API key available, fetch live
     const apiKey = config.flightApi?.apiKey;
     if (apiKey) {
-      logger.debug(logger.categories.SMART_MIRROR, `Fetching live flight data for ${flightNumber}`);
+      const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+      logger.debug(logger.categories.SMART_MIRROR, `Fetching live flight data for ${flightNumber} with key ${keyFingerprint}`);
       const result = await aviationstack.getFlightStatus(apiKey, flightNumber, date);
       
       if (result.success) {

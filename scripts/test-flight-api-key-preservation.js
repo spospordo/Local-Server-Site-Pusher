@@ -95,7 +95,7 @@ async function testFlightApiKeyPreservation() {
             const aviationstackContent = fs.readFileSync(aviationstackPath, 'utf8');
             
             // Check for API key logging in validateFlight
-            if (aviationstackContent.includes('API key present:') && 
+            if ((aviationstackContent.includes('key:') || aviationstackContent.includes('API key present:')) && 
                 aviationstackContent.includes('key length:')) {
                 logSuccess('validateFlight() has detailed API key logging');
                 passedTests++;
@@ -144,8 +144,11 @@ async function testFlightApiKeyPreservation() {
             const serverContent = fs.readFileSync(serverPath, 'utf8');
             
             // Check for API key presence logging in validate-flight endpoint
-            if (serverContent.includes('Checking for AviationStack API key (present:') &&
-                serverContent.includes('enabled:')) {
+            const hasOldPattern = serverContent.includes('Checking for AviationStack API key (present:');
+            const hasNewPattern = serverContent.includes('Loaded AviationStack API key from config');
+            const hasEnabled = serverContent.includes('enabled:');
+            
+            if ((hasOldPattern || hasNewPattern) && hasEnabled) {
                 logSuccess('validate-flight endpoint logs API key presence and status');
                 passedTests++;
             } else {
