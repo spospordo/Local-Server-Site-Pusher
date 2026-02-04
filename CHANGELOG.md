@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.21] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #443 from spospordo/copilot/integrate-aviationstack-api
+  - Fix security and code quality issues from review
+  - Add comprehensive documentation for AviationStack integration
+  - Add Flight API admin UI with connection testing and usage tracking
+  - Add AviationStack API integration modules and backend endpoints
+  - Initial plan
+
+
 ## [2.6.20] - 2026-02-04
 
 ### Patch Update
