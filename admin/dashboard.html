@@ -2275,6 +2275,7 @@
                 <button class="sub-tab" onclick="showSubTab('finance-demo')">Demo</button>
                 <button class="sub-tab active" onclick="showSubTab('finance-mydata')">My Data</button>
                 <button class="sub-tab" onclick="showSubTab('finance-account')">Account</button>
+                <button class="sub-tab" onclick="showSubTab('finance-apartments')">🏢 Apartments</button>
                 <button class="sub-tab" onclick="showSubTab('finance-history')">History</button>
                 <button class="sub-tab" onclick="showSubTab('finance-spending')">Spending</button>
             </div>
@@ -2949,6 +2950,105 @@
                     <input type="hidden" id="accountId">
                     <button onclick="saveAccount()" class="btn btn-success">Add Account</button>
                     <button onclick="clearAccountForm()" class="btn" style="background: #6c757d;">Clear Form</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance - Apartments Sub-tab -->
+        <div class="card admin-section finance-section finance-apartments-section">
+            <div class="card-header">
+                <h2>🏢 Investment Property Tracking</h2>
+                <p style="margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
+                    Track rental income, expenses, and optimize profitability for your investment properties
+                </p>
+            </div>
+            <div class="card-body">
+                <!-- Apartments List -->
+                <div class="finance-subsection">
+                    <h3>📋 Your Properties</h3>
+                    <div id="apartmentsList" class="apartments-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <p style="color: #666;">No properties added yet</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Add/Edit Apartment Form -->
+                <div class="finance-subsection">
+                    <h3 id="apartmentFormTitle">🏠 Add Investment Property</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="apartmentName">Property Name *</label>
+                            <input type="text" id="apartmentName" placeholder="e.g., Main Street Apartment" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="apartmentAddress">Address</label>
+                            <input type="text" id="apartmentAddress" placeholder="e.g., 123 Main St, City, State">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="apartmentPurchasePrice">Purchase Price ($)</label>
+                            <input type="number" step="0.01" id="apartmentPurchasePrice" placeholder="e.g., 250000">
+                        </div>
+                        <div class="form-group">
+                            <label for="apartmentPurchaseDate">Purchase Date</label>
+                            <input type="date" id="apartmentPurchaseDate">
+                        </div>
+                    </div>
+                    
+                    <div class="alert" style="background: #f8f9fa; border-left: 4px solid #6c757d; margin: 1rem 0;">
+                        <strong>💰 Mortgage Details (Optional)</strong>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="apartmentMortgageAmount">Mortgage Amount ($)</label>
+                            <input type="number" step="0.01" id="apartmentMortgageAmount" placeholder="e.g., 200000">
+                        </div>
+                        <div class="form-group">
+                            <label for="apartmentMortgageRate">Interest Rate (%)</label>
+                            <input type="number" step="0.01" id="apartmentMortgageRate" placeholder="e.g., 4.5">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="apartmentMortgageTermMonths">Mortgage Term (Months)</label>
+                        <input type="number" id="apartmentMortgageTermMonths" placeholder="e.g., 360 (30 years)" value="360">
+                    </div>
+                    
+                    <div class="alert" style="background: #e7f3ff; border-left: 4px solid #2196F3; margin: 1rem 0;">
+                        <strong>🎯 Financial Goal</strong>
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">Set a financial goal for this property to calculate suggested rent</p>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="apartmentGoalType">Goal Type</label>
+                            <select id="apartmentGoalType" onchange="updateGoalAmountVisibility()">
+                                <option value="breakeven">Break Even (Cash Flow)</option>
+                                <option value="breakeven-excluding-principal">Break Even (Excluding Principal)</option>
+                                <option value="profit">Target Monthly Profit</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="apartmentGoalAmountGroup" style="display: none;">
+                            <label for="apartmentGoalAmount">Target Monthly Profit ($)</label>
+                            <input type="number" step="0.01" id="apartmentGoalAmount" placeholder="e.g., 500">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="apartmentRentIncreaseMonth">Earliest Rent Increase Month</label>
+                        <input type="month" id="apartmentRentIncreaseMonth" placeholder="YYYY-MM">
+                        <small class="help-text">When can you first increase the rent?</small>
+                    </div>
+                    
+                    <input type="hidden" id="apartmentId">
+                    <button onclick="saveApartment()" class="btn btn-success">💾 Save Property</button>
+                    <button onclick="clearApartmentForm()" class="btn" style="background: #6c757d;">Clear Form</button>
+                    <button id="cancelEditApartmentBtn" onclick="cancelEditApartment()" class="btn" style="background: #dc3545; display: none;">Cancel Edit</button>
                 </div>
             </div>
         </div>
@@ -10204,6 +10304,7 @@
                 else if (subTabName === 'finance-demo') targetTabText = 'Demo';
                 else if (subTabName === 'finance-mydata') targetTabText = 'My Data';
                 else if (subTabName === 'finance-account') targetTabText = 'Account';
+                else if (subTabName === 'finance-apartments') targetTabText = '🏢 Apartments';
                 else if (subTabName === 'finance-history') targetTabText = 'History';
                 else if (subTabName === 'finance-spending') targetTabText = 'Spending';
                 else if (subTabName === 'finance-advanced') targetTabText = 'Advanced';
@@ -10333,6 +10434,13 @@
                 
                 if (shouldLoadData) {
                     loadFinanceData();
+                }
+            } else if (subTabName === 'finance-apartments') {
+                const apartmentsSections = document.querySelectorAll('.finance-apartments-section');
+                apartmentsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadApartmentsData();
                 }
             } else if (subTabName === 'finance-spending') {
                 const spendingSections = document.querySelectorAll('.finance-spending-section');
@@ -15296,6 +15404,497 @@
             } catch (err) {
                 console.error('Failed to update chart:', err);
             }
+        }
+        
+        // ============================================================================
+        // Apartment Investment Property Tracking Functions
+        // ============================================================================
+        
+        let currentApartmentData = null;
+        let apartmentCharts = {};
+        
+        /**
+         * Load all apartments data
+         */
+        async function loadApartmentsData() {
+            try {
+                const response = await fetch('/admin/api/finance/apartments', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayApartmentsList(data.apartments);
+                } else {
+                    showAlert('Failed to load apartments: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Load apartments error:', err);
+                showAlert('Failed to load apartments: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Display apartments list
+         */
+        function displayApartmentsList(apartments) {
+            const listElement = document.getElementById('apartmentsList');
+            
+            if (!apartments || apartments.length === 0) {
+                listElement.innerHTML = '<p style="color: #666;">No properties added yet. Add your first property below!</p>';
+                return;
+            }
+            
+            listElement.innerHTML = apartments.map(apt => `
+                <div class="apartment-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; background: white;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                        <div>
+                            <h4 style="margin: 0 0 0.25rem 0; color: #333;">${escapeHtml(apt.name)}</h4>
+                            ${apt.address ? `<p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${escapeHtml(apt.address)}</p>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="viewApartmentDetails('${apt.id}')" class="btn-sm" style="background: #2196F3;" title="View Details">📊</button>
+                            <button onclick="editApartment('${apt.id}')" class="btn-sm" style="background: #ff9800;" title="Edit">✏️</button>
+                            <button onclick="deleteApartmentPrompt('${apt.id}')" class="btn-sm" style="background: #dc3545;" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <div>💰 Purchase: $${formatCurrency(apt.purchasePrice || 0)}</div>
+                            <div>📅 ${formatDate(apt.purchaseDate)}</div>
+                        </div>
+                        ${apt.mortgageAmount > 0 ? `
+                            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee;">
+                                🏦 Mortgage: $${formatCurrency(apt.mortgageAmount)} @ ${apt.mortgageRate}%
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * Save apartment (create or update)
+         */
+        async function saveApartment() {
+            const apartmentData = {
+                id: document.getElementById('apartmentId').value || null,
+                name: document.getElementById('apartmentName').value.trim(),
+                address: document.getElementById('apartmentAddress').value.trim(),
+                purchasePrice: parseFloat(document.getElementById('apartmentPurchasePrice').value) || 0,
+                purchaseDate: document.getElementById('apartmentPurchaseDate').value || new Date().toISOString(),
+                mortgageAmount: parseFloat(document.getElementById('apartmentMortgageAmount').value) || 0,
+                mortgageRate: parseFloat(document.getElementById('apartmentMortgageRate').value) || 0,
+                mortgageTermMonths: parseInt(document.getElementById('apartmentMortgageTermMonths').value) || 360,
+                rentIncreaseMonth: document.getElementById('apartmentRentIncreaseMonth').value || null,
+                financialGoal: {
+                    type: document.getElementById('apartmentGoalType').value,
+                    targetAmount: parseFloat(document.getElementById('apartmentGoalAmount').value) || 0
+                }
+            };
+            
+            if (!apartmentData.name) {
+                showAlert('Please enter a property name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/finance/apartments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(apartmentData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(apartmentData.id ? 'Property updated successfully!' : 'Property added successfully!', 'success');
+                    clearApartmentForm();
+                    await loadApartmentsData();
+                } else {
+                    showAlert('Failed to save property: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Save apartment error:', err);
+                showAlert('Failed to save property: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Edit apartment
+         */
+        async function editApartment(apartmentId) {
+            try {
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const apt = data.apartment;
+                    
+                    // Populate form
+                    document.getElementById('apartmentId').value = apt.id;
+                    document.getElementById('apartmentName').value = apt.name || '';
+                    document.getElementById('apartmentAddress').value = apt.address || '';
+                    document.getElementById('apartmentPurchasePrice').value = apt.purchasePrice || '';
+                    document.getElementById('apartmentPurchaseDate').value = apt.purchaseDate ? apt.purchaseDate.substring(0, 10) : '';
+                    document.getElementById('apartmentMortgageAmount').value = apt.mortgageAmount || '';
+                    document.getElementById('apartmentMortgageRate').value = apt.mortgageRate || '';
+                    document.getElementById('apartmentMortgageTermMonths').value = apt.mortgageTermMonths || 360;
+                    document.getElementById('apartmentRentIncreaseMonth').value = apt.rentIncreaseMonth || '';
+                    document.getElementById('apartmentGoalType').value = apt.financialGoal?.type || 'breakeven';
+                    document.getElementById('apartmentGoalAmount').value = apt.financialGoal?.targetAmount || '';
+                    
+                    // Update form title and buttons
+                    document.getElementById('apartmentFormTitle').textContent = '✏️ Edit Investment Property';
+                    document.getElementById('cancelEditApartmentBtn').style.display = 'inline-block';
+                    
+                    updateGoalAmountVisibility();
+                    
+                    // Scroll to form
+                    document.getElementById('apartmentFormTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    showAlert('Failed to load property: ' + data.error, 'error');
+                }
+            } catch (err) {
+                console.error('Edit apartment error:', err);
+                showAlert('Failed to load property: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Clear apartment form
+         */
+        function clearApartmentForm() {
+            document.getElementById('apartmentId').value = '';
+            document.getElementById('apartmentName').value = '';
+            document.getElementById('apartmentAddress').value = '';
+            document.getElementById('apartmentPurchasePrice').value = '';
+            document.getElementById('apartmentPurchaseDate').value = '';
+            document.getElementById('apartmentMortgageAmount').value = '';
+            document.getElementById('apartmentMortgageRate').value = '';
+            document.getElementById('apartmentMortgageTermMonths').value = '360';
+            document.getElementById('apartmentRentIncreaseMonth').value = '';
+            document.getElementById('apartmentGoalType').value = 'breakeven';
+            document.getElementById('apartmentGoalAmount').value = '';
+            
+            document.getElementById('apartmentFormTitle').textContent = '🏠 Add Investment Property';
+            document.getElementById('cancelEditApartmentBtn').style.display = 'none';
+            
+            updateGoalAmountVisibility();
+        }
+        
+        /**
+         * Cancel edit apartment
+         */
+        function cancelEditApartment() {
+            clearApartmentForm();
+        }
+        
+        /**
+         * Update goal amount field visibility
+         */
+        function updateGoalAmountVisibility() {
+            const goalType = document.getElementById('apartmentGoalType').value;
+            const goalAmountGroup = document.getElementById('apartmentGoalAmountGroup');
+            
+            if (goalType === 'profit') {
+                goalAmountGroup.style.display = 'block';
+            } else {
+                goalAmountGroup.style.display = 'none';
+            }
+        }
+        
+        /**
+         * Delete apartment with confirmation
+         */
+        function deleteApartmentPrompt(apartmentId) {
+            if (confirm('Are you sure you want to delete this property? This action cannot be undone.')) {
+                deleteApartment(apartmentId);
+            }
+        }
+        
+        /**
+         * Delete apartment
+         */
+        async function deleteApartment(apartmentId) {
+            try {
+                const response = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Property deleted successfully!', 'success');
+                    await loadApartmentsData();
+                    
+                    // Clear form if we were editing this apartment
+                    if (document.getElementById('apartmentId').value === apartmentId) {
+                        clearApartmentForm();
+                    }
+                } else {
+                    showAlert('Failed to delete property: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Delete apartment error:', err);
+                showAlert('Failed to delete property: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * View apartment details in modal
+         */
+        async function viewApartmentDetails(apartmentId) {
+            try {
+                // Fetch apartment data
+                const aptResponse = await fetch(`/admin/api/finance/apartments/${apartmentId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const aptData = await aptResponse.json();
+                
+                if (!aptData.success) {
+                    showAlert('Failed to load property details: ' + aptData.error, 'error');
+                    return;
+                }
+                
+                const apartment = aptData.apartment;
+                
+                // Fetch analysis data
+                const analysisResponse = await fetch(`/admin/api/finance/apartments/${apartmentId}/analysis`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const analysisData = await analysisResponse.json();
+                
+                // Fetch suggested rent
+                const rentResponse = await fetch(`/admin/api/finance/apartments/${apartmentId}/suggested-rent`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const rentData = await rentResponse.json();
+                
+                // Create modal HTML
+                const modalHtml = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;" onclick="closeApartmentModal(event)">
+                        <div style="background: white; border-radius: 12px; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;" onclick="event.stopPropagation()">
+                            <button onclick="closeApartmentModal()" style="position: absolute; top: 1rem; right: 1rem; background: #dc3545; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 1.2rem; cursor: pointer;">×</button>
+                            
+                            <h2 style="margin: 0 0 1rem 0;">${escapeHtml(apartment.name)}</h2>
+                            ${apartment.address ? `<p style="color: #666; margin: 0 0 1rem 0;">📍 ${escapeHtml(apartment.address)}</p>` : ''}
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                                    <div style="font-size: 0.85rem; color: #666;">Purchase Price</div>
+                                    <div style="font-size: 1.5rem; font-weight: bold;">$${formatCurrency(apartment.purchasePrice || 0)}</div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">${formatDate(apartment.purchaseDate)}</div>
+                                </div>
+                                ${apartment.mortgageAmount > 0 ? `
+                                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                                        <div style="font-size: 0.85rem; color: #666;">Mortgage</div>
+                                        <div style="font-size: 1.5rem; font-weight: bold;">$${formatCurrency(apartment.mortgageAmount)}</div>
+                                        <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">${apartment.mortgageRate}% / ${apartment.mortgageTermMonths} months</div>
+                                    </div>
+                                ` : '<div></div>'}
+                            </div>
+                            
+                            ${rentData.success ? `
+                                <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
+                                    <h3 style="margin: 0 0 0.5rem 0;">💡 Rent Suggestion</h3>
+                                    <p style="margin: 0 0 0.5rem 0;">Based on your financial goal: <strong>${getGoalLabel(rentData.goal.type)}</strong></p>
+                                    <div style="font-size: 1.8rem; font-weight: bold; color: #2196F3;">$${formatCurrency(rentData.suggestedRent)}/month</div>
+                                    
+                                    <details style="margin-top: 1rem;">
+                                        <summary style="cursor: pointer; color: #666; font-size: 0.9rem;">View Breakdown</summary>
+                                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                                            <div>Monthly Expenses: $${formatCurrency(rentData.breakdown.monthlyExpenses)}</div>
+                                            <div>Annual Expenses (Monthly): $${formatCurrency(rentData.breakdown.annualExpensesMonthly)}</div>
+                                            <div>Mortgage Payment: $${formatCurrency(rentData.breakdown.mortgagePayment)}</div>
+                                            ${rentData.breakdown.targetProfit > 0 ? `<div>Target Profit: $${formatCurrency(rentData.breakdown.targetProfit)}</div>` : ''}
+                                            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #ccc; font-weight: bold;">Total: $${formatCurrency(rentData.suggestedRent)}</div>
+                                        </div>
+                                    </details>
+                                </div>
+                            ` : ''}
+                            
+                            ${analysisData.success ? `
+                                <div style="margin-bottom: 1.5rem;">
+                                    <h3 style="margin: 0 0 1rem 0;">📊 Profitability Summary</h3>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                                        <div style="text-align: center; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
+                                            <div style="font-size: 0.85rem; color: #666;">Total Income</div>
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: #4caf50;">$${formatCurrency(analysisData.totals.income)}</div>
+                                        </div>
+                                        <div style="text-align: center; padding: 1rem; background: #ffebee; border-radius: 8px;">
+                                            <div style="font-size: 0.85rem; color: #666;">Total Expenses</div>
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: #f44336;">$${formatCurrency(analysisData.totals.expenses)}</div>
+                                        </div>
+                                        <div style="text-align: center; padding: 1rem; background: ${analysisData.totals.cashFlow >= 0 ? '#e3f2fd' : '#fff3e0'}; border-radius: 8px;">
+                                            <div style="font-size: 0.85rem; color: #666;">Cash Flow</div>
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: ${analysisData.totals.cashFlow >= 0 ? '#2196F3' : '#ff9800'};">${analysisData.totals.cashFlow >= 0 ? '+' : ''}$${formatCurrency(analysisData.totals.cashFlow)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-bottom: 1.5rem;">
+                                    <h3 style="margin: 0 0 1rem 0;">📈 Monthly Cash Flow</h3>
+                                    <canvas id="apartmentAnalysisChart" style="max-height: 300px;"></canvas>
+                                </div>
+                            ` : ''}
+                            
+                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 2rem;">
+                                <button onclick="manageApartmentExpenses('${apartmentId}')" class="btn" style="background: #ff9800;">💸 Manage Expenses</button>
+                                <button onclick="manageApartmentIncome('${apartmentId}')" class="btn" style="background: #4caf50;">💰 Manage Income</button>
+                                <button onclick="closeApartmentModal()" class="btn" style="background: #6c757d;">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert modal into DOM
+                const modalDiv = document.createElement('div');
+                modalDiv.id = 'apartmentDetailsModal';
+                modalDiv.innerHTML = modalHtml;
+                document.body.appendChild(modalDiv);
+                
+                // Render chart if analysis data is available
+                if (analysisData.success && analysisData.monthlyData && analysisData.monthlyData.length > 0) {
+                    setTimeout(() => {
+                        const ctx = document.getElementById('apartmentAnalysisChart');
+                        if (ctx) {
+                            new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: analysisData.monthlyData.map(m => m.month),
+                                    datasets: [
+                                        {
+                                            label: 'Income',
+                                            data: analysisData.monthlyData.map(m => m.income),
+                                            borderColor: '#4caf50',
+                                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                            tension: 0.4
+                                        },
+                                        {
+                                            label: 'Expenses',
+                                            data: analysisData.monthlyData.map(m => m.expenses),
+                                            borderColor: '#f44336',
+                                            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                            tension: 0.4
+                                        },
+                                        {
+                                            label: 'Cash Flow',
+                                            data: analysisData.monthlyData.map(m => m.cashFlow),
+                                            borderColor: '#2196F3',
+                                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                                            tension: 0.4
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: true,
+                                    plugins: {
+                                        legend: {
+                                            position: 'bottom'
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: {
+                                                callback: function(value) {
+                                                    return '$' + value.toLocaleString();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }, 100);
+                }
+            } catch (err) {
+                console.error('View apartment details error:', err);
+                showAlert('Failed to load property details: ' + err.message, 'error');
+            }
+        }
+        
+        /**
+         * Close apartment details modal
+         */
+        function closeApartmentModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            
+            const modal = document.getElementById('apartmentDetailsModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        /**
+         * Get goal type label
+         */
+        function getGoalLabel(goalType) {
+            switch (goalType) {
+                case 'breakeven': return 'Break Even (Cash Flow)';
+                case 'breakeven-excluding-principal': return 'Break Even (Excluding Principal)';
+                case 'profit': return 'Target Monthly Profit';
+                default: return goalType;
+            }
+        }
+        
+        /**
+         * Manage apartment expenses (placeholder - to be implemented)
+         */
+        function manageApartmentExpenses(apartmentId) {
+            closeApartmentModal();
+            showAlert('Expense management UI coming soon! For now, you can add expenses via the edit form.', 'info');
+            editApartment(apartmentId);
+        }
+        
+        /**
+         * Manage apartment income (placeholder - to be implemented)
+         */
+        function manageApartmentIncome(apartmentId) {
+            closeApartmentModal();
+            showAlert('Income management UI coming soon! For now, you can add income via the edit form.', 'info');
+            editApartment(apartmentId);
+        }
+        
+        /**
+         * Format currency
+         */
+        function formatCurrency(value) {
+            return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        
+        /**
+         * Format date
+         */
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+        
+        /**
+         * Escape HTML
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         // Demo Finance Functions
