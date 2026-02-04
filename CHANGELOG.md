@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
 
+## [2.6.16] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #433 from spospordo/copilot/fix-calendar-widget-holiday-bug
+  - Add visual demonstration of calendar fix
+  - Address code review feedback: rename function and improve warning message
+  - Add test for calendar object property handling
+  - Fix calendar widget: handle object-type event properties
+  - Initial plan
+
+
 ## [2.6.15] - 2026-02-04
 
 ### Patch Update
