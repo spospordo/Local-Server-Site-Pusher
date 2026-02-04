@@ -835,6 +835,25 @@ function getPublicConfig(orientation = null) {
   return publicConfig;
 }
 
+/**
+ * Helper function to extract string value from iCal properties
+ * node-ical can return properties as either strings or objects with a 'val' property
+ * This is particularly common with holiday calendars
+ */
+function _extractICalStringValue(property) {
+  if (!property) return '';
+  if (typeof property === 'string') return property;
+  if (typeof property === 'object' && property.val) return String(property.val);
+  if (typeof property === 'object') {
+    // Some implementations use 'value' instead of 'val'
+    if (property.value !== undefined) return String(property.value);
+    // If it's an object but we can't extract a value, return empty string to avoid [object Object]
+    logger.warning(logger.categories.SMART_MIRROR, `Unexpected iCal property format (event may display incorrectly): ${JSON.stringify(property)}`);
+    return '';
+  }
+  return String(property);
+}
+
 // Fetch calendar events from ICS feed with server-side caching
 async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
   logger.debug(logger.categories.SMART_MIRROR, `Fetching calendar events from ${calendarUrls.length} feeds (forceRefresh: ${forceRefresh})`);
@@ -960,11 +979,11 @@ async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
             const daysFromNow = Math.floor((startDate - nowDate) / (1000 * 60 * 60 * 24));
             if (daysFromNow <= 30) {
               upcomingEvents.push({
-                title: event.summary || 'Untitled Event',
+                title: _extractICalStringValue(event.summary) || 'Untitled Event',
                 start: startDate.toISOString(),
                 end: endDate ? endDate.toISOString() : null,
-                location: event.location || '',
-                description: event.description || '',
+                location: _extractICalStringValue(event.location) || '',
+                description: _extractICalStringValue(event.description) || '',
                 daysFromNow,
                 isAllDay
               });
