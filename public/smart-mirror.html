@@ -574,6 +574,130 @@
             color: #666; /* Darker gray for light theme */
         }
 
+        /* Air Quality Widget */
+        .air-quality-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            gap: 8px;
+        }
+
+        .air-quality-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .air-quality-aqi {
+            font-size: 2.5rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .air-quality-label {
+            font-size: 1rem;
+            font-weight: 500;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .air-quality-forecast {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+
+        .air-quality-day {
+            text-align: center;
+        }
+
+        .air-quality-day-label {
+            opacity: 0.6;
+            font-size: 0.75rem;
+            margin-bottom: 3px;
+        }
+
+        .air-quality-day-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .air-quality-temp {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+
+        /* Favorable conditions highlight */
+        .widget.air-quality-favorable {
+            background: rgba(76, 175, 80, 0.2) !important;
+            border: 2px solid rgba(76, 175, 80, 0.6) !important;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .widget.air-quality-favorable {
+            background: rgba(76, 175, 80, 0.15) !important;
+            border: 2px solid rgba(76, 175, 80, 0.8) !important;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(76, 175, 80, 0.6);
+            }
+        }
+
+        /* AQI color coding */
+        .aqi-good {
+            color: #4CAF50;
+        }
+
+        .aqi-fair {
+            color: #8BC34A;
+        }
+
+        .aqi-moderate {
+            color: #FFC107;
+        }
+
+        .aqi-poor {
+            color: #FF9800;
+        }
+
+        .aqi-very-poor {
+            color: #F44336;
+        }
+
+        /* Responsive sizing for compact widget */
+        .widget[data-grid-width="1"] .air-quality-aqi {
+            font-size: 2rem;
+        }
+
+        .widget[data-grid-width="1"] .air-quality-label {
+            font-size: 0.8rem;
+        }
+
+        .widget[data-grid-width="1"] .air-quality-forecast {
+            font-size: 0.7rem;
+            gap: 10px;
+        }
+
+        .widget[data-grid-height="1"] .air-quality-aqi {
+            font-size: 2rem;
+        }
+
+        .widget[data-grid-height="1"] .air-quality-label {
+            font-size: 0.8rem;
+        }
+
         /* News Widget */
         .news-items {
             width: 100%;
@@ -1120,7 +1244,8 @@
                 forecast: '🌦️ Forecast',
                 news: '📰 News',
                 media: '🎵 Now Playing',
-                vacation: '✈️ Upcoming Vacation'
+                vacation: '✈️ Upcoming Vacation',
+                airQuality: '🌬️ Air Quality'
             };
             return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -1163,6 +1288,9 @@
                     break;
                 case 'vacation':
                     updateVacationWidget(content, widgetConfig);
+                    break;
+                case 'airQuality':
+                    updateAirQualityWidget(content, widgetConfig);
                     break;
                 case 'smartWidget':
                     updateSmartWidget(content, widgetConfig);
@@ -2066,6 +2194,156 @@
                 msgDiv.textContent = error.message || 'Error loading vacation data';
                 errorDiv.appendChild(msgDiv);
                 
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+        
+        // Update air quality widget
+        async function updateAirQualityWidget(content, widgetConfig) {
+            try {
+                const response = await fetch('/api/smart-mirror/air-quality');
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    const aq = data.data;
+                    
+                    // Clear content
+                    content.innerHTML = '';
+                    
+                    // Create container
+                    const container = document.createElement('div');
+                    container.className = 'air-quality-container';
+                    
+                    // Get AQI color class
+                    const getAqiClass = (aqi) => {
+                        const classes = {
+                            1: 'aqi-good',
+                            2: 'aqi-fair',
+                            3: 'aqi-moderate',
+                            4: 'aqi-poor',
+                            5: 'aqi-very-poor'
+                        };
+                        return classes[aqi] || '';
+                    };
+                    
+                    // Get AQI icon
+                    const getAqiIcon = (aqi) => {
+                        const icons = {
+                            1: '😊',
+                            2: '🙂',
+                            3: '😐',
+                            4: '😷',
+                            5: '🤢'
+                        };
+                        return icons[aqi] || '🌬️';
+                    };
+                    
+                    // Icon
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'air-quality-icon';
+                    iconDiv.textContent = getAqiIcon(aq.current.aqi);
+                    container.appendChild(iconDiv);
+                    
+                    // Current AQI
+                    const aqiDiv = document.createElement('div');
+                    aqiDiv.className = `air-quality-aqi ${getAqiClass(aq.current.aqi)}`;
+                    aqiDiv.textContent = aq.current.aqi;
+                    container.appendChild(aqiDiv);
+                    
+                    // Label
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = `air-quality-label ${getAqiClass(aq.current.aqi)}`;
+                    labelDiv.textContent = aq.current.label;
+                    container.appendChild(labelDiv);
+                    
+                    // Forecast (Today and Tomorrow)
+                    const forecastDiv = document.createElement('div');
+                    forecastDiv.className = 'air-quality-forecast';
+                    
+                    // Today
+                    const todayDiv = document.createElement('div');
+                    todayDiv.className = 'air-quality-day';
+                    
+                    const todayLabelDiv = document.createElement('div');
+                    todayLabelDiv.className = 'air-quality-day-label';
+                    todayLabelDiv.textContent = 'Today';
+                    todayDiv.appendChild(todayLabelDiv);
+                    
+                    const todayValueDiv = document.createElement('div');
+                    todayValueDiv.className = `air-quality-day-value ${getAqiClass(aq.today.aqi)}`;
+                    todayValueDiv.textContent = aq.today.label;
+                    todayDiv.appendChild(todayValueDiv);
+                    
+                    forecastDiv.appendChild(todayDiv);
+                    
+                    // Tomorrow
+                    if (aq.tomorrow) {
+                        const tomorrowDiv = document.createElement('div');
+                        tomorrowDiv.className = 'air-quality-day';
+                        
+                        const tomorrowLabelDiv = document.createElement('div');
+                        tomorrowLabelDiv.className = 'air-quality-day-label';
+                        tomorrowLabelDiv.textContent = 'Tomorrow';
+                        tomorrowDiv.appendChild(tomorrowLabelDiv);
+                        
+                        const tomorrowValueDiv = document.createElement('div');
+                        tomorrowValueDiv.className = `air-quality-day-value ${getAqiClass(aq.tomorrow.aqi)}`;
+                        tomorrowValueDiv.textContent = aq.tomorrow.label;
+                        tomorrowDiv.appendChild(tomorrowValueDiv);
+                        
+                        forecastDiv.appendChild(tomorrowDiv);
+                    }
+                    
+                    container.appendChild(forecastDiv);
+                    
+                    // Temperature info
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = 'air-quality-temp';
+                    const tempUnit = aq.units === 'imperial' ? 'F' : 'C';
+                    tempDiv.textContent = `Current: ${aq.currentTemp}°${tempUnit}`;
+                    container.appendChild(tempDiv);
+                    
+                    content.appendChild(container);
+                    
+                    // Apply favorable conditions highlight if enabled
+                    if (aq.highlightEnabled && aq.isFavorable) {
+                        const widget = content.closest('.widget');
+                        if (widget) {
+                            widget.classList.add('air-quality-favorable');
+                        }
+                    } else {
+                        // Remove highlight if not favorable
+                        const widget = content.closest('.widget');
+                        if (widget) {
+                            widget.classList.remove('air-quality-favorable');
+                        }
+                    }
+                    
+                } else if (data.error) {
+                    const errorContainer = document.createElement('div');
+                    errorContainer.style.opacity = '0.6';
+                    errorContainer.style.textAlign = 'center';
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.style.fontSize = '2rem';
+                    iconDiv.style.marginBottom = '10px';
+                    iconDiv.textContent = '⚠️';
+                    errorContainer.appendChild(iconDiv);
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = data.error;
+                    errorContainer.appendChild(msgDiv);
+                    
+                    content.innerHTML = '';
+                    content.appendChild(errorContainer);
+                }
+            } catch (error) {
+                console.error('Error fetching air quality:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.style.opacity = '0.6';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.textContent = 'Error loading air quality';
                 content.innerHTML = '';
                 content.appendChild(errorDiv);
             }

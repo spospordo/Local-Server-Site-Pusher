@@ -149,6 +149,18 @@ function getDefaultWidgets() {
       feedUrls: [],
       days: 5
     },
+    airQuality: {
+      enabled: false,
+      area: 'bottom-right',
+      size: 'small',
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      highlightFavorableConditions: true, // Highlight when AQI is good and temp <= 75°F
+      calendarUrls: [],
+      feedUrls: [],
+      days: 5
+    },
     smartWidget: {
       enabled: false,
       area: 'middle-center',
@@ -186,6 +198,7 @@ function getDefaultPortraitLayout() {
     news: { x: 2, y: 2, width: 2, height: 2 },
     media: { x: 0, y: 4, width: 4, height: 2 },
     vacation: { x: 2, y: 4, width: 2, height: 2 },
+    airQuality: { x: 0, y: 4, width: 1, height: 1 },
     smartWidget: { x: 0, y: 2, width: 4, height: 2 }
   };
 }
@@ -197,6 +210,7 @@ function getDefaultLandscapeLayout() {
     clock: { x: 0, y: 0, width: 2, height: 1 },
     calendar: { x: 2, y: 0, width: 4, height: 3 },
     weather: { x: 6, y: 0, width: 2, height: 1 },
+    airQuality: { x: 6, y: 1, width: 1, height: 1 },
     news: { x: 0, y: 1, width: 2, height: 2 },
     forecast: { x: 0, y: 3, width: 8, height: 1 },
     media: { x: 6, y: 1, width: 2, height: 2 },
@@ -1408,6 +1422,131 @@ async function fetchWeatherForDate(apiKey, location, targetDate, units = 'imperi
   }
 }
 
+// Fetch air quality data from OpenWeatherMap Air Pollution API
+async function fetchAirQuality(apiKey, location, units = 'imperial') {
+  logger.debug(logger.categories.SMART_MIRROR, 'Fetching air quality data');
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for air quality';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  try {
+    // First, get coordinates for the location
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${apiKey}`;
+    const geoResponse = await axios.get(geoUrl, { timeout: 10000 });
+    
+    if (!geoResponse.data || geoResponse.data.length === 0) {
+      throw new Error('Location not found');
+    }
+    
+    const { lat, lon, name, country } = geoResponse.data[0];
+    
+    // Fetch current air quality
+    const currentAqUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    const currentResponse = await axios.get(currentAqUrl, { timeout: 10000 });
+    const currentData = currentResponse.data.list[0];
+    
+    // Fetch air quality forecast (5 days)
+    const forecastAqUrl = `https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    const forecastResponse = await axios.get(forecastAqUrl, { timeout: 10000 });
+    const forecastData = forecastResponse.data.list;
+    
+    // Get current weather for temperature check
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=${units}`;
+    const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
+    const currentTemp = Math.round(weatherResponse.data.main.temp);
+    
+    // Process current AQI
+    const currentAqi = currentData.main.aqi;
+    const currentComponents = currentData.components;
+    
+    // Get today and tomorrow's forecast (average of readings)
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+    
+    // Filter forecast data for today and tomorrow
+    const todayData = forecastData.filter(item => {
+      const itemDate = new Date(item.dt * 1000);
+      return itemDate >= today && itemDate < tomorrow;
+    });
+    
+    const tomorrowData = forecastData.filter(item => {
+      const itemDate = new Date(item.dt * 1000);
+      return itemDate >= tomorrow && itemDate < dayAfterTomorrow;
+    });
+    
+    // Calculate average AQI for today and tomorrow
+    const todayAqi = todayData.length > 0 
+      ? Math.round(todayData.reduce((sum, item) => sum + item.main.aqi, 0) / todayData.length)
+      : currentAqi;
+    
+    const tomorrowAqi = tomorrowData.length > 0
+      ? Math.round(tomorrowData.reduce((sum, item) => sum + item.main.aqi, 0) / tomorrowData.length)
+      : null;
+    
+    // AQI classification (1-5 scale from OpenWeatherMap)
+    const getAqiLabel = (aqi) => {
+      const labels = {
+        1: 'Good',
+        2: 'Fair',
+        3: 'Moderate',
+        4: 'Poor',
+        5: 'Very Poor'
+      };
+      return labels[aqi] || 'Unknown';
+    };
+    
+    const airQualityData = {
+      location: name,
+      country: country,
+      coordinates: { lat, lon },
+      current: {
+        aqi: currentAqi,
+        label: getAqiLabel(currentAqi),
+        components: {
+          co: currentComponents.co,
+          no: currentComponents.no,
+          no2: currentComponents.no2,
+          o3: currentComponents.o3,
+          so2: currentComponents.so2,
+          pm2_5: currentComponents.pm2_5,
+          pm10: currentComponents.pm10,
+          nh3: currentComponents.nh3
+        }
+      },
+      today: {
+        aqi: todayAqi,
+        label: getAqiLabel(todayAqi)
+      },
+      tomorrow: tomorrowAqi ? {
+        aqi: tomorrowAqi,
+        label: getAqiLabel(tomorrowAqi)
+      } : null,
+      currentTemp: currentTemp,
+      units: units,
+      // Determine if conditions are favorable (good AQI and temp <= 75°F or 24°C)
+      isFavorable: currentAqi === 1 && (
+        (units === 'imperial' && currentTemp <= 75) ||
+        (units === 'metric' && currentTemp <= 24)
+      )
+    };
+    
+    logger.success(logger.categories.SMART_MIRROR, `Air quality data fetched successfully for ${name}`);
+    return { success: true, data: airQualityData };
+  } catch (err) {
+    const errorMsg = `Failed to fetch air quality: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 // Fetch Home Assistant media player state
 async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
@@ -2087,6 +2226,7 @@ module.exports = {
   fetchWeather,
   fetchForecast,
   fetchWeatherForDate,
+  fetchAirQuality,
   fetchHomeAssistantMedia,
   fetchLocationTimezone,
   testWeatherConnection,
