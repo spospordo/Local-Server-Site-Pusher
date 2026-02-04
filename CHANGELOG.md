@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.25] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #451 from spospordo/copilot/extend-party-scheduling-feature
+  - Fix ID generation to prevent collisions in rapid party creation
+  - Complete multi-party scheduling implementation with full testing
+  - Add multi-party frontend UI with party selector and management
+  - Add multi-party backend API and migration logic
+  - Initial plan
+
+
 ## [2.6.24] - 2026-02-04
 
 ### Patch Update
