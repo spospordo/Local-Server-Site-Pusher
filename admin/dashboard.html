@@ -6208,16 +6208,21 @@
             const titleElement = header.querySelector('.collapsible-title');
             if (titleElement) {
                 // Use text content to create a stable key (remove emojis and special chars, trim spaces)
-                return titleElement.textContent.trim()
+                const baseKey = titleElement.textContent.trim()
                     .replace(/[^\w\s]/gi, '')
                     .replace(/\s+/g, '-')
                     .toLowerCase();
+                
+                // Add position as suffix to ensure uniqueness for sections with same title
+                const allHeaders = Array.from(document.querySelectorAll('.collapsible-header'));
+                const index = allHeaders.indexOf(header);
+                return index >= 0 ? `${baseKey}-${index}` : baseKey;
             }
             
             // Fallback: use position in document as stable identifier
             const allHeaders = Array.from(document.querySelectorAll('.collapsible-header'));
             const index = allHeaders.indexOf(header);
-            return index >= 0 ? `section-index-${index}` : 'section-unknown';
+            return index >= 0 ? `section-index-${index}` : `section-unknown-${Date.now()}`;
         }
         
         function toggleCollapsible(sectionIdOrElement) {
@@ -6372,9 +6377,10 @@
                 }
                 
                 // Ensure click handler is attached (for sections with addEventListener)
-                // Skip if onclick is already set in HTML
-                if (!header.hasAttribute('onclick')) {
+                // Skip if onclick is already set in HTML or listener already attached
+                if (!header.hasAttribute('onclick') && !header.dataset.listenerAttached) {
                     header.addEventListener('click', () => toggleCollapsible(header));
+                    header.dataset.listenerAttached = 'true';
                 }
             });
 
