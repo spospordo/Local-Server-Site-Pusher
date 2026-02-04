@@ -6576,7 +6576,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'upcomingVacation':
-            // Get next vacation from house module
+            // Get upcoming vacations from house module
             const vacationData = house.getVacationData();
             if (vacationData.dates && vacationData.dates.length > 0) {
               const today = new Date();
@@ -6588,19 +6588,24 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
               
               if (upcomingVacations.length > 0) {
-                const nextVacation = upcomingVacations[0];
-                const startDate = new Date(nextVacation.startDate);
-                const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                // Return all upcoming vacations (up to 3) with their details
+                const vacationsToShow = upcomingVacations.slice(0, 3).map(vacation => {
+                  const startDate = new Date(vacation.startDate);
+                  const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                  return {
+                    destination: vacation.destination,
+                    startDate: vacation.startDate,
+                    endDate: vacation.endDate,
+                    daysUntil: daysUntil
+                  };
+                });
                 
                 subWidgetData = {
                   type: 'upcomingVacation',
                   priority: subWidget.priority,
                   hasContent: true,
                   data: {
-                    destination: nextVacation.destination,
-                    startDate: nextVacation.startDate,
-                    endDate: nextVacation.endDate,
-                    daysUntil: daysUntil
+                    vacations: vacationsToShow
                   }
                 };
               }

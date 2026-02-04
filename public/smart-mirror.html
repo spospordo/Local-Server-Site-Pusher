@@ -2258,43 +2258,59 @@
             container.className = 'vacation-widget';
             container.style.textAlign = 'center';
             
-            const iconDiv = document.createElement('div');
-            iconDiv.style.fontSize = '2.5rem';
-            iconDiv.style.marginBottom = '10px';
-            iconDiv.textContent = '✈️';
-            container.appendChild(iconDiv);
+            // Handle multiple vacations
+            const vacations = data.vacations || [data];
             
-            const destDiv = document.createElement('div');
-            destDiv.style.fontSize = '1.2rem';
-            destDiv.style.fontWeight = '600';
-            destDiv.style.marginBottom = '8px';
-            destDiv.textContent = data.destination;
-            container.appendChild(destDiv);
+            // Header with icon
+            const headerDiv = document.createElement('div');
+            headerDiv.style.fontSize = '2.5rem';
+            headerDiv.style.marginBottom = '10px';
+            headerDiv.textContent = '✈️';
+            container.appendChild(headerDiv);
             
-            const daysDiv = document.createElement('div');
-            daysDiv.style.fontSize = '1rem';
-            daysDiv.style.marginBottom = '5px';
-            
-            if (data.daysUntil === 0) {
-                daysDiv.textContent = 'Starts Today!';
-                daysDiv.style.color = '#4CAF50';
-            } else if (data.daysUntil === 1) {
-                daysDiv.textContent = 'Tomorrow';
-            } else {
-                daysDiv.textContent = `In ${data.daysUntil} days`;
-            }
-            container.appendChild(daysDiv);
-            
-            const dateDiv = document.createElement('div');
-            dateDiv.style.fontSize = '0.9rem';
-            dateDiv.style.opacity = '0.8';
-            const startDate = new Date(data.startDate);
-            dateDiv.textContent = startDate.toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric',
-                year: 'numeric'
+            // Display each vacation
+            vacations.forEach((vacation, index) => {
+                const vacationDiv = document.createElement('div');
+                vacationDiv.style.marginBottom = index < vacations.length - 1 ? '15px' : '0';
+                vacationDiv.style.paddingBottom = index < vacations.length - 1 ? '15px' : '0';
+                if (index < vacations.length - 1) {
+                    vacationDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.2)';
+                }
+                
+                const destDiv = document.createElement('div');
+                destDiv.style.fontSize = '1.2rem';
+                destDiv.style.fontWeight = '600';
+                destDiv.style.marginBottom = '8px';
+                destDiv.textContent = vacation.destination;
+                vacationDiv.appendChild(destDiv);
+                
+                const daysDiv = document.createElement('div');
+                daysDiv.style.fontSize = '1rem';
+                daysDiv.style.marginBottom = '5px';
+                
+                if (vacation.daysUntil === 0) {
+                    daysDiv.textContent = 'Starts Today!';
+                    daysDiv.style.color = '#4CAF50';
+                } else if (vacation.daysUntil === 1) {
+                    daysDiv.textContent = 'Tomorrow';
+                } else {
+                    daysDiv.textContent = `In ${vacation.daysUntil} days`;
+                }
+                vacationDiv.appendChild(daysDiv);
+                
+                const dateDiv = document.createElement('div');
+                dateDiv.style.fontSize = '0.9rem';
+                dateDiv.style.opacity = '0.8';
+                const startDate = new Date(vacation.startDate);
+                dateDiv.textContent = startDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                vacationDiv.appendChild(dateDiv);
+                
+                container.appendChild(vacationDiv);
             });
-            container.appendChild(dateDiv);
             
             return container;
         }
