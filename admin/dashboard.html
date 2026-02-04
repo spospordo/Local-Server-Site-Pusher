@@ -4407,6 +4407,96 @@
                                 Only the API credentials are centralized here for easier management.
                             </p>
                         </div>
+
+                        <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 30px;"></div>
+
+                        <h4 style="margin-bottom: 15px;">✈️ AviationStack Flight API</h4>
+                        <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
+                            This API is used for flight tracking in the Vacation Widget. It provides real-time flight status, delays, gate information, and more.
+                            Get a free API key at <a href="https://aviationstack.com/" target="_blank" style="color: #667eea;">aviationstack.com</a> (Free tier: 100 API calls/month).
+                        </p>
+
+                        <div class="form-group">
+                            <label for="flightApiKey">AviationStack API Key</label>
+                            <input type="password" id="flightApiKey" placeholder="Enter your AviationStack API key">
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Required for automatic flight tracking and validation
+                            </small>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="flightApiEnabled">Enable Flight API</label>
+                                <select id="flightApiEnabled">
+                                    <option value="false">Disabled</option>
+                                    <option value="true">Enabled</option>
+                                </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Enable to use real-time flight tracking
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="flightApiMonthlyLimit">Monthly API Call Limit</label>
+                                <input type="number" id="flightApiMonthlyLimit" value="100" min="1">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Free tier: 100 calls/month (adjust if you have a paid plan)
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="button" class="btn-test-connection" onclick="testFlightApiConnection()">
+                                🔍 Test AviationStack Connection
+                            </button>
+                            <div id="flightApiTestResult" class="test-result-container" style="display: none; margin-top: 10px;">
+                                <div class="test-result-content"></div>
+                            </div>
+                        </div>
+
+                        <div id="flightApiUsage" style="background: #f0f7ff; border-left: 4px solid #3b82f6; padding: 15px; margin-top: 15px; border-radius: 5px; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <strong style="color: #333;">📊 API Usage This Month</strong>
+                                <button type="button" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85rem;" onclick="refreshFlightApiUsage()">
+                                    🔄 Refresh
+                                </button>
+                            </div>
+                            <div style="margin: 10px 0;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span id="flightApiUsageCalls" style="color: #666;">Loading...</span>
+                                    <span id="flightApiUsagePercent" style="color: #666;">--%</span>
+                                </div>
+                                <div style="background: #e0e0e0; height: 8px; border-radius: 4px; overflow: hidden;">
+                                    <div id="flightApiUsageBar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            <div id="flightApiUsageWarning" style="display: none; margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e;">
+                                ⚠️ <strong>Warning:</strong> You're approaching your monthly API limit. Flight updates may be limited.
+                            </div>
+                        </div>
+
+                        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-top: 20px; border-radius: 5px;">
+                            <strong style="color: #333;">ℹ️ Rate Limiting & Update Schedule</strong>
+                            <p style="margin: 8px 0 0 0; color: #666; font-size: 0.95rem;">
+                                To respect the free tier's 100 calls/month limit, flight data is automatically updated on this schedule:
+                            </p>
+                            <ul style="margin: 10px 0 0 20px; color: #666; font-size: 0.95rem;">
+                                <li><strong>Default:</strong> Once per day at 7am for all tracked flights</li>
+                                <li><strong>3 days before flight:</strong> 3x daily (7am, noon, 5pm)</li>
+                                <li><strong>Final 6 hours:</strong> Hourly updates for real-time tracking</li>
+                            </ul>
+                            <p style="margin: 10px 0 0 0; color: #666; font-size: 0.95rem;">
+                                Flight data is cached between updates to minimize API calls. You can manually trigger an update from the tracked flights list below.
+                            </p>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 20px;">
+                            <button type="button" class="btn-secondary" onclick="viewTrackedFlights()">
+                                📋 View Tracked Flights & Schedule
+                            </button>
+                            <div id="trackedFlightsList" class="test-result-container" style="display: none; margin-top: 10px;">
+                                <div class="test-result-content"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -11842,6 +11932,22 @@
                     document.getElementById('centralWeatherLocation').value = defaultLocation;
                     document.getElementById('centralWeatherUnits').value = defaultUnits;
                     
+                    // Load Flight API configuration
+                    const flightApi = config.flightApi || {};
+                    const flightApiKeyInput = document.getElementById('flightApiKey');
+                    if (flightApi.apiKey) {
+                        flightApiKeyInput.placeholder = '••••••••••••••••••••••••• (API key is set - leave blank to keep current)';
+                        flightApiKeyInput.dataset.hasKey = 'true';
+                        // Show usage stats if API key exists
+                        document.getElementById('flightApiUsage').style.display = 'block';
+                        refreshFlightApiUsage();
+                    } else {
+                        flightApiKeyInput.placeholder = 'Enter your AviationStack API key';
+                        flightApiKeyInput.dataset.hasKey = 'false';
+                    }
+                    document.getElementById('flightApiEnabled').value = flightApi.enabled ? 'true' : 'false';
+                    document.getElementById('flightApiMonthlyLimit').value = flightApi.monthlyLimit || 100;
+                    
                     // Get layouts (use old format as fallback)
                     const portraitLayout = config.layouts?.portrait || {};
                     const landscapeLayout = config.layouts?.landscape || {};
@@ -12325,6 +12431,15 @@
                             longitude: parseFloat(document.getElementById('autoThemeLandscapeLon').value) || null,
                             timezone: document.getElementById('autoThemeLandscapeTimezone').value
                         }
+                    },
+                    flightApi: {
+                        provider: 'aviationstack',
+                        apiKey: preserveApiKey(
+                            document.getElementById('flightApiKey').value,
+                            currentConfig?.flightApi?.apiKey
+                        ),
+                        enabled: document.getElementById('flightApiEnabled').value === 'true',
+                        monthlyLimit: parseInt(document.getElementById('flightApiMonthlyLimit').value) || 100
                     }
                 };
                 
@@ -12639,6 +12754,213 @@
                     error: 'Request Failed',
                     message: 'Failed to test weather connection: ' + error.message
                 });
+            }
+        }
+        
+        // Test Flight API connection
+        async function testFlightApiConnection() {
+            const apiKey = document.getElementById('flightApiKey').value.trim();
+            const containerId = 'flightApiTestResult';
+            
+            if (!apiKey) {
+                displayTestResult(containerId, {
+                    success: false,
+                    error: 'Missing Information',
+                    message: 'Please enter an API key before testing.'
+                });
+                return;
+            }
+            
+            // Show loading state
+            displayTestResult(containerId, {
+                loading: true,
+                message: 'Connecting to AviationStack API...'
+            });
+            
+            try {
+                const response = await fetch('/admin/api/flight-api/test-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ apiKey })
+                });
+                
+                const result = await response.json();
+                displayTestResult(containerId, result);
+                
+                // If successful, show usage stats and refresh them
+                if (result.success) {
+                    document.getElementById('flightApiUsage').style.display = 'block';
+                    await refreshFlightApiUsage();
+                }
+            } catch (error) {
+                displayTestResult(containerId, {
+                    success: false,
+                    error: 'Request Failed',
+                    message: 'Failed to test Flight API connection: ' + error.message
+                });
+            }
+        }
+        
+        // Refresh Flight API usage statistics
+        async function refreshFlightApiUsage() {
+            try {
+                const response = await fetch('/admin/api/flight-api/usage');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const usage = result.usage;
+                    const percentUsed = usage.percentUsed || 0;
+                    const callsText = `${usage.callsThisMonth} / ${usage.monthlyLimit} calls used`;
+                    const percentText = `${percentUsed}%`;
+                    
+                    document.getElementById('flightApiUsageCalls').textContent = callsText;
+                    document.getElementById('flightApiUsagePercent').textContent = percentText;
+                    document.getElementById('flightApiUsageBar').style.width = percentUsed + '%';
+                    
+                    // Change color based on usage
+                    const usageBar = document.getElementById('flightApiUsageBar');
+                    if (percentUsed >= 90) {
+                        usageBar.style.background = '#dc2626'; // red
+                        document.getElementById('flightApiUsageWarning').style.display = 'block';
+                    } else if (percentUsed >= 75) {
+                        usageBar.style.background = '#f59e0b'; // orange
+                        document.getElementById('flightApiUsageWarning').style.display = 'block';
+                    } else {
+                        usageBar.style.background = '#3b82f6'; // blue
+                        document.getElementById('flightApiUsageWarning').style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to refresh Flight API usage:', error);
+            }
+        }
+        
+        // View tracked flights and their update schedules
+        async function viewTrackedFlights() {
+            const containerId = 'trackedFlightsList';
+            const container = document.getElementById(containerId);
+            
+            // Show loading state
+            container.style.display = 'block';
+            container.querySelector('.test-result-content').innerHTML = `
+                <div style="padding: 15px; text-align: center;">
+                    <div class="loading-spinner"></div>
+                    <p style="margin-top: 10px; color: #666;">Loading tracked flights...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/admin/api/flight-api/tracked-flights');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const flights = result.flights;
+                    
+                    if (flights.length === 0) {
+                        container.querySelector('.test-result-content').innerHTML = `
+                            <div style="padding: 15px; background: #f0f7ff; border-radius: 5px;">
+                                <p style="margin: 0; color: #666;">
+                                    ℹ️ No flights are currently being tracked. Add flights to vacations and enable flight tracking to see them here.
+                                </p>
+                            </div>
+                        `;
+                    } else {
+                        let html = `
+                            <div style="padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <strong style="color: #333;">Currently Tracking ${flights.length} Flight(s)</strong>
+                                    <button type="button" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85rem;" onclick="manualFlightUpdate()">
+                                        🔄 Update All Now
+                                    </button>
+                                </div>
+                                <div style="max-height: 400px; overflow-y: auto;">
+                        `;
+                        
+                        for (const flight of flights) {
+                            const frequencyText = flight.updateFrequency === 'hourly' ? 'Hourly (within 6 hours)' :
+                                                  flight.updateFrequency === 'thriceDaily' ? '3x Daily (within 3 days)' :
+                                                  flight.updateFrequency === 'daily' ? 'Daily at 7am' : 'No updates';
+                            
+                            const frequencyColor = flight.updateFrequency === 'hourly' ? '#dc2626' :
+                                                   flight.updateFrequency === 'thriceDaily' ? '#f59e0b' : '#3b82f6';
+                            
+                            html += `
+                                <div style="background: #f8f9fa; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid ${frequencyColor};">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div>
+                                            <strong style="color: #333;">✈️ ${flight.flightIata}</strong>
+                                            <div style="color: #666; font-size: 0.9rem; margin-top: 4px;">
+                                                📅 ${flight.date}
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <span style="background: ${frequencyColor}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem;">
+                                                ${frequencyText}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                        
+                        container.querySelector('.test-result-content').innerHTML = html;
+                    }
+                } else {
+                    container.querySelector('.test-result-content').innerHTML = `
+                        <div style="padding: 15px; background: #fee; border-radius: 5px;">
+                            <p style="margin: 0; color: #c00;">
+                                ❌ Failed to load tracked flights: ${result.error}
+                            </p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.querySelector('.test-result-content').innerHTML = `
+                    <div style="padding: 15px; background: #fee; border-radius: 5px;">
+                        <p style="margin: 0; color: #c00;">
+                            ❌ Request failed: ${error.message}
+                        </p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Manually trigger flight data update
+        async function manualFlightUpdate(event) {
+            // Show loading indicator
+            const originalContent = event.target.innerHTML;
+            event.target.innerHTML = '🔄 Updating...';
+            event.target.disabled = true;
+            
+            try {
+                const response = await fetch('/admin/api/flight-api/manual-update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Flight data updated successfully!');
+                    // Refresh the usage stats
+                    await refreshFlightApiUsage();
+                } else {
+                    alert('❌ Failed to update flight data: ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ Request failed: ' + error.message);
+            } finally {
+                event.target.innerHTML = originalContent;
+                event.target.disabled = false;
             }
         }
         

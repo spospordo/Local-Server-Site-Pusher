@@ -254,6 +254,12 @@ function getDefaultConfig() {
         longitude: null,
         timezone: 'America/New_York'
       }
+    },
+    flightApi: {
+      provider: 'aviationstack',
+      apiKey: '',
+      enabled: false,
+      monthlyLimit: 100
     }
   };
 }

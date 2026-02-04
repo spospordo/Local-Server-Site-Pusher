@@ -19,6 +19,8 @@ const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
 const house = require('./modules/house');
+const aviationstack = require('./modules/aviationstack');
+const flightScheduler = require('./modules/flight-scheduler');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -703,6 +705,9 @@ publicFilesRegenerator.init(config);
 
 // Initialize house module
 house.init(config);
+
+// Initialize flight scheduler
+flightScheduler.initScheduler();
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
@@ -6031,6 +6036,111 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   }
 });
 
+// Admin API endpoints for Flight API (AviationStack) management
+
+// Test Flight API connection
+app.post('/admin/api/flight-api/test-connection', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Flight API connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { apiKey } = req.body;
+    
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'API key is required'
+      });
+    }
+    
+    // Test the connection
+    const result = await aviationstack.testConnection(apiKey);
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, 'Flight API connection test successful');
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `Flight API connection test failed: ${result.error}`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API connection test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test failed',
+      message: err.message
+    });
+  }
+});
+
+// Get Flight API usage statistics
+app.get('/admin/api/flight-api/usage', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight API usage statistics requested');
+  
+  try {
+    const stats = aviationstack.getUsageStats();
+    res.json({
+      success: true,
+      usage: stats
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API usage error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get usage statistics'
+    });
+  }
+});
+
+// Get tracked flights and their update schedules
+app.get('/admin/api/flight-api/tracked-flights', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Tracked flights list requested');
+  
+  try {
+    const flights = flightScheduler.getTrackedFlights();
+    res.json({
+      success: true,
+      flights: flights
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Tracked flights error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get tracked flights'
+    });
+  }
+});
+
+// Manually trigger flight data update
+app.post('/admin/api/flight-api/manual-update', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Manual flight update requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    await flightScheduler.manualUpdate();
+    res.json({
+      success: true,
+      message: 'Flight data update completed'
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Manual flight update error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update flight data'
+    });
+  }
+});
+
 // Admin API endpoints for calendar cache management
 
 // Get calendar cache status
@@ -6549,27 +6659,37 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
       });
     }
     
-    // Mock validation - in a real implementation, this would call a flight API
-    // For now, we'll accept any flight with proper format
-    const flightRegex = /^[A-Z]{2,3}\d{1,4}$/i;
-    if (!flightRegex.test(flightNumber)) {
+    // Get API key from config
+    const config = smartMirror.loadConfig();
+    const apiKey = config.flightApi?.apiKey;
+    
+    if (!apiKey) {
+      // Fall back to format validation if no API key configured
+      const flightRegex = /^[A-Z]{2,3}\d{1,4}$/i;
+      if (!flightRegex.test(flightNumber)) {
+        return res.json({
+          success: false,
+          error: 'Invalid flight number format. Expected format: AB123 or ABC1234'
+        });
+      }
+      
+      // Return basic validation success without API check
       return res.json({
-        success: false,
-        error: 'Invalid flight number format. Expected format: AB123 or ABC1234'
+        success: true,
+        message: 'Flight format validated (API key not configured for full validation)',
+        flightInfo: {
+          flightNumber: flightNumber.toUpperCase(),
+          airline: airline,
+          date: date,
+          validated: true,
+          limitedValidation: true
+        }
       });
     }
     
-    // Simulate successful validation
-    res.json({
-      success: true,
-      message: 'Flight validated successfully',
-      flightInfo: {
-        flightNumber: flightNumber.toUpperCase(),
-        airline: airline,
-        date: date,
-        validated: true
-      }
-    });
+    // Use real AviationStack API validation
+    const result = await aviationstack.validateFlight(apiKey, flightNumber, date);
+    res.json(result);
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Flight validation error: ${err.message}`);
     res.status(500).json({ success: false, error: 'Failed to validate flight' });
@@ -6633,45 +6753,48 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
       return res.json({ success: false, error: 'Vacation widget not enabled' });
     }
     
-    // Mock flight status - in a real implementation, this would call a flight tracking API
-    // For demonstration, we'll return simulated data
-    const flightDate = new Date(date);
-    flightDate.setHours(0, 0, 0, 0); // Normalize to start of day
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Normalize to start of day
-    const isPast = flightDate < now;
-    const timeDiff = flightDate - now;
-    const isSoon = timeDiff >= 0 && timeDiff < 2 * 24 * 60 * 60 * 1000; // Today or tomorrow
+    // First, try to get cached data from scheduler
+    const cachedData = flightScheduler.getFlightDataForDisplay(flightNumber, date);
     
-    // Simulate different statuses based on timing
-    let status = 'Scheduled';
-    let gate = null;
-    let terminal = null;
-    let departureTime = null;
-    let arrivalTime = null;
-    
-    if (isPast) {
-      status = 'Completed';
-    } else if (isSoon) {
-      status = Math.random() > 0.7 ? 'Delayed' : 'On Time';
-      gate = `${String.fromCharCode(65 + Math.floor(Math.random() * 5))}${Math.floor(Math.random() * 30) + 1}`;
-      terminal = Math.floor(Math.random() * 3) + 1;
-      departureTime = new Date(flightDate.getTime() + (Math.random() - 0.5) * 60 * 60 * 1000).toISOString();
+    if (cachedData) {
+      logger.debug(logger.categories.SMART_MIRROR, `Returning cached flight data for ${flightNumber}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true
+      });
     }
     
+    // If no cached data and API key available, fetch live
+    const apiKey = config.flightApi?.apiKey;
+    if (apiKey) {
+      logger.debug(logger.categories.SMART_MIRROR, `Fetching live flight data for ${flightNumber}`);
+      const result = await aviationstack.getFlightStatus(apiKey, flightNumber, date);
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          data: result.flightStatus,
+          cached: false
+        });
+      }
+    }
+    
+    // Fallback: Return basic status information
+    logger.warning(logger.categories.SMART_MIRROR, `No flight data available for ${flightNumber}, returning basic status`);
     res.json({
       success: true,
       data: {
         flightNumber: flightNumber.toUpperCase(),
         airline: airline,
         date: date,
-        status: status,
-        gate: gate,
-        terminal: terminal,
-        departureTime: departureTime,
-        arrivalTime: arrivalTime,
-        lastUpdated: new Date().toISOString()
-      }
+        status: 'Scheduled',
+        gate: null,
+        terminal: null,
+        lastUpdated: new Date().toISOString(),
+        limited: true
+      },
+      cached: false
     });
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Flight status API error: ${err.message}`);
