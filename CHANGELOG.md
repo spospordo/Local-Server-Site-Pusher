@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.24] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #449 from spospordo/copilot/fix-api-key-validation
+  - Add comprehensive implementation summary documentation
+  - Fix code review issues: operator precedence and XSS vulnerability
+  - Enhance flight validation error message with setup guidance
+  - Add API key fingerprint logging and diagnostics endpoint
+  - Initial plan
+
+
 ## [2.6.23] - 2026-02-04
 
 ### Patch Update
