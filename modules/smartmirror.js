@@ -728,6 +728,25 @@ function saveConfig(newConfig) {
       }
     });
     
+    // Preserve flight API configuration if not provided in new config
+    if (!configToSave.flightApi || !configToSave.flightApi.apiKey) {
+      if (existingConfig.flightApi?.apiKey) {
+        logger.info(logger.categories.SMART_MIRROR, 'Preserving existing flight API key');
+        configToSave.flightApi = {
+          ...configToSave.flightApi,
+          apiKey: existingConfig.flightApi.apiKey
+        };
+      }
+    }
+    // Also preserve other flightApi settings if they exist
+    if (existingConfig.flightApi) {
+      configToSave.flightApi = {
+        ...existingConfig.flightApi,
+        ...configToSave.flightApi
+      };
+      logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
+    }
+    
     logger.debug(logger.categories.SMART_MIRROR, `Merged configuration with defaults`);
     
     const jsonData = JSON.stringify(configToSave, null, 2);

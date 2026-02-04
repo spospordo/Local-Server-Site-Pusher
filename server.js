@@ -6664,6 +6664,7 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
     const { flightNumber, airline, date } = req.body;
     
     if (!flightNumber || !airline || !date) {
+      logger.warning(logger.categories.SMART_MIRROR, 'Flight validation request missing required fields');
       return res.status(400).json({ 
         success: false, 
         error: 'Flight number, airline, and date are required' 
@@ -6674,7 +6675,10 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
     const config = smartMirror.loadConfig();
     const apiKey = config.flightApi?.apiKey;
     
+    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Checking for AviationStack API key (present: ${!!apiKey}, enabled: ${config.flightApi?.enabled})`);
+    
     if (!apiKey) {
+      logger.warning(logger.categories.SMART_MIRROR, 'Flight validation: AviationStack API key not configured, using format-only validation');
       // Fall back to format validation if no API key configured
       const flightRegex = /^[A-Z]{2,3}\d{1,4}$/i;
       if (!flightRegex.test(flightNumber)) {
@@ -6700,6 +6704,7 @@ app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) =>
     
     // Use real AviationStack API validation
     // Admin actions bypass the limit check but still count toward API usage
+    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Using AviationStack API to validate ${flightNumber} on ${date}`);
     const result = await aviationstack.validateFlight(apiKey, flightNumber, date, true);
     res.json(result);
   } catch (err) {
