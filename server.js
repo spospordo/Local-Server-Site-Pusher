@@ -5917,6 +5917,133 @@ app.post('/admin/api/finance/upload-screenshot', requireAuth, upload.single('scr
   }
 });
 
+// Apartment Investment Property Tracking API Endpoints
+
+// Get all apartments
+app.get('/admin/api/finance/apartments', requireAuth, (req, res) => {
+  try {
+    const apartments = finance.getApartments();
+    res.json({ success: true, apartments });
+  } catch (err) {
+    console.error('❌ [Finance] Get apartments error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get a single apartment
+app.get('/admin/api/finance/apartments/:id', requireAuth, (req, res) => {
+  try {
+    const apartment = finance.getApartment(req.params.id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, error: 'Apartment not found' });
+    }
+    res.json({ success: true, apartment });
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create or update an apartment
+app.post('/admin/api/finance/apartments', requireAuth, (req, res) => {
+  try {
+    const result = finance.saveApartment(req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Save apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an apartment
+app.delete('/admin/api/finance/apartments/:id', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartment(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add an expense to an apartment
+app.post('/admin/api/finance/apartments/:id/expenses', requireAuth, (req, res) => {
+  try {
+    const result = finance.addApartmentExpense(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Add expense error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an expense from an apartment
+app.delete('/admin/api/finance/apartments/:id/expenses/:expenseId', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartmentExpense(req.params.id, req.params.expenseId);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete expense error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add an income entry to an apartment
+app.post('/admin/api/finance/apartments/:id/income', requireAuth, (req, res) => {
+  try {
+    const result = finance.addApartmentIncome(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Add income error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an income entry from an apartment
+app.delete('/admin/api/finance/apartments/:id/income/:incomeId', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartmentIncome(req.params.id, req.params.incomeId);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete income error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update forecasted rent for an apartment
+app.post('/admin/api/finance/apartments/:id/forecasted-rent', requireAuth, (req, res) => {
+  try {
+    const result = finance.updateForecastedRent(req.params.id, req.body.forecastedRent);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Update forecasted rent error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Calculate suggested rent for an apartment
+app.get('/admin/api/finance/apartments/:id/suggested-rent', requireAuth, (req, res) => {
+  try {
+    const result = finance.calculateSuggestedRent(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Calculate suggested rent error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get profitability analysis for an apartment
+app.get('/admin/api/finance/apartments/:id/analysis', requireAuth, (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const result = finance.getApartmentAnalysis(req.params.id, startDate, endDate);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment analysis error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Backup and Export/Import API Endpoints
 // Export all site configurations and data
 app.get('/admin/api/backup/export', requireAuth, (req, res) => {

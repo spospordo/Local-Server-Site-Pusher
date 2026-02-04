@@ -146,7 +146,8 @@ function getDefaultFinanceData() {
       retirementReturnAdjustment: 0.7, // 70% of accumulation return
       retirementVolatilityAdjustment: 0.8 // 80% of accumulation volatility
     },
-    history: []
+    history: [],
+    apartments: [] // Investment property tracking
   };
 }
 
@@ -2319,6 +2320,561 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
     }));
 }
 
+// ============================================================================
+// Apartment Investment Property Tracking Functions
+// ============================================================================
+
+/**
+ * Get all apartments
+ */
+function getApartments() {
+  const data = loadFinanceData();
+  return data.apartments || [];
+}
+
+/**
+ * Get a single apartment by ID
+ */
+function getApartment(apartmentId) {
+  const apartments = getApartments();
+  return apartments.find(apt => apt.id === apartmentId);
+}
+
+/**
+ * Save or update an apartment
+ */
+function saveApartment(apartmentData) {
+  try {
+    const data = loadFinanceData();
+    
+    if (!data.apartments) {
+      data.apartments = [];
+    }
+    
+    if (apartmentData.id) {
+      // Update existing apartment
+      const index = data.apartments.findIndex(apt => apt.id === apartmentData.id);
+      if (index >= 0) {
+        data.apartments[index] = {
+          ...data.apartments[index],
+          ...apartmentData,
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        return { success: false, error: 'Apartment not found' };
+      }
+    } else {
+      // Create new apartment
+      const newApartment = {
+        id: 'apt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        name: apartmentData.name || 'Untitled Property',
+        address: apartmentData.address || '',
+        purchasePrice: parseFloat(apartmentData.purchasePrice) || 0,
+        purchaseDate: apartmentData.purchaseDate || new Date().toISOString(),
+        mortgageAmount: parseFloat(apartmentData.mortgageAmount) || 0,
+        mortgageRate: parseFloat(apartmentData.mortgageRate) || 0,
+        mortgageTermMonths: parseInt(apartmentData.mortgageTermMonths) || 360,
+        expenses: apartmentData.expenses || [],
+        incomeEntries: apartmentData.incomeEntries || [],
+        forecastedRent: apartmentData.forecastedRent || [],
+        rentIncreaseMonth: apartmentData.rentIncreaseMonth || null,
+        financialGoal: apartmentData.financialGoal || { type: 'breakeven', targetAmount: 0 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      data.apartments.push(newApartment);
+      apartmentData.id = newApartment.id;
+    }
+    
+    const result = saveFinanceData(data);
+    if (result.success) {
+      return { success: true, apartment: apartmentData };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Save apartment',
+      apartmentData
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete an apartment
+ */
+function deleteApartment(apartmentId) {
+  try {
+    const data = loadFinanceData();
+    
+    if (!data.apartments) {
+      return { success: false, error: 'No apartments found' };
+    }
+    
+    const index = data.apartments.findIndex(apt => apt.id === apartmentId);
+    if (index < 0) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    data.apartments.splice(index, 1);
+    
+    const result = saveFinanceData(data);
+    return result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Delete apartment',
+      apartmentId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Add an expense to an apartment
+ */
+function addApartmentExpense(apartmentId, expenseData) {
+  try {
+    const data = loadFinanceData();
+    const apartment = data.apartments?.find(apt => apt.id === apartmentId);
+    
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    if (!apartment.expenses) {
+      apartment.expenses = [];
+    }
+    
+    const newExpense = {
+      id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      name: expenseData.name || 'Untitled Expense',
+      amount: parseFloat(expenseData.amount) || 0,
+      type: expenseData.type || 'one-time', // 'one-time', 'monthly', 'annual'
+      category: expenseData.category || 'other', // 'mortgage', 'property-tax', 'insurance', 'maintenance', 'hoa', 'utilities', 'other'
+      date: expenseData.date || new Date().toISOString(),
+      notes: expenseData.notes || '',
+      createdAt: new Date().toISOString()
+    };
+    
+    apartment.expenses.push(newExpense);
+    apartment.updatedAt = new Date().toISOString();
+    
+    const result = saveFinanceData(data);
+    if (result.success) {
+      return { success: true, expense: newExpense };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Add apartment expense',
+      apartmentId,
+      expenseData
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete an expense from an apartment
+ */
+function deleteApartmentExpense(apartmentId, expenseId) {
+  try {
+    const data = loadFinanceData();
+    const apartment = data.apartments?.find(apt => apt.id === apartmentId);
+    
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    if (!apartment.expenses) {
+      return { success: false, error: 'No expenses found' };
+    }
+    
+    const index = apartment.expenses.findIndex(exp => exp.id === expenseId);
+    if (index < 0) {
+      return { success: false, error: 'Expense not found' };
+    }
+    
+    apartment.expenses.splice(index, 1);
+    apartment.updatedAt = new Date().toISOString();
+    
+    const result = saveFinanceData(data);
+    return result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Delete apartment expense',
+      apartmentId,
+      expenseId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Add an income entry to an apartment
+ */
+function addApartmentIncome(apartmentId, incomeData) {
+  try {
+    const data = loadFinanceData();
+    const apartment = data.apartments?.find(apt => apt.id === apartmentId);
+    
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    if (!apartment.incomeEntries) {
+      apartment.incomeEntries = [];
+    }
+    
+    const newIncome = {
+      id: 'inc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      amount: parseFloat(incomeData.amount) || 0,
+      type: incomeData.type || 'collected', // 'collected', 'forecasted'
+      month: incomeData.month || new Date().toISOString().substring(0, 7), // YYYY-MM format
+      notes: incomeData.notes || '',
+      createdAt: new Date().toISOString()
+    };
+    
+    apartment.incomeEntries.push(newIncome);
+    apartment.updatedAt = new Date().toISOString();
+    
+    const result = saveFinanceData(data);
+    if (result.success) {
+      return { success: true, income: newIncome };
+    } else {
+      return result;
+    }
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Add apartment income',
+      apartmentId,
+      incomeData
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete an income entry from an apartment
+ */
+function deleteApartmentIncome(apartmentId, incomeId) {
+  try {
+    const data = loadFinanceData();
+    const apartment = data.apartments?.find(apt => apt.id === apartmentId);
+    
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    if (!apartment.incomeEntries) {
+      return { success: false, error: 'No income entries found' };
+    }
+    
+    const index = apartment.incomeEntries.findIndex(inc => inc.id === incomeId);
+    if (index < 0) {
+      return { success: false, error: 'Income entry not found' };
+    }
+    
+    apartment.incomeEntries.splice(index, 1);
+    apartment.updatedAt = new Date().toISOString();
+    
+    const result = saveFinanceData(data);
+    return result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Delete apartment income',
+      apartmentId,
+      incomeId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update forecasted rent for an apartment
+ */
+function updateForecastedRent(apartmentId, forecastedRentData) {
+  try {
+    const data = loadFinanceData();
+    const apartment = data.apartments?.find(apt => apt.id === apartmentId);
+    
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    // forecastedRentData should be an array of objects: [{ startMonth: 'YYYY-MM', endMonth: 'YYYY-MM', amount: 1000 }]
+    apartment.forecastedRent = forecastedRentData || [];
+    apartment.updatedAt = new Date().toISOString();
+    
+    const result = saveFinanceData(data);
+    return result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Update forecasted rent',
+      apartmentId,
+      forecastedRentData
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Calculate monthly mortgage payment
+ */
+function calculateMortgagePayment(principal, annualRate, termMonths) {
+  if (principal <= 0 || termMonths <= 0) return 0;
+  if (annualRate <= 0) return principal / termMonths;
+  
+  const monthlyRate = annualRate / 12 / 100;
+  const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / 
+                  (Math.pow(1 + monthlyRate, termMonths) - 1);
+  return payment;
+}
+
+/**
+ * Calculate mortgage breakdown (principal vs interest)
+ */
+function calculateMortgageBreakdown(principal, annualRate, termMonths, monthNumber) {
+  if (principal <= 0 || termMonths <= 0) return { principal: 0, interest: 0, remaining: 0 };
+  
+  const monthlyRate = annualRate / 12 / 100;
+  const monthlyPayment = calculateMortgagePayment(principal, annualRate, termMonths);
+  
+  let remainingPrincipal = principal;
+  let totalPrincipalPaid = 0;
+  let totalInterestPaid = 0;
+  
+  for (let i = 1; i <= monthNumber && i <= termMonths; i++) {
+    const interestPayment = remainingPrincipal * monthlyRate;
+    const principalPayment = monthlyPayment - interestPayment;
+    
+    totalInterestPaid += interestPayment;
+    totalPrincipalPaid += principalPayment;
+    remainingPrincipal -= principalPayment;
+  }
+  
+  return {
+    principal: totalPrincipalPaid,
+    interest: totalInterestPaid,
+    remaining: remainingPrincipal,
+    monthlyPayment: monthlyPayment
+  };
+}
+
+/**
+ * Calculate suggested rent to meet financial goal
+ */
+function calculateSuggestedRent(apartmentId) {
+  try {
+    const apartment = getApartment(apartmentId);
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    // Calculate monthly expenses
+    let monthlyExpenses = 0;
+    let annualExpenses = 0;
+    let oneTimeExpenses = 0;
+    
+    if (apartment.expenses) {
+      apartment.expenses.forEach(expense => {
+        if (expense.type === 'monthly') {
+          monthlyExpenses += expense.amount;
+        } else if (expense.type === 'annual') {
+          annualExpenses += expense.amount;
+        } else if (expense.type === 'one-time') {
+          oneTimeExpenses += expense.amount;
+        }
+      });
+    }
+    
+    // Calculate mortgage payment
+    let mortgagePayment = 0;
+    let mortgagePrincipal = 0;
+    let mortgageInterest = 0;
+    
+    if (apartment.mortgageAmount > 0) {
+      const purchaseDate = new Date(apartment.purchaseDate);
+      const currentDate = new Date();
+      const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
+        + (currentDate.getMonth() - purchaseDate.getMonth());
+      
+      const breakdown = calculateMortgageBreakdown(
+        apartment.mortgageAmount,
+        apartment.mortgageRate,
+        apartment.mortgageTermMonths,
+        monthsSincePurchase
+      );
+      mortgagePayment = breakdown.monthlyPayment;
+      
+      // Calculate current month's principal and interest
+      const monthlyRate = apartment.mortgageRate / 12 / 100;
+      mortgageInterest = breakdown.remaining * monthlyRate;
+      mortgagePrincipal = mortgagePayment - mortgageInterest;
+    }
+    
+    // Total monthly cost
+    const totalMonthlyCost = monthlyExpenses + mortgagePayment + (annualExpenses / 12);
+    const totalMonthlyCostExcludingPrincipal = monthlyExpenses + mortgageInterest + (annualExpenses / 12);
+    
+    // Calculate suggested rent based on financial goal
+    const goal = apartment.financialGoal || { type: 'breakeven', targetAmount: 0 };
+    let suggestedRent = 0;
+    
+    switch (goal.type) {
+      case 'breakeven':
+        suggestedRent = totalMonthlyCost;
+        break;
+      case 'breakeven-excluding-principal':
+        suggestedRent = totalMonthlyCostExcludingPrincipal;
+        break;
+      case 'profit':
+        suggestedRent = totalMonthlyCost + (goal.targetAmount || 0);
+        break;
+      default:
+        suggestedRent = totalMonthlyCost;
+    }
+    
+    // Calculate current average monthly income
+    let currentMonthlyIncome = 0;
+    if (apartment.incomeEntries && apartment.incomeEntries.length > 0) {
+      const recentIncome = apartment.incomeEntries
+        .filter(inc => inc.type === 'collected')
+        .slice(-12); // Last 12 months
+      if (recentIncome.length > 0) {
+        const totalIncome = recentIncome.reduce((sum, inc) => sum + inc.amount, 0);
+        currentMonthlyIncome = totalIncome / recentIncome.length;
+      }
+    }
+    
+    return {
+      success: true,
+      suggestedRent: Math.round(suggestedRent * 100) / 100,
+      breakdown: {
+        monthlyExpenses: Math.round(monthlyExpenses * 100) / 100,
+        annualExpensesMonthly: Math.round((annualExpenses / 12) * 100) / 100,
+        mortgagePayment: Math.round(mortgagePayment * 100) / 100,
+        mortgagePrincipal: Math.round(mortgagePrincipal * 100) / 100,
+        mortgageInterest: Math.round(mortgageInterest * 100) / 100,
+        totalMonthlyCost: Math.round(totalMonthlyCost * 100) / 100,
+        totalMonthlyCostExcludingPrincipal: Math.round(totalMonthlyCostExcludingPrincipal * 100) / 100,
+        currentMonthlyIncome: Math.round(currentMonthlyIncome * 100) / 100,
+        targetProfit: goal.type === 'profit' ? (goal.targetAmount || 0) : 0
+      },
+      goal: goal
+    };
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Calculate suggested rent',
+      apartmentId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get apartment profitability analysis
+ */
+function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
+  try {
+    const apartment = getApartment(apartmentId);
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+    
+    // Parse date range
+    const start = startDate ? new Date(startDate) : new Date(apartment.purchaseDate);
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    // Generate monthly analysis
+    const monthlyData = [];
+    const currentDate = new Date(start);
+    currentDate.setDate(1); // Start of month
+    
+    while (currentDate <= end) {
+      const monthKey = currentDate.toISOString().substring(0, 7);
+      
+      // Calculate income for this month
+      let income = 0;
+      if (apartment.incomeEntries) {
+        const monthIncome = apartment.incomeEntries.filter(inc => 
+          inc.month === monthKey && inc.type === 'collected'
+        );
+        income = monthIncome.reduce((sum, inc) => sum + inc.amount, 0);
+      }
+      
+      // Calculate expenses for this month
+      let expenses = 0;
+      if (apartment.expenses) {
+        apartment.expenses.forEach(expense => {
+          if (expense.type === 'monthly') {
+            expenses += expense.amount;
+          } else if (expense.type === 'annual') {
+            expenses += expense.amount / 12;
+          } else if (expense.type === 'one-time') {
+            const expenseMonth = new Date(expense.date).toISOString().substring(0, 7);
+            if (expenseMonth === monthKey) {
+              expenses += expense.amount;
+            }
+          }
+        });
+      }
+      
+      // Add mortgage payment
+      if (apartment.mortgageAmount > 0) {
+        const purchaseDate = new Date(apartment.purchaseDate);
+        const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
+          + (currentDate.getMonth() - purchaseDate.getMonth());
+        
+        const breakdown = calculateMortgageBreakdown(
+          apartment.mortgageAmount,
+          apartment.mortgageRate,
+          apartment.mortgageTermMonths,
+          monthsSincePurchase
+        );
+        expenses += breakdown.monthlyPayment;
+      }
+      
+      monthlyData.push({
+        month: monthKey,
+        income: Math.round(income * 100) / 100,
+        expenses: Math.round(expenses * 100) / 100,
+        cashFlow: Math.round((income - expenses) * 100) / 100
+      });
+      
+      // Move to next month
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    // Calculate totals
+    const totals = {
+      income: monthlyData.reduce((sum, m) => sum + m.income, 0),
+      expenses: monthlyData.reduce((sum, m) => sum + m.expenses, 0),
+      cashFlow: monthlyData.reduce((sum, m) => sum + m.cashFlow, 0)
+    };
+    
+    return {
+      success: true,
+      monthlyData: monthlyData,
+      totals: {
+        income: Math.round(totals.income * 100) / 100,
+        expenses: Math.round(totals.expenses * 100) / 100,
+        cashFlow: Math.round(totals.cashFlow * 100) / 100
+      }
+    };
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Get apartment analysis',
+      apartmentId,
+      startDate,
+      endDate
+    });
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -2347,6 +2903,18 @@ module.exports = {
   getHistoryByAccountType,
   getNetWorthHistory,
   getAccountBalanceHistory,
+  // Apartment functions
+  getApartments,
+  getApartment,
+  saveApartment,
+  deleteApartment,
+  addApartmentExpense,
+  deleteApartmentExpense,
+  addApartmentIncome,
+  deleteApartmentIncome,
+  updateForecastedRent,
+  calculateSuggestedRent,
+  getApartmentAnalysis,
   // Export for testing
   parseAccountsFromText
 };
