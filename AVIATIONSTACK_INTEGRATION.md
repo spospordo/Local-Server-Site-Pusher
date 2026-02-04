@@ -307,6 +307,7 @@ The system implements several strategies to stay within the 100 calls/month limi
 - Verify API key is correct (no extra spaces)
 - Check API key is active in AviationStack dashboard
 - Ensure free tier hasn't expired
+- **Note**: The system now preserves your API key when you save Smart Mirror configuration. If you're still seeing this error after entering a valid key, check the server logs for detailed diagnostics.
 
 **Problem**: "API rate limit exceeded"
 **Solution**:
@@ -322,6 +323,17 @@ The system implements several strategies to stay within the 100 calls/month limi
 - Check date is correct (YYYY-MM-DD)
 - Confirm flight actually exists on that date
 - Try with IATA code instead of full name
+
+**Problem**: Flight validation shows "API key not configured" even after setting it
+**Solution**:
+- This issue has been fixed in version 2.6.22+
+- The system now properly preserves the flight API key when saving Smart Mirror configuration
+- If you're still experiencing this, verify:
+  1. The API key is entered in Smart Mirror → APIs and Connections → AviationStack Flight API
+  2. "Enable Flight API" is set to "Enabled"
+  3. You clicked "Save Smart Mirror Configuration" after entering the key
+  4. Check server logs for "Preserving existing flight API key" message
+- If the problem persists, try re-entering the API key and saving again
 
 ### Flight Data Not Updating
 
