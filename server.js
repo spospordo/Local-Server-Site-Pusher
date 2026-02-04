@@ -6641,7 +6641,7 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
     now.setHours(0, 0, 0, 0); // Normalize to start of day
     const isPast = flightDate < now;
     const timeDiff = flightDate - now;
-    const isSoon = timeDiff >= 0 && timeDiff < 24 * 60 * 60 * 1000; // Today or tomorrow
+    const isSoon = timeDiff >= 0 && timeDiff < 2 * 24 * 60 * 60 * 1000; // Today or tomorrow
     
     // Simulate different statuses based on timing
     let status = 'Scheduled';
