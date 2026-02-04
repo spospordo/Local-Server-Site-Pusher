@@ -60,15 +60,6 @@ async function testFlightApiKeyPreservation() {
             const smartmirrorContent = fs.readFileSync(smartmirrorPath, 'utf8');
             
             // Check for flightApi preservation in saveConfig
-            if (smartmirrorContent.includes('Preserving existing flight API key')) {
-                logSuccess('saveConfig() has flightApi API key preservation logic');
-                passedTests++;
-            } else {
-                logError('saveConfig() missing flightApi API key preservation logic');
-                failedTests++;
-            }
-            
-            // Check for merge of flightApi settings
             if (smartmirrorContent.includes('Merged flight API configuration with existing settings')) {
                 logSuccess('saveConfig() merges flightApi configuration with existing settings');
                 passedTests++;
@@ -78,7 +69,7 @@ async function testFlightApiKeyPreservation() {
             }
             
             // Check that preservation happens after widget preservation
-            const preservationIndex = smartmirrorContent.indexOf('Preserving existing flight API key');
+            const preservationIndex = smartmirrorContent.indexOf('Merged flight API configuration with existing settings');
             const widgetPreservationIndex = smartmirrorContent.indexOf('widgetsToPreserve.forEach');
             
             if (preservationIndex > widgetPreservationIndex && preservationIndex > 0) {
