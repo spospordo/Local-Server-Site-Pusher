@@ -1,6 +1,25 @@
 {
   "vacation": {
-    "dates": [],
+    "dates": [
+      {
+        "startDate": "2026-03-15",
+        "endDate": "2026-03-22",
+        "destination": "Hawaii",
+        "notes": "Beach vacation with family"
+      },
+      {
+        "startDate": "2026-04-10",
+        "endDate": "2026-04-15",
+        "destination": "New York City",
+        "notes": "City trip and museums"
+      },
+      {
+        "startDate": "2026-05-20",
+        "endDate": "2026-05-27",
+        "destination": "Paris",
+        "notes": "European adventure"
+      }
+    ],
     "travelInfo": "",
     "emergencyContact": {
       "name": "",
