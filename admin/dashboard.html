@@ -6202,6 +6202,24 @@
         let unsavedChanges = new Set(); // Track sections with unsaved changes
 
         // Collapsible section functions
+        
+        // Generate a stable section key from the header element
+        function generateSectionKey(header) {
+            const titleElement = header.querySelector('.collapsible-title');
+            if (titleElement) {
+                // Use text content to create a stable key (remove emojis and special chars, trim spaces)
+                return titleElement.textContent.trim()
+                    .replace(/[^\w\s]/gi, '')
+                    .replace(/\s+/g, '-')
+                    .toLowerCase();
+            }
+            
+            // Fallback: use position in document as stable identifier
+            const allHeaders = Array.from(document.querySelectorAll('.collapsible-header'));
+            const index = allHeaders.indexOf(header);
+            return index >= 0 ? `section-index-${index}` : 'section-unknown';
+        }
+        
         function toggleCollapsible(sectionIdOrElement) {
             let header, content, sectionKey;
             
@@ -6215,18 +6233,7 @@
                 // Called with element (this)
                 header = sectionIdOrElement;
                 content = header.nextElementSibling;
-                
-                // Generate a unique key for localStorage from the header text
-                const titleElement = header.querySelector('.collapsible-title');
-                if (titleElement) {
-                    // Use text content to create a stable key (remove emojis and special chars, trim spaces)
-                    sectionKey = titleElement.textContent.trim()
-                        .replace(/[^\w\s]/gi, '')
-                        .replace(/\s+/g, '-')
-                        .toLowerCase();
-                } else {
-                    sectionKey = 'section-' + Math.random().toString(36).substr(2, 9);
-                }
+                sectionKey = generateSectionKey(header);
             }
             
             if (!header || !content) {
@@ -6324,15 +6331,8 @@
                     return;
                 }
                 
-                // Generate a unique key for this section
-                const titleElement = header.querySelector('.collapsible-title');
-                let sectionKey = 'unknown';
-                if (titleElement) {
-                    sectionKey = titleElement.textContent.trim()
-                        .replace(/[^\w\s]/gi, '')
-                        .replace(/\s+/g, '-')
-                        .toLowerCase();
-                }
+                // Generate a unique key for this section using the shared helper
+                const sectionKey = generateSectionKey(header);
                 
                 // Check if there's a saved state
                 const savedState = loadCollapsibleState(sectionKey);
