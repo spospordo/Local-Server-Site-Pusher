@@ -142,7 +142,7 @@ if (serverContent.includes('Weather API not configured')) {
 // Test 5: Verify pattern matches other endpoints
 console.log('\n✓ Test 5: Checking consistency with other weather endpoints...');
 
-const otherWeatherPattern = /apiKey.*weather.*apiKey.*\|\|.*forecast.*apiKey/;
+const otherWeatherPattern = /apiKey.*weather.*apiKey.*||.*forecast.*apiKey/;
 if (serverContent.match(otherWeatherPattern)) {
     console.log('  ✅ Uses same pattern as other weather endpoints');
 } else {
