@@ -728,6 +728,16 @@ function saveConfig(newConfig) {
       }
     });
     
+    // Preserve flight API configuration by merging with existing settings
+    // This ensures API key and other settings are retained when saving
+    if (existingConfig.flightApi) {
+      configToSave.flightApi = {
+        ...existingConfig.flightApi,
+        ...configToSave.flightApi
+      };
+      logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
+    }
+    
     logger.debug(logger.categories.SMART_MIRROR, `Merged configuration with defaults`);
     
     const jsonData = JSON.stringify(configToSave, null, 2);

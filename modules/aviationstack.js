@@ -114,16 +114,19 @@ async function testConnection(apiKey) {
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,
-          error: 'Invalid API key or unauthorized access'
+          error: 'Invalid API key or unauthorized access. Please verify your API key is correct and active.'
         };
       } else if (status === 429) {
+        logger.error(logger.categories.SMART_MIRROR, 'AviationStack API rate limit exceeded');
         return {
           success: false,
-          error: 'API rate limit exceeded'
+          error: 'API rate limit exceeded. Please try again later.'
         };
       } else if (data && data.error) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API error: ${data.error.message || data.error.info}`);
         return {
           success: false,
           error: data.error.message || data.error.info || 'API error'
@@ -131,6 +134,7 @@ async function testConnection(apiKey) {
       }
     }
     
+    logger.error(logger.categories.SMART_MIRROR, `Unexpected connection test error: ${error.message}`);
     return {
       success: false,
       error: error.message || 'Connection failed'
@@ -148,13 +152,15 @@ async function testConnection(apiKey) {
  */
 async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = false) {
   if (!apiKey) {
+    logger.error(logger.categories.SMART_MIRROR, 'Flight validation failed: API key not configured');
     return {
       success: false,
-      error: 'API key not configured'
+      error: 'API key not configured. Please configure the AviationStack API key in Smart Mirror settings.'
     };
   }
 
   if (!flightIata || !flightDate) {
+    logger.error(logger.categories.SMART_MIRROR, 'Flight validation failed: Missing flight number or date');
     return {
       success: false,
       error: 'Flight number and date are required'
@@ -177,7 +183,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       flight_date: flightDate
     };
 
-    logger.info(logger.categories.SMART_MIRROR, `Validating flight ${flightIata} on ${flightDate}`);
+    logger.info(logger.categories.SMART_MIRROR, `Validating flight ${flightIata} on ${flightDate} using AviationStack API (API key present: ${!!apiKey}, key length: ${apiKey.length})`);
     
     const response = await axios.get(url, { params, timeout: 10000 });
     
@@ -228,16 +234,19 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,
-          error: 'Invalid API key or unauthorized access'
+          error: 'Invalid API key or unauthorized access. Please verify your AviationStack API key in Smart Mirror settings is correct and active.'
         };
       } else if (status === 429) {
+        logger.error(logger.categories.SMART_MIRROR, 'AviationStack API rate limit exceeded');
         return {
           success: false,
-          error: 'API rate limit exceeded'
+          error: 'API rate limit exceeded. Please try again later or upgrade your AviationStack plan.'
         };
       } else if (data && data.error) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API error: ${data.error.message || data.error.info}`);
         return {
           success: false,
           error: data.error.message || data.error.info || 'API error'
@@ -245,6 +254,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       }
     }
     
+    logger.error(logger.categories.SMART_MIRROR, `Unexpected flight validation error: ${error.message}`);
     return {
       success: false,
       error: error.message || 'Flight validation failed'
@@ -262,13 +272,15 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
  */
 async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = false) {
   if (!apiKey) {
+    logger.error(logger.categories.SMART_MIRROR, 'Flight status fetch failed: API key not configured');
     return {
       success: false,
-      error: 'API key not configured'
+      error: 'API key not configured. Please configure the AviationStack API key in Smart Mirror settings.'
     };
   }
 
   if (!flightIata || !flightDate) {
+    logger.error(logger.categories.SMART_MIRROR, 'Flight status fetch failed: Missing flight number or date');
     return {
       success: false,
       error: 'Flight number and date are required'
@@ -291,7 +303,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       flight_date: flightDate
     };
 
-    logger.info(logger.categories.SMART_MIRROR, `Fetching flight status for ${flightIata} on ${flightDate}`);
+    logger.info(logger.categories.SMART_MIRROR, `Fetching flight status for ${flightIata} on ${flightDate} using AviationStack API (API key present: ${!!apiKey})`);
     
     const response = await axios.get(url, { params, timeout: 10000 });
     
@@ -352,16 +364,19 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,
-          error: 'Invalid API key or unauthorized access'
+          error: 'Invalid API key or unauthorized access. Please verify your AviationStack API key in Smart Mirror settings is correct and active.'
         };
       } else if (status === 429) {
+        logger.error(logger.categories.SMART_MIRROR, 'AviationStack API rate limit exceeded');
         return {
           success: false,
-          error: 'API rate limit exceeded'
+          error: 'API rate limit exceeded. Please try again later or upgrade your AviationStack plan.'
         };
       } else if (data && data.error) {
+        logger.error(logger.categories.SMART_MIRROR, `AviationStack API error: ${data.error.message || data.error.info}`);
         return {
           success: false,
           error: data.error.message || data.error.info || 'API error'
@@ -369,6 +384,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       }
     }
     
+    logger.error(logger.categories.SMART_MIRROR, `Unexpected flight status fetch error: ${error.message}`);
     return {
       success: false,
       error: error.message || 'Failed to fetch flight status'

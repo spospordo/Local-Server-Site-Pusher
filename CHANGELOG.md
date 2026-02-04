@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Flight API Key Preservation**: Fixed issue where AviationStack API key was not preserved when saving Smart Mirror configuration. The system now properly retains the flight API key along with other API keys, preventing false "Invalid API key or unauthorized access" errors during flight validation.
+- **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
+- **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
+
+## [2.6.22]
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
