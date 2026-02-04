@@ -16888,16 +16888,30 @@
                     statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
                     flightDiv.dataset.validated = 'true';
                 } else {
+                    // Escape HTML in error message to prevent XSS
+                    const escapeHtml = (str) => {
+                        const div = document.createElement('div');
+                        div.textContent = str;
+                        return div.innerHTML;
+                    };
+                    const safeError = escapeHtml(result.error || 'Unknown error');
+                    
                     // Check if error is related to missing API key
                     if (result.error && result.error.includes('API key')) {
-                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
                     } else {
-                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${result.error}</span>`;
+                        statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span>`;
                     }
                     flightDiv.dataset.validated = 'false';
                 }
             } catch (err) {
-                statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${err.message}</span>`;
+                // Escape HTML in error message to prevent XSS
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+                statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${escapeHtml(err.message)}</span>`;
                 flightDiv.dataset.validated = 'false';
             }
         }
