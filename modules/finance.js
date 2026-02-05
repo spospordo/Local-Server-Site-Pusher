@@ -3067,7 +3067,8 @@ function getApartmentEquityOverview(apartmentId) {
     if (apartment.mortgageAccountId) {
       const mortgageAccount = accounts.find(acc => acc.id === apartment.mortgageAccountId);
       if (mortgageAccount) {
-        mortgageBalance = parseFloat(mortgageAccount.amount) || 0;
+        // Mortgage accounts store balance as positive numbers per account type description
+        mortgageBalance = Math.abs(parseFloat(mortgageAccount.amount) || 0);
         mortgageAccountName = getAccountDisplayName(mortgageAccount);
       }
     }
@@ -3076,7 +3077,7 @@ function getApartmentEquityOverview(apartmentId) {
     if (apartment.propertyAccountId) {
       const propertyAccount = accounts.find(acc => acc.id === apartment.propertyAccountId);
       if (propertyAccount) {
-        propertyValue = parseFloat(propertyAccount.amount) || 0;
+        propertyValue = Math.abs(parseFloat(propertyAccount.amount) || 0);
         propertyAccountName = getAccountDisplayName(propertyAccount);
       }
     }
