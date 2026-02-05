@@ -6013,7 +6013,9 @@ app.delete('/admin/api/finance/apartments/:id/income/:incomeId', requireAuth, (r
 // Update forecasted rent for an apartment
 app.post('/admin/api/finance/apartments/:id/forecasted-rent', requireAuth, (req, res) => {
   try {
-    const result = finance.updateForecastedRent(req.params.id, req.body.forecastedRent);
+    // Handle both formats: direct array or wrapped in forecastedRent property
+    const forecastedRent = Array.isArray(req.body) ? req.body : req.body.forecastedRent;
+    const result = finance.updateForecastedRent(req.params.id, forecastedRent);
     res.json(result);
   } catch (err) {
     console.error('❌ [Finance] Update forecasted rent error:', err.message);

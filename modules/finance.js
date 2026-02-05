@@ -2378,6 +2378,7 @@ function saveApartment(apartmentData) {
         incomeEntries: apartmentData.incomeEntries || [],
         forecastedRent: apartmentData.forecastedRent || [],
         rentIncreaseMonth: apartmentData.rentIncreaseMonth || null,
+        reconcileDate: apartmentData.reconcileDate || null,
         financialGoal: apartmentData.financialGoal || { type: 'breakeven', targetAmount: 0 },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -2776,6 +2777,8 @@ function calculateSuggestedRent(apartmentId) {
 
 /**
  * Get apartment profitability analysis
+ * If reconcileDate is set, analysis starts from that date and includes 24-month forecast
+ * Otherwise, shows historical data from purchase date to now
  */
 function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
   try {
@@ -2784,75 +2787,126 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
       return { success: false, error: 'Apartment not found' };
     }
     
-    // Parse date range
-    const start = startDate ? new Date(startDate) : new Date(apartment.purchaseDate);
-    const end = endDate ? new Date(endDate) : new Date();
+    const now = new Date();
+    
+    // Determine the actual start date
+    // If reconcileDate is set, use that as the start date and include forecast
+    // Otherwise, use provided startDate, purchase date, or now
+    let analysisStartDate;
+    let shouldIncludeForecast = false;
+    
+    if (apartment.reconcileDate) {
+      // Reconcile date is set - start from there and include 24-month forecast
+      analysisStartDate = new Date(apartment.reconcileDate);
+      shouldIncludeForecast = true;
+    } else if (startDate) {
+      analysisStartDate = new Date(startDate);
+    } else {
+      analysisStartDate = new Date(apartment.purchaseDate);
+    }
+    
+    // Determine the end date
+    let analysisEndDate;
+    if (shouldIncludeForecast) {
+      // Show 24 months forward from reconcile date
+      analysisEndDate = new Date(analysisStartDate);
+      analysisEndDate.setMonth(analysisEndDate.getMonth() + 24);
+    } else if (endDate) {
+      analysisEndDate = new Date(endDate);
+    } else {
+      analysisEndDate = now;
+    }
     
     // Generate monthly analysis
     const monthlyData = [];
-    const currentDate = new Date(start);
+    const currentDate = new Date(analysisStartDate);
     currentDate.setDate(1); // Start of month
     
-    while (currentDate <= end) {
+    while (currentDate <= analysisEndDate) {
       const monthKey = currentDate.toISOString().substring(0, 7);
+      const isFutureMonth = currentDate > now;
       
       // Calculate income for this month
       let income = 0;
-      if (apartment.incomeEntries) {
-        const monthIncome = apartment.incomeEntries.filter(inc => 
-          inc.month === monthKey && inc.type === 'collected'
-        );
-        income = monthIncome.reduce((sum, inc) => sum + inc.amount, 0);
+      
+      if (isFutureMonth && shouldIncludeForecast) {
+        // For future months with reconcile date, use forecasted rent
+        if (apartment.forecastedRent && apartment.forecastedRent.length > 0) {
+          for (const forecast of apartment.forecastedRent) {
+            if (monthKey >= forecast.startMonth && monthKey <= forecast.endMonth) {
+              income = forecast.amount;
+              break;
+            }
+          }
+        }
+      } else {
+        // For past months, use collected income
+        if (apartment.incomeEntries) {
+          const monthIncome = apartment.incomeEntries.filter(inc => 
+            inc.month === monthKey && inc.type === 'collected'
+          );
+          income = monthIncome.reduce((sum, inc) => sum + inc.amount, 0);
+        }
       }
       
-      // Calculate expenses for this month
+      // Calculate expenses for this month (both recurring and one-time)
       let expenses = 0;
       if (apartment.expenses) {
         apartment.expenses.forEach(expense => {
           if (expense.type === 'monthly') {
+            // Monthly recurring expenses apply to all months
             expenses += expense.amount;
           } else if (expense.type === 'annual') {
+            // Annual recurring expenses spread across 12 months
             expenses += expense.amount / 12;
           } else if (expense.type === 'one-time') {
+            // One-time expenses: include if they occurred within the analysis period
             const expenseMonth = new Date(expense.date).toISOString().substring(0, 7);
-            if (expenseMonth === monthKey) {
+            const expenseDate = new Date(expense.date);
+            // Include if expense is in this month and within our analysis period
+            if (expenseMonth === monthKey && expenseDate >= analysisStartDate && expenseDate <= currentDate) {
               expenses += expense.amount;
             }
           }
         });
       }
       
-      // Add mortgage payment
+      // Add mortgage payment (applies to all months within mortgage term)
       if (apartment.mortgageAmount > 0) {
         const purchaseDate = new Date(apartment.purchaseDate);
         const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
           + (currentDate.getMonth() - purchaseDate.getMonth());
         
-        const breakdown = calculateMortgageBreakdown(
-          apartment.mortgageAmount,
-          apartment.mortgageRate,
-          apartment.mortgageTermMonths,
-          monthsSincePurchase
-        );
-        expenses += breakdown.monthlyPayment;
+        // Include mortgage payment if current month is within the mortgage term
+        if (monthsSincePurchase >= 0 && monthsSincePurchase < apartment.mortgageTermMonths) {
+          const breakdown = calculateMortgageBreakdown(
+            apartment.mortgageAmount,
+            apartment.mortgageRate,
+            apartment.mortgageTermMonths,
+            monthsSincePurchase
+          );
+          expenses += breakdown.monthlyPayment;
+        }
       }
       
       monthlyData.push({
         month: monthKey,
         income: Math.round(income * 100) / 100,
         expenses: Math.round(expenses * 100) / 100,
-        cashFlow: Math.round((income - expenses) * 100) / 100
+        cashFlow: Math.round((income - expenses) * 100) / 100,
+        isForecast: isFutureMonth
       });
       
       // Move to next month
       currentDate.setMonth(currentDate.getMonth() + 1);
     }
     
-    // Calculate totals
+    // Calculate totals (only from actual/realized data, excluding forecasts)
+    const actualData = monthlyData.filter(m => !m.isForecast);
     const totals = {
-      income: monthlyData.reduce((sum, m) => sum + m.income, 0),
-      expenses: monthlyData.reduce((sum, m) => sum + m.expenses, 0),
-      cashFlow: monthlyData.reduce((sum, m) => sum + m.cashFlow, 0)
+      income: actualData.reduce((sum, m) => sum + m.income, 0),
+      expenses: actualData.reduce((sum, m) => sum + m.expenses, 0),
+      cashFlow: actualData.reduce((sum, m) => sum + m.cashFlow, 0)
     };
     
     return {
@@ -2862,7 +2916,9 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
         income: Math.round(totals.income * 100) / 100,
         expenses: Math.round(totals.expenses * 100) / 100,
         cashFlow: Math.round(totals.cashFlow * 100) / 100
-      }
+      },
+      reconcileDate: apartment.reconcileDate,
+      hasForecast: shouldIncludeForecast
     };
   } catch (error) {
     logError(logger.categories.FINANCE, error, {
