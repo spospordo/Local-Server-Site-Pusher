@@ -52,7 +52,7 @@ This implementation adds an image upload and OCR-based account scraping feature 
 **New UI Section:**
 - Added "Upload Account Screenshot" section in Finance Module > My Data
 - File input for screenshot selection
-  - Accepts: image/* (JPG, PNG, WebP, etc.)
+  - Accepts: .jpg, .jpeg, .png, .webp, .gif, .bmp (explicit file extensions)
   - Max size: 10MB
 - Upload button with clear labeling
 - Status display area for processing feedback
@@ -62,12 +62,14 @@ This implementation adds an image upload and OCR-based account scraping feature 
 - `uploadAccountScreenshot()` - Handles the upload process
   - Validates file selection
   - Validates file size (10MB limit)
-  - Validates file type (images only)
+  - Validates file type (checks both extension and MIME type)
+  - Provides clear error messages for validation failures
   - Shows processing status with progress indicator
-  - Sends file to server via FormData
+  - Sends file to server via FormData with filename
+  - Checks HTTP response status before parsing
   - Displays detailed results (accounts created/updated)
   - Reloads accounts list and chart on success
-  - Handles errors with user-friendly messages
+  - Handles errors with user-friendly fallback messages
 
 ### 4. Testing
 
@@ -196,6 +198,27 @@ This implementation adds an image upload and OCR-based account scraping feature 
 4. **Validation**: No verification that parsed totals match displayed totals
    - Future enhancement could add group sum validation
    - Currently trusts OCR output
+
+## Bug Fixes
+
+### Pattern Validation Error Fix (v2.6.32)
+**Issue:** Users encountered "upload failed: the string did not match the expected pattern" error when uploading screenshots.
+
+**Root Cause:** 
+- Generic `accept="image/*"` attribute on file input caused browser validation ambiguity
+- Lack of dual validation (extension + MIME type) led to inconsistent behavior across browsers
+- Error messages didn't distinguish between different validation failure types
+
+**Solution:**
+1. Changed file input accept attribute to explicit extensions: `.jpg,.jpeg,.png,.webp,.gif,.bmp`
+2. Enhanced JavaScript validation to check both:
+   - File extension (case-insensitive)
+   - MIME type (must start with `image/`)
+3. Added filename to FormData for better server-side handling
+4. Improved error messages with specific validation feedback
+5. Added HTTP response status check before JSON parsing
+
+**Testing:** Added `test-screenshot-upload-validation.js` to verify fix handles all common scenarios.
 
 ## Future Enhancements
 
