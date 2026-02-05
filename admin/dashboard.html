@@ -2869,8 +2869,8 @@
                     
                     <div class="form-group">
                         <label for="screenshotFile">Select Screenshot</label>
-                        <input type="file" id="screenshotFile" accept="image/*" style="display: block; width: 100%; padding: 0.5rem; border: 2px dashed #ccc; border-radius: 4px; cursor: pointer;">
-                        <small class="help-text">Supported formats: JPG, PNG, WebP. Max size: 10MB</small>
+                        <input type="file" id="screenshotFile" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" style="display: block; width: 100%; padding: 0.5rem; border: 2px dashed #ccc; border-radius: 4px; cursor: pointer;">
+                        <small class="help-text">Supported formats: JPG, PNG, WebP, GIF, BMP. Max size: 10MB</small>
                     </div>
                     
                     <button onclick="uploadAccountScreenshot()" class="btn" style="background: #2196F3;">
@@ -15190,10 +15190,18 @@
                 return;
             }
             
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
+            // Validate file type - check both MIME type and file extension
+            const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+            const fileName = file.name.toLowerCase();
+            const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+            const hasValidMimeType = file.type && file.type.startsWith('image/');
+            
+            if (!hasValidExtension || !hasValidMimeType) {
                 statusDiv.className = 'alert alert-error';
-                statusDiv.textContent = 'Please upload an image file (JPG, PNG, WebP, etc.)';
+                statusDiv.innerHTML = `
+                    ❌ <strong>Invalid file type</strong><br>
+                    <small>Please upload a valid image file. Supported formats: JPG, PNG, WebP, GIF, BMP</small>
+                `;
                 statusDiv.style.display = 'block';
                 return;
             }
@@ -15205,12 +15213,16 @@
             
             try {
                 const formData = new FormData();
-                formData.append('screenshot', file);
+                formData.append('screenshot', file, file.name);
                 
                 const response = await fetch('/admin/api/finance/upload-screenshot', {
                     method: 'POST',
                     body: formData
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
                 
                 const result = await response.json();
                 
@@ -15237,12 +15249,12 @@
                     showAlert('Account balances updated from screenshot!', 'success');
                 } else {
                     statusDiv.className = 'alert alert-error';
-                    statusDiv.innerHTML = `❌ <strong>Processing failed:</strong><br>${result.error}`;
+                    statusDiv.innerHTML = `❌ <strong>Processing failed:</strong><br>${result.error || 'Unknown error occurred'}`;
                 }
             } catch (err) {
                 console.error('Upload error:', err);
                 statusDiv.className = 'alert alert-error';
-                statusDiv.innerHTML = `❌ <strong>Upload failed:</strong><br>${err.message}`;
+                statusDiv.innerHTML = `❌ <strong>Upload failed:</strong><br>${err.message || 'Network error or server unavailable'}`;
             }
         }
         
