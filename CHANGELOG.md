@@ -9,6 +9,22 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.36] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #471 from spospordo/copilot/fix-screenshot-upload-feature
+  - Add Tesseract traineddata files to .gitignore (runtime CDN downloads)
+  - Add CDN access verification test results - all tests passed
+  - Add comprehensive fix summary documentation for screenshot upload 500 error
+  - Update package-lock.json version to 2.6.35 for consistency
+  - Add enhanced error logging and update documentation for v2.6.35
+  - Fix Tesseract.js v7 API compatibility - migrate from deprecated recognize to createWorker
+  - Install dependencies to fix missing tesseract.js module
+  - Initial plan
+
+
 ## [2.6.35] - 2026-02-05
 
 ### Fixed
