@@ -1,4 +1,8 @@
 # Local-Server-Site-Pusher
+
+![Build and Test](https://github.com/spospordo/Local-Server-Site-Pusher/workflows/Build%20and%20Test/badge.svg)
+![Version Bump](https://github.com/spospordo/Local-Server-Site-Pusher/workflows/Version%20Bump/badge.svg)
+
 A containerized web application with admin interface for serving web content and handling integrations with Home Assistant and dashboard tools.
 
 ## Features
@@ -174,6 +178,42 @@ To safely update the container while preserving all settings:
    - View server status and metrics
    - Edit configuration in real-time
    - Monitor integrations
+
+## Development & CI/CD
+
+This project uses automated CI/CD workflows for building, testing, and deployment.
+
+### Workflows
+
+- **Build and Test**: Automatically builds and tests the application on every push/PR
+  - Tests with Node.js 18 and 20
+  - Runs security audits
+  - Validates Docker builds
+
+- **Deploy**: Publishes multi-architecture Docker images (amd64, arm64) to Docker Hub
+  - Triggered on version tags (e.g., `v1.0.0`)
+  - Supports manual deployment
+
+- **Version Bump**: Automatically increments version based on commit messages
+
+### Testing Locally
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+npm run test:all  # Run all tests
+
+# Test server
+npm start
+
+# Build Docker image
+docker build -t local-server-site-pusher:test .
+```
+
+For detailed CI/CD setup and configuration, see **[CI_CD_SETUP.md](CI_CD_SETUP.md)**.
 
 ## API Endpoints
 
