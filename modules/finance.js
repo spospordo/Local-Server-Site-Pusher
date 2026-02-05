@@ -2556,14 +2556,8 @@ function applyAnnualExpenseIncreases() {
             expense.lastIncreaseDate = currentDate;
             updatedCount++;
             
-            logDebug(logger.categories.FINANCE, 'Applied annual increase to expense', {
-              apartmentId: apartment.id,
-              apartmentName: apartment.name,
-              expenseId: expense.id,
-              expenseName: expense.name,
-              increasePercent: expense.annualIncreasePercent,
-              newAmount: expense.amount
-            });
+            logger.info(logger.categories.FINANCE, 
+              `Applied annual increase to expense ${expense.name} (${apartment.name}): ${expense.annualIncreasePercent}% -> $${expense.amount}`);
           }
         }
       });
