@@ -2898,12 +2898,12 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
       currentDate.setMonth(currentDate.getMonth() + 1);
     }
     
-    // Calculate totals (only from non-forecast months for accuracy)
-    const historicalData = monthlyData.filter(m => !m.isForecast);
+    // Calculate totals (only from actual/realized data, excluding forecasts)
+    const actualData = monthlyData.filter(m => !m.isForecast);
     const totals = {
-      income: historicalData.reduce((sum, m) => sum + m.income, 0),
-      expenses: historicalData.reduce((sum, m) => sum + m.expenses, 0),
-      cashFlow: historicalData.reduce((sum, m) => sum + m.cashFlow, 0)
+      income: actualData.reduce((sum, m) => sum + m.income, 0),
+      expenses: actualData.reduce((sum, m) => sum + m.expenses, 0),
+      cashFlow: actualData.reduce((sum, m) => sum + m.cashFlow, 0)
     };
     
     return {
