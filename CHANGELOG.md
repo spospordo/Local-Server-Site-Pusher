@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.29] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #459 from spospordo/copilot/redesign-apartment-module-layout
+  - Redesign apartment module to prioritize financial data display
+  - Initial plan
+
+
 ## [2.6.28] - 2026-02-05
 
 ### Patch Update
