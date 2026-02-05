@@ -6047,6 +6047,17 @@ app.get('/admin/api/finance/apartments/:id/analysis', requireAuth, (req, res) =>
   }
 });
 
+// Get apartment equity overview
+app.get('/admin/api/finance/apartments/:id/equity', requireAuth, (req, res) => {
+  try {
+    const result = finance.getApartmentEquityOverview(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment equity overview error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Backup and Export/Import API Endpoints
 // Export all site configurations and data
 app.get('/admin/api/backup/export', requireAuth, (req, res) => {

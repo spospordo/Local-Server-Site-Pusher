@@ -3055,6 +3055,28 @@
                         <small class="help-text">Set a reconcile date to start financial analysis from a specific point. Historical data before this date will be excluded from calculations, and forecasts will project 24 months forward.</small>
                     </div>
                     
+                    <div class="alert" style="background: #e8f5e9; border-left: 4px solid #4caf50; margin: 1rem 0;">
+                        <strong>🔗 Account Linking (Optional)</strong>
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">Link this property to accounts in your portfolio to track equity automatically</p>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="apartmentMortgageAccountId">Mortgage Account</label>
+                            <select id="apartmentMortgageAccountId">
+                                <option value="">-- No Linked Account --</option>
+                            </select>
+                            <small class="help-text">Link a mortgage liability account to track remaining balance</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="apartmentPropertyAccountId">Property Value Account</label>
+                            <select id="apartmentPropertyAccountId">
+                                <option value="">-- No Linked Account --</option>
+                            </select>
+                            <small class="help-text">Link an investment property account to track estimated value</small>
+                        </div>
+                    </div>
+                    
                     <input type="hidden" id="apartmentId">
                     <button onclick="saveApartment()" class="btn btn-success">💾 Save Property</button>
                     <button onclick="clearApartmentForm()" class="btn" style="background: #6c757d;">Clear Form</button>
@@ -10456,6 +10478,7 @@
                 
                 if (shouldLoadData) {
                     loadApartmentsData();
+                    populateApartmentAccountDropdowns();
                 }
             } else if (subTabName === 'finance-spending') {
                 const spendingSections = document.querySelectorAll('.finance-spending-section');
@@ -15429,6 +15452,47 @@
         let apartmentCharts = {};
         
         /**
+         * Populate account dropdowns for apartment linking
+         */
+        async function populateApartmentAccountDropdowns() {
+            try {
+                const response = await fetch('/admin/api/finance/accounts', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const mortgageSelect = document.getElementById('apartmentMortgageAccountId');
+                    const propertySelect = document.getElementById('apartmentPropertyAccountId');
+                    
+                    // Clear existing options except the first one
+                    mortgageSelect.innerHTML = '<option value="">-- No Linked Account --</option>';
+                    propertySelect.innerHTML = '<option value="">-- No Linked Account --</option>';
+                    
+                    // Populate mortgage accounts (liabilities category)
+                    data.accounts.filter(acc => acc.type === 'mortgage').forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.displayName || account.name;
+                        mortgageSelect.appendChild(option);
+                    });
+                    
+                    // Populate property accounts (investment_property type)
+                    data.accounts.filter(acc => acc.type === 'investment_property').forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.displayName || account.name;
+                        propertySelect.appendChild(option);
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to populate account dropdowns:', err);
+            }
+        }
+        
+        /**
          * Load all apartments data
          */
         async function loadApartmentsData() {
@@ -15479,17 +15543,24 @@
                     });
                     const rentData = await rentResponse.json();
                     
-                    return { apt, analysisData, rentData };
+                    // Fetch equity overview
+                    const equityResponse = await fetch(`/admin/api/finance/apartments/${apt.id}/equity`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    const equityData = await equityResponse.json();
+                    
+                    return { apt, analysisData, rentData, equityData };
                 } catch (err) {
                     console.error(`Error fetching data for apartment ${apt.id}:`, err);
-                    return { apt, analysisData: { success: false }, rentData: { success: false } };
+                    return { apt, analysisData: { success: false }, rentData: { success: false }, equityData: { success: false } };
                 }
             });
             
             const apartmentDataList = await Promise.all(apartmentPromises);
             
             // Generate HTML for each apartment with prominent financial data
-            listElement.innerHTML = apartmentDataList.map(({ apt, analysisData, rentData }) => `
+            listElement.innerHTML = apartmentDataList.map(({ apt, analysisData, rentData, equityData }) => `
                 <div class="apartment-card" style="border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; background: white; margin-bottom: 1.5rem;">
                     <!-- Header -->
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #f0f0f0;">
@@ -15522,6 +15593,49 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        ${equityData && equityData.success && (equityData.data.hasLinkedMortgage || equityData.data.hasLinkedProperty) ? `
+                        <!-- Equity Overview -->
+                        <div style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #ce93d8;">
+                            <h4 style="margin: 0 0 1rem 0; color: #6a1b9a; font-size: 1.2rem;">🏠 Equity Overview</h4>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                                ${equityData.data.propertyValue !== null ? `
+                                <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border: 1px solid #ba68c8;">
+                                    <div style="font-size: 0.75rem; color: #6a1b9a; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Property Value</div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #4a148c;">$${formatCurrency(equityData.data.propertyValue)}</div>
+                                    ${equityData.data.propertyAccountName ? `<div style="font-size: 0.7rem; color: #888; margin-top: 0.25rem;">from ${escapeHtml(equityData.data.propertyAccountName)}</div>` : ''}
+                                </div>
+                                ` : '<div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.5); border-radius: 8px; border: 1px dashed #ba68c8;"><div style="font-size: 0.75rem; color: #6a1b9a; font-weight: 600; text-transform: uppercase;">Property Value</div><div style="font-size: 0.9rem; color: #888; margin-top: 0.5rem;">Not Linked</div></div>'}
+                                
+                                ${equityData.data.mortgageBalance !== null ? `
+                                <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border: 1px solid #ba68c8;">
+                                    <div style="font-size: 0.75rem; color: #6a1b9a; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Mortgage Balance</div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #d32f2f;">$${formatCurrency(equityData.data.mortgageBalance)}</div>
+                                    ${equityData.data.mortgageAccountName ? `<div style="font-size: 0.7rem; color: #888; margin-top: 0.25rem;">from ${escapeHtml(equityData.data.mortgageAccountName)}</div>` : ''}
+                                </div>
+                                ` : '<div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.5); border-radius: 8px; border: 1px dashed #ba68c8;"><div style="font-size: 0.75rem; color: #6a1b9a; font-weight: 600; text-transform: uppercase;">Mortgage Balance</div><div style="font-size: 0.9rem; color: #888; margin-top: 0.5rem;">Not Linked</div></div>'}
+                                
+                                ${equityData.data.equity !== null ? `
+                                <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #ffffff 0%, #f1f8e9 100%); border-radius: 8px; border: 2px solid #689f38;">
+                                    <div style="font-size: 0.75rem; color: #33691e; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Estimated Equity</div>
+                                    <div style="font-size: 1.8rem; font-weight: bold; color: ${equityData.data.equity >= 0 ? '#2e7d32' : '#d32f2f'};">$${formatCurrency(Math.abs(equityData.data.equity))}</div>
+                                    <div style="font-size: 0.7rem; color: #666; margin-top: 0.25rem;">${equityData.data.equity >= 0 ? 'Positive Equity' : 'Negative Equity'}</div>
+                                </div>
+                                ` : '<div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.5); border-radius: 8px; border: 1px dashed #ba68c8;"><div style="font-size: 0.75rem; color: #6a1b9a; font-weight: 600; text-transform: uppercase;">Estimated Equity</div><div style="font-size: 0.9rem; color: #888; margin-top: 0.5rem;">Link both accounts to calculate</div></div>'}
+                            </div>
+                            ${equityData.data.equity !== null ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 8px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                                    <div style="font-size: 0.75rem; color: #666; font-weight: 600;">Equity Bar</div>
+                                </div>
+                                <div style="height: 30px; background: #ffcdd2; border-radius: 15px; overflow: hidden; position: relative;">
+                                    <div style="height: 100%; background: linear-gradient(90deg, #66bb6a 0%, #43a047 100%); width: ${Math.max(0, Math.min(100, (equityData.data.equity / equityData.data.propertyValue) * 100))}%; transition: width 0.5s;"></div>
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.85rem; font-weight: bold; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">${Math.round((equityData.data.equity / equityData.data.propertyValue) * 100)}%</div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
                         
                         <!-- Monthly Cash Flow Chart -->
                         <div style="margin-bottom: 1.5rem; background: #fafafa; padding: 1.25rem; border-radius: 8px;">
@@ -15676,6 +15790,8 @@
                 mortgageTermMonths: parseInt(document.getElementById('apartmentMortgageTermMonths').value) || 360,
                 rentIncreaseMonth: document.getElementById('apartmentRentIncreaseMonth').value || null,
                 reconcileDate: document.getElementById('apartmentReconcileDate').value || null,
+                mortgageAccountId: document.getElementById('apartmentMortgageAccountId').value || null,
+                propertyAccountId: document.getElementById('apartmentPropertyAccountId').value || null,
                 financialGoal: {
                     type: document.getElementById('apartmentGoalType').value,
                     targetAmount: parseFloat(document.getElementById('apartmentGoalAmount').value) || 0
@@ -15736,6 +15852,8 @@
                     document.getElementById('apartmentMortgageTermMonths').value = apt.mortgageTermMonths || 360;
                     document.getElementById('apartmentRentIncreaseMonth').value = apt.rentIncreaseMonth || '';
                     document.getElementById('apartmentReconcileDate').value = apt.reconcileDate ? apt.reconcileDate.substring(0, 10) : '';
+                    document.getElementById('apartmentMortgageAccountId').value = apt.mortgageAccountId || '';
+                    document.getElementById('apartmentPropertyAccountId').value = apt.propertyAccountId || '';
                     document.getElementById('apartmentGoalType').value = apt.financialGoal?.type || 'breakeven';
                     document.getElementById('apartmentGoalAmount').value = apt.financialGoal?.targetAmount || '';
                     
@@ -15778,6 +15896,8 @@
             document.getElementById('apartmentMortgageTermMonths').value = '360';
             document.getElementById('apartmentRentIncreaseMonth').value = '';
             document.getElementById('apartmentReconcileDate').value = '';
+            document.getElementById('apartmentMortgageAccountId').value = '';
+            document.getElementById('apartmentPropertyAccountId').value = '';
             document.getElementById('apartmentGoalType').value = 'breakeven';
             document.getElementById('apartmentGoalAmount').value = '';
             

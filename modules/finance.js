@@ -2374,6 +2374,8 @@ function saveApartment(apartmentData) {
         mortgageAmount: parseFloat(apartmentData.mortgageAmount) || 0,
         mortgageRate: parseFloat(apartmentData.mortgageRate) || 0,
         mortgageTermMonths: parseInt(apartmentData.mortgageTermMonths) || 360,
+        mortgageAccountId: apartmentData.mortgageAccountId || null,
+        propertyAccountId: apartmentData.propertyAccountId || null,
         expenses: apartmentData.expenses || [],
         incomeEntries: apartmentData.incomeEntries || [],
         forecastedRent: apartmentData.forecastedRent || [],
@@ -3044,6 +3046,70 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
   }
 }
 
+/**
+ * Get equity overview for an apartment
+ * Shows mortgage balance, property value, and calculated equity
+ */
+function getApartmentEquityOverview(apartmentId) {
+  try {
+    const apartment = getApartment(apartmentId);
+    if (!apartment) {
+      return { success: false, error: 'Apartment not found' };
+    }
+
+    const accounts = getAccounts();
+    let mortgageBalance = null;
+    let propertyValue = null;
+    let mortgageAccountName = null;
+    let propertyAccountName = null;
+
+    // Get mortgage account balance if linked
+    if (apartment.mortgageAccountId) {
+      const mortgageAccount = accounts.find(acc => acc.id === apartment.mortgageAccountId);
+      if (mortgageAccount) {
+        mortgageBalance = parseFloat(mortgageAccount.amount) || 0;
+        mortgageAccountName = getAccountDisplayName(mortgageAccount);
+      }
+    }
+
+    // Get property account value if linked
+    if (apartment.propertyAccountId) {
+      const propertyAccount = accounts.find(acc => acc.id === apartment.propertyAccountId);
+      if (propertyAccount) {
+        propertyValue = parseFloat(propertyAccount.amount) || 0;
+        propertyAccountName = getAccountDisplayName(propertyAccount);
+      }
+    }
+
+    // Calculate equity if both values are available
+    let equity = null;
+    if (propertyValue !== null && mortgageBalance !== null) {
+      equity = propertyValue - mortgageBalance;
+    }
+
+    return {
+      success: true,
+      data: {
+        mortgageBalance,
+        propertyValue,
+        equity,
+        mortgageAccountId: apartment.mortgageAccountId,
+        propertyAccountId: apartment.propertyAccountId,
+        mortgageAccountName,
+        propertyAccountName,
+        hasLinkedMortgage: apartment.mortgageAccountId != null,
+        hasLinkedProperty: apartment.propertyAccountId != null
+      }
+    };
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Get apartment equity overview',
+      apartmentId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -3085,6 +3151,7 @@ module.exports = {
   updateForecastedRent,
   calculateSuggestedRent,
   getApartmentAnalysis,
+  getApartmentEquityOverview,
   // Export for testing
   parseAccountsFromText
 };
