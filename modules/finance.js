@@ -2938,6 +2938,9 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
             let amount = expense.amount;
             if (isFutureMonth && expense.annualIncreasePercent > 0) {
               // Calculate how many years from the expense creation date (or last increase)
+              // Note: We use full year comparison (not month-precise) because increases
+              // are applied on January 1st. This means forecasts assume increases happen
+              // at the start of each calendar year, which aligns with the cron job behavior.
               const referenceDate = expense.lastIncreaseDate 
                 ? new Date(expense.lastIncreaseDate) 
                 : new Date(expense.createdAt);
@@ -2955,6 +2958,9 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
             let amount = expense.amount;
             if (isFutureMonth && expense.annualIncreasePercent > 0) {
               // Calculate how many years from the expense creation date (or last increase)
+              // Note: We use full year comparison (not month-precise) because increases
+              // are applied on January 1st. This means forecasts assume increases happen
+              // at the start of each calendar year, which aligns with the cron job behavior.
               const referenceDate = expense.lastIncreaseDate 
                 ? new Date(expense.lastIncreaseDate) 
                 : new Date(expense.createdAt);

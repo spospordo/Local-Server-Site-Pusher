@@ -16253,7 +16253,7 @@
                     </div>
                     <div style="text-align: right; margin-left: 1rem;">
                         <div style="font-size: 1.3rem; font-weight: bold; color: #f44336;">$${formatCurrency(expense.amount)}</div>
-                        ${expense.originalAmount && expense.originalAmount !== expense.amount ? 
+                        ${expense.originalAmount && Math.abs(expense.originalAmount - expense.amount) > 0.01 ? 
                             `<div style="color: #999; font-size: 0.8rem; text-decoration: line-through;">$${formatCurrency(expense.originalAmount)}</div>` : 
                             ''}
                         <button onclick="deleteExpense('${expense.id}')" style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem;">Delete</button>
