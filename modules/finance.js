@@ -2455,6 +2455,9 @@ function addApartmentExpense(apartmentId, expenseData) {
       category: expenseData.category || 'other', // 'mortgage', 'property-tax', 'insurance', 'maintenance', 'hoa', 'utilities', 'other'
       date: expenseData.date || new Date().toISOString(),
       notes: expenseData.notes || '',
+      annualIncreasePercent: parseFloat(expenseData.annualIncreasePercent) || 0, // Annual percentage increase (e.g., 3.0 for 3%)
+      originalAmount: parseFloat(expenseData.amount) || 0, // Track original amount for history
+      lastIncreaseDate: null, // Track when last increase was applied
       createdAt: new Date().toISOString()
     };
     
@@ -2508,6 +2511,82 @@ function deleteApartmentExpense(apartmentId, expenseId) {
       operation: 'Delete apartment expense',
       apartmentId,
       expenseId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Apply annual increase to recurring expenses
+ * This function is called automatically on January 1st each year
+ */
+function applyAnnualExpenseIncreases() {
+  try {
+    const data = loadFinanceData();
+    let updatedCount = 0;
+    const currentYear = new Date().getFullYear();
+    const currentDate = new Date().toISOString();
+    
+    if (!data.apartments || data.apartments.length === 0) {
+      return { success: true, message: 'No apartments to process', updatedCount: 0 };
+    }
+    
+    // Process each apartment
+    data.apartments.forEach(apartment => {
+      if (!apartment.expenses || apartment.expenses.length === 0) {
+        return;
+      }
+      
+      // Process each expense
+      apartment.expenses.forEach(expense => {
+        // Only apply increases to recurring expenses (monthly or annual)
+        if ((expense.type === 'monthly' || expense.type === 'annual') && 
+            expense.annualIncreasePercent > 0) {
+          
+          // Check if we need to apply an increase
+          // Skip if already increased this year
+          const lastIncreaseYear = expense.lastIncreaseDate 
+            ? new Date(expense.lastIncreaseDate).getFullYear() 
+            : 0;
+          
+          if (lastIncreaseYear < currentYear) {
+            // Apply the percentage increase
+            const increaseMultiplier = 1 + (expense.annualIncreasePercent / 100);
+            expense.amount = parseFloat((expense.amount * increaseMultiplier).toFixed(2));
+            expense.lastIncreaseDate = currentDate;
+            updatedCount++;
+            
+            logger.info(logger.categories.FINANCE, 
+              `Applied annual increase to expense ${expense.name} (${apartment.name}): ${expense.annualIncreasePercent}% -> $${expense.amount}`);
+          }
+        }
+      });
+      
+      apartment.updatedAt = currentDate;
+    });
+    
+    // Save the updated data
+    if (updatedCount > 0) {
+      const result = saveFinanceData(data);
+      if (result.success) {
+        return { 
+          success: true, 
+          message: `Successfully applied annual increases to ${updatedCount} expense(s)`,
+          updatedCount 
+        };
+      } else {
+        return result;
+      }
+    } else {
+      return { 
+        success: true, 
+        message: 'No expenses needed annual increases',
+        updatedCount: 0 
+      };
+    }
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Apply annual expense increases'
     });
     return { success: false, error: error.message };
   }
@@ -2855,10 +2934,44 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
         apartment.expenses.forEach(expense => {
           if (expense.type === 'monthly') {
             // Monthly recurring expenses apply to all months
-            expenses += expense.amount;
+            // Apply annual increase for future forecasts
+            let amount = expense.amount;
+            if (isFutureMonth && expense.annualIncreasePercent > 0) {
+              // Calculate how many years from the expense creation date (or last increase)
+              // Note: We use full year comparison (not month-precise) because increases
+              // are applied on January 1st. This means forecasts assume increases happen
+              // at the start of each calendar year, which aligns with the cron job behavior.
+              const referenceDate = expense.lastIncreaseDate 
+                ? new Date(expense.lastIncreaseDate) 
+                : new Date(expense.createdAt);
+              const yearsElapsed = currentDate.getFullYear() - referenceDate.getFullYear();
+              
+              if (yearsElapsed > 0) {
+                // Apply compound increase for each year elapsed
+                amount = expense.amount * Math.pow(1 + expense.annualIncreasePercent / 100, yearsElapsed);
+              }
+            }
+            expenses += amount;
           } else if (expense.type === 'annual') {
             // Annual recurring expenses spread across 12 months
-            expenses += expense.amount / 12;
+            // Apply annual increase for future forecasts
+            let amount = expense.amount;
+            if (isFutureMonth && expense.annualIncreasePercent > 0) {
+              // Calculate how many years from the expense creation date (or last increase)
+              // Note: We use full year comparison (not month-precise) because increases
+              // are applied on January 1st. This means forecasts assume increases happen
+              // at the start of each calendar year, which aligns with the cron job behavior.
+              const referenceDate = expense.lastIncreaseDate 
+                ? new Date(expense.lastIncreaseDate) 
+                : new Date(expense.createdAt);
+              const yearsElapsed = currentDate.getFullYear() - referenceDate.getFullYear();
+              
+              if (yearsElapsed > 0) {
+                // Apply compound increase for each year elapsed
+                amount = expense.amount * Math.pow(1 + expense.annualIncreasePercent / 100, yearsElapsed);
+              }
+            }
+            expenses += amount / 12;
           } else if (expense.type === 'one-time') {
             // One-time expenses: include if they occurred within the analysis period
             const expenseMonth = new Date(expense.date).toISOString().substring(0, 7);
@@ -2966,6 +3079,7 @@ module.exports = {
   deleteApartment,
   addApartmentExpense,
   deleteApartmentExpense,
+  applyAnnualExpenseIncreases,
   addApartmentIncome,
   deleteApartmentIncome,
   updateForecastedRent,

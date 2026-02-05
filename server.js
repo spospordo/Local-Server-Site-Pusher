@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
+const cron = require('node-cron');
 const logger = require('./modules/logger');
 const { formatFileSystemError, logError, createErrorResponse } = require('./modules/error-helper');
 const vidiots = require('./modules/vidiots');
@@ -8323,4 +8324,27 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('⏸️  Auto-regeneration disabled');
     logger.info(logger.categories.SYSTEM, 'Auto-regeneration disabled');
   }
+  
+  // Schedule annual expense increases for January 1st at midnight
+  // Cron format: second minute hour day month day-of-week
+  // '0 0 0 1 1 *' = At 00:00:00 on January 1st
+  cron.schedule('0 0 0 1 1 *', () => {
+    console.log('\n💰 Running annual expense increase job...');
+    logger.info(logger.categories.FINANCE, 'Starting annual expense increase job');
+    
+    const result = finance.applyAnnualExpenseIncreases();
+    
+    if (result.success) {
+      console.log(`✅ ${result.message}`);
+      logger.success(logger.categories.FINANCE, result.message);
+    } else {
+      console.error(`❌ Error applying annual expense increases: ${result.error}`);
+      logger.error(logger.categories.FINANCE, `Error applying annual expense increases: ${result.error}`);
+    }
+  }, {
+    timezone: "America/New_York" // Adjust timezone as needed
+  });
+  
+  console.log('📅 Annual expense increase job scheduled for January 1st at midnight');
+  logger.info(logger.categories.FINANCE, 'Annual expense increase job scheduled for January 1st');
 });
