@@ -2,6 +2,186 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Flight API Key Preservation**: Fixed issue where AviationStack API key was not preserved when saving Smart Mirror configuration. The system now properly retains the flight API key along with other API keys, preventing false "Invalid API key or unauthorized access" errors during flight validation.
+- **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
+- **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
+
+## [2.6.36] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #471 from spospordo/copilot/fix-screenshot-upload-feature
+  - Add Tesseract traineddata files to .gitignore (runtime CDN downloads)
+  - Add CDN access verification test results - all tests passed
+  - Add comprehensive fix summary documentation for screenshot upload 500 error
+  - Update package-lock.json version to 2.6.35 for consistency
+  - Add enhanced error logging and update documentation for v2.6.35
+  - Fix Tesseract.js v7 API compatibility - migrate from deprecated recognize to createWorker
+  - Install dependencies to fix missing tesseract.js module
+  - Initial plan
+
+
+## [2.6.35] - 2026-02-05
+
+### Fixed
+- **Finance Screenshot Upload - Tesseract.js v7 API Compatibility**: Fixed critical issue causing 500 Internal Server Error when admin users attempted to upload account screenshots. The code was using the deprecated Tesseract.js v5 API which is incompatible with v7.0.0. Migrated to the new `createWorker()` API with proper worker lifecycle management and cleanup. Enhanced error logging to help diagnose OCR initialization issues.
+
+### Changed
+- Updated Finance module to use Tesseract.js v7 worker API
+- Added comprehensive error messages for network connectivity issues during OCR initialization
+- Improved logging during screenshot processing to track initialization and recognition progress
+
+## [2.6.34] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #469 from spospordo/copilot/fix-admin-expenses-apartment-module
+  - Complete fix verification and testing
+  - Fix: Replace inline onclick with event listener for expense button
+  - Initial plan
+
+
+## [2.6.33] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #467 from spospordo/copilot/fix-account-screenshot-upload-error
+  - Add comprehensive fix summary documentation
+  - Fix spacing issues in test script (code review feedback)
+  - Add validation test and update documentation for screenshot upload fix
+  - Fix screenshot upload validation - use explicit file extensions and improve error handling
+  - Initial plan
+
+
+## [2.6.32] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #465 from spospordo/copilot/fix-admin-expenses-apartment-module
+  - Add type=button to Add Expense button to prevent form submission
+  - Initial investigation of apartment expense bug
+  - Initial plan
+
+
+## [2.6.31] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #463 from spospordo/copilot/link-property-to-mortgage-account
+  - Fix edge cases in equity calculation and display
+  - Complete equity overview feature implementation
+  - Add equity overview feature to apartment module
+  - Initial plan
+
+
+## [2.6.30] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #461 from spospordo/copilot/add-estimated-annual-increase
+  - Address code review feedback - floating-point comparison and clarify year calculation
+  - Fix logger call in annual expense increase function
+  - Update forecast calculations to apply annual increases
+  - Add annual expense increase feature - data model, UI, and cron job
+  - Initial plan
+
+
+## [2.6.29] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #459 from spospordo/copilot/redesign-apartment-module-layout
+  - Redesign apartment module to prioritize financial data display
+  - Initial plan
+
+
+## [2.6.28] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #457 from spospordo/copilot/add-reconcile-forecast-cash-flow
+  - Fix expense and mortgage calculation logic based on code review
+  - Address code review feedback: Improve terminology clarity
+  - Testing complete: All features working correctly
+  - Implement reconcile date, 24-month forecast, and fix forecasted rent API
+  - Initial plan
+
+
+## [2.6.27] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #455 from spospordo/copilot/add-expenses-rent-tracking
+  - Complete expense and rent tracking UI implementation with code review
+  - Implement expense and income management UI for apartments
+  - Initial plan
+
+
+## [2.6.26] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #453 from spospordo/copilot/add-apartment-sub-tab-finance
+  - Fix month calculation accuracy and remove duplicate utility functions
+  - Add frontend UI and JavaScript for apartment tracking
+  - Add backend support for apartment investment property tracking
+  - Initial plan
+
+
+## [2.6.25] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #451 from spospordo/copilot/extend-party-scheduling-feature
+  - Fix ID generation to prevent collisions in rapid party creation
+  - Complete multi-party scheduling implementation with full testing
+  - Add multi-party frontend UI with party selector and management
+  - Add multi-party backend API and migration logic
+  - Initial plan
+
+
+## [2.6.24] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #449 from spospordo/copilot/fix-api-key-validation
+  - Add comprehensive implementation summary documentation
+  - Fix code review issues: operator precedence and XSS vulnerability
+  - Enhance flight validation error message with setup guidance
+  - Add API key fingerprint logging and diagnostics endpoint
+  - Initial plan
+
+
+## [2.6.23] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #447 from spospordo/copilot/fix-flight-validation-api-key
+  - Add comprehensive implementation summary document
+  - Address code review feedback - simplify API key preservation logic
+  - Add test script and update documentation for flight API key fix
+  - Fix flight API key preservation and improve error messaging
+  - Initial plan
+
+
+## [2.6.22]
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -85,6 +265,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added forecast configuration to DEFAULT_CONFIG in magicmirror.js
 - Added comprehensive test suite: `scripts/test-webcal-weather.js`
 - Weather and forecast tests passing (7/7)
+
+## [2.6.22] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #445 from spospordo/copilot/fix-flight-validation-deletion-actions
+  - Add comprehensive test suite for flight validation, deletion, and tracking fixes
+  - Update documentation for admin action bypass and enhanced tracked flights display
+  - Fix flight validation, deletion, and tracked flights display
+  - Initial plan
+
+
+## [2.6.21] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #443 from spospordo/copilot/integrate-aviationstack-api
+  - Fix security and code quality issues from review
+  - Add comprehensive documentation for AviationStack integration
+  - Add Flight API admin UI with connection testing and usage tracking
+  - Add AviationStack API integration modules and backend endpoints
+  - Initial plan
+
+
+## [2.6.20] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #441 from spospordo/copilot/enhance-vacation-widget-flight-tracking
+  - Refactor: Extract flight ID generation into helper function for DRY
+  - Final code review fixes: improve ID generation and date window calculation
+  - Fix code review issues: date comparison and ID generation
+  - Complete flight tracking feature with UI, validation, and smart mirror integration
+  - Add flight tracking backend and UI - initial implementation
+  - Initial plan
+
+
+## [2.6.19] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #440 from spospordo/copilot/fix-weather-info-error
+  - Complete party weather detection fix with full documentation
+  - Add integration tests and verification documentation
+  - Fix regex pattern in test script (code review feedback)
+  - Add comprehensive test for weather detection fix
+  - Fix weather detection logic for party features
+  - Initial plan
+
+
+## [2.6.18] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #437 from spospordo/copilot/add-air-quality-widget
+  - Add implementation summary document
+  - Add Air Quality Widget documentation and demo pages
+  - Add Air Quality Widget - backend API, frontend display, and admin configuration
+  - Initial plan
+
+
+## [2.6.17] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #435 from spospordo/copilot/update-vacation-widget-support
+  - Clean up test data - restore config to original state
+  - Add comprehensive implementation documentation for multiple vacations support
+  - Update documentation for multiple vacation support
+  - Implement multiple vacation support for Smart Widget vacation sub-widget
+  - Initial plan
+
+
+## [2.6.16] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #433 from spospordo/copilot/fix-calendar-widget-holiday-bug
+  - Add visual demonstration of calendar fix
+  - Address code review feedback: rename function and improve warning message
+  - Add test for calendar object property handling
+  - Fix calendar widget: handle object-type event properties
+  - Initial plan
+
+
+## [2.6.15] - 2026-02-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #431 from spospordo/copilot/fix-collapse-expand-controls
+  - Further improve generateSectionKey to ensure uniqueness and prevent duplicate listeners
+  - Address code review feedback: extract generateSectionKey helper and use position-based fallback
+  - Testing complete: All collapse/expand controls working with state persistence
+  - Fix toggleCollapsible to handle both element and ID, add localStorage persistence
+  - Initial plan
+
+
+## [2.6.14] - 2026-02-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #429 from spospordo/copilot/add-weather-info-to-party-page
+  - Add implementation summary for party weather integration
+  - Add documentation for party weather integration
+  - Add test script for party weather integration
+  - Add weather forecast integration for party scheduling and widget
+  - Initial plan
+
+
+## [2.6.13] - 2026-02-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #427 from spospordo/copilot/ui-adjust-timezone-display
+  - Complete: Additional timezones display smaller and more secondary
+  - Make additional timezones smaller and more secondary in clock widget
+  - Initial plan
+
 
 ## [2.6.12] - 2026-02-03
 

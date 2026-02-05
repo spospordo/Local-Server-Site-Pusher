@@ -15,6 +15,7 @@ A containerized web application with admin interface for serving web content and
 🤖 **AI Assistant**: Ollama/Open WebUI integration for AI-powered finance assistance (admin-only)  
 🔄 **Auto-Regeneration**: Automatically regenerates and syncs public files on startup and redeploy  
 📱 **Dual Orientation Layouts**: Smart Mirror dashboard supports separate portrait and landscape layouts with automatic orientation detection  
+✈️ **Flight Tracking**: Real-time flight status with AviationStack API integration, intelligent rate limiting, and automated scheduling  
 
 ## Quick Start
 
@@ -357,7 +358,8 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
 - 📰 **News Feeds**: Show latest headlines from RSS feeds
 - 🎵 **Home Assistant Media Player**: Display now-playing information from your Home Assistant media players (Spotify, Chromecast, Sonos, Plex, etc.)
 - ✈️ **Vacation Widget**: Show upcoming vacations with countdown and weather
-- 📱 **Smart Widget**: Intelligent container that displays multiple sub-widgets (rain forecast, vacation alerts, media status) based on relevance
+- 🎉 **Party Widget**: Display upcoming party details with guest list, tasks, menu, and weather forecast
+- 📱 **Smart Widget**: Intelligent container that displays multiple sub-widgets (rain forecast, vacation alerts, party info, media status) based on relevance
 - 🎨 **Grid Editor**: Visual drag-and-drop layout editor
 - 🌙 **Dark/Light Themes**: Built-in theme support
 - 🔐 **Persistent Configuration**: All settings including API keys persist across container restarts
@@ -374,12 +376,36 @@ Create a customizable smart mirror display with widgets for clock, calendar, wea
    - **News**: Add RSS feed URLs
    - **Media**: Connect to Home Assistant for now-playing display (see [HOME_ASSISTANT_MEDIA_WIDGET.md](HOME_ASSISTANT_MEDIA_WIDGET.md))
    - **Vacation**: Configure vacation dates in House section for countdown display
-   - **Smart Widget**: Intelligent multi-widget display for rain alerts, vacations, and media status (see [SMART_WIDGET.md](SMART_WIDGET.md))
+   - **Party**: Set party details in Party > Scheduling with automatic weather integration (see [PARTY_WEATHER_INTEGRATION.md](PARTY_WEATHER_INTEGRATION.md))
+   - **Smart Widget**: Intelligent multi-widget display for rain alerts, vacations, party info, and media status (see [SMART_WIDGET.md](SMART_WIDGET.md))
 
 4. Get a free OpenWeatherMap API key at [openweathermap.org/api](https://openweathermap.org/api)
 5. For Home Assistant media widget setup, see the [detailed guide](HOME_ASSISTANT_MEDIA_WIDGET.md)
 6. For Smart Widget configuration, see the [Smart Widget documentation](SMART_WIDGET.md)
-7. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+7. For Party weather integration, see the [Party Weather Integration guide](PARTY_WEATHER_INTEGRATION.md)
+8. View your Smart Mirror at `http://localhost:3000/smart-mirror`
+
+### Flight Tracking with AviationStack
+
+**New Feature**: Real-time flight tracking for vacation planning!
+
+**Features**:
+- ✈️ Live flight status updates (delays, gates, terminals)
+- 📊 Intelligent rate limiting (respects 100 calls/month free tier)
+- ⏰ Automated scheduling (daily, 3x daily for near flights, hourly for imminent)
+- 🔐 Secure API key management with connection testing
+- 📈 Usage tracking and visual indicators
+
+**Quick Setup**:
+1. Get free API key from [aviationstack.com](https://aviationstack.com/)
+2. Navigate to **Smart Mirror** → **APIs and Connections**
+3. Enter your AviationStack API key
+4. Click **Test Connection** to verify
+5. Add flights to vacations in **House** → **Vacation**
+6. Validate flights and enable tracking
+7. Flight status appears automatically on Smart Mirror
+
+**Documentation**: See [AVIATIONSTACK_INTEGRATION.md](AVIATIONSTACK_INTEGRATION.md) for complete setup and usage guide.
 
 ### API Key Persistence
 

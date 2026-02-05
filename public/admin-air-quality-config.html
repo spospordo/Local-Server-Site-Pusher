@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Air Quality Widget Configuration</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .config-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        select, input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #f0f7ff;
+            border-left: 3px solid #667eea;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        .description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 10px 0;
+        }
+        small {
+            color: #666;
+            font-size: 12px;
+            display: block;
+            margin-top: 4px;
+        }
+        h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌬️ Air Quality Widget Configuration</h1>
+    <p class="description">Configure the Air Quality Widget to display real-time AQI data on your Smart Mirror dashboard.</p>
+    
+    <div class="config-section">
+        <div class="section-header">
+            🌬️ Air Quality Widget (Compact AQI Display)
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="airQualityEnabled">Air Quality Widget</label>
+                <select id="airQualityEnabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="airQualitySize">Size</label>
+                <select id="airQualitySize">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="airQualityGridX">Grid Position X (0-3)</label>
+                <input type="number" id="airQualityGridX" min="0" max="3" value="0">
+            </div>
+            <div class="form-group">
+                <label for="airQualityGridY">Grid Position Y (0-5)</label>
+                <input type="number" id="airQualityGridY" min="0" max="5" value="4">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="airQualityGridWidth">Width (1-4 cells)</label>
+                <input type="number" id="airQualityGridWidth" min="1" max="4" value="1">
+            </div>
+            <div class="form-group">
+                <label for="airQualityGridHeight">Height (1-6 cells)</label>
+                <input type="number" id="airQualityGridHeight" min="1" max="6" value="1">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="airQualityHighlight">Highlight Favorable Conditions</label>
+            <select id="airQualityHighlight">
+                <option value="true">Enabled (highlight when AQI is good and temp ≤ 75°F)</option>
+                <option value="false">Disabled</option>
+            </select>
+            <small>When enabled, the widget will glow green when air quality is "Good" (AQI=1) and temperature is 75°F or less, indicating favorable outdoor conditions.</small>
+        </div>
+        
+        <div class="form-group">
+            <p class="description">
+                The Air Quality Widget displays current AQI (Air Quality Index) and forecasts for today and tomorrow. It uses the OpenWeatherMap Air Pollution API to provide real-time air quality data including PM2.5, PM10, and other pollutants.
+            </p>
+            <p class="description">
+                <strong>AQI Scale:</strong><br>
+                1 = Good (😊) | 2 = Fair (🙂) | 3 = Moderate (😐) | 4 = Poor (😷) | 5 = Very Poor (🤢)
+            </p>
+        </div>
+        
+        <div class="info-box">
+            <small style="color: #555;">
+                ℹ️ <strong>API Key:</strong> Configure your OpenWeatherMap API key in the <strong>APIs and Connections</strong> section above. The same key is used for weather and air quality data.
+            </small>
+        </div>
+    </div>
+    
+    <div class="config-section">
+        <h3>✅ Available in Grid Editor</h3>
+        <p class="description">
+            The Air Quality Widget is fully integrated with the Grid Layout Editor. You can:
+        </p>
+        <ul class="description">
+            <li>Drag and drop the widget to any position on the grid</li>
+            <li>Resize to fit your layout (recommended: 1x1 for compact display)</li>
+            <li>Configure separate layouts for portrait and landscape orientations</li>
+            <li>Preview the widget in real-time as you adjust the layout</li>
+        </ul>
+    </div>
+</body>
+</html>

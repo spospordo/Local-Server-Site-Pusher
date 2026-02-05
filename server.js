@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { execSync } = require('child_process');
 const axios = require('axios');
+const cron = require('node-cron');
 const logger = require('./modules/logger');
 const { formatFileSystemError, logError, createErrorResponse } = require('./modules/error-helper');
 const vidiots = require('./modules/vidiots');
@@ -19,6 +20,8 @@ const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
 const house = require('./modules/house');
+const aviationstack = require('./modules/aviationstack');
+const flightScheduler = require('./modules/flight-scheduler');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -704,6 +707,9 @@ publicFilesRegenerator.init(config);
 // Initialize house module
 house.init(config);
 
+// Initialize flight scheduler
+flightScheduler.initScheduler();
+
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
 
@@ -1136,25 +1142,536 @@ app.delete('/admin/api/links/:id', requireAuth, (req, res) => {
   }
 });
 
-// API endpoints for party scheduling
-app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
+// Party ID generation
+// Counter to prevent ID collisions when multiple parties are created rapidly
+let partyIdCounter = 0;
+function generatePartyId() {
+  return Date.now() * 1000 + (partyIdCounter++ % 1000);
+}
+
+// Helper function to migrate single party data to multiple parties format
+function migrateToMultiParty() {
+  // Check if we have old single-party data and no new multi-party data
+  if (config.partyScheduling && !config.parties) {
+    logger.info(logger.categories.SYSTEM, 'Migrating single party data to multi-party format');
+    
+    // Create parties array with the existing party data
+    config.parties = [{
+      id: generatePartyId(), // Generate unique ID
+      name: 'My Party',
+      status: 'scheduled', // draft, scheduled, archived
+      dateTime: config.partyScheduling.dateTime || { date: '', startTime: '', endTime: '' },
+      invitees: config.partyScheduling.invitees || [],
+      menu: config.partyScheduling.menu || [],
+      tasks: config.partyScheduling.tasks || [],
+      events: config.partyScheduling.events || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }];
+    
+    // Keep the old data for backward compatibility temporarily
+    // It will be removed in future versions
+    
+    // Save the migrated config
+    if (configWritable) {
+      createConfigFile(configPath, config);
+    }
+    
+    logger.info(logger.categories.SYSTEM, 'Migration complete: 1 party migrated');
+  } else if (!config.parties) {
+    // Initialize empty parties array if nothing exists
+    config.parties = [];
+  }
+}
+
+// Ensure migration runs on server start
+migrateToMultiParty();
+
+// API endpoints for multi-party scheduling
+
+// List all parties
+app.get('/admin/api/parties', requireAuth, (req, res) => {
   try {
-    // Return scheduling data from config, or empty structure if not exists
-    const schedulingData = config.partyScheduling || {
-      dateTime: {
-        date: '',
-        startTime: '',
-        endTime: ''
-      },
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const parties = config.parties || [];
+    
+    // Return basic info for each party (not full data)
+    const partyList = parties.map(party => ({
+      id: party.id,
+      name: party.name,
+      status: party.status,
+      date: party.dateTime?.date || '',
+      inviteeCount: party.invitees?.length || 0,
+      createdAt: party.createdAt,
+      updatedAt: party.updatedAt
+    }));
+    
+    res.json({ parties: partyList });
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'List parties'
+    });
+    res.status(500).json({ 
+      error: 'Failed to list parties',
+      details: err.message
+    });
+  }
+});
+
+// Create a new party
+app.post('/admin/api/parties', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const { name } = req.body;
+    
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Party name is required' });
+    }
+    
+    const newParty = {
+      id: generatePartyId(),
+      name: name.trim(),
+      status: 'draft',
+      dateTime: { date: '', startTime: '', endTime: '' },
       invitees: [],
       menu: [],
       tasks: [],
-      events: []
+      events: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+    
+    config.parties.push(newParty);
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party created successfully',
+          persistent: true,
+          party: newParty
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party created (in memory only - file save failed)',
+          persistent: false,
+          party: newParty
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party created (in memory only)',
+        persistent: false,
+        party: newParty
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Create party'
+    });
+    res.status(500).json({ 
+      error: 'Failed to create party',
+      details: err.message
+    });
+  }
+});
+
+// Get a specific party
+app.get('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    res.json(party);
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Get party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to get party',
+      details: err.message
+    });
+  }
+});
+
+// Update a specific party
+app.put('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const partyIndex = config.parties.findIndex(p => p.id === partyId);
+    
+    if (partyIndex === -1) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    const { name, status, dateTime, invitees, menu, tasks, events } = req.body;
+    
+    // Update party data
+    const party = config.parties[partyIndex];
+    
+    if (name !== undefined) party.name = name;
+    if (status !== undefined && ['draft', 'scheduled', 'archived'].includes(status)) {
+      party.status = status;
+    }
+    if (dateTime !== undefined) party.dateTime = dateTime;
+    if (invitees !== undefined) party.invitees = invitees;
+    if (menu !== undefined) party.menu = menu;
+    if (tasks !== undefined) party.tasks = tasks;
+    if (events !== undefined) party.events = events;
+    
+    party.updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party updated successfully',
+          persistent: true,
+          party: party
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party updated (in memory only - file save failed)',
+          persistent: false,
+          party: party
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party updated (in memory only)',
+        persistent: false,
+        party: party
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Update party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to update party',
+      details: err.message
+    });
+  }
+});
+
+// Archive/Delete a specific party
+app.delete('/admin/api/parties/:id', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const partyIndex = config.parties.findIndex(p => p.id === partyId);
+    
+    if (partyIndex === -1) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    // Archive instead of delete (soft delete)
+    config.parties[partyIndex].status = 'archived';
+    config.parties[partyIndex].updatedAt = new Date().toISOString();
+    
+    // Try to persist to file
+    if (configWritable) {
+      if (createConfigFile(configPath, config)) {
+        res.json({ 
+          success: true, 
+          message: 'Party archived successfully',
+          persistent: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'Party archived (in memory only - file save failed)',
+          persistent: false
+        });
+      }
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Party archived (in memory only)',
+        persistent: false
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Archive party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to archive party',
+      details: err.message
+    });
+  }
+});
+
+// Validate a specific party
+app.get('/admin/api/parties/:id/validate', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    const issues = [];
+    const warnings = [];
+    let isValid = true;
+    
+    // Check for required party date
+    if (!party.dateTime || !party.dateTime.date) {
+      issues.push({
+        field: 'dateTime.date',
+        severity: 'error',
+        message: 'Missing party date',
+        suggestion: 'Set a date for your party in the "Date & Time" section. The widget will not display without a valid party date.'
+      });
+      isValid = false;
+    } else {
+      // Validate date format
+      const dateStr = party.dateTime.date;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        issues.push({
+          field: 'dateTime.date',
+          severity: 'error',
+          message: 'Invalid date format',
+          suggestion: 'Date must be in YYYY-MM-DD format. Please re-enter the party date.'
+        });
+        isValid = false;
+      } else {
+        // Check if date is valid and not in the past
+        const partyDate = new Date(dateStr);
+        partyDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (isNaN(partyDate.getTime())) {
+          issues.push({
+            field: 'dateTime.date',
+            severity: 'error',
+            message: 'Invalid date value',
+            suggestion: 'The date entered is not a valid calendar date. Please correct it.'
+          });
+          isValid = false;
+        } else if (partyDate < today) {
+          warnings.push({
+            field: 'dateTime.date',
+            severity: 'warning',
+            message: 'Party date is in the past',
+            suggestion: 'The party date has already passed. The widget will not display past events. Update the date if this is incorrect.'
+          });
+        }
+      }
+    }
+    
+    // Check for time information (optional but good to know)
+    if (party.dateTime && !party.dateTime.startTime) {
+      warnings.push({
+        field: 'dateTime.startTime',
+        severity: 'info',
+        message: 'No start time specified',
+        suggestion: 'Consider adding a start time so guests know when to arrive.'
+      });
+    }
+    
+    // Check invitees (optional but commonly expected)
+    if (!party.invitees || party.invitees.length === 0) {
+      warnings.push({
+        field: 'invitees',
+        severity: 'info',
+        message: 'No invitees added',
+        suggestion: 'Add guests to track RSVPs and show invitation counts in the widget.'
+      });
+    }
+    
+    // Check tasks (optional but commonly expected)
+    if (!party.tasks || party.tasks.length === 0) {
+      warnings.push({
+        field: 'tasks',
+        severity: 'info',
+        message: 'No tasks added',
+        suggestion: 'Add pre-party tasks to track preparation progress in the widget.'
+      });
+    }
+    
+    // Check menu (optional but commonly expected)
+    if (!party.menu || party.menu.length === 0) {
+      warnings.push({
+        field: 'menu',
+        severity: 'info',
+        message: 'No menu items added',
+        suggestion: 'Add menu items to display what will be served at the party.'
+      });
+    }
+    
+    // Check events (optional)
+    if (!party.events || party.events.length === 0) {
+      warnings.push({
+        field: 'events',
+        severity: 'info',
+        message: 'No events scheduled',
+        suggestion: 'Add party events to show a timeline of activities.'
+      });
+    }
+    
+    res.json({
+      valid: isValid,
+      issues: issues,
+      warnings: warnings,
+      summary: isValid 
+        ? 'Party widget is ready to display' 
+        : 'Party widget cannot display - please fix the errors above',
+      data: party
+    });
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Validate party',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to validate party',
+      details: err.message
+    });
+  }
+});
+
+// Get weather for a specific party
+app.get('/admin/api/parties/:id/weather', requireAuth, async (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const partyId = parseInt(req.params.id);
+    const party = config.parties.find(p => p.id === partyId);
+    
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+    
+    if (!party.dateTime || !party.dateTime.date) {
+      return res.status(400).json({ 
+        error: 'No party date configured' 
+      });
+    }
+    
+    // Get weather API configuration from smart mirror settings
+    const smConfig = smartMirror.getConfig();
+    const weatherApiKey = smConfig?.widgets?.weather?.apiKey || smConfig?.widgets?.clock?.apiKey;
+    const location = smConfig?.widgets?.weather?.location || smConfig?.widgets?.clock?.location;
+    
+    if (!weatherApiKey || !location) {
+      return res.status(400).json({ 
+        error: 'Weather API not configured. Please configure weather settings in Smart Mirror.' 
+      });
+    }
+    
+    const partyDate = party.dateTime.date;
+    
+    // Calculate days until party
+    const partyDateObj = new Date(partyDate);
+    partyDateObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
+    
+    // Build weather API request
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${weatherApiKey}&units=imperial&cnt=40`;
+    
+    try {
+      const response = await axios.get(weatherUrl);
+      res.json({
+        partyDate,
+        daysUntil,
+        forecast: response.data
+      });
+    } catch (weatherErr) {
+      logger.error(logger.categories.SMART_MIRROR, `Error fetching party weather: ${weatherErr.message}`);
+      res.status(500).json({ 
+        error: 'Failed to fetch weather data',
+        details: weatherErr.response?.data?.message || weatherErr.message
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Fetch party weather',
+      partyId: req.params.id
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch weather',
+      details: err.message
+    });
+  }
+});
+
+// Legacy API endpoints for backward compatibility (deprecated)
+// These will proxy to the new multi-party API using the first scheduled party
+app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // For backward compatibility, return the first scheduled/draft party
+    // or the old single party data if it still exists
+    let schedulingData;
+    
+    if (config.parties && config.parties.length > 0) {
+      // Find first non-archived party
+      const activeParty = config.parties.find(p => p.status !== 'archived');
+      if (activeParty) {
+        schedulingData = {
+          id: activeParty.id, // Include ID for frontend to know which party it's working with
+          dateTime: activeParty.dateTime,
+          invitees: activeParty.invitees,
+          menu: activeParty.menu,
+          tasks: activeParty.tasks,
+          events: activeParty.events
+        };
+      } else {
+        // All parties are archived, return empty
+        schedulingData = {
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: []
+        };
+      }
+    } else if (config.partyScheduling) {
+      // Fallback to old single party data
+      schedulingData = config.partyScheduling;
+    } else {
+      // No data at all
+      schedulingData = {
+        dateTime: { date: '', startTime: '', endTime: '' },
+        invitees: [],
+        menu: [],
+        tasks: [],
+        events: []
+      };
+    }
+    
     res.json(schedulingData);
   } catch (err) {
     logError(logger.categories.SYSTEM, err, {
-      operation: 'Get party scheduling data'
+      operation: 'Get party scheduling data (legacy)'
     });
     res.status(500).json({ 
       error: 'Failed to load scheduling data',
@@ -1165,14 +1682,53 @@ app.get('/admin/api/party/scheduling', requireAuth, (req, res) => {
 
 app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
   try {
-    const { dateTime, invitees, menu, tasks, events } = req.body;
+    migrateToMultiParty(); // Ensure migration has run
+    
+    const { id, dateTime, invitees, menu, tasks, events } = req.body;
     
     // Validate required structure
     if (!dateTime || typeof dateTime !== 'object') {
       return res.status(400).json({ error: 'Invalid dateTime structure' });
     }
     
-    // Initialize scheduling data
+    // If ID is provided, update that specific party; otherwise update first active party
+    let party;
+    if (id) {
+      const partyIndex = config.parties.findIndex(p => p.id === id);
+      if (partyIndex === -1) {
+        return res.status(404).json({ error: 'Party not found' });
+      }
+      party = config.parties[partyIndex];
+    } else {
+      // Find first active party or create one if none exists
+      party = config.parties.find(p => p.status !== 'archived');
+      if (!party) {
+        // Create a new party
+        party = {
+          id: generatePartyId(),
+          name: 'My Party',
+          status: 'draft',
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        config.parties.push(party);
+      }
+    }
+    
+    // Update party data
+    party.dateTime = dateTime;
+    party.invitees = invitees || [];
+    party.menu = menu || [];
+    party.tasks = tasks || [];
+    party.events = events || [];
+    party.updatedAt = new Date().toISOString();
+    
+    // Also keep updating the old single-party data for backward compatibility
     config.partyScheduling = {
       dateTime,
       invitees: invitees || [],
@@ -1188,14 +1744,14 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
           success: true, 
           message: 'Scheduling data saved successfully',
           persistent: true,
-          data: config.partyScheduling
+          data: party
         });
       } else {
         res.json({ 
           success: true, 
           message: 'Scheduling data saved (in memory only - file save failed)',
           persistent: false,
-          data: config.partyScheduling
+          data: party
         });
       }
     } else {
@@ -1203,12 +1759,12 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
         success: true, 
         message: 'Scheduling data saved (in memory only)',
         persistent: false,
-        data: config.partyScheduling
+        data: party
       });
     }
   } catch (err) {
     logError(logger.categories.SYSTEM, err, {
-      operation: 'Save party scheduling data'
+      operation: 'Save party scheduling data (legacy)'
     });
     res.status(500).json({ 
       error: 'Failed to save scheduling data',
@@ -1217,20 +1773,35 @@ app.post('/admin/api/party/scheduling', requireAuth, (req, res) => {
   }
 });
 
-// API endpoint for party scheduling validation
+// API endpoint for party scheduling validation (legacy)
 app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
   try {
-    const schedulingData = config.partyScheduling || {
-      dateTime: {
-        date: '',
-        startTime: '',
-        endTime: ''
-      },
-      invitees: [],
-      menu: [],
-      tasks: [],
-      events: []
-    };
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // Get first active party or old single party data
+    let schedulingData;
+    if (config.parties && config.parties.length > 0) {
+      const activeParty = config.parties.find(p => p.status !== 'archived');
+      if (activeParty) {
+        schedulingData = activeParty;
+      } else {
+        schedulingData = {
+          dateTime: { date: '', startTime: '', endTime: '' },
+          invitees: [],
+          menu: [],
+          tasks: [],
+          events: []
+        };
+      }
+    } else {
+      schedulingData = config.partyScheduling || {
+        dateTime: { date: '', startTime: '', endTime: '' },
+        invitees: [],
+        menu: [],
+        tasks: [],
+        events: []
+      };
+    }
     
     const issues = [];
     const warnings = [];
@@ -1347,6 +1918,96 @@ app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
     });
     res.status(500).json({ 
       error: 'Failed to validate scheduling data',
+      details: err.message
+    });
+  }
+});
+
+// API endpoint to fetch weather for party date (legacy)
+app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
+  try {
+    migrateToMultiParty(); // Ensure migration has run
+    
+    // Get first active party
+    let schedulingData;
+    if (config.parties && config.parties.length > 0) {
+      schedulingData = config.parties.find(p => p.status !== 'archived');
+    } else {
+      schedulingData = config.partyScheduling;
+    }
+    
+    if (!schedulingData || !schedulingData.dateTime || !schedulingData.dateTime.date) {
+      return res.json({ 
+        success: false, 
+        error: 'No party date configured' 
+      });
+    }
+    
+    // Check for weather configuration in either weather or forecast widget
+    const weatherConfig = config.widgets?.weather || {};
+    const forecastConfig = config.widgets?.forecast || {};
+    
+    // Get API key and location from either widget
+    const apiKey = weatherConfig.apiKey || forecastConfig.apiKey;
+    const location = weatherConfig.location || forecastConfig.location;
+    const units = weatherConfig.units || forecastConfig.units || 'imperial';
+    
+    if (!apiKey || !location) {
+      return res.json({ 
+        success: false, 
+        error: 'Weather API not configured',
+        hint: 'Configure API key and location in Smart Mirror weather settings to see weather forecasts'
+      });
+    }
+    
+    const partyDate = schedulingData.dateTime.date;
+    
+    // Calculate days until party
+    const partyDateObj = new Date(partyDate);
+    partyDateObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
+    
+    try {
+      const weatherResult = await smartMirror.fetchWeatherForDate(
+        apiKey,
+        location,
+        partyDate,
+        units
+      );
+      
+      if (weatherResult.success) {
+        res.json({
+          success: true,
+          data: {
+            summary: weatherResult.summary,
+            hourly: weatherResult.hourly,
+            location: weatherResult.location,
+            units: weatherResult.units,
+            daysUntil: daysUntil,
+            showHourly: daysUntil <= 3 && daysUntil >= 0
+          }
+        });
+      } else {
+        res.json({
+          success: false,
+          error: weatherResult.error
+        });
+      }
+    } catch (err) {
+      logger.error(logger.categories.SMART_MIRROR, `Error fetching party weather: ${err.message}`);
+      res.json({
+        success: false,
+        error: 'Failed to fetch weather data'
+      });
+    }
+  } catch (err) {
+    logError(logger.categories.SYSTEM, err, {
+      operation: 'Fetch party weather'
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch weather data',
       details: err.message
     });
   }
@@ -5269,6 +5930,146 @@ app.post('/admin/api/finance/upload-screenshot', requireAuth, (req, res) => {
   });
 });
 
+// Apartment Investment Property Tracking API Endpoints
+
+// Get all apartments
+app.get('/admin/api/finance/apartments', requireAuth, (req, res) => {
+  try {
+    const apartments = finance.getApartments();
+    res.json({ success: true, apartments });
+  } catch (err) {
+    console.error('❌ [Finance] Get apartments error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get a single apartment
+app.get('/admin/api/finance/apartments/:id', requireAuth, (req, res) => {
+  try {
+    const apartment = finance.getApartment(req.params.id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, error: 'Apartment not found' });
+    }
+    res.json({ success: true, apartment });
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create or update an apartment
+app.post('/admin/api/finance/apartments', requireAuth, (req, res) => {
+  try {
+    const result = finance.saveApartment(req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Save apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an apartment
+app.delete('/admin/api/finance/apartments/:id', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartment(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete apartment error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add an expense to an apartment
+app.post('/admin/api/finance/apartments/:id/expenses', requireAuth, (req, res) => {
+  try {
+    const result = finance.addApartmentExpense(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Add expense error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an expense from an apartment
+app.delete('/admin/api/finance/apartments/:id/expenses/:expenseId', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartmentExpense(req.params.id, req.params.expenseId);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete expense error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add an income entry to an apartment
+app.post('/admin/api/finance/apartments/:id/income', requireAuth, (req, res) => {
+  try {
+    const result = finance.addApartmentIncome(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Add income error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete an income entry from an apartment
+app.delete('/admin/api/finance/apartments/:id/income/:incomeId', requireAuth, (req, res) => {
+  try {
+    const result = finance.deleteApartmentIncome(req.params.id, req.params.incomeId);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Delete income error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update forecasted rent for an apartment
+app.post('/admin/api/finance/apartments/:id/forecasted-rent', requireAuth, (req, res) => {
+  try {
+    // Handle both formats: direct array or wrapped in forecastedRent property
+    const forecastedRent = Array.isArray(req.body) ? req.body : req.body.forecastedRent;
+    const result = finance.updateForecastedRent(req.params.id, forecastedRent);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Update forecasted rent error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Calculate suggested rent for an apartment
+app.get('/admin/api/finance/apartments/:id/suggested-rent', requireAuth, (req, res) => {
+  try {
+    const result = finance.calculateSuggestedRent(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Calculate suggested rent error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get profitability analysis for an apartment
+app.get('/admin/api/finance/apartments/:id/analysis', requireAuth, (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const result = finance.getApartmentAnalysis(req.params.id, startDate, endDate);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment analysis error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get apartment equity overview
+app.get('/admin/api/finance/apartments/:id/equity', requireAuth, (req, res) => {
+  try {
+    const result = finance.getApartmentEquityOverview(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Get apartment equity overview error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Backup and Export/Import API Endpoints
 // Export all site configurations and data
 app.get('/admin/api/backup/export', requireAuth, (req, res) => {
@@ -5961,6 +6762,155 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   }
 });
 
+// Admin API endpoints for Flight API (AviationStack) management
+
+// Test Flight API connection
+app.post('/admin/api/flight-api/test-connection', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Flight API connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    const { apiKey } = req.body;
+    
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'API key is required'
+      });
+    }
+    
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Testing connection with API key ${keyFingerprint}`);
+    
+    // Test the connection
+    const result = await aviationstack.testConnection(apiKey);
+    
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, 'Flight API connection test successful');
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `Flight API connection test failed: ${result.error}`);
+    }
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API connection test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test failed',
+      message: err.message
+    });
+  }
+});
+
+// Get Flight API usage statistics
+app.get('/admin/api/flight-api/usage', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight API usage statistics requested');
+  
+  try {
+    const stats = aviationstack.getUsageStats();
+    res.json({
+      success: true,
+      usage: stats
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API usage error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get usage statistics'
+    });
+  }
+});
+
+// Get Flight API configuration diagnostic info (API key fingerprint)
+// This is a temporary diagnostic endpoint for troubleshooting API key issues
+app.get('/admin/api/flight-api/diagnostics', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight API diagnostics requested');
+  
+  try {
+    const config = smartMirror.loadConfig();
+    const apiKey = config.flightApi?.apiKey;
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    
+    res.json({
+      success: true,
+      diagnostics: {
+        apiKeyConfigured: !!apiKey,
+        apiKeyFingerprint: keyFingerprint,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        enabled: config.flightApi?.enabled || false,
+        provider: config.flightApi?.provider || 'aviationstack',
+        monthlyLimit: config.flightApi?.monthlyLimit || 100
+      }
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight API diagnostics error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get diagnostics'
+    });
+  }
+});
+
+// Get tracked flights and their update schedules
+app.get('/admin/api/flight-api/tracked-flights', requireAuth, (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Tracked flights list requested');
+  
+  try {
+    const flights = flightScheduler.getTrackedFlights();
+    
+    // Enhance each flight with cached data if available
+    const enhancedFlights = flights.map(flight => {
+      const cachedData = flightScheduler.getCachedFlightData(`${flight.flightIata}_${flight.date}`);
+      return {
+        ...flight,
+        cachedData: cachedData || null,
+        hasCachedData: !!cachedData
+      };
+    });
+    
+    res.json({
+      success: true,
+      flights: enhancedFlights
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Tracked flights error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get tracked flights'
+    });
+  }
+});
+
+// Manually trigger flight data update
+app.post('/admin/api/flight-api/manual-update', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+  
+  logger.info(logger.categories.SMART_MIRROR, `Manual flight update requested by ${requestContext.user} from ${requestContext.ip}`);
+  
+  try {
+    await flightScheduler.manualUpdate();
+    res.json({
+      success: true,
+      message: 'Flight data update completed'
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Manual flight update error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update flight data'
+    });
+  }
+});
+
 // Admin API endpoints for calendar cache management
 
 // Get calendar cache status
@@ -6178,6 +7128,45 @@ app.get('/api/smart-mirror/rain-forecast', async (req, res) => {
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `Rain forecast API error: ${err.message}`);
     res.status(500).json({ success: false, error: 'Failed to fetch rain forecast data' });
+  }
+});
+
+// Fetch air quality data
+app.get('/api/smart-mirror/air-quality', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Air quality data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const airQualityConfig = config.widgets?.airQuality;
+    
+    if (!airQualityConfig || !airQualityConfig.enabled) {
+      return res.json({ success: false, error: 'Air Quality widget not enabled' });
+    }
+    
+    if (!airQualityConfig.apiKey || !airQualityConfig.location) {
+      return res.json({ success: false, error: 'Air Quality API key and location must be configured' });
+    }
+    
+    const result = await smartMirror.fetchAirQuality(
+      airQualityConfig.apiKey,
+      airQualityConfig.location,
+      airQualityConfig.units || 'imperial'
+    );
+    
+    // Add highlight configuration to the response
+    if (result.success && result.data) {
+      result.data.highlightEnabled = airQualityConfig.highlightFavorableConditions !== false;
+    }
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Air quality API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch air quality data' });
   }
 });
 
@@ -6426,6 +7415,171 @@ app.get('/api/smart-mirror/vacation-timezone', async (req, res) => {
   }
 });
 
+// Admin endpoint to validate flight information
+app.post('/admin/api/vacation/validate-flight', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Validating flight information');
+  
+  try {
+    const { flightNumber, airline, date } = req.body;
+    
+    if (!flightNumber || !airline || !date) {
+      logger.warning(logger.categories.SMART_MIRROR, 'Flight validation request missing required fields');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Flight number, airline, and date are required' 
+      });
+    }
+    
+    // Get API key from config
+    const config = smartMirror.loadConfig();
+    const apiKey = config.flightApi?.apiKey;
+    
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Loaded AviationStack API key from config (key: ${keyFingerprint}, enabled: ${config.flightApi?.enabled})`);
+    
+    if (!apiKey) {
+      logger.warning(logger.categories.SMART_MIRROR, 'Flight validation: AviationStack API key not configured, using format-only validation');
+      // Fall back to format validation if no API key configured
+      const flightRegex = /^[A-Z]{2,3}\d{1,4}$/i;
+      if (!flightRegex.test(flightNumber)) {
+        return res.json({
+          success: false,
+          error: 'Invalid flight number format. Expected format: AB123 or ABC1234'
+        });
+      }
+      
+      // Return basic validation success without API check
+      return res.json({
+        success: true,
+        message: 'Flight format validated (API key not configured for full validation)',
+        flightInfo: {
+          flightNumber: flightNumber.toUpperCase(),
+          airline: airline,
+          date: date,
+          validated: true,
+          limitedValidation: true
+        }
+      });
+    }
+    
+    // Use real AviationStack API validation
+    // Admin actions bypass the limit check but still count toward API usage
+    logger.info(logger.categories.SMART_MIRROR, `Flight validation: Using AviationStack API to validate ${flightNumber} on ${date}`);
+    const result = await aviationstack.validateFlight(apiKey, flightNumber, date, true);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight validation error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to validate flight' });
+  }
+});
+
+// Admin endpoint to toggle flight tracking for a vacation
+app.post('/admin/api/vacation/toggle-flight-tracking', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Toggling flight tracking');
+  
+  try {
+    const { vacationId, enabled } = req.body;
+    
+    if (!vacationId) {
+      return res.status(400).json({ success: false, error: 'Vacation ID is required' });
+    }
+    
+    const vacationData = house.getVacationData();
+    const vacation = vacationData.dates.find(d => d.id === vacationId);
+    
+    if (!vacation) {
+      return res.status(404).json({ success: false, error: 'Vacation not found' });
+    }
+    
+    // Update flight tracking status
+    const result = house.updateVacationDate(vacationId, {
+      ...vacation,
+      flightTrackingEnabled: enabled === true
+    });
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Toggle flight tracking error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to toggle flight tracking' });
+  }
+});
+
+// Public endpoint to fetch flight status for smart mirror display
+app.get('/api/smart-mirror/flight-status', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Flight status requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const { flightNumber, airline, date } = req.query;
+    
+    if (!flightNumber || !airline || !date) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Flight number, airline, and date are required' 
+      });
+    }
+    
+    const config = smartMirror.loadConfig();
+    const vacationConfig = config.widgets?.vacation;
+    
+    if (!vacationConfig || !vacationConfig.enabled) {
+      return res.json({ success: false, error: 'Vacation widget not enabled' });
+    }
+    
+    // First, try to get cached data from scheduler
+    const cachedData = flightScheduler.getFlightDataForDisplay(flightNumber, date);
+    
+    if (cachedData) {
+      logger.debug(logger.categories.SMART_MIRROR, `Returning cached flight data for ${flightNumber}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true
+      });
+    }
+    
+    // If no cached data and API key available, fetch live
+    const apiKey = config.flightApi?.apiKey;
+    if (apiKey) {
+      const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+      logger.debug(logger.categories.SMART_MIRROR, `Fetching live flight data for ${flightNumber} with key ${keyFingerprint}`);
+      const result = await aviationstack.getFlightStatus(apiKey, flightNumber, date);
+      
+      if (result.success) {
+        return res.json({
+          success: true,
+          data: result.flightStatus,
+          cached: false
+        });
+      }
+    }
+    
+    // Fallback: Return basic status information
+    logger.warning(logger.categories.SMART_MIRROR, `No flight data available for ${flightNumber}, returning basic status`);
+    res.json({
+      success: true,
+      data: {
+        flightNumber: flightNumber.toUpperCase(),
+        airline: airline,
+        date: date,
+        status: 'Scheduled',
+        gate: null,
+        terminal: null,
+        lastUpdated: new Date().toISOString(),
+        limited: true
+      },
+      cached: false
+    });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Flight status API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch flight status' });
+  }
+});
+
 // Smart Widget data aggregation endpoint
 app.get('/api/smart-mirror/smart-widget', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Smart Widget data requested');
@@ -6505,7 +7659,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'upcomingVacation':
-            // Get next vacation from house module
+            // Get upcoming vacations from house module
             const vacationData = house.getVacationData();
             if (vacationData.dates && vacationData.dates.length > 0) {
               const today = new Date();
@@ -6517,19 +7671,24 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
               
               if (upcomingVacations.length > 0) {
-                const nextVacation = upcomingVacations[0];
-                const startDate = new Date(nextVacation.startDate);
-                const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                // Return all upcoming vacations (up to 3) with their details
+                const vacationsToShow = upcomingVacations.slice(0, 3).map(vacation => {
+                  const startDate = new Date(vacation.startDate);
+                  const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                  return {
+                    destination: vacation.destination,
+                    startDate: vacation.startDate,
+                    endDate: vacation.endDate,
+                    daysUntil: daysUntil
+                  };
+                });
                 
                 subWidgetData = {
                   type: 'upcomingVacation',
                   priority: subWidget.priority,
                   hasContent: true,
                   data: {
-                    destination: nextVacation.destination,
-                    startDate: nextVacation.startDate,
-                    endDate: nextVacation.endDate,
-                    daysUntil: daysUntil
+                    vacations: vacationsToShow
                   }
                 };
               }
@@ -6569,21 +7728,67 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'party':
-            // Get next party from party scheduling
-            const partyScheduling = config.partyScheduling;
-            if (partyScheduling && partyScheduling.dateTime && partyScheduling.dateTime.date) {
+            // Get next active party from parties array
+            migrateToMultiParty(); // Ensure migration has run
+            
+            // Find the next upcoming party (scheduled or draft status, not archived)
+            let nextParty = null;
+            if (config.parties && config.parties.length > 0) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Get all active parties (not archived) with dates
+              const activeParties = config.parties
+                .filter(p => p.status !== 'archived' && p.dateTime?.date)
+                .map(p => {
+                  const partyDate = new Date(p.dateTime.date);
+                  partyDate.setHours(0, 0, 0, 0);
+                  return { ...p, parsedDate: partyDate };
+                })
+                .filter(p => !isNaN(p.parsedDate.getTime()));
+              
+              // Sort by date (soonest first) and find the first one that's in the display window
+              activeParties.sort((a, b) => a.parsedDate - b.parsedDate);
+              
+              for (const party of activeParties) {
+                const twoWeeksBefore = new Date(party.parsedDate);
+                twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+                twoWeeksBefore.setHours(0, 0, 0, 0);
+                
+                // Show widget if today is within the visibility window (2 weeks before through party day)
+                if (today >= twoWeeksBefore && today <= party.parsedDate) {
+                  nextParty = party;
+                  break;
+                }
+              }
+              
+              // If no party in display window, get the next upcoming one (for future reference)
+              if (!nextParty) {
+                nextParty = activeParties.find(p => p.parsedDate >= today);
+              }
+            }
+            
+            // Fallback to old single party data if no parties array
+            if (!nextParty && config.partyScheduling?.dateTime?.date) {
+              nextParty = {
+                ...config.partyScheduling,
+                parsedDate: new Date(config.partyScheduling.dateTime.date)
+              };
+            }
+            
+            if (nextParty && nextParty.dateTime && nextParty.dateTime.date) {
               // Normalize date to string format (YYYY-MM-DD) for consistent handling
               let normalizedDateString;
-              if (typeof partyScheduling.dateTime.date === 'string') {
-                normalizedDateString = partyScheduling.dateTime.date;
-              } else if (partyScheduling.dateTime.date instanceof Date) {
-                normalizedDateString = partyScheduling.dateTime.date.toISOString().split('T')[0];
+              if (typeof nextParty.dateTime.date === 'string') {
+                normalizedDateString = nextParty.dateTime.date;
+              } else if (nextParty.dateTime.date instanceof Date) {
+                normalizedDateString = nextParty.dateTime.date.toISOString().split('T')[0];
               } else {
                 // Try to parse whatever format it is
                 try {
-                  normalizedDateString = new Date(partyScheduling.dateTime.date).toISOString().split('T')[0];
+                  normalizedDateString = new Date(nextParty.dateTime.date).toISOString().split('T')[0];
                 } catch (err) {
-                  logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${partyScheduling.dateTime.date}`);
+                  logger.error(logger.categories.SMART_MIRROR, `Invalid party date format: ${nextParty.dateTime.date}`);
                   break;
                 }
               }
@@ -6615,9 +7820,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 const now = new Date();
                 let isPartyStarted = false;
                 
-                if (daysUntil === 0 && partyScheduling.dateTime.startTime) {
+                if (daysUntil === 0 && nextParty.dateTime.startTime) {
                   // Parse start time to check if party has started today
-                  const [startHour, startMinute] = partyScheduling.dateTime.startTime.split(':').map(n => parseInt(n, 10));
+                  const [startHour, startMinute] = nextParty.dateTime.startTime.split(':').map(n => parseInt(n, 10));
                   const partyStartDateTime = new Date(partyDate);
                   partyStartDateTime.setHours(startHour, startMinute, 0, 0);
                   
@@ -6627,11 +7832,11 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 }
                 
                 // Get all party data
-                const tasks = partyScheduling.tasks || [];
+                const tasks = nextParty.tasks || [];
                 const totalTasks = tasks.length;
                 const completedTasks = tasks.filter(t => t.completed).length;
                 
-                const invitees = partyScheduling.invitees || [];
+                const invitees = nextParty.invitees || [];
                 const comingCount = invitees.filter(i => i.rsvp === 'coming').length;
                 const notComingCount = invitees.filter(i => i.rsvp === 'not-coming').length;
                 const pendingCount = invitees.filter(i => i.rsvp === 'pending').length;
@@ -6639,9 +7844,43 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 // Normalize dateTime to ensure date is always a string in YYYY-MM-DD format
                 const normalizedDateTime = {
                   date: normalizedDateString,
-                  startTime: partyScheduling.dateTime.startTime || null,
-                  endTime: partyScheduling.dateTime.endTime || null
+                  startTime: nextParty.dateTime.startTime || null,
+                  endTime: nextParty.dateTime.endTime || null
                 };
+                
+                // Fetch weather for party date if weather API is configured
+                let weatherData = null;
+                const weatherConfig = config.widgets?.weather || {};
+                const forecastConfig = config.widgets?.forecast || {};
+                const weatherApiKey = weatherConfig.apiKey || forecastConfig.apiKey;
+                const weatherLocation = weatherConfig.location || forecastConfig.location;
+                const weatherUnits = weatherConfig.units || forecastConfig.units || 'imperial';
+                
+                if (weatherApiKey && weatherLocation) {
+                  try {
+                    const weatherResult = await smartMirror.fetchWeatherForDate(
+                      weatherApiKey,
+                      weatherLocation,
+                      normalizedDateString,
+                      weatherUnits
+                    );
+                    
+                    if (weatherResult.success) {
+                      weatherData = {
+                        summary: weatherResult.summary,
+                        // Include hourly data only if within 3 days of party
+                        hourly: daysUntil <= 3 && daysUntil >= 0 ? weatherResult.hourly : null,
+                        units: weatherResult.units,
+                        location: weatherResult.location
+                      };
+                      logger.info(logger.categories.SMART_MIRROR, `Weather data fetched for party date ${normalizedDateString}`);
+                    } else {
+                      logger.warning(logger.categories.SMART_MIRROR, `Could not fetch weather for party: ${weatherResult.error}`);
+                    }
+                  } catch (err) {
+                    logger.error(logger.categories.SMART_MIRROR, `Error fetching weather for party: ${err.message}`);
+                  }
+                }
                 
                 subWidgetData = {
                   type: 'party',
@@ -6651,6 +7890,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     dateTime: normalizedDateTime,
                     daysUntil: daysUntil,
                     phase: isPartyStarted ? 'during' : 'pre-party',
+                    name: nextParty.name || 'My Party', // Include party name
                     tasks: {
                       total: totalTasks,
                       completed: completedTasks,
@@ -6662,8 +7902,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       pending: pendingCount,
                       list: invitees
                     },
-                    menu: partyScheduling.menu || [],
-                    events: partyScheduling.events || []
+                    menu: nextParty.menu || [],
+                    events: nextParty.events || [],
+                    weather: weatherData
                   }
                 };
               }
@@ -7106,4 +8347,27 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('⏸️  Auto-regeneration disabled');
     logger.info(logger.categories.SYSTEM, 'Auto-regeneration disabled');
   }
+  
+  // Schedule annual expense increases for January 1st at midnight
+  // Cron format: second minute hour day month day-of-week
+  // '0 0 0 1 1 *' = At 00:00:00 on January 1st
+  cron.schedule('0 0 0 1 1 *', () => {
+    console.log('\n💰 Running annual expense increase job...');
+    logger.info(logger.categories.FINANCE, 'Starting annual expense increase job');
+    
+    const result = finance.applyAnnualExpenseIncreases();
+    
+    if (result.success) {
+      console.log(`✅ ${result.message}`);
+      logger.success(logger.categories.FINANCE, result.message);
+    } else {
+      console.error(`❌ Error applying annual expense increases: ${result.error}`);
+      logger.error(logger.categories.FINANCE, `Error applying annual expense increases: ${result.error}`);
+    }
+  }, {
+    timezone: "America/New_York" // Adjust timezone as needed
+  });
+  
+  console.log('📅 Annual expense increase job scheduled for January 1st at midnight');
+  logger.info(logger.categories.FINANCE, 'Annual expense increase job scheduled for January 1st');
 });

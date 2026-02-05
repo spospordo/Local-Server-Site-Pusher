@@ -147,7 +147,9 @@ function addVacationDate(vacationDate) {
     startDate: vacationDate.startDate,
     endDate: vacationDate.endDate,
     destination: vacationDate.destination || "",
-    notes: vacationDate.notes || ""
+    notes: vacationDate.notes || "",
+    flights: vacationDate.flights || [],
+    flightTrackingEnabled: vacationDate.flightTrackingEnabled || false
   });
   return saveVacationData(vacation);
 }
