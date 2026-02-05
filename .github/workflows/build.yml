@@ -19,7 +19,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20, 22]
     
     steps:
       - name: Checkout code
@@ -74,6 +74,7 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: local-server-site-pusher:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

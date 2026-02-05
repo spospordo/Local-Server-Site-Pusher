@@ -205,7 +205,6 @@ npm install
 
 # Run tests
 npm test
-npm run test:all  # Run all tests
 
 # Test server
 npm start

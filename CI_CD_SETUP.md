@@ -92,10 +92,8 @@ docker stop test-container && docker rm test-container
 
 ```bash
 # Run single test
+# Run tests
 npm test
-
-# Run all tests (may take several minutes)
-npm run test:all
 ```
 
 ## Workflow Status
