@@ -42,3 +42,7 @@ uploads/espresso/templates/
 config/.gitconfig
 nfs-mounts/
 config/smart-mirror-config.json
+
+# Tesseract.js OCR language data files (downloaded at runtime from CDN)
+*.traineddata
+*.traineddata.gz

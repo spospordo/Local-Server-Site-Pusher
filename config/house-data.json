@@ -1,6 +1,23 @@
 {
   "vacation": {
-    "dates": [],
+    "dates": [
+      {
+        "id": "1770222790051",
+        "startDate": "2024-12-20",
+        "endDate": "2024-12-27",
+        "destination": "Hawaii",
+        "notes": "",
+        "flights": [
+          {
+            "airline": "AA",
+            "flightNumber": "AA1234",
+            "date": "2024-12-20",
+            "validated": true
+          }
+        ],
+        "flightTrackingEnabled": true
+      }
+    ],
     "travelInfo": "",
     "emergencyContact": {
       "name": "",

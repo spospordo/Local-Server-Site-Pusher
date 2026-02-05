@@ -23,10 +23,12 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
    - Shows precipitation probability
    - Only appears when rain is in the forecast
 
-2. **✈️ Upcoming Vacation**: Displays the next vacation from House → Vacation page
-   - Shows destination and countdown
-   - Displays start date
-   - Only appears when a vacation is scheduled
+2. **✈️ Upcoming Vacation**: Displays upcoming vacations from House → Vacation page
+   - Shows up to 3 upcoming vacations
+   - Displays destination and countdown for each
+   - Shows start date for each vacation
+   - Only appears when vacations are scheduled
+   - Multiple vacations displayed with visual separators
 
 3. **🎵 Home Assistant Media**: Indicates when media is playing
    - Shows artwork, title, and artist
@@ -122,10 +124,26 @@ Returns aggregated sub-widget data with active content only.
       "priority": 2,
       "hasContent": true,
       "data": {
-        "destination": "Hawaii",
-        "startDate": "2026-03-15",
-        "endDate": "2026-03-22",
-        "daysUntil": 42
+        "vacations": [
+          {
+            "destination": "Hawaii",
+            "startDate": "2026-03-15",
+            "endDate": "2026-03-22",
+            "daysUntil": 39
+          },
+          {
+            "destination": "New York City",
+            "startDate": "2026-04-10",
+            "endDate": "2026-04-15",
+            "daysUntil": 65
+          },
+          {
+            "destination": "Paris",
+            "startDate": "2026-05-20",
+            "endDate": "2026-05-27",
+            "daysUntil": 105
+          }
+        ]
       }
     }
   ]
