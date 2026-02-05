@@ -201,6 +201,39 @@ This implementation adds an image upload and OCR-based account scraping feature 
 
 ## Bug Fixes
 
+### Tesseract.js v7 API Compatibility Fix (v2.6.35)
+**Issue:** Admin users encountered "upload failed: server returned 500: internal server error" when attempting to upload screenshots.
+
+**Root Cause:**
+- Code was using deprecated Tesseract.js v5 API (`Tesseract.recognize()`)
+- Tesseract.js v7.0.0 requires the new `createWorker()` API
+- Old API calls resulted in undefined function errors causing 500 responses
+
+**Solution:**
+1. Updated import from `require('tesseract.js')` to `require('tesseract.js').createWorker`
+2. Migrated OCR processing to use v7 worker API:
+   - Create worker: `await createWorker('eng', undefined, { logger })`
+   - Recognize image: `await worker.recognize(imagePath)`
+   - Terminate worker: `await worker.terminate()`
+3. Added proper worker cleanup to prevent memory leaks
+4. Enhanced error logging to help diagnose OCR initialization issues
+5. Added helpful error messages for network connectivity issues
+
+**Code Changes:**
+```javascript
+// Before (v5 API):
+const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', { logger });
+
+// After (v7 API):
+const worker = await createWorker('eng', undefined, { logger });
+const { data: { text } } = await worker.recognize(imagePath);
+await worker.terminate();
+```
+
+**Note:** First-time initialization may take longer as Tesseract.js downloads OCR language files. Subsequent runs will use cached data.
+
+**Testing:** Verified parsing logic with test script continues to work correctly.
+
 ### Pattern Validation Error Fix (v2.6.32)
 **Issue:** Users encountered "upload failed: the string did not match the expected pattern" error when uploading screenshots.
 
