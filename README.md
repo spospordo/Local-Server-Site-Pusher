@@ -191,7 +191,7 @@ This project uses automated CI/CD workflows for building, testing, and deploymen
   - Validates Docker builds
 
 - **Deploy**: Publishes multi-architecture Docker images (amd64, arm64) to Docker Hub
-  - Triggered on version tags (e.g., `v2.6.12`)
+  - Triggered on version tags (e.g., `v1.0.0`)
   - Supports manual deployment
 
 - **Version Bump**: Automatically increments version based on commit messages
