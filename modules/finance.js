@@ -2940,10 +2940,38 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
         apartment.expenses.forEach(expense => {
           if (expense.type === 'monthly') {
             // Monthly recurring expenses apply to all months
-            expenses += expense.amount;
+            // Apply annual increase for future forecasts
+            let amount = expense.amount;
+            if (isFutureMonth && expense.annualIncreasePercent > 0) {
+              // Calculate how many years from the expense creation date (or last increase)
+              const referenceDate = expense.lastIncreaseDate 
+                ? new Date(expense.lastIncreaseDate) 
+                : new Date(expense.createdAt);
+              const yearsElapsed = currentDate.getFullYear() - referenceDate.getFullYear();
+              
+              if (yearsElapsed > 0) {
+                // Apply compound increase for each year elapsed
+                amount = expense.amount * Math.pow(1 + expense.annualIncreasePercent / 100, yearsElapsed);
+              }
+            }
+            expenses += amount;
           } else if (expense.type === 'annual') {
             // Annual recurring expenses spread across 12 months
-            expenses += expense.amount / 12;
+            // Apply annual increase for future forecasts
+            let amount = expense.amount;
+            if (isFutureMonth && expense.annualIncreasePercent > 0) {
+              // Calculate how many years from the expense creation date (or last increase)
+              const referenceDate = expense.lastIncreaseDate 
+                ? new Date(expense.lastIncreaseDate) 
+                : new Date(expense.createdAt);
+              const yearsElapsed = currentDate.getFullYear() - referenceDate.getFullYear();
+              
+              if (yearsElapsed > 0) {
+                // Apply compound increase for each year elapsed
+                amount = expense.amount * Math.pow(1 + expense.annualIncreasePercent / 100, yearsElapsed);
+              }
+            }
+            expenses += amount / 12;
           } else if (expense.type === 'one-time') {
             // One-time expenses: include if they occurred within the analysis period
             const expenseMonth = new Date(expense.date).toISOString().substring(0, 7);
