@@ -2859,10 +2859,12 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
           } else if (expense.type === 'annual') {
             // Annual recurring expenses spread across 12 months
             expenses += expense.amount / 12;
-          } else if (expense.type === 'one-time' && !isFutureMonth) {
-            // One-time expenses only in past months
+          } else if (expense.type === 'one-time') {
+            // One-time expenses: include if they occurred within the analysis period
             const expenseMonth = new Date(expense.date).toISOString().substring(0, 7);
-            if (expenseMonth === monthKey) {
+            const expenseDate = new Date(expense.date);
+            // Include if expense is in this month and within our analysis period
+            if (expenseMonth === monthKey && expenseDate >= analysisStartDate && expenseDate <= currentDate) {
               expenses += expense.amount;
             }
           }
@@ -2875,6 +2877,7 @@ function getApartmentAnalysis(apartmentId, startDate = null, endDate = null) {
         const monthsSincePurchase = (currentDate.getFullYear() - purchaseDate.getFullYear()) * 12 
           + (currentDate.getMonth() - purchaseDate.getMonth());
         
+        // Include mortgage payment if current month is within the mortgage term
         if (monthsSincePurchase >= 0 && monthsSincePurchase < apartment.mortgageTermMonths) {
           const breakdown = calculateMortgageBreakdown(
             apartment.mortgageAmount,

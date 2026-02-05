@@ -3048,7 +3048,7 @@
                     <div class="form-group">
                         <label for="apartmentReconcileDate">📅 Reconcile Date (Optional)</label>
                         <input type="date" id="apartmentReconcileDate" placeholder="YYYY-MM-DD">
-                        <small class="help-text">Set a reconcile date to exclude all previous income/expenses from analysis. Financial calculations and forecasts will start from this date going forward 24 months.</small>
+                        <small class="help-text">Set a reconcile date to start financial analysis from a specific point. Historical data before this date will be excluded from calculations, and forecasts will project 24 months forward.</small>
                     </div>
                     
                     <input type="hidden" id="apartmentId">
@@ -15749,7 +15749,7 @@
                                     </div>
                                 ` : ''}
                                 <div style="margin-bottom: 1.5rem;">
-                                    <h3 style="margin: 0 0 1rem 0;">📊 Profitability Summary${analysisData.reconcileDate ? ' (Historical Only)' : ''}</h3>
+                                    <h3 style="margin: 0 0 1rem 0;">📊 Profitability Summary${analysisData.reconcileDate ? ' (Actual Data Only)' : ''}</h3>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                         <div style="text-align: center; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
                                             <div style="font-size: 0.85rem; color: #666;">Total Income</div>
