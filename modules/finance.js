@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const Tesseract = require('tesseract.js');
+const { createWorker } = require('tesseract.js');
 const { formatFileSystemError, logError, createErrorResponse } = require('./error-helper');
 const logger = require('./logger');
 
@@ -1784,19 +1784,33 @@ function evaluateDemoRetirementPlan() {
 
 // Process uploaded screenshot and extract account data
 async function processAccountScreenshot(imagePath) {
+  let worker = null;
   try {
     console.log('🔍 [Finance] Processing account screenshot with OCR...');
     
-    // Perform OCR on the image
-    const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
+    // Create Tesseract worker with v7 API
+    console.log('📦 [Finance] Initializing Tesseract worker (this may take a moment on first run)...');
+    worker = await createWorker('eng', undefined, {
       logger: m => {
         if (m.status === 'recognizing text') {
           console.log(`📖 [Finance] OCR Progress: ${Math.round(m.progress * 100)}%`);
+        } else if (m.status === 'loading tesseract core' || m.status === 'initializing tesseract' || m.status === 'loading language traineddata') {
+          console.log(`📥 [Finance] ${m.status}...`);
         }
       }
     });
     
+    console.log('✅ [Finance] Tesseract worker initialized');
+    
+    // Perform OCR on the image
+    console.log('🔍 [Finance] Starting OCR recognition...');
+    const { data: { text } } = await worker.recognize(imagePath);
+    
     console.log('✅ [Finance] OCR completed, parsing account data...');
+    
+    // Terminate the worker
+    await worker.terminate();
+    worker = null;
     
     // Parse the extracted text to find accounts and balances
     const parseResult = parseAccountsFromText(text);
@@ -1821,6 +1835,16 @@ async function processAccountScreenshot(imagePath) {
     return result;
   } catch (error) {
     console.error('❌ [Finance] Error processing screenshot:', error.message);
+    console.error('❌ [Finance] Error stack:', error.stack);
+    
+    // Terminate worker if it exists
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch (err) {
+        console.error('⚠️ [Finance] Failed to terminate worker:', err.message);
+      }
+    }
     
     // Try to clean up the image file even on error
     try {
@@ -1831,9 +1855,15 @@ async function processAccountScreenshot(imagePath) {
       // Ignore cleanup errors
     }
     
+    // Provide helpful error messages
+    let errorMessage = 'Failed to process image: ' + error.message;
+    if (error.message && error.message.includes('fetch')) {
+      errorMessage += '. This may be due to network connectivity issues or firewall restrictions. Please ensure the server has internet access to download OCR language files.';
+    }
+    
     return {
       success: false,
-      error: 'Failed to process image: ' + error.message
+      error: errorMessage
     };
   }
 }

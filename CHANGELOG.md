@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.35] - 2026-02-05
+
+### Fixed
+- **Finance Screenshot Upload - Tesseract.js v7 API Compatibility**: Fixed critical issue causing 500 Internal Server Error when admin users attempted to upload account screenshots. The code was using the deprecated Tesseract.js v5 API which is incompatible with v7.0.0. Migrated to the new `createWorker()` API with proper worker lifecycle management and cleanup. Enhanced error logging to help diagnose OCR initialization issues.
+
+### Changed
+- Updated Finance module to use Tesseract.js v7 worker API
+- Added comprehensive error messages for network connectivity issues during OCR initialization
+- Improved logging during screenshot processing to track initialization and recognition progress
+
 ## [2.6.34] - 2026-02-05
 
 ### Patch Update
