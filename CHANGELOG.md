@@ -9,6 +9,24 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.37] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #476 from spospordo/copilot/ui-adjust-timezone-display
+  - Merge pull request #478 from spospordo/copilot/sub-pr-476-again
+  - Fix CI/CD build failures and address code review feedback
+  - Initial plan
+  - Merge branch 'main' into copilot/ui-adjust-timezone-display
+  - Merge pull request #475 from spospordo/copilot/investigate-build-deployment-issue
+  - Add comprehensive build/deployment fix summary
+  - Add explicit permissions to workflow files for security
+  - Address code review feedback
+  - Update README with CI/CD badges and documentation
+  - ... and 6 more changes
+
+
 ## [2.6.36] - 2026-02-05
 
 ### Patch Update
