@@ -3045,6 +3045,12 @@
                         <small class="help-text">When can you first increase the rent?</small>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="apartmentReconcileDate">📅 Reconcile Date (Optional)</label>
+                        <input type="date" id="apartmentReconcileDate" placeholder="YYYY-MM-DD">
+                        <small class="help-text">Set a reconcile date to "zero out" all previous income/expenses. Financial calculations and forecasts will start from this date going forward 24 months.</small>
+                    </div>
+                    
                     <input type="hidden" id="apartmentId">
                     <button onclick="saveApartment()" class="btn btn-success">💾 Save Property</button>
                     <button onclick="clearApartmentForm()" class="btn" style="background: #6c757d;">Clear Form</button>
@@ -15493,6 +15499,7 @@
                 mortgageRate: parseFloat(document.getElementById('apartmentMortgageRate').value) || 0,
                 mortgageTermMonths: parseInt(document.getElementById('apartmentMortgageTermMonths').value) || 360,
                 rentIncreaseMonth: document.getElementById('apartmentRentIncreaseMonth').value || null,
+                reconcileDate: document.getElementById('apartmentReconcileDate').value || null,
                 financialGoal: {
                     type: document.getElementById('apartmentGoalType').value,
                     targetAmount: parseFloat(document.getElementById('apartmentGoalAmount').value) || 0
@@ -15552,6 +15559,7 @@
                     document.getElementById('apartmentMortgageRate').value = apt.mortgageRate || '';
                     document.getElementById('apartmentMortgageTermMonths').value = apt.mortgageTermMonths || 360;
                     document.getElementById('apartmentRentIncreaseMonth').value = apt.rentIncreaseMonth || '';
+                    document.getElementById('apartmentReconcileDate').value = apt.reconcileDate ? apt.reconcileDate.substring(0, 10) : '';
                     document.getElementById('apartmentGoalType').value = apt.financialGoal?.type || 'breakeven';
                     document.getElementById('apartmentGoalAmount').value = apt.financialGoal?.targetAmount || '';
                     
@@ -15585,6 +15593,7 @@
             document.getElementById('apartmentMortgageRate').value = '';
             document.getElementById('apartmentMortgageTermMonths').value = '360';
             document.getElementById('apartmentRentIncreaseMonth').value = '';
+            document.getElementById('apartmentReconcileDate').value = '';
             document.getElementById('apartmentGoalType').value = 'breakeven';
             document.getElementById('apartmentGoalAmount').value = '';
             
@@ -15733,8 +15742,14 @@
                             ` : ''}
                             
                             ${analysisData.success ? `
+                                ${analysisData.reconcileDate ? `
+                                    <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
+                                        <strong>📅 Reconcile Date Set:</strong> ${formatDate(analysisData.reconcileDate)}
+                                        <br><small>Analysis starts from this date and includes 24-month forecast with forecasted rent and recurring expenses.</small>
+                                    </div>
+                                ` : ''}
                                 <div style="margin-bottom: 1.5rem;">
-                                    <h3 style="margin: 0 0 1rem 0;">📊 Profitability Summary</h3>
+                                    <h3 style="margin: 0 0 1rem 0;">📊 Profitability Summary${analysisData.reconcileDate ? ' (Historical Only)' : ''}</h3>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                         <div style="text-align: center; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
                                             <div style="font-size: 0.85rem; color: #666;">Total Income</div>
@@ -15752,7 +15767,8 @@
                                 </div>
                                 
                                 <div style="margin-bottom: 1.5rem;">
-                                    <h3 style="margin: 0 0 1rem 0;">📈 Monthly Cash Flow</h3>
+                                    <h3 style="margin: 0 0 1rem 0;">📈 Monthly Cash Flow${analysisData.hasForecast ? ' (with 24-Month Forecast)' : ''}</h3>
+                                    ${analysisData.hasForecast ? '<p style="font-size: 0.85rem; color: #666; margin: 0 0 0.5rem 0;">Dashed lines indicate forecasted data based on projected rent and recurring expenses.</p>' : ''}
                                     <canvas id="apartmentAnalysisChart" style="max-height: 300px;"></canvas>
                                 </div>
                             ` : ''}
@@ -15777,33 +15793,58 @@
                     setTimeout(() => {
                         const ctx = document.getElementById('apartmentAnalysisChart');
                         if (ctx) {
+                            // Separate historical and forecast data
+                            const labels = analysisData.monthlyData.map(m => m.month);
+                            const hasForecasts = analysisData.monthlyData.some(m => m.isForecast);
+                            
+                            // Create datasets with different styling for forecast
+                            const datasets = [
+                                {
+                                    label: 'Income',
+                                    data: analysisData.monthlyData.map(m => m.income),
+                                    borderColor: '#4caf50',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                },
+                                {
+                                    label: 'Expenses',
+                                    data: analysisData.monthlyData.map(m => m.expenses),
+                                    borderColor: '#f44336',
+                                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                },
+                                {
+                                    label: 'Cash Flow',
+                                    data: analysisData.monthlyData.map(m => m.cashFlow),
+                                    borderColor: '#2196F3',
+                                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                }
+                            ];
+                            
                             new Chart(ctx, {
                                 type: 'line',
                                 data: {
-                                    labels: analysisData.monthlyData.map(m => m.month),
-                                    datasets: [
-                                        {
-                                            label: 'Income',
-                                            data: analysisData.monthlyData.map(m => m.income),
-                                            borderColor: '#4caf50',
-                                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                                            tension: 0.4
-                                        },
-                                        {
-                                            label: 'Expenses',
-                                            data: analysisData.monthlyData.map(m => m.expenses),
-                                            borderColor: '#f44336',
-                                            backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                                            tension: 0.4
-                                        },
-                                        {
-                                            label: 'Cash Flow',
-                                            data: analysisData.monthlyData.map(m => m.cashFlow),
-                                            borderColor: '#2196F3',
-                                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                                            tension: 0.4
-                                        }
-                                    ]
+                                    labels: labels,
+                                    datasets: datasets
                                 },
                                 options: {
                                     responsive: true,
@@ -15811,6 +15852,17 @@
                                     plugins: {
                                         legend: {
                                             position: 'bottom'
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                afterLabel: function(context) {
+                                                    const dataIndex = context.dataIndex;
+                                                    if (analysisData.monthlyData[dataIndex]?.isForecast) {
+                                                        return '(Forecast)';
+                                                    }
+                                                    return '';
+                                                }
+                                            }
                                         }
                                     },
                                     scales: {
