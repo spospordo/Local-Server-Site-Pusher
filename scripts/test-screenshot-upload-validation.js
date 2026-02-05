@@ -44,7 +44,7 @@ const testCases = [
 ];
 
 console.log('Test 1: File Type and Extension Validation');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 let passed = 0;
 let failed = 0;
@@ -64,7 +64,7 @@ testCases.forEach((testCase, index) => {
     }
 });
 
-console.log('\n' + '=' .repeat(60));
+console.log('\n' + '='.repeat(60));
 console.log(`Results: ${passed} passed, ${failed} failed out of ${testCases.length} tests`);
 
 if (failed === 0) {
@@ -85,7 +85,7 @@ if (failed === 0) {
 
 // Test 2: Verify accept attribute format
 console.log('\nTest 2: Accept Attribute Format');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 const acceptAttribute = '.jpg,.jpeg,.png,.webp,.gif,.bmp';
 const expectedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
 const acceptedExts = acceptAttribute.split(',');
