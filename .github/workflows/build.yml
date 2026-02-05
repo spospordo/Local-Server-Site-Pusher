@@ -14,6 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read
+    
     strategy:
       matrix:
         node-version: [18, 20]
@@ -55,6 +58,9 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
