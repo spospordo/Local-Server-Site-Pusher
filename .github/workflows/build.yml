@@ -1,0 +1,82 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci || npm install
+      
+      - name: Run security audit
+        run: npm audit --audit-level=high || true
+        continue-on-error: true
+      
+      - name: Check for vulnerabilities
+        run: npm audit --audit-level=critical
+        continue-on-error: true
+      
+      - name: Test server startup
+        run: |
+          timeout 30 npm start &
+          SERVER_PID=$!
+          sleep 10
+          curl -f http://localhost:3000/api/status || exit 1
+          kill $SERVER_PID || true
+        env:
+          NODE_ENV: test
+      
+      - name: Validate configuration
+        run: node scripts/validate-config.js || true
+        continue-on-error: true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: local-server-site-pusher:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Test Docker container
+        run: |
+          docker run -d --name test-container -p 3000:3000 local-server-site-pusher:test
+          sleep 15
+          curl -f http://localhost:3000/api/status || exit 1
+          docker logs test-container
+          docker stop test-container
+          docker rm test-container

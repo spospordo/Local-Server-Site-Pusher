@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node scripts/test-status-api.js",
+    "test:all": "echo 'Running all tests' && for file in scripts/test-*.js; do echo \"Testing $file\" && node \"$file\" || exit 1; done"
   },
   "dependencies": {
     "axios": "^1.12.2",
