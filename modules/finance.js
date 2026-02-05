@@ -2455,6 +2455,9 @@ function addApartmentExpense(apartmentId, expenseData) {
       category: expenseData.category || 'other', // 'mortgage', 'property-tax', 'insurance', 'maintenance', 'hoa', 'utilities', 'other'
       date: expenseData.date || new Date().toISOString(),
       notes: expenseData.notes || '',
+      annualIncreasePercent: parseFloat(expenseData.annualIncreasePercent) || 0, // Annual percentage increase (e.g., 3.0 for 3%)
+      originalAmount: parseFloat(expenseData.amount) || 0, // Track original amount for history
+      lastIncreaseDate: null, // Track when last increase was applied
       createdAt: new Date().toISOString()
     };
     
@@ -2508,6 +2511,88 @@ function deleteApartmentExpense(apartmentId, expenseId) {
       operation: 'Delete apartment expense',
       apartmentId,
       expenseId
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Apply annual increase to recurring expenses
+ * This function is called automatically on January 1st each year
+ */
+function applyAnnualExpenseIncreases() {
+  try {
+    const data = loadFinanceData();
+    let updatedCount = 0;
+    const currentYear = new Date().getFullYear();
+    const currentDate = new Date().toISOString();
+    
+    if (!data.apartments || data.apartments.length === 0) {
+      return { success: true, message: 'No apartments to process', updatedCount: 0 };
+    }
+    
+    // Process each apartment
+    data.apartments.forEach(apartment => {
+      if (!apartment.expenses || apartment.expenses.length === 0) {
+        return;
+      }
+      
+      // Process each expense
+      apartment.expenses.forEach(expense => {
+        // Only apply increases to recurring expenses (monthly or annual)
+        if ((expense.type === 'monthly' || expense.type === 'annual') && 
+            expense.annualIncreasePercent > 0) {
+          
+          // Check if we need to apply an increase
+          // Skip if already increased this year
+          const lastIncreaseYear = expense.lastIncreaseDate 
+            ? new Date(expense.lastIncreaseDate).getFullYear() 
+            : 0;
+          
+          if (lastIncreaseYear < currentYear) {
+            // Apply the percentage increase
+            const increaseMultiplier = 1 + (expense.annualIncreasePercent / 100);
+            expense.amount = parseFloat((expense.amount * increaseMultiplier).toFixed(2));
+            expense.lastIncreaseDate = currentDate;
+            updatedCount++;
+            
+            logDebug(logger.categories.FINANCE, 'Applied annual increase to expense', {
+              apartmentId: apartment.id,
+              apartmentName: apartment.name,
+              expenseId: expense.id,
+              expenseName: expense.name,
+              increasePercent: expense.annualIncreasePercent,
+              newAmount: expense.amount
+            });
+          }
+        }
+      });
+      
+      apartment.updatedAt = currentDate;
+    });
+    
+    // Save the updated data
+    if (updatedCount > 0) {
+      const result = saveFinanceData(data);
+      if (result.success) {
+        return { 
+          success: true, 
+          message: `Successfully applied annual increases to ${updatedCount} expense(s)`,
+          updatedCount 
+        };
+      } else {
+        return result;
+      }
+    } else {
+      return { 
+        success: true, 
+        message: 'No expenses needed annual increases',
+        updatedCount: 0 
+      };
+    }
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Apply annual expense increases'
     });
     return { success: false, error: error.message };
   }
@@ -2966,6 +3051,7 @@ module.exports = {
   deleteApartment,
   addApartmentExpense,
   deleteApartmentExpense,
+  applyAnnualExpenseIncreases,
   addApartmentIncome,
   deleteApartmentIncome,
   updateForecastedRent,
