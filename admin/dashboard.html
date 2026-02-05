@@ -16325,7 +16325,7 @@
                                     <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Notes</label>
                                     <textarea id="expenseNotes" rows="2" placeholder="Optional notes..." style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;"></textarea>
                                 </div>
-                                <button type="button" onclick="addExpense('${apartmentId}')" class="btn btn-success">+ Add Expense</button>
+                                <button type="button" id="addExpenseBtn" class="btn btn-success">+ Add Expense</button>
                             </div>
                             
                             <!-- Expenses List -->
@@ -16351,6 +16351,12 @@
                 
                 // Set current date as default
                 document.getElementById('expenseDate').valueAsDate = new Date();
+                
+                // Attach event listener to Add Expense button
+                const addExpenseBtn = document.getElementById('addExpenseBtn');
+                if (addExpenseBtn) {
+                    addExpenseBtn.addEventListener('click', () => addExpense(apartmentId));
+                }
                 
             } catch (err) {
                 console.error('Manage expenses error:', err);
