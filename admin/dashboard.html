@@ -13986,6 +13986,21 @@
                     body: formData
                 });
                 
+                // Check if response is OK before parsing JSON
+                if (!response.ok) {
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        // Try to parse JSON error response
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        // If JSON parsing fails, get text response
+                        const text = await response.text();
+                        errorMessage = text || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
                 const result = await response.json();
                 
                 if (result.success) {
