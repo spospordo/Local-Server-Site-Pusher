@@ -2963,19 +2963,23 @@
                 </p>
             </div>
             <div class="card-body">
-                <!-- Apartments List -->
-                <div class="finance-subsection">
-                    <h3>📋 Your Properties</h3>
-                    <div id="apartmentsList" class="apartments-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                        <p style="color: #666;">No properties added yet</p>
-                    </div>
+                <!-- Properties Financial Overview - Primary Section -->
+                <div id="apartmentsList" class="apartments-list">
+                    <p style="color: #666; text-align: center; padding: 2rem;">No properties added yet. Add your first property below to start tracking financials.</p>
                 </div>
 
                 <div class="section-divider"></div>
 
-                <!-- Add/Edit Apartment Form -->
-                <div class="finance-subsection">
-                    <h3 id="apartmentFormTitle">🏠 Add Investment Property</h3>
+                <!-- Add/Edit Apartment Form - Secondary Section -->
+                <div class="finance-subsection" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleApartmentForm()">
+                        <h3 id="apartmentFormTitle" style="margin: 0;">
+                            <span id="apartmentFormIcon">➕</span> Add Investment Property
+                        </h3>
+                        <span id="apartmentFormToggle" style="font-size: 1.5rem; color: #666;">▼</span>
+                    </div>
+                    
+                    <div id="apartmentFormContainer" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
                     
                     <div class="form-row">
                         <div class="form-group">
@@ -3055,6 +3059,7 @@
                     <button onclick="saveApartment()" class="btn btn-success">💾 Save Property</button>
                     <button onclick="clearApartmentForm()" class="btn" style="background: #6c757d;">Clear Form</button>
                     <button id="cancelEditApartmentBtn" onclick="cancelEditApartment()" class="btn" style="background: #dc3545; display: none;">Cancel Edit</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -15447,42 +15452,213 @@
         }
         
         /**
-         * Display apartments list
+         * Display apartments list with financial data prominently
          */
-        function displayApartmentsList(apartments) {
+        async function displayApartmentsList(apartments) {
             const listElement = document.getElementById('apartmentsList');
             
             if (!apartments || apartments.length === 0) {
-                listElement.innerHTML = '<p style="color: #666;">No properties added yet. Add your first property below!</p>';
+                listElement.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No properties added yet. Add your first property below to start tracking financials.</p>';
                 return;
             }
             
-            listElement.innerHTML = apartments.map(apt => `
-                <div class="apartment-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; background: white;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+            // For each apartment, fetch and display financial data
+            const apartmentPromises = apartments.map(async (apt) => {
+                try {
+                    // Fetch analysis data
+                    const analysisResponse = await fetch(`/admin/api/finance/apartments/${apt.id}/analysis`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    const analysisData = await analysisResponse.json();
+                    
+                    // Fetch suggested rent
+                    const rentResponse = await fetch(`/admin/api/finance/apartments/${apt.id}/suggested-rent`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    const rentData = await rentResponse.json();
+                    
+                    return { apt, analysisData, rentData };
+                } catch (err) {
+                    console.error(`Error fetching data for apartment ${apt.id}:`, err);
+                    return { apt, analysisData: { success: false }, rentData: { success: false } };
+                }
+            });
+            
+            const apartmentDataList = await Promise.all(apartmentPromises);
+            
+            // Generate HTML for each apartment with prominent financial data
+            listElement.innerHTML = apartmentDataList.map(({ apt, analysisData, rentData }) => `
+                <div class="apartment-card" style="border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; background: white; margin-bottom: 1.5rem;">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #f0f0f0;">
                         <div>
-                            <h4 style="margin: 0 0 0.25rem 0; color: #333;">${escapeHtml(apt.name)}</h4>
-                            ${apt.address ? `<p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${escapeHtml(apt.address)}</p>` : ''}
+                            <h3 style="margin: 0 0 0.25rem 0; color: #333; font-size: 1.5rem;">🏢 ${escapeHtml(apt.name)}</h3>
+                            ${apt.address ? `<p style="margin: 0; font-size: 0.9rem; color: #666;">📍 ${escapeHtml(apt.address)}</p>` : ''}
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button onclick="viewApartmentDetails('${apt.id}')" class="btn-sm" style="background: #2196F3;" title="View Details">📊</button>
-                            <button onclick="editApartment('${apt.id}')" class="btn-sm" style="background: #ff9800;" title="Edit">✏️</button>
+                            <button onclick="editApartment('${apt.id}')" class="btn-sm" style="background: #ff9800;" title="Edit Property">✏️</button>
                             <button onclick="deleteApartmentPrompt('${apt.id}')" class="btn-sm" style="background: #dc3545;" title="Delete">🗑️</button>
                         </div>
                     </div>
-                    <div style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                            <div>💰 Purchase: $${formatCurrency(apt.purchasePrice || 0)}</div>
-                            <div>📅 ${formatDate(apt.purchaseDate)}</div>
-                        </div>
-                        ${apt.mortgageAmount > 0 ? `
-                            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee;">
-                                🏦 Mortgage: $${formatCurrency(apt.mortgageAmount)} @ ${apt.mortgageRate}%
+                    
+                    ${analysisData.success ? `
+                        <!-- Financial Summary - Primary Display -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <h4 style="margin: 0 0 1rem 0; color: #333; font-size: 1.1rem;">💰 Financial Summary${analysisData.reconcileDate ? ' (From ' + formatDate(analysisData.reconcileDate) + ')' : ''}</h4>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                                <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 1px solid #a5d6a7;">
+                                    <div style="font-size: 0.85rem; color: #2e7d32; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Total Income</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: #1b5e20;">$${formatCurrency(analysisData.totals.income)}</div>
+                                </div>
+                                <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-radius: 8px; border: 1px solid #ef9a9a;">
+                                    <div style="font-size: 0.85rem; color: #c62828; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Total Expenses</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: #b71c1c;">$${formatCurrency(analysisData.totals.expenses)}</div>
+                                </div>
+                                <div style="text-align: center; padding: 1.25rem; background: linear-gradient(135deg, ${analysisData.totals.cashFlow >= 0 ? '#e3f2fd 0%, #bbdefb 100%' : '#fff3e0 0%, #ffe0b2 100%'}); border-radius: 8px; border: 1px solid ${analysisData.totals.cashFlow >= 0 ? '#90caf9' : '#ffb74d'};">
+                                    <div style="font-size: 0.85rem; color: ${analysisData.totals.cashFlow >= 0 ? '#1565c0' : '#e65100'}; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Cash Flow</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: ${analysisData.totals.cashFlow >= 0 ? '#0d47a1' : '#bf360c'};">${analysisData.totals.cashFlow >= 0 ? '+' : ''}$${formatCurrency(analysisData.totals.cashFlow)}</div>
+                                </div>
                             </div>
-                        ` : ''}
+                        </div>
+                        
+                        <!-- Monthly Cash Flow Chart -->
+                        <div style="margin-bottom: 1.5rem; background: #fafafa; padding: 1.25rem; border-radius: 8px;">
+                            <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">📈 Monthly Cash Flow${analysisData.hasForecast ? ' (with Forecast)' : ''}</h4>
+                            ${analysisData.hasForecast ? '<p style="font-size: 0.85rem; color: #666; margin: 0 0 1rem 0;">Dashed lines indicate forecasted data.</p>' : ''}
+                            <canvas id="apartmentChart_${apt.id}" style="max-height: 250px;"></canvas>
+                        </div>
+                    ` : `
+                        <!-- No financial data yet -->
+                        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+                            <p style="margin: 0; color: #856404;"><strong>📊 No financial data yet.</strong> Add income and expenses to see your profitability analysis.</p>
+                        </div>
+                    `}
+                    
+                    ${rentData.success ? `
+                        <!-- Rent Suggestion -->
+                        <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h4 style="margin: 0 0 0.5rem 0; color: #1565c0; font-size: 1rem;">💡 Suggested Rent</h4>
+                                    <p style="margin: 0 0 0.25rem 0; font-size: 0.85rem; color: #666;">Goal: <strong>${getGoalLabel(rentData.goal.type)}</strong></p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.8rem; font-weight: bold; color: #1565c0;">$${formatCurrency(rentData.suggestedRent)}</div>
+                                    <div style="font-size: 0.85rem; color: #666;">per month</div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Property Details & Actions -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                        <div style="font-size: 0.9rem; color: #666;">
+                            <span style="margin-right: 1rem;">💰 Purchase: $${formatCurrency(apt.purchasePrice || 0)}</span>
+                            <span style="margin-right: 1rem;">📅 ${formatDate(apt.purchaseDate)}</span>
+                            ${apt.mortgageAmount > 0 ? `<span>🏦 Mortgage: $${formatCurrency(apt.mortgageAmount)} @ ${apt.mortgageRate}%</span>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="manageApartmentExpenses('${apt.id}')" class="btn" style="background: #ff9800; font-size: 0.9rem; padding: 0.5rem 1rem;">💸 Expenses</button>
+                            <button onclick="manageApartmentIncome('${apt.id}')" class="btn" style="background: #4caf50; font-size: 0.9rem; padding: 0.5rem 1rem;">💰 Income</button>
+                        </div>
                     </div>
                 </div>
             `).join('');
+            
+            // Render charts for each apartment
+            apartmentDataList.forEach(({ apt, analysisData }) => {
+                if (analysisData.success && analysisData.monthlyData && analysisData.monthlyData.length > 0) {
+                    setTimeout(() => {
+                        const ctx = document.getElementById(`apartmentChart_${apt.id}`);
+                        if (ctx) {
+                            const labels = analysisData.monthlyData.map(m => m.month);
+                            const hasForecasts = analysisData.monthlyData.some(m => m.isForecast);
+                            
+                            const datasets = [
+                                {
+                                    label: 'Income',
+                                    data: analysisData.monthlyData.map(m => m.income),
+                                    borderColor: '#4caf50',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                },
+                                {
+                                    label: 'Expenses',
+                                    data: analysisData.monthlyData.map(m => m.expenses),
+                                    borderColor: '#f44336',
+                                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                },
+                                {
+                                    label: 'Cash Flow',
+                                    data: analysisData.monthlyData.map(m => m.cashFlow),
+                                    borderColor: '#2196F3',
+                                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                                    tension: 0.4,
+                                    segment: hasForecasts ? {
+                                        borderDash: ctx => {
+                                            const index = ctx.p0DataIndex;
+                                            return analysisData.monthlyData[index]?.isForecast ? [5, 5] : [];
+                                        }
+                                    } : {}
+                                }
+                            ];
+                            
+                            new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: labels,
+                                    datasets: datasets
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: true,
+                                    plugins: {
+                                        legend: {
+                                            position: 'bottom'
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                afterLabel: function(context) {
+                                                    const dataIndex = context.dataIndex;
+                                                    if (analysisData.monthlyData[dataIndex]?.isForecast) {
+                                                        return '(Forecast)';
+                                                    }
+                                                    return '';
+                                                }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: {
+                                                callback: function(value) {
+                                                    return '$' + value.toLocaleString();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }, 100);
+                }
+            });
         }
         
         /**
@@ -15564,8 +15740,16 @@
                     document.getElementById('apartmentGoalAmount').value = apt.financialGoal?.targetAmount || '';
                     
                     // Update form title and buttons
-                    document.getElementById('apartmentFormTitle').textContent = '✏️ Edit Investment Property';
+                    document.getElementById('apartmentFormTitle').innerHTML = '<span id="apartmentFormIcon">✏️</span> Edit Investment Property';
                     document.getElementById('cancelEditApartmentBtn').style.display = 'inline-block';
+                    
+                    // Expand form if it's collapsed
+                    const formContainer = document.getElementById('apartmentFormContainer');
+                    const toggleIcon = document.getElementById('apartmentFormToggle');
+                    if (formContainer.style.display === 'none') {
+                        formContainer.style.display = 'block';
+                        toggleIcon.textContent = '▲';
+                    }
                     
                     updateGoalAmountVisibility();
                     
@@ -15597,7 +15781,7 @@
             document.getElementById('apartmentGoalType').value = 'breakeven';
             document.getElementById('apartmentGoalAmount').value = '';
             
-            document.getElementById('apartmentFormTitle').textContent = '🏠 Add Investment Property';
+            document.getElementById('apartmentFormTitle').innerHTML = '<span id="apartmentFormIcon">➕</span> Add Investment Property';
             document.getElementById('cancelEditApartmentBtn').style.display = 'none';
             
             updateGoalAmountVisibility();
@@ -15621,6 +15805,22 @@
                 goalAmountGroup.style.display = 'block';
             } else {
                 goalAmountGroup.style.display = 'none';
+            }
+        }
+        
+        /**
+         * Toggle apartment form visibility
+         */
+        function toggleApartmentForm() {
+            const formContainer = document.getElementById('apartmentFormContainer');
+            const toggleIcon = document.getElementById('apartmentFormToggle');
+            
+            if (formContainer.style.display === 'none') {
+                formContainer.style.display = 'block';
+                toggleIcon.textContent = '▲';
+            } else {
+                formContainer.style.display = 'none';
+                toggleIcon.textContent = '▼';
             }
         }
         
