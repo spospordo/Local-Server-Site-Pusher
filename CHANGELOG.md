@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.6.28] - 2026-02-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #457 from spospordo/copilot/add-reconcile-forecast-cash-flow
+  - Fix expense and mortgage calculation logic based on code review
+  - Address code review feedback: Improve terminology clarity
+  - Testing complete: All features working correctly
+  - Implement reconcile date, 24-month forecast, and fix forecasted rent API
+  - Initial plan
+
+
 ## [2.6.27] - 2026-02-04
 
 ### Patch Update

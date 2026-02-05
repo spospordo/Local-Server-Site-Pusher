@@ -1,6 +1,6 @@
 {
   "name": "local-server-site-pusher",
-  "version": "2.6.27",
+  "version": "2.6.28",
   "description": "A container to run custom server code to build websites and push content out to the web or self hosted site",
   "main": "server.js",
   "scripts": {
