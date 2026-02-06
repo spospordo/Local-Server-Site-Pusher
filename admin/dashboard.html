@@ -2873,6 +2873,12 @@
                         <small class="help-text">Supported formats: JPG, PNG, WebP. Max size: 10MB</small>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="screenshotAsOfDate">As Of Date *</label>
+                        <input type="date" id="screenshotAsOfDate" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        <small class="help-text">The date these account balances represent. Defaults to today. Cannot select future dates.</small>
+                    </div>
+                    
                     <button onclick="uploadAccountScreenshot()" class="btn" style="background: #2196F3;">
                         📤 Upload & Process Screenshot
                     </button>
@@ -12181,6 +12187,14 @@
                     loadGitIdentity();
                 }, 500);
             }
+            
+            // Initialize screenshot As Of date field with today's date and max limit
+            const asOfDateInput = document.getElementById('screenshotAsOfDate');
+            if (asOfDateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                asOfDateInput.value = today;
+                asOfDateInput.max = today;
+            }
         });
         
         // Also load Git Identity when switching to GitHub tab
@@ -15171,6 +15185,7 @@
         
         async function uploadAccountScreenshot() {
             const fileInput = document.getElementById('screenshotFile');
+            const asOfDateInput = document.getElementById('screenshotAsOfDate');
             const statusDiv = document.getElementById('screenshotUploadStatus');
             
             if (!fileInput.files || fileInput.files.length === 0) {
@@ -15198,6 +15213,25 @@
                 return;
             }
             
+            // Validate As Of date
+            const asOfDate = asOfDateInput.value;
+            if (!asOfDate) {
+                statusDiv.className = 'alert alert-error';
+                statusDiv.textContent = 'Please select an "As Of" date';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            // Validate that date is not in the future
+            // Using string comparison is reliable for YYYY-MM-DD format from date input
+            const today = new Date().toISOString().split('T')[0];
+            if (asOfDate > today) {
+                statusDiv.className = 'alert alert-error';
+                statusDiv.textContent = 'Cannot select a future date. Please select today or a past date.';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
             // Show processing status
             statusDiv.className = 'alert alert-info';
             statusDiv.innerHTML = '⏳ Processing screenshot... This may take 30-60 seconds.<br><small>Extracting text and updating accounts...</small>';
@@ -15206,6 +15240,7 @@
             try {
                 const formData = new FormData();
                 formData.append('screenshot', file);
+                formData.append('asOfDate', asOfDate);
                 
                 const response = await fetch('/admin/api/finance/upload-screenshot', {
                     method: 'POST',
@@ -15223,6 +15258,7 @@
                             <li><strong>${result.accountsUpdated}</strong> account(s) updated</li>
                             <li><strong>${result.totalAccounts}</strong> total accounts processed</li>
                             ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
+                            <li>Balances recorded as of: <strong>${new Date(asOfDate).toLocaleDateString()}</strong></li>
                         </ul>
                     `;
                     
