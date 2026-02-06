@@ -6098,6 +6098,46 @@ app.get('/api/smart-mirror/forecast', async (req, res) => {
   }
 });
 
+// Fetch air quality data
+app.get('/api/smart-mirror/air-quality', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Air quality data requested');
+  
+  try {
+    // Set cache-control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const config = smartMirror.loadConfig();
+    const airQualityConfig = config.widgets?.airQuality;
+    
+    if (!airQualityConfig || !airQualityConfig.enabled) {
+      return res.json({ success: false, error: 'Air quality widget not enabled' });
+    }
+    
+    if (!airQualityConfig.apiKey || !airQualityConfig.location) {
+      return res.json({ success: false, error: 'Air quality API key and location must be configured' });
+    }
+    
+    const result = await smartMirror.fetchAirQuality(
+      airQualityConfig.apiKey,
+      airQualityConfig.location,
+      airQualityConfig.units || 'imperial'
+    );
+    
+    // Add highlight info to the result
+    if (result.success && airQualityConfig.highlightEnabled !== false) {
+      const shouldHighlight = result.data.current.aqi === 1 && result.data.temperature <= 75;
+      result.data.shouldHighlight = shouldHighlight;
+    }
+    
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Air quality API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch air quality data' });
+  }
+});
+
 // Rain forecast endpoint for Smart Widget
 app.get('/api/smart-mirror/rain-forecast', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Rain forecast data requested');

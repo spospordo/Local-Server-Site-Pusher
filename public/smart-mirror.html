@@ -723,6 +723,94 @@
             max-height: 50%;
         }
 
+        /* Air Quality Widget */
+        .air-quality-widget {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .air-quality-current {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .air-quality-label {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+        }
+
+        .air-quality-forecast {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .air-quality-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .air-quality-day-label {
+            opacity: 0.6;
+            margin-bottom: 0.3rem;
+        }
+
+        .air-quality-day-value {
+            font-weight: 600;
+        }
+
+        /* Highlight effect for good air quality + favorable temperature */
+        .widget.air-quality-highlight {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(129, 199, 132, 0.3));
+            border: 2px solid #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5), inset 0 0 20px rgba(76, 175, 80, 0.2);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .widget.air-quality-highlight {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(129, 199, 132, 0.4));
+            box-shadow: 0 0 25px rgba(76, 175, 80, 0.6), inset 0 0 25px rgba(76, 175, 80, 0.3);
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(76, 175, 80, 0.5), inset 0 0 20px rgba(76, 175, 80, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(76, 175, 80, 0.8), inset 0 0 30px rgba(76, 175, 80, 0.4);
+            }
+        }
+
+        .air-quality-highlight-message {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            color: #4CAF50;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        /* AQI color indicators */
+        .aqi-1 { color: #00E400; } /* Good - Green */
+        .aqi-2 { color: #FFFF00; } /* Fair - Yellow */
+        .aqi-3 { color: #FF7E00; } /* Moderate - Orange */
+        .aqi-4 { color: #FF0000; } /* Poor - Red */
+        .aqi-5 { color: #8F3F97; } /* Very Poor - Purple */
+
+        body.theme-light .aqi-1 { color: #00A000; }
+        body.theme-light .aqi-2 { color: #CCA000; }
+        body.theme-light .aqi-3 { color: #CC5500; }
+        body.theme-light .aqi-4 { color: #CC0000; }
+        body.theme-light .aqi-5 { color: #6B2F77; }
+
         /* Error message */
         .error-message {
             color: #ff6b6b;
@@ -1103,7 +1191,8 @@
                 forecast: '🌦️ Forecast',
                 news: '📰 News',
                 media: '🎵 Now Playing',
-                vacation: '✈️ Upcoming Vacation'
+                vacation: '✈️ Upcoming Vacation',
+                airQuality: '🌬️ Air Quality'
             };
             return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -1146,6 +1235,9 @@
                     break;
                 case 'vacation':
                     updateVacationWidget(content, widgetConfig);
+                    break;
+                case 'airQuality':
+                    updateAirQualityWidget(content, widgetConfig);
                     break;
                 case 'smartWidget':
                     updateSmartWidget(content, widgetConfig);
@@ -2047,6 +2139,104 @@
                 
                 const msgDiv = document.createElement('div');
                 msgDiv.textContent = error.message || 'Error loading vacation data';
+                errorDiv.appendChild(msgDiv);
+                
+                content.innerHTML = '';
+                content.appendChild(errorDiv);
+            }
+        }
+        
+        // Air Quality Widget
+        async function updateAirQualityWidget(content, widgetConfig) {
+            try {
+                // Fetch air quality data
+                const response = await fetch('/api/smart-mirror/air-quality');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch air quality data');
+                }
+                
+                const aqData = data.data;
+                
+                // Create air quality display
+                const aqDiv = document.createElement('div');
+                aqDiv.className = 'air-quality-widget';
+                
+                // Current AQI
+                const currentDiv = document.createElement('div');
+                currentDiv.className = `air-quality-current aqi-${aqData.current.aqi}`;
+                currentDiv.textContent = aqData.current.aqi;
+                aqDiv.appendChild(currentDiv);
+                
+                // Label
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'air-quality-label';
+                labelDiv.textContent = aqData.current.label;
+                aqDiv.appendChild(labelDiv);
+                
+                // Forecast
+                const forecastDiv = document.createElement('div');
+                forecastDiv.className = 'air-quality-forecast';
+                
+                // Today
+                const todayDiv = document.createElement('div');
+                todayDiv.className = 'air-quality-day';
+                const todayLabelDiv = document.createElement('div');
+                todayLabelDiv.className = 'air-quality-day-label';
+                todayLabelDiv.textContent = 'Today';
+                const todayValueDiv = document.createElement('div');
+                todayValueDiv.className = `air-quality-day-value aqi-${aqData.today.aqi}`;
+                todayValueDiv.textContent = aqData.today.label;
+                todayDiv.appendChild(todayLabelDiv);
+                todayDiv.appendChild(todayValueDiv);
+                forecastDiv.appendChild(todayDiv);
+                
+                // Tomorrow
+                const tomorrowDiv = document.createElement('div');
+                tomorrowDiv.className = 'air-quality-day';
+                const tomorrowLabelDiv = document.createElement('div');
+                tomorrowLabelDiv.className = 'air-quality-day-label';
+                tomorrowLabelDiv.textContent = 'Tomorrow';
+                const tomorrowValueDiv = document.createElement('div');
+                tomorrowValueDiv.className = `air-quality-day-value aqi-${aqData.tomorrow.aqi}`;
+                tomorrowValueDiv.textContent = aqData.tomorrow.label;
+                tomorrowDiv.appendChild(tomorrowLabelDiv);
+                tomorrowDiv.appendChild(tomorrowValueDiv);
+                forecastDiv.appendChild(tomorrowDiv);
+                
+                aqDiv.appendChild(forecastDiv);
+                
+                // Add highlight message if conditions are good
+                if (aqData.shouldHighlight) {
+                    const highlightMsg = document.createElement('div');
+                    highlightMsg.className = 'air-quality-highlight-message';
+                    highlightMsg.textContent = `Perfect conditions! ${aqData.temperature}°${aqData.units === 'imperial' ? 'F' : 'C'}`;
+                    aqDiv.appendChild(highlightMsg);
+                    
+                    // Add highlight class to the parent widget
+                    const widget = content.closest('.widget');
+                    if (widget) {
+                        widget.classList.add('air-quality-highlight');
+                    }
+                } else {
+                    // Remove highlight class if no longer applicable
+                    const widget = content.closest('.widget');
+                    if (widget) {
+                        widget.classList.remove('air-quality-highlight');
+                    }
+                }
+                
+                content.innerHTML = '';
+                content.appendChild(aqDiv);
+            } catch (error) {
+                console.error('Error fetching air quality data:', error);
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.textContent = error.message || 'Error loading air quality data';
                 errorDiv.appendChild(msgDiv);
                 
                 content.innerHTML = '';
