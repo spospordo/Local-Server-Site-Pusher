@@ -5890,10 +5890,29 @@ app.post('/admin/api/finance/upload-screenshot', requireAuth, upload.single('scr
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
     
-    console.log('📤 [Finance] Screenshot uploaded, processing...');
+    // Get and validate asOfDate
+    const asOfDate = req.body.asOfDate;
+    if (!asOfDate) {
+      return res.status(400).json({ success: false, error: 'As Of date is required' });
+    }
     
-    // Process the uploaded screenshot
-    const result = await finance.processAccountScreenshot(req.file.path);
+    // Validate date format and that it's not in the future
+    const asOfDateObj = new Date(asOfDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Set to end of today for comparison
+    
+    if (isNaN(asOfDateObj.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid date format' });
+    }
+    
+    if (asOfDateObj > today) {
+      return res.status(400).json({ success: false, error: 'Cannot set a future date' });
+    }
+    
+    console.log(`📤 [Finance] Screenshot uploaded, processing with As Of date: ${asOfDate}...`);
+    
+    // Process the uploaded screenshot with the specified date
+    const result = await finance.processAccountScreenshot(req.file.path, asOfDate);
     
     res.json(result);
   } catch (err) {

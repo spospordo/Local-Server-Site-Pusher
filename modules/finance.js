@@ -1783,9 +1783,13 @@ function evaluateDemoRetirementPlan() {
 }
 
 // Process uploaded screenshot and extract account data
-async function processAccountScreenshot(imagePath) {
+async function processAccountScreenshot(imagePath, asOfDate = null) {
   try {
     console.log('🔍 [Finance] Processing account screenshot with OCR...');
+    
+    // If no asOfDate provided, use current date
+    const effectiveDate = asOfDate || new Date().toISOString().split('T')[0];
+    console.log(`📅 [Finance] Using As Of date: ${effectiveDate}`);
     
     // Perform OCR on the image
     const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
@@ -1815,8 +1819,8 @@ async function processAccountScreenshot(imagePath) {
       return parseResult;
     }
     
-    // Update or create accounts from parsed data
-    const result = await updateAccountsFromParsedData(parseResult.accounts, parseResult.groups, parseResult.netWorth);
+    // Update or create accounts from parsed data with the specified date
+    const result = await updateAccountsFromParsedData(parseResult.accounts, parseResult.groups, parseResult.netWorth, effectiveDate);
     
     return result;
   } catch (error) {
@@ -2047,10 +2051,17 @@ function parseAccountsFromText(text) {
 }
 
 // Update or create accounts from parsed data
-async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
+async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, asOfDate = null) {
   try {
     const data = loadFinanceData();
     const existingAccounts = data.accounts || [];
+    
+    // If no asOfDate provided, use current date
+    const effectiveDate = asOfDate || new Date().toISOString().split('T')[0];
+    const effectiveDateObj = new Date(effectiveDate + 'T00:00:00.000Z');
+    const effectiveDateISO = effectiveDateObj.toISOString();
+    
+    console.log(`📅 [Finance] Processing accounts with As Of date: ${effectiveDate}`);
     
     let accountsUpdated = 0;
     let accountsCreated = 0;
@@ -2110,19 +2121,30 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
       });
       
       if (existingAccount) {
-        // Update existing account balance
+        // Update existing account
         const oldBalance = existingAccount.currentValue || 0;
-        existingAccount.currentValue = parsedAccount.balance;
-        existingAccount.updatedAt = new Date().toISOString();
         
-        // Add history entry
+        // Determine if we should update the current balance
+        // Only update if asOfDate is today or later than the last update
+        const lastUpdated = existingAccount.updatedAt ? new Date(existingAccount.updatedAt) : new Date(0);
+        const shouldUpdateCurrentBalance = effectiveDateObj >= lastUpdated;
+        
+        if (shouldUpdateCurrentBalance) {
+          existingAccount.currentValue = parsedAccount.balance;
+          existingAccount.updatedAt = effectiveDateISO;
+          console.log(`✅ [Finance] Updated current balance for ${existingAccount.name}: $${parsedAccount.balance}`);
+        } else {
+          console.log(`ℹ️ [Finance] Preserved newer balance for ${existingAccount.name} (As Of ${effectiveDate} is older than last update)`);
+        }
+        
+        // Always add history entry with the specified date
         data.history.push({
           accountId: existingAccount.id,
           accountName: existingAccount.name,
           type: 'balance_update',
           oldBalance: parseFloat(oldBalance),
           newBalance: parsedAccount.balance,
-          balanceDate: new Date().toISOString(),
+          balanceDate: effectiveDateISO,
           timestamp: new Date().toISOString(),
           source: 'screenshot_upload'
         });
@@ -2137,9 +2159,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
           name: parsedAccount.name,
           type: accountType,
           currentValue: parsedAccount.balance,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          notes: `Auto-created from screenshot upload on ${new Date().toLocaleDateString()}`
+          createdAt: effectiveDateISO,
+          updatedAt: effectiveDateISO,
+          notes: `Auto-created from screenshot upload on ${new Date().toLocaleDateString()} (As Of: ${effectiveDate})`
         };
         
         data.accounts.push(newAccount);
@@ -2150,13 +2172,14 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth) {
           accountName: newAccount.name,
           type: 'account_created',
           newBalance: parsedAccount.balance,
-          balanceDate: new Date().toISOString(),
+          balanceDate: effectiveDateISO,
           timestamp: new Date().toISOString(),
           source: 'screenshot_upload'
         });
         
         accountsCreated++;
         updatedAccountIds.push(newAccount.id);
+        console.log(`✅ [Finance] Created new account ${newAccount.name}: $${parsedAccount.balance}`);
       }
     }
     
