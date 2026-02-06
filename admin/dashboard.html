@@ -5960,6 +5960,13 @@
                     <!-- Widget Preview -->
                     <div id="widgetPreview" style="display: none; margin-top: 1rem;">
                         <h4 style="margin-bottom: 0.75rem;">Widget Preview</h4>
+                        
+                        <!-- Phase Toggle Buttons -->
+                        <div id="phaseToggle" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                            <button id="previewBeforeBtn" onclick="switchPreviewPhase('pre-party')" class="btn btn-secondary" style="flex: 1;">📋 Before Party</button>
+                            <button id="previewDuringBtn" onclick="switchPreviewPhase('during')" class="btn btn-secondary" style="flex: 1;">🎊 During Party</button>
+                        </div>
+                        
                         <div style="background: #000; color: #fff; border-radius: 15px; padding: 20px; border: 1px solid rgba(255, 255, 255, 0.1);">
                             <div id="widgetPreviewContent"></div>
                         </div>
@@ -8175,6 +8182,397 @@
         }
         
         // Show widget preview
+        // Global variable to track preview data and phase
+        let previewData = null;
+        let previewPhase = 'pre-party'; // Default to pre-party phase
+        
+        // Function to render party widget (copied from smart-mirror.html for accurate preview)
+        function renderPartyPreview(data, forcedPhase) {
+            // Validate required data exists
+            if (!data || !data.dateTime || !data.dateTime.date || data.daysUntil === undefined) {
+                console.error('Party widget: Missing required data', data);
+                return null;
+            }
+            
+            const PARTY_WIDGET_MAX_HEIGHT = '80vh';
+            
+            const container = document.createElement('div');
+            container.className = 'party-widget';
+            container.style.padding = '10px';
+            container.style.maxHeight = PARTY_WIDGET_MAX_HEIGHT;
+            container.style.overflowY = 'auto';
+            
+            // Determine phase (use forced phase for preview)
+            const isDuringParty = forcedPhase === 'during';
+            
+            // Header with icon
+            const headerDiv = document.createElement('div');
+            headerDiv.style.textAlign = 'center';
+            headerDiv.style.marginBottom = '12px';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2rem';
+            iconDiv.style.marginBottom = '5px';
+            iconDiv.textContent = '🎉';
+            headerDiv.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.1rem';
+            titleDiv.style.fontWeight = '600';
+            
+            if (data.daysUntil === 0) {
+                titleDiv.textContent = isDuringParty ? 'Party in Progress!' : 'Party Today!';
+                titleDiv.style.color = '#4CAF50';
+            } else if (data.daysUntil === 1) {
+                titleDiv.textContent = 'Party Tomorrow';
+            } else {
+                titleDiv.textContent = `Party in ${data.daysUntil} days`;
+            }
+            headerDiv.appendChild(titleDiv);
+            
+            // Phase indicator
+            const phaseDiv = document.createElement('div');
+            phaseDiv.style.fontSize = '0.75rem';
+            phaseDiv.style.opacity = '0.7';
+            phaseDiv.style.marginTop = '3px';
+            phaseDiv.textContent = isDuringParty ? '🎊 Enjoy the party!' : '📋 Party Planning';
+            headerDiv.appendChild(phaseDiv);
+            
+            // Date and time
+            if (data.dateTime.date) {
+                const dateDiv = document.createElement('div');
+                dateDiv.style.fontSize = '0.85rem';
+                dateDiv.style.opacity = '0.8';
+                dateDiv.style.marginTop = '3px';
+                
+                try {
+                    const dateParts = data.dateTime.date.split('-');
+                    if (dateParts.length !== 3) {
+                        throw new Error(`Invalid date format: expected YYYY-MM-DD, received: ${data.dateTime.date}`);
+                    }
+                    const partyDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                    
+                    if (isNaN(partyDate.getTime())) {
+                        throw new Error(`Invalid date value after parsing: ${data.dateTime.date}`);
+                    }
+                    
+                    let dateText = partyDate.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                    
+                    if (data.dateTime.startTime) {
+                        dateText += ` at ${data.dateTime.startTime}`;
+                    }
+                    
+                    dateDiv.textContent = dateText;
+                    headerDiv.appendChild(dateDiv);
+                } catch (err) {
+                    console.error('Party widget: Error parsing date', err.message);
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(data.dateTime.date)) {
+                        dateDiv.textContent = data.dateTime.date;
+                        if (data.dateTime.startTime) {
+                            dateDiv.textContent += ` at ${data.dateTime.startTime}`;
+                        }
+                        headerDiv.appendChild(dateDiv);
+                    }
+                }
+            }
+            
+            container.appendChild(headerDiv);
+            
+            // Content section
+            const contentDiv = document.createElement('div');
+            contentDiv.style.fontSize = '0.8rem';
+            contentDiv.style.marginTop = '10px';
+            
+            // Tasks - only show in pre-party phase
+            if (!isDuringParty && data.tasks && data.tasks.list && data.tasks.list.length > 0) {
+                const tasksSection = document.createElement('div');
+                tasksSection.style.marginBottom = '15px';
+                
+                const tasksHeader = document.createElement('div');
+                tasksHeader.style.fontWeight = '600';
+                tasksHeader.style.marginBottom = '8px';
+                tasksHeader.style.fontSize = '0.9rem';
+                tasksHeader.innerHTML = '✓ To-Do Items';
+                tasksSection.appendChild(tasksHeader);
+                
+                data.tasks.list.forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.style.marginBottom = '5px';
+                    taskItem.style.paddingLeft = '10px';
+                    taskItem.style.opacity = task.completed ? '0.6' : '1';
+                    
+                    const checkbox = document.createElement('span');
+                    checkbox.textContent = task.completed ? '☑' : '☐';
+                    checkbox.style.marginRight = '5px';
+                    
+                    const taskText = document.createElement('span');
+                    taskText.textContent = task.name;
+                    if (task.completed) {
+                        taskText.style.textDecoration = 'line-through';
+                    }
+                    
+                    taskItem.appendChild(checkbox);
+                    taskItem.appendChild(taskText);
+                    
+                    if (task.assignee) {
+                        const assigneeText = document.createElement('span');
+                        assigneeText.textContent = ` (${task.assignee})`;
+                        assigneeText.style.opacity = '0.7';
+                        assigneeText.style.fontSize = '0.75rem';
+                        taskItem.appendChild(assigneeText);
+                    }
+                    
+                    tasksSection.appendChild(taskItem);
+                });
+                
+                contentDiv.appendChild(tasksSection);
+            }
+            
+            // Events - show in both phases
+            if (data.events && data.events.length > 0) {
+                const eventsSection = document.createElement('div');
+                eventsSection.style.marginBottom = '15px';
+                
+                const eventsHeader = document.createElement('div');
+                eventsHeader.style.fontWeight = '600';
+                eventsHeader.style.marginBottom = '8px';
+                eventsHeader.style.fontSize = '0.9rem';
+                eventsHeader.innerHTML = '📋 Events Schedule';
+                eventsSection.appendChild(eventsHeader);
+                
+                data.events.forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.style.marginBottom = '8px';
+                    eventItem.style.paddingLeft = '10px';
+                    
+                    const eventTitle = document.createElement('div');
+                    eventTitle.style.fontWeight = '500';
+                    
+                    if (event.time) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.textContent = event.time + ' - ';
+                        timeSpan.style.color = '#4CAF50';
+                        eventTitle.appendChild(timeSpan);
+                    }
+                    
+                    const titleSpan = document.createElement('span');
+                    titleSpan.textContent = event.title;
+                    eventTitle.appendChild(titleSpan);
+                    
+                    eventItem.appendChild(eventTitle);
+                    
+                    if (event.description) {
+                        const eventDesc = document.createElement('div');
+                        eventDesc.textContent = event.description;
+                        eventDesc.style.fontSize = '0.75rem';
+                        eventDesc.style.opacity = '0.7';
+                        eventDesc.style.marginTop = '2px';
+                        eventItem.appendChild(eventDesc);
+                    }
+                    
+                    eventsSection.appendChild(eventItem);
+                });
+                
+                contentDiv.appendChild(eventsSection);
+            }
+            
+            // Menu - show in both phases
+            if (data.menu && data.menu.length > 0) {
+                const menuSection = document.createElement('div');
+                menuSection.style.marginBottom = '15px';
+                
+                const menuHeader = document.createElement('div');
+                menuHeader.style.fontWeight = '600';
+                menuHeader.style.marginBottom = '8px';
+                menuHeader.style.fontSize = '0.9rem';
+                menuHeader.innerHTML = '🍽️ Menu';
+                menuSection.appendChild(menuHeader);
+                
+                data.menu.forEach(item => {
+                    const menuItem = document.createElement('div');
+                    menuItem.style.marginBottom = '8px';
+                    menuItem.style.paddingLeft = '10px';
+                    
+                    const itemName = document.createElement('div');
+                    itemName.style.fontWeight = '500';
+                    itemName.textContent = item.name;
+                    menuItem.appendChild(itemName);
+                    
+                    if (item.description) {
+                        const itemDesc = document.createElement('div');
+                        itemDesc.textContent = item.description;
+                        itemDesc.style.fontSize = '0.75rem';
+                        itemDesc.style.opacity = '0.7';
+                        itemDesc.style.marginTop = '2px';
+                        menuItem.appendChild(itemDesc);
+                    }
+                    
+                    menuSection.appendChild(menuItem);
+                });
+                
+                contentDiv.appendChild(menuSection);
+            }
+            
+            // Invitees - show in both phases
+            if (data.invitees && data.invitees.list && data.invitees.list.length > 0) {
+                const inviteesSection = document.createElement('div');
+                inviteesSection.style.marginBottom = '15px';
+                
+                const inviteesHeader = document.createElement('div');
+                inviteesHeader.style.fontWeight = '600';
+                inviteesHeader.style.marginBottom = '8px';
+                inviteesHeader.style.fontSize = '0.9rem';
+                inviteesHeader.innerHTML = '👥 Guest List';
+                inviteesSection.appendChild(inviteesHeader);
+                
+                // Group by RSVP status
+                const coming = data.invitees.list.filter(i => i.rsvp === 'coming');
+                const pending = data.invitees.list.filter(i => i.rsvp === 'pending');
+                const notComing = data.invitees.list.filter(i => i.rsvp === 'not-coming');
+                
+                if (coming.length > 0) {
+                    const comingLabel = document.createElement('div');
+                    comingLabel.style.fontSize = '0.75rem';
+                    comingLabel.style.opacity = '0.7';
+                    comingLabel.style.marginTop = '5px';
+                    comingLabel.textContent = 'Coming:';
+                    inviteesSection.appendChild(comingLabel);
+                    
+                    coming.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `✓ ${invitee.name}`;
+                        inviteeItem.style.color = '#4CAF50';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (pending.length > 0) {
+                    const pendingLabel = document.createElement('div');
+                    pendingLabel.style.fontSize = '0.75rem';
+                    pendingLabel.style.opacity = '0.7';
+                    pendingLabel.style.marginTop = '5px';
+                    pendingLabel.textContent = 'Pending:';
+                    inviteesSection.appendChild(pendingLabel);
+                    
+                    pending.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `? ${invitee.name}`;
+                        inviteeItem.style.color = '#FFC107';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (notComing.length > 0) {
+                    const notComingLabel = document.createElement('div');
+                    notComingLabel.style.fontSize = '0.75rem';
+                    notComingLabel.style.opacity = '0.7';
+                    notComingLabel.style.marginTop = '5px';
+                    notComingLabel.textContent = 'Not Coming:';
+                    inviteesSection.appendChild(notComingLabel);
+                    
+                    notComing.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.textContent = `✗ ${invitee.name}`;
+                        inviteeItem.style.opacity = '0.5';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                contentDiv.appendChild(inviteesSection);
+            }
+            
+            container.appendChild(contentDiv);
+            
+            return container;
+        }
+        
+        // Function to switch preview phase
+        function switchPreviewPhase(phase) {
+            if (!previewData) {
+                console.error('No preview data available');
+                return;
+            }
+            
+            previewPhase = phase;
+            
+            // Update button styles
+            const beforeBtn = document.getElementById('previewBeforeBtn');
+            const duringBtn = document.getElementById('previewDuringBtn');
+            
+            if (phase === 'pre-party') {
+                beforeBtn.classList.add('btn-primary');
+                beforeBtn.classList.remove('btn-secondary');
+                duringBtn.classList.remove('btn-primary');
+                duringBtn.classList.add('btn-secondary');
+            } else {
+                duringBtn.classList.add('btn-primary');
+                duringBtn.classList.remove('btn-secondary');
+                beforeBtn.classList.remove('btn-primary');
+                beforeBtn.classList.add('btn-secondary');
+            }
+            
+            // Re-render preview with new phase
+            renderPreview(previewData, phase);
+        }
+        
+        // Helper function to render preview
+        function renderPreview(data, phase) {
+            const content = document.getElementById('widgetPreviewContent');
+            const notes = document.getElementById('widgetPreviewNotes');
+            
+            // Clear previous content
+            content.innerHTML = '';
+            
+            // Build structured data for renderPartyPreview
+            const partyDate = new Date(data.dateTime.date);
+            partyDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const daysUntil = Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
+            
+            const widgetData = {
+                dateTime: data.dateTime,
+                daysUntil: daysUntil,
+                phase: phase,
+                tasks: {
+                    total: data.tasks ? data.tasks.length : 0,
+                    completed: data.tasks ? data.tasks.filter(t => t.completed).length : 0,
+                    list: data.tasks || []
+                },
+                invitees: {
+                    coming: data.invitees ? data.invitees.filter(i => i.rsvp === 'coming').length : 0,
+                    notComing: data.invitees ? data.invitees.filter(i => i.rsvp === 'not-coming').length : 0,
+                    pending: data.invitees ? data.invitees.filter(i => i.rsvp === 'pending').length : 0,
+                    list: data.invitees || []
+                },
+                menu: data.menu || [],
+                events: data.events || []
+            };
+            
+            // Render the widget
+            const widgetElement = renderPartyPreview(widgetData, phase);
+            if (widgetElement) {
+                content.appendChild(widgetElement);
+            }
+            
+            // Update notes
+            let notesHTML = `<strong>Preview Mode: ${phase === 'pre-party' ? '📋 Before Party' : '🎊 During Party'}</strong><br>`;
+            notesHTML += phase === 'pre-party' 
+                ? 'This is how the widget appears <strong>before the party starts</strong>. Tasks are visible to help with party planning.'
+                : 'This is how the widget appears <strong>during the party</strong>. Tasks are hidden so guests can focus on enjoying the event.';
+            
+            notes.innerHTML = notesHTML;
+            notes.style.background = phase === 'pre-party' ? '#e8f5e9' : '#fff3e0';
+            notes.style.borderLeft = phase === 'pre-party' ? '4px solid #4caf50' : '4px solid #ff9800';
+        }
+        
         async function showWidgetPreview() {
             if (!currentPartyId) {
                 showAlert('No party selected. Please create or select a party first.', 'error', 'schedulingAlert');
@@ -8188,27 +8586,27 @@
                 const container = document.getElementById('widgetPreview');
                 const content = document.getElementById('widgetPreviewContent');
                 const notes = document.getElementById('widgetPreviewNotes');
+                const phaseToggle = document.getElementById('phaseToggle');
                 
                 container.style.display = 'block';
                 
                 const data = result.data;
                 
-                // Build preview HTML similar to smart-mirror.html rendering
-                let previewHTML = '';
-                
                 if (!data.dateTime || !data.dateTime.date) {
-                    previewHTML = '<div style="text-align: center; padding: 2rem; opacity: 0.5;">';
-                    previewHTML += '<div style="font-size: 2rem; margin-bottom: 1rem;">🎉</div>';
-                    previewHTML += '<div style="font-size: 1.1rem; font-weight: 600;">Party Widget</div>';
-                    previewHTML += '<div style="margin-top: 1rem; color: #ff6b6b;">⚠️ No party date set</div>';
-                    previewHTML += '<div style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8;">Widget will not display</div>';
-                    previewHTML += '</div>';
+                    // Hide phase toggle for invalid data
+                    phaseToggle.style.display = 'none';
+                    
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem; opacity: 0.5;">' +
+                        '<div style="font-size: 2rem; margin-bottom: 1rem;">🎉</div>' +
+                        '<div style="font-size: 1.1rem; font-weight: 600;">Party Widget</div>' +
+                        '<div style="margin-top: 1rem; color: #ff6b6b;">⚠️ No party date set</div>' +
+                        '<div style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8;">Widget will not display</div>' +
+                        '</div>';
                     
                     notes.innerHTML = '<strong>⚠️ Widget Not Displayable:</strong> The party widget requires a valid party date to display. Set a date in the "Date & Time" section above.';
                     notes.style.background = '#fff3cd';
                     notes.style.borderLeft = '4px solid #ffc107';
                 } else {
-                    // Parse date and calculate days until
                     const partyDate = new Date(data.dateTime.date);
                     partyDate.setHours(0, 0, 0, 0);
                     const today = new Date();
@@ -8216,121 +8614,30 @@
                     const daysUntil = Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
                     
                     if (daysUntil < 0) {
-                        previewHTML = '<div style="text-align: center; padding: 2rem; opacity: 0.5;">';
-                        previewHTML += '<div style="font-size: 2rem; margin-bottom: 1rem;">🎉</div>';
-                        previewHTML += '<div style="font-size: 1.1rem; font-weight: 600;">Party Widget</div>';
-                        previewHTML += '<div style="margin-top: 1rem; color: #ff6b6b;">⚠️ Party date has passed</div>';
-                        previewHTML += '<div style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8;">Widget will not display</div>';
-                        previewHTML += '</div>';
+                        // Hide phase toggle for past dates
+                        phaseToggle.style.display = 'none';
+                        
+                        content.innerHTML = '<div style="text-align: center; padding: 2rem; opacity: 0.5;">' +
+                            '<div style="font-size: 2rem; margin-bottom: 1rem;">🎉</div>' +
+                            '<div style="font-size: 1.1rem; font-weight: 600;">Party Widget</div>' +
+                            '<div style="margin-top: 1rem; color: #ff6b6b;">⚠️ Party date has passed</div>' +
+                            '<div style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8;">Widget will not display</div>' +
+                            '</div>';
                         
                         notes.innerHTML = '<strong>⚠️ Widget Not Displayable:</strong> The party date is in the past. The widget only displays upcoming or current parties. Update the date if this is incorrect.';
                         notes.style.background = '#fff3cd';
                         notes.style.borderLeft = '4px solid #ffc107';
                     } else {
-                        // Show active widget preview
-                        previewHTML = '<div style="padding: 10px;">';
+                        // Show phase toggle
+                        phaseToggle.style.display = 'flex';
                         
-                        // Header
-                        previewHTML += '<div style="text-align: center; margin-bottom: 12px;">';
-                        previewHTML += '<div style="font-size: 2rem; margin-bottom: 5px;">🎉</div>';
-                        previewHTML += '<div style="font-size: 1.1rem; font-weight: 600;';
-                        if (daysUntil === 0) {
-                            previewHTML += ' color: #4CAF50;">Party Today!';
-                        } else if (daysUntil === 1) {
-                            previewHTML += '">Party Tomorrow';
-                        } else {
-                            previewHTML += '">Party in ' + daysUntil + ' days';
-                        }
-                        previewHTML += '</div>';
+                        // Store preview data globally
+                        previewData = data;
                         
-                        // Date display (use browser locale for consistency with smart mirror)
-                        const dateObj = new Date(data.dateTime.date);
-                        let dateText = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                        if (data.dateTime.startTime) {
-                            dateText += ` at ${data.dateTime.startTime}`;
-                        }
-                        previewHTML += `<div style="font-size: 0.85rem; opacity: 0.8; margin-top: 3px;">${dateText}</div>`;
-                        previewHTML += '</div>';
-                        
-                        // Content section
-                        previewHTML += '<div style="font-size: 0.8rem; margin-top: 10px;">';
-                        
-                        // Tasks
-                        if (data.tasks && data.tasks.length > 0) {
-                            const completed = data.tasks.filter(t => t.completed).length;
-                            const total = data.tasks.length;
-                            const percentComplete = Math.round((completed / total) * 100);
-                            const checkColor = percentComplete === 100 ? '#4CAF50' : '#FFC107';
-                            
-                            previewHTML += '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">';
-                            previewHTML += '<span style="font-size: 1rem; color: ' + checkColor + ';">✓</span>';
-                            previewHTML += '<span>Tasks: ' + completed + '/' + total + ' complete</span>';
-                            previewHTML += '</div>';
-                        } else {
-                            previewHTML += '<div style="margin-bottom: 6px; opacity: 0.5; font-style: italic;">No tasks added</div>';
-                        }
-                        
-                        // Invitees
-                        if (data.invitees && data.invitees.length > 0) {
-                            const coming = data.invitees.filter(i => i.rsvp === 'coming').length;
-                            const pending = data.invitees.filter(i => i.rsvp === 'pending').length;
-                            const notComing = data.invitees.filter(i => i.rsvp === 'not-coming').length;
-                            
-                            previewHTML += '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">';
-                            previewHTML += '<span style="font-size: 1rem;">👥</span>';
-                            const parts = [];
-                            if (coming > 0) parts.push(coming + ' coming');
-                            if (pending > 0) parts.push(pending + ' pending');
-                            if (notComing > 0) parts.push(notComing + ' not coming');
-                            previewHTML += '<span>Guests: ' + (parts.length > 0 ? parts.join(', ') : data.invitees.length + ' invited') + '</span>';
-                            previewHTML += '</div>';
-                        } else {
-                            previewHTML += '<div style="margin-bottom: 6px; opacity: 0.5; font-style: italic;">No invitees added</div>';
-                        }
-                        
-                        // Menu
-                        if (data.menu && data.menu.length > 0) {
-                            previewHTML += '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">';
-                            previewHTML += '<span style="font-size: 1rem;">🍽️</span>';
-                            previewHTML += '<span>Menu: ' + data.menu.length + ' item' + (data.menu.length !== 1 ? 's' : '') + ' planned</span>';
-                            previewHTML += '</div>';
-                        } else {
-                            previewHTML += '<div style="margin-bottom: 6px; opacity: 0.5; font-style: italic;">No menu items added</div>';
-                        }
-                        
-                        // Events
-                        if (data.events && data.events.length > 0) {
-                            previewHTML += '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">';
-                            previewHTML += '<span style="font-size: 1rem;">🎯</span>';
-                            previewHTML += '<span>Events: ' + data.events.length + ' scheduled</span>';
-                            previewHTML += '</div>';
-                        } else {
-                            previewHTML += '<div style="margin-bottom: 6px; opacity: 0.5; font-style: italic;">No events scheduled</div>';
-                        }
-                        
-                        previewHTML += '</div></div>';
-                        
-                        // Notes about displayable status
-                        let notesHTML = '<strong>✅ Widget Will Display:</strong> ';
-                        const emptyFields = [];
-                        if (!data.tasks || data.tasks.length === 0) emptyFields.push('tasks');
-                        if (!data.invitees || data.invitees.length === 0) emptyFields.push('invitees');
-                        if (!data.menu || data.menu.length === 0) emptyFields.push('menu');
-                        if (!data.events || data.events.length === 0) emptyFields.push('events');
-                        
-                        if (emptyFields.length > 0) {
-                            notesHTML += `This widget will appear on the smart mirror. Empty fields shown in <em>italics</em> above (${emptyFields.join(', ')}) will not be displayed in the actual widget.`;
-                        } else {
-                            notesHTML += 'This widget will appear on the smart mirror with all information shown above.';
-                        }
-                        
-                        notes.innerHTML = notesHTML;
-                        notes.style.background = '#d4edda';
-                        notes.style.borderLeft = '4px solid #28a745';
+                        // Initialize to pre-party phase (switchPreviewPhase will set previewPhase)
+                        switchPreviewPhase('pre-party');
                     }
                 }
-                
-                content.innerHTML = previewHTML;
             } catch (err) {
                 console.error('Failed to show preview:', err);
                 showAlert('Failed to show preview: ' + err.message, 'error', 'schedulingAlert');
