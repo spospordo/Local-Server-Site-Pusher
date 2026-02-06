@@ -40,6 +40,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create directories - ownership will be fixed at runtime by entrypoint
 # This ensures compatibility with rootless Docker and Portainer buildkit environments
+# /app/public: static assets, /app/config: configuration, /app/uploads: user-uploaded files
 RUN mkdir -p /app/public /app/config /app/uploads
 
 # Expose port
