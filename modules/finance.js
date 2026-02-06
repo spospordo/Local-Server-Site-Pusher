@@ -2058,10 +2058,13 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     
     // If no asOfDate provided, use current date
     const effectiveDate = asOfDate || new Date().toISOString().split('T')[0];
+    
+    // Create date object at midnight UTC to represent the date consistently
+    // This ensures the date is stored uniformly regardless of server timezone
     const effectiveDateObj = new Date(effectiveDate + 'T00:00:00.000Z');
     const effectiveDateISO = effectiveDateObj.toISOString();
     
-    console.log(`📅 [Finance] Processing accounts with As Of date: ${effectiveDate}`);
+    console.log(`📅 [Finance] Processing accounts with As Of date: ${effectiveDate} (stored as ${effectiveDateISO})`);
     
     let accountsUpdated = 0;
     let accountsCreated = 0;

@@ -5897,15 +5897,17 @@ app.post('/admin/api/finance/upload-screenshot', requireAuth, upload.single('scr
     }
     
     // Validate date format and that it's not in the future
-    const asOfDateObj = new Date(asOfDate);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999); // Set to end of today for comparison
+    // Use date-only string comparison since asOfDate is in YYYY-MM-DD format
+    const todayStr = new Date().toISOString().split('T')[0];
     
+    // Validate date format by attempting to parse it
+    const asOfDateObj = new Date(asOfDate + 'T00:00:00.000Z');
     if (isNaN(asOfDateObj.getTime())) {
       return res.status(400).json({ success: false, error: 'Invalid date format' });
     }
     
-    if (asOfDateObj > today) {
+    // String comparison works for YYYY-MM-DD format
+    if (asOfDate > todayStr) {
       return res.status(400).json({ success: false, error: 'Cannot set a future date' });
     }
     

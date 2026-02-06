@@ -15223,6 +15223,7 @@
             }
             
             // Validate that date is not in the future
+            // Using string comparison is reliable for YYYY-MM-DD format from date input
             const today = new Date().toISOString().split('T')[0];
             if (asOfDate > today) {
                 statusDiv.className = 'alert alert-error';
