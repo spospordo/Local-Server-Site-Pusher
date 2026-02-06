@@ -149,6 +149,15 @@ function getDefaultWidgets() {
       feedUrls: [],
       days: 5
     },
+    airQuality: {
+      enabled: false,
+      area: 'bottom-right',
+      size: 'small',
+      apiKey: '',
+      location: '',
+      units: 'imperial',
+      highlightEnabled: true // Enable highlighting when AQI is good and temp <= 75°F
+    },
     smartWidget: {
       enabled: false,
       area: 'middle-center',
@@ -186,6 +195,7 @@ function getDefaultPortraitLayout() {
     news: { x: 2, y: 2, width: 2, height: 2 },
     media: { x: 0, y: 4, width: 4, height: 2 },
     vacation: { x: 2, y: 4, width: 2, height: 2 },
+    airQuality: { x: 0, y: 4, width: 1, height: 1 },
     smartWidget: { x: 0, y: 2, width: 4, height: 2 }
   };
 }
@@ -201,6 +211,7 @@ function getDefaultLandscapeLayout() {
     forecast: { x: 0, y: 3, width: 8, height: 1 },
     media: { x: 6, y: 1, width: 2, height: 2 },
     vacation: { x: 6, y: 3, width: 2, height: 1 },
+    airQuality: { x: 7, y: 0, width: 1, height: 1 },
     smartWidget: { x: 2, y: 1, width: 4, height: 2 }
   };
 }
@@ -1296,6 +1307,104 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
   }
 }
 
+// Fetch air quality data from OpenWeatherMap Air Pollution API
+async function fetchAirQuality(apiKey, location, units = 'imperial') {
+  logger.debug(logger.categories.SMART_MIRROR, `Fetching air quality data`);
+  
+  if (!apiKey || !location) {
+    const errorMsg = 'API key and location are required for air quality';
+    logger.warning(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+  
+  try {
+    // First, get coordinates from the location
+    const geoUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}`;
+    const geoResponse = await axios.get(geoUrl, { timeout: 10000 });
+    const { lat, lon } = geoResponse.data.coord;
+    
+    logger.info(logger.categories.SMART_MIRROR, `Fetching air quality for coordinates: ${lat}, ${lon}`);
+    
+    // Get current air quality
+    const currentUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    const currentResponse = await axios.get(currentUrl, { timeout: 10000 });
+    
+    // Get air quality forecast
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    const forecastResponse = await axios.get(forecastUrl, { timeout: 10000 });
+    
+    // Also fetch current weather to get temperature for highlight logic
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=${units}`;
+    const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
+    
+    // AQI levels: 1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor
+    const aqiLabels = {
+      1: 'Good',
+      2: 'Fair', 
+      3: 'Moderate',
+      4: 'Poor',
+      5: 'Very Poor'
+    };
+    
+    // Process current air quality
+    const current = currentResponse.data.list[0];
+    const currentAqi = current.main.aqi;
+    
+    // Process forecast to get today and tomorrow's AQI
+    const now = new Date();
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    const tomorrowEnd = new Date(todayEnd);
+    tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+    
+    const todayAqis = [];
+    const tomorrowAqis = [];
+    
+    forecastResponse.data.list.forEach(item => {
+      const dt = new Date(item.dt * 1000);
+      if (dt <= todayEnd) {
+        todayAqis.push(item.main.aqi);
+      } else if (dt <= tomorrowEnd) {
+        tomorrowAqis.push(item.main.aqi);
+      }
+    });
+    
+    // Calculate average AQI for today and tomorrow
+    const todayAvgAqi = todayAqis.length > 0 
+      ? Math.round(todayAqis.reduce((a, b) => a + b, 0) / todayAqis.length)
+      : currentAqi;
+    const tomorrowAvgAqi = tomorrowAqis.length > 0
+      ? Math.round(tomorrowAqis.reduce((a, b) => a + b, 0) / tomorrowAqis.length)
+      : currentAqi;
+    
+    const airQualityData = {
+      current: {
+        aqi: currentAqi,
+        label: aqiLabels[currentAqi] || 'Unknown',
+        components: current.components
+      },
+      today: {
+        aqi: todayAvgAqi,
+        label: aqiLabels[todayAvgAqi] || 'Unknown'
+      },
+      tomorrow: {
+        aqi: tomorrowAvgAqi,
+        label: aqiLabels[tomorrowAvgAqi] || 'Unknown'
+      },
+      temperature: Math.round(weatherResponse.data.main.temp),
+      location: geoResponse.data.name,
+      units
+    };
+    
+    logger.success(logger.categories.SMART_MIRROR, `Air quality data fetched successfully for ${geoResponse.data.name}`);
+    return { success: true, data: airQualityData };
+  } catch (err) {
+    const errorMsg = `Failed to fetch air quality: ${err.response?.data?.message || err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 // Fetch Home Assistant media player state
 async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
@@ -1974,6 +2083,7 @@ module.exports = {
   fetchNews,
   fetchWeather,
   fetchForecast,
+  fetchAirQuality,
   fetchHomeAssistantMedia,
   fetchLocationTimezone,
   testWeatherConnection,
