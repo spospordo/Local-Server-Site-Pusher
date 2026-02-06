@@ -6127,7 +6127,9 @@ app.get('/api/smart-mirror/air-quality', async (req, res) => {
     
     // Add highlight info to the result
     if (result.success && airQualityConfig.highlightEnabled !== false) {
-      const shouldHighlight = result.data.current.aqi === 1 && result.data.temperature <= 75;
+      // Use appropriate temperature threshold based on units
+      const tempThreshold = airQualityConfig.units === 'metric' ? 24 : 75;
+      const shouldHighlight = result.data.current.aqi === 1 && result.data.temperature <= tempThreshold;
       result.data.shouldHighlight = shouldHighlight;
     }
     

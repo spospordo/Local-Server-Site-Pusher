@@ -156,9 +156,6 @@ function getDefaultWidgets() {
       apiKey: '',
       location: '',
       units: 'imperial',
-      calendarUrls: [],
-      feedUrls: [],
-      days: 5,
       highlightEnabled: true // Enable highlighting when AQI is good and temp <= 75°F
     },
     smartWidget: {
