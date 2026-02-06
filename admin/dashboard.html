@@ -1631,6 +1631,122 @@
             border-color: #667eea;
         }
 
+        /* Mobile Navigation Styles - Horizontal Scrolling */
+        @media (max-width: 768px) {
+            /* Enable horizontal scrolling for main tabs */
+            .main-tabs {
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                /* Prevent flex items from shrinking */
+                flex-wrap: nowrap;
+                /* Add scrollbar styling for better visibility */
+                scrollbar-width: thin;
+                scrollbar-color: #667eea #f8f9fa;
+            }
+
+            .main-tabs::-webkit-scrollbar {
+                height: 4px;
+            }
+
+            .main-tabs::-webkit-scrollbar-track {
+                background: #f8f9fa;
+            }
+
+            .main-tabs::-webkit-scrollbar-thumb {
+                background: #667eea;
+                border-radius: 2px;
+            }
+
+            /* Ensure tabs don't shrink below their content */
+            .main-tab {
+                flex: 0 0 auto;
+                min-width: fit-content;
+                padding: 0.75rem 1rem;
+                font-size: 0.95rem;
+                white-space: nowrap;
+            }
+
+            /* Enable horizontal scrolling for sub-tabs */
+            .sub-tabs.active {
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                flex-wrap: nowrap;
+                gap: 0.75rem;
+                padding: 0.75rem;
+                scrollbar-width: thin;
+                scrollbar-color: #667eea #f8f9fa;
+            }
+
+            .sub-tabs.active::-webkit-scrollbar {
+                height: 4px;
+            }
+
+            .sub-tabs.active::-webkit-scrollbar-track {
+                background: #f8f9fa;
+            }
+
+            .sub-tabs.active::-webkit-scrollbar-thumb {
+                background: #667eea;
+                border-radius: 2px;
+            }
+
+            /* Ensure sub-tabs don't shrink */
+            .sub-tab {
+                flex: 0 0 auto;
+                min-width: fit-content;
+                padding: 0.5rem 0.875rem;
+                font-size: 0.875rem;
+                white-space: nowrap;
+            }
+
+            /* Add visual scroll affordance with gradient shadows */
+            .tab-navigation {
+                position: relative;
+            }
+
+            /* Gradient overlay to indicate more content on the right */
+            .main-tabs::after {
+                content: '';
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 40px;
+                background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.9));
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 0.3s ease;
+            }
+
+            .sub-tabs.active::after {
+                content: '';
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 30px;
+                background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.9));
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 0.3s ease;
+            }
+        }
+
+        /* Tablet breakpoint - medium screens */
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .main-tab {
+                padding: 0.875rem;
+                font-size: 0.95rem;
+            }
+
+            .sub-tab {
+                padding: 0.5rem 0.875rem;
+                font-size: 0.875rem;
+            }
+        }
+
         /* Section visibility management */
         .admin-section {
             display: block;
