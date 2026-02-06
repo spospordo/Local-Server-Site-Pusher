@@ -214,6 +214,47 @@ ports:
   - "8080:3000"  # Use port 8080 instead
 ```
 
+### Issue: Docker Build Fails with chown/chmod Error
+
+**Error:**
+```
+failed to solve: process "/bin/sh -c mkdir -p /app/public /app/config && chown -R node:node /app && chmod 755 /app/public /app/config" did not complete successfully: exit code: 1
+```
+
+**Cause:**
+This error occurs when building in rootless Docker environments, Portainer with BuildKit enabled, or other environments where the build process doesn't have root privileges. The `chown` and `chmod` commands in the Dockerfile fail because they require root access.
+
+**Solution:**
+This issue has been fixed in the latest version. The Dockerfile now uses `COPY --chown` to set ownership during the copy operation instead of requiring a separate `chown` command. Permission fixes are handled at runtime by the `docker-entrypoint.sh` script.
+
+**If you still see this error:**
+1. **Update to the latest version** from the main branch
+2. **Clear build cache** before rebuilding:
+   ```bash
+   # SSH into your Raspberry Pi or Docker host
+   docker builder prune -af
+   ```
+3. **Redeploy the stack** in Portainer (remove and recreate)
+
+**For manual builds:**
+```bash
+# Clone the latest version
+git clone https://github.com/spospordo/Local-Server-Site-Pusher.git
+cd Local-Server-Site-Pusher
+
+# Build with no cache to ensure clean build
+docker build --no-cache -t local-server-site-pusher:latest .
+
+# If building in rootless mode, ensure your user has proper permissions
+# The entrypoint will handle runtime permission fixes automatically
+```
+
+**Technical Details:**
+- The build process no longer requires root access
+- File ownership is set using `COPY --chown=node:node` during the copy operation
+- Directory permissions are fixed at container startup by `docker-entrypoint.sh`
+- This approach works in both rootless Docker and traditional root-based Docker environments
+
 ---
 
 ## Why This Fix Works

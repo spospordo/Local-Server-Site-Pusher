@@ -21,8 +21,9 @@ RUN npm install --include=optional
 # Essential for ARM64 Raspberry Pi deployments  
 RUN npm rebuild sharp --verbose
 
-# Copy application files
-COPY . .
+# Copy application files with node user ownership
+# Using --chown avoids needing root during build for permission changes
+COPY --chown=node:node . .
 
 # Create backup of static files before /public might be volume-mounted
 # This ensures we always have originals available for restoration
@@ -33,14 +34,13 @@ RUN mkdir -p /app/.static-files-backup && \
     cp public/espresso-template.html /app/.static-files-backup/ && \
     chmod 644 /app/.static-files-backup/*.html
 
-# Copy and set up entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
+# Copy and set up entrypoint script with proper ownership
+COPY --chown=node:node docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Create directories and set ownership
-RUN mkdir -p /app/public /app/config && \
-    chown -R node:node /app && \
-    chmod 755 /app/public /app/config
+# Create directories - ownership will be fixed at runtime by entrypoint
+# This ensures compatibility with rootless Docker and Portainer buildkit environments
+RUN mkdir -p /app/public /app/config /app/uploads
 
 # Expose port
 EXPOSE 3000
