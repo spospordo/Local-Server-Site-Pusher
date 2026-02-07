@@ -5864,6 +5864,50 @@ app.get('/admin/api/finance/demo/retirement-evaluation', requireAuth, (req, res)
   }
 });
 
+// Update demo demographics
+app.post('/admin/api/finance/demo/demographics', requireAuth, (req, res) => {
+  try {
+    const updates = req.body;
+    const result = finance.updateDemoDemographics(updates);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update demo demographics: ' + err.message });
+  }
+});
+
+// Update demo account balances
+app.post('/admin/api/finance/demo/accounts', requireAuth, (req, res) => {
+  try {
+    const accountBalances = req.body;
+    const result = finance.updateDemoAccounts(accountBalances);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update demo accounts: ' + err.message });
+  }
+});
+
+// Update demo forecasted increases
+app.post('/admin/api/finance/demo/forecasts', requireAuth, (req, res) => {
+  try {
+    const forecasts = req.body;
+    const result = finance.updateDemoForecasts(forecasts);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update demo forecasts: ' + err.message });
+  }
+});
+
+// Update demo Social Security settings
+app.post('/admin/api/finance/demo/social-security', requireAuth, (req, res) => {
+  try {
+    const { monthlyAmount, startAge } = req.body;
+    const result = finance.updateDemoSocialSecurity(monthlyAmount, startAge);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update demo social security: ' + err.message });
+  }
+});
+
 // Advanced Settings API endpoints
 app.get('/admin/api/finance/advanced-settings', requireAuth, (req, res) => {
   try {

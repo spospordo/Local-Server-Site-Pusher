@@ -1422,96 +1422,91 @@ function getDemoData() {
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
   
-  // Calculate 6 months ago from current date
-  const sixMonthsAgo = new Date(currentYear, currentMonth - 6, 1);
+  // Load any saved demo customizations
+  const userData = loadFinanceData();
+  const savedDemo = userData.demoData || {};
   
-  // Demo demographics - Age 40, Retirement 65, SS $3000/month
-  const demographics = {
+  // Demo demographics - Age 40, Retirement 65, SS $3000/month at age 65
+  const demographics = savedDemo.demographics || {
     age: 40,
-    annualIncome: 120000,
+    annualIncome: 80000,
     retirementAge: 65,
     retirementYear: currentYear + 25,
-    annualRetirementSpending: 80000,
+    annualRetirementSpending: 60000,
     riskTolerance: 'moderate'
   };
   
-  // Target allocations for age 40, moderate risk
-  // Based on getRecommendations() logic:
-  // Normalized: cash: 9.5%, investments: 59.5%, retirement: 19.0%, real_estate: 11.9%
-  // We'll set balances to be within ±10% of these targets
-  // Actual: cash: 11% (+1.5%), investments: 62% (+2.5%), retirement: 27% (+8.0%)
+  // Default account balances (can be overridden by saved values)
+  const defaultAccounts = {
+    checking: savedDemo.accounts?.checking || 1000,
+    savings: savedDemo.accounts?.savings || 4000,
+    stocks: savedDemo.accounts?.stocks || 1000,
+    retirement: savedDemo.accounts?.retirement || 10000,
+    homeEquity: savedDemo.accounts?.homeEquity || 0
+  };
   
-  const totalAssets = 450000; // Total portfolio value
-  
-  // Cash: 11% = $49,500 (within +10% of 9.5% target)
-  const checkingBalance = 12375;
-  const savingsBalance = 32175;
-  const hsaBalance = 4950;
-  
-  // Investments: 62% = $279,000 (within +10% of 59.5% target)
-  const brokerageBalance = 279000;
-  
-  // Retirement: 27% = $121,500 (within +10% of 19.0% target)
-  const ira401kBalance = 75330;
-  const rothIraBalance = 46170;
+  // Forecasted increases (yearly growth percentages)
+  const forecastedIncreases = savedDemo.forecastedIncreases || {
+    savings: 0,
+    stocks: 0,
+    retirement: 0,
+    homeEquity: 0
+  };
   
   // Social Security - future income
-  const socialSecurityMonthly = 3000;
+  const socialSecurityMonthly = savedDemo.socialSecurityMonthly || 3000;
+  const socialSecurityAge = savedDemo.socialSecurityAge || 65;
   
   const demoAccounts = [
     {
       id: 'demo-checking',
-      name: 'Demo Checking Account',
+      name: 'Checking Account',
       type: 'checking',
-      currentValue: checkingBalance,
+      currentValue: defaultAccounts.checking,
       startDate: new Date(currentYear - 5, 0, 1).toISOString(),
       notes: 'Primary checking account for daily expenses',
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      forecastedIncrease: 0 // No forecast for checking
     },
     {
       id: 'demo-savings',
-      name: 'Demo High-Yield Savings',
+      name: 'High-Yield Savings',
       type: 'savings',
-      currentValue: savingsBalance,
+      currentValue: defaultAccounts.savings,
       startDate: new Date(currentYear - 5, 0, 1).toISOString(),
       notes: 'Emergency fund and short-term savings',
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      forecastedIncrease: forecastedIncreases.savings
     },
     {
-      id: 'demo-401k',
-      name: 'Demo 401(k) Retirement',
-      type: '401k',
-      currentValue: ira401kBalance,
-      startDate: new Date(currentYear - 10, 0, 1).toISOString(),
-      notes: 'Employer-sponsored retirement account',
-      updatedAt: now.toISOString()
-    },
-    {
-      id: 'demo-roth-ira',
-      name: 'Demo Roth IRA',
-      type: 'roth_ira',
-      currentValue: rothIraBalance,
-      startDate: new Date(currentYear - 8, 0, 1).toISOString(),
-      notes: 'Tax-advantaged retirement savings',
-      updatedAt: now.toISOString()
-    },
-    {
-      id: 'demo-brokerage',
-      name: 'Demo Brokerage Account',
+      id: 'demo-stocks',
+      name: 'Stock/Brokerage Account',
       type: 'stocks',
-      currentValue: brokerageBalance,
+      currentValue: defaultAccounts.stocks,
       startDate: new Date(currentYear - 7, 0, 1).toISOString(),
       notes: 'Individual stock and ETF investments',
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      forecastedIncrease: forecastedIncreases.stocks
     },
     {
-      id: 'demo-hsa',
-      name: 'Demo Health Savings Account',
-      type: 'savings',
-      currentValue: hsaBalance,
-      startDate: new Date(currentYear - 3, 0, 1).toISOString(),
-      notes: 'HSA for medical expenses',
-      updatedAt: now.toISOString()
+      id: 'demo-retirement',
+      name: 'Retirement Account (401k/IRA)',
+      type: '401k',
+      currentValue: defaultAccounts.retirement,
+      startDate: new Date(currentYear - 10, 0, 1).toISOString(),
+      notes: 'Tax-advantaged retirement savings',
+      updatedAt: now.toISOString(),
+      forecastedIncrease: forecastedIncreases.retirement
+    },
+    {
+      id: 'demo-home-equity',
+      name: 'Home Equity',
+      type: 'real_estate',
+      currentValue: defaultAccounts.homeEquity,
+      startDate: new Date(currentYear - 5, 0, 1).toISOString(),
+      notes: 'Current home equity value',
+      updatedAt: now.toISOString(),
+      forecastedIncrease: forecastedIncreases.homeEquity
     },
     {
       id: 'demo-social-security',
@@ -1519,9 +1514,9 @@ function getDemoData() {
       type: 'social_security',
       currentValue: 0,
       monthlyPayment: socialSecurityMonthly,
-      startAge: 67,
+      startAge: socialSecurityAge,
       startDate: new Date(currentYear, 0, 1).toISOString(),
-      notes: 'Expected Social Security benefits at full retirement age',
+      notes: 'Expected Social Security benefits',
       updatedAt: now.toISOString()
     }
   ];
@@ -1753,9 +1748,10 @@ function evaluateDemoRetirementPlan() {
   const yearsUntilRetirement = retirementAge - age;
   const yearsInRetirement = advancedSettings.yearsInRetirement || 30; // Assume retirement lasts until age 95
   
-  // Calculate current assets
+  // Calculate current assets and prepare account-specific growth tracking
   let currentAssets = 0;
   let futureIncome = 0;
+  const accountsWithForecasts = [];
   
   accounts.forEach(account => {
     const type = ACCOUNT_TYPES[account.type];
@@ -1770,6 +1766,14 @@ function evaluateDemoRetirementPlan() {
       futureIncome += (monthlyPayment * 12 * yearsReceiving);
     } else if (type.category !== 'liabilities') {
       currentAssets += value;
+      
+      // Track accounts with forecasted increases for more accurate projections
+      if (account.forecastedIncrease && account.forecastedIncrease > 0) {
+        accountsWithForecasts.push({
+          currentValue: value,
+          forecastedIncrease: account.forecastedIncrease / 100 // Convert percentage to decimal
+        });
+      }
     }
   });
   
@@ -1794,12 +1798,44 @@ function evaluateDemoRetirementPlan() {
   let successCount = 0;
   
   for (let sim = 0; sim < numSimulations; sim++) {
+    // Growth phase (until retirement)
+    // Track accounts with specific forecasts separately if they exist
     let portfolio = currentAssets;
     
-    // Growth phase (until retirement)
-    for (let year = 0; year < yearsUntilRetirement; year++) {
-      const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
-      portfolio = portfolio * (1 + randomReturn) + annualContribution;
+    if (accountsWithForecasts.length > 0) {
+      // Use account-specific forecasts for those accounts
+      let forecastedTotal = 0;
+      let nonForecastedTotal = currentAssets;
+      
+      accountsWithForecasts.forEach(acc => {
+        nonForecastedTotal -= acc.currentValue;
+      });
+      
+      for (let year = 0; year < yearsUntilRetirement; year++) {
+        const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
+        
+        // Grow forecasted accounts with their specific rates
+        let forecastedYearTotal = 0;
+        accountsWithForecasts.forEach(acc => {
+          if (year === 0) {
+            forecastedYearTotal += acc.currentValue * (1 + acc.forecastedIncrease);
+          } else {
+            forecastedYearTotal += forecastedYearTotal * (1 + acc.forecastedIncrease);
+          }
+        });
+        
+        // Grow non-forecasted accounts with market returns
+        nonForecastedTotal = nonForecastedTotal * (1 + randomReturn);
+        
+        // Total portfolio including contributions
+        portfolio = forecastedYearTotal + nonForecastedTotal + annualContribution;
+      }
+    } else {
+      // Standard growth phase without specific forecasts
+      for (let year = 0; year < yearsUntilRetirement; year++) {
+        const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
+        portfolio = portfolio * (1 + randomReturn) + annualContribution;
+      }
     }
     
     // Drawdown phase (retirement)
@@ -3320,6 +3356,112 @@ function getApartmentEquityOverview(apartmentId) {
   }
 }
 
+// Update demo demographics
+function updateDemoDemographics(updates) {
+  try {
+    const data = loadFinanceData();
+    if (!data.demoData) {
+      data.demoData = {};
+    }
+    if (!data.demoData.demographics) {
+      data.demoData.demographics = {};
+    }
+    
+    // Merge updates
+    data.demoData.demographics = {
+      ...data.demoData.demographics,
+      ...updates
+    };
+    
+    const result = saveFinanceData(data);
+    return result.success ? { success: true } : result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Update demo demographics'
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+// Update demo account balances
+function updateDemoAccounts(accountBalances) {
+  try {
+    const data = loadFinanceData();
+    if (!data.demoData) {
+      data.demoData = {};
+    }
+    if (!data.demoData.accounts) {
+      data.demoData.accounts = {};
+    }
+    
+    // Merge account balance updates
+    data.demoData.accounts = {
+      ...data.demoData.accounts,
+      ...accountBalances
+    };
+    
+    const result = saveFinanceData(data);
+    return result.success ? { success: true } : result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Update demo accounts'
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+// Update demo forecasted increases
+function updateDemoForecasts(forecasts) {
+  try {
+    const data = loadFinanceData();
+    if (!data.demoData) {
+      data.demoData = {};
+    }
+    if (!data.demoData.forecastedIncreases) {
+      data.demoData.forecastedIncreases = {};
+    }
+    
+    // Merge forecast updates
+    data.demoData.forecastedIncreases = {
+      ...data.demoData.forecastedIncreases,
+      ...forecasts
+    };
+    
+    const result = saveFinanceData(data);
+    return result.success ? { success: true } : result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Update demo forecasts'
+    });
+    return { success: false, error: error.message };
+  }
+}
+
+// Update Social Security settings
+function updateDemoSocialSecurity(monthlyAmount, startAge) {
+  try {
+    const data = loadFinanceData();
+    if (!data.demoData) {
+      data.demoData = {};
+    }
+    
+    if (monthlyAmount !== undefined) {
+      data.demoData.socialSecurityMonthly = monthlyAmount;
+    }
+    if (startAge !== undefined) {
+      data.demoData.socialSecurityAge = startAge;
+    }
+    
+    const result = saveFinanceData(data);
+    return result.success ? { success: true } : result;
+  } catch (error) {
+    logError(logger.categories.FINANCE, error, {
+      operation: 'Update demo social security'
+    });
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   init,
   getAccounts,
@@ -3344,6 +3486,10 @@ module.exports = {
   getDemoHistory,
   getDemoRecommendations,
   evaluateDemoRetirementPlan,
+  updateDemoDemographics,
+  updateDemoAccounts,
+  updateDemoForecasts,
+  updateDemoSocialSecurity,
   processAccountScreenshot,
   getHistoryByAccountType,
   getNetWorthHistory,

@@ -2589,48 +2589,129 @@
             <div class="card-body">
                 <!-- Demo Notice Banner -->
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-                    <h3 style="margin: 0 0 0.5rem 0;">📊 Welcome to the Finance Module Demo</h3>
+                    <h3 style="margin: 0 0 0.5rem 0;">📊 Personalized Finance Demo</h3>
                     <p style="margin: 0; font-size: 0.95rem;">
-                        This demo showcases the Finance Module's features with sample data. 
-                        The demo user is 40 years old, plans to retire at 65, and expects $3,000/month in Social Security benefits.
-                        All account balances and historical data are automatically generated and updated monthly.
+                        Enter your own financial information below to get realistic retirement estimates and personalized recommendations. 
+                        All fields are editable, and your data is saved for future sessions.
+                        Default values are provided as a starting point - adjust them to match your situation.
                     </p>
                 </div>
 
                 <!-- Demographics Section -->
                 <div class="finance-subsection">
-                    <h3>👤 Demo User Profile</h3>
-                    <p class="help-text">This demo user's profile information</p>
+                    <h3>👤 Your Profile</h3>
+                    <p class="help-text">Enter your personal information for accurate recommendations</p>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="demoUserAge">Current Age</label>
-                            <input type="number" id="demoUserAge" readonly style="background: #f8f9fa;">
+                            <input type="number" id="demoUserAge" onchange="saveDemoDemographics()">
                         </div>
                         <div class="form-group">
                             <label for="demoRetirementAge">Planned Retirement Age</label>
-                            <input type="number" id="demoRetirementAge" readonly style="background: #f8f9fa;">
+                            <input type="number" id="demoRetirementAge" onchange="saveDemoDemographics()">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="demoAnnualIncome">Annual Income ($)</label>
-                            <input type="number" id="demoAnnualIncome" readonly style="background: #f8f9fa;">
+                            <input type="number" id="demoAnnualIncome" onchange="saveDemoDemographics()">
                         </div>
                         <div class="form-group">
                             <label for="demoRiskTolerance">Risk Tolerance</label>
-                            <input type="text" id="demoRiskTolerance" readonly style="background: #f8f9fa;">
+                            <select id="demoRiskTolerance" onchange="saveDemoDemographics()">
+                                <option value="conservative">Conservative</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="aggressive">Aggressive</option>
+                            </select>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="demoRetirementYear">Retirement Year</label>
-                            <input type="number" id="demoRetirementYear" readonly style="background: #f8f9fa;">
+                            <input type="number" id="demoRetirementYear" onchange="saveDemoDemographics()">
                         </div>
                         <div class="form-group">
                             <label for="demoAnnualRetirementSpending">Annual Retirement Spending ($)</label>
-                            <input type="number" id="demoAnnualRetirementSpending" readonly style="background: #f8f9fa;">
+                            <input type="number" id="demoAnnualRetirementSpending" onchange="saveDemoDemographics()">
                         </div>
                     </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Account Balances Section -->
+                <div class="finance-subsection">
+                    <h3>💰 Your Account Balances</h3>
+                    <p class="help-text">Enter your current account balances and expected yearly growth rates</p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoCheckingBalance">Checking Balance ($)</label>
+                            <input type="number" id="demoCheckingBalance" onchange="saveDemoAccounts()">
+                        </div>
+                        <div class="form-group">
+                            <label style="color: #999;">Checking Growth (%/year)</label>
+                            <input type="text" value="N/A" readonly style="background: #f8f9fa; color: #999;">
+                            <small style="color: #999;">No growth assumed for checking</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoSavingsBalance">Savings Balance ($)</label>
+                            <input type="number" id="demoSavingsBalance" onchange="saveDemoAccounts()">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoSavingsForecast">Savings Growth (%/year)</label>
+                            <input type="number" id="demoSavingsForecast" step="0.1" onchange="saveDemoForecasts()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoStocksBalance">Stocks/Brokerage Balance ($)</label>
+                            <input type="number" id="demoStocksBalance" onchange="saveDemoAccounts()">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoStocksForecast">Stocks Growth (%/year)</label>
+                            <input type="number" id="demoStocksForecast" step="0.1" onchange="saveDemoForecasts()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoRetirementBalance">Retirement Accounts Balance ($)</label>
+                            <input type="number" id="demoRetirementBalance" onchange="saveDemoAccounts()">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoRetirementForecast">Retirement Growth (%/year)</label>
+                            <input type="number" id="demoRetirementForecast" step="0.1" onchange="saveDemoForecasts()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoHomeEquityBalance">Home Equity ($)</label>
+                            <input type="number" id="demoHomeEquityBalance" onchange="saveDemoAccounts()">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoHomeEquityForecast">Home Equity Growth (%/year)</label>
+                            <input type="number" id="demoHomeEquityForecast" step="0.1" onchange="saveDemoForecasts()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="demoSocialSecurityAmount">Social Security Monthly Amount ($)</label>
+                            <input type="number" id="demoSocialSecurityAmount" onchange="saveDemoSocialSecurity()">
+                        </div>
+                        <div class="form-group">
+                            <label for="demoSocialSecurityAge">Social Security Start Age</label>
+                            <input type="number" id="demoSocialSecurityAge" onchange="saveDemoSocialSecurity()">
+                        </div>
+                    </div>
+
+                    <div id="demoSaveStatus" style="margin-top: 1rem; padding: 0.5rem; border-radius: 4px; display: none;"></div>
                 </div>
 
                 <div class="section-divider"></div>
@@ -2638,10 +2719,10 @@
                 <!-- Retirement Planning Evaluation Section -->
                 <div class="finance-subsection">
                     <h3>🎯 Retirement Planning Evaluation</h3>
-                    <p class="help-text">Evaluate the demo retirement plan using Monte Carlo simulation</p>
+                    <p class="help-text">Evaluate your retirement plan using Monte Carlo simulation with your custom values</p>
                     
                     <button onclick="evaluateDemoRetirement()" class="btn" style="margin-bottom: 1rem;">
-                        🔍 Evaluate Demo Retirement Plan
+                        🔍 Evaluate My Retirement Plan
                     </button>
                     
                     <div id="demoRetirementEvaluation" style="display: none;">
@@ -2654,10 +2735,10 @@
 
                 <!-- Accounts List -->
                 <div class="finance-subsection">
-                    <h3>📋 Demo Accounts</h3>
-                    <p class="help-text">Sample accounts demonstrating different investment types</p>
+                    <h3>📋 Your Accounts Summary</h3>
+                    <p class="help-text">View your configured accounts with forecasted growth rates</p>
                     <div id="demoAccountsList" class="accounts-list">
-                        <p style="color: #666;">Loading demo accounts...</p>
+                        <p style="color: #666;">Loading accounts...</p>
                     </div>
                 </div>
 
@@ -2666,8 +2747,8 @@
                 <!-- Allocation Recommendations -->
                 <div class="finance-subsection">
                     <h3>💡 Portfolio Recommendations</h3>
-                    <p class="help-text">Based on demo user's age and risk tolerance</p>
-                    <button onclick="loadDemoRecommendations()" class="btn">Get Demo Recommendations</button>
+                    <p class="help-text">Based on your age and risk tolerance</p>
+                    <button onclick="loadDemoRecommendations()" class="btn">Get My Recommendations</button>
                     <div id="demoRecommendationsContainer" style="margin-top: 1rem;">
                         <!-- Recommendations will be loaded here -->
                     </div>
@@ -17435,6 +17516,7 @@
         
         async function loadDemoFinanceData() {
             await loadDemoDemographics();
+            await loadDemoAccountBalances();
             await loadDemoAccounts();
             await updateDemoChart();
         }
@@ -17447,12 +17529,171 @@
                 document.getElementById('demoUserAge').value = demographics.age || '';
                 document.getElementById('demoRetirementAge').value = demographics.retirementAge || 65;
                 document.getElementById('demoAnnualIncome').value = demographics.annualIncome || '';
-                document.getElementById('demoRiskTolerance').value = (demographics.riskTolerance || 'moderate').charAt(0).toUpperCase() + (demographics.riskTolerance || 'moderate').slice(1);
+                document.getElementById('demoRiskTolerance').value = demographics.riskTolerance || 'moderate';
                 document.getElementById('demoRetirementYear').value = demographics.retirementYear || '';
                 document.getElementById('demoAnnualRetirementSpending').value = demographics.annualRetirementSpending || '';
             } catch (err) {
                 console.error('Failed to load demo demographics:', err);
             }
+        }
+        
+        async function loadDemoAccountBalances() {
+            try {
+                const response = await fetch('/admin/api/finance/demo/accounts');
+                const accounts = await response.json();
+                
+                // Map accounts to form fields
+                accounts.forEach(account => {
+                    if (account.id === 'demo-checking') {
+                        document.getElementById('demoCheckingBalance').value = account.currentValue || 0;
+                    } else if (account.id === 'demo-savings') {
+                        document.getElementById('demoSavingsBalance').value = account.currentValue || 0;
+                        document.getElementById('demoSavingsForecast').value = account.forecastedIncrease || 0;
+                    } else if (account.id === 'demo-stocks') {
+                        document.getElementById('demoStocksBalance').value = account.currentValue || 0;
+                        document.getElementById('demoStocksForecast').value = account.forecastedIncrease || 0;
+                    } else if (account.id === 'demo-retirement') {
+                        document.getElementById('demoRetirementBalance').value = account.currentValue || 0;
+                        document.getElementById('demoRetirementForecast').value = account.forecastedIncrease || 0;
+                    } else if (account.id === 'demo-home-equity') {
+                        document.getElementById('demoHomeEquityBalance').value = account.currentValue || 0;
+                        document.getElementById('demoHomeEquityForecast').value = account.forecastedIncrease || 0;
+                    } else if (account.id === 'demo-social-security') {
+                        document.getElementById('demoSocialSecurityAmount').value = account.monthlyPayment || 0;
+                        document.getElementById('demoSocialSecurityAge').value = account.startAge || 65;
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to load demo account balances:', err);
+            }
+        }
+        
+        async function saveDemoDemographics() {
+            try {
+                const demographics = {
+                    age: parseInt(document.getElementById('demoUserAge').value) || null,
+                    retirementAge: parseInt(document.getElementById('demoRetirementAge').value) || 65,
+                    annualIncome: parseFloat(document.getElementById('demoAnnualIncome').value) || 0,
+                    riskTolerance: document.getElementById('demoRiskTolerance').value,
+                    retirementYear: parseInt(document.getElementById('demoRetirementYear').value) || null,
+                    annualRetirementSpending: parseFloat(document.getElementById('demoAnnualRetirementSpending').value) || 0
+                };
+                
+                const response = await fetch('/admin/api/finance/demo/demographics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(demographics)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showDemoSaveStatus('Profile saved successfully', 'success');
+                } else {
+                    showDemoSaveStatus('Failed to save: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Failed to save demo demographics:', err);
+                showDemoSaveStatus('Failed to save: ' + err.message, 'error');
+            }
+        }
+        
+        async function saveDemoAccounts() {
+            try {
+                const accounts = {
+                    checking: parseFloat(document.getElementById('demoCheckingBalance').value) || 0,
+                    savings: parseFloat(document.getElementById('demoSavingsBalance').value) || 0,
+                    stocks: parseFloat(document.getElementById('demoStocksBalance').value) || 0,
+                    retirement: parseFloat(document.getElementById('demoRetirementBalance').value) || 0,
+                    homeEquity: parseFloat(document.getElementById('demoHomeEquityBalance').value) || 0
+                };
+                
+                const response = await fetch('/admin/api/finance/demo/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(accounts)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showDemoSaveStatus('Account balances saved', 'success');
+                    await loadDemoAccounts(); // Refresh the account cards display
+                    await updateDemoChart(); // Update the chart
+                } else {
+                    showDemoSaveStatus('Failed to save: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Failed to save demo accounts:', err);
+                showDemoSaveStatus('Failed to save: ' + err.message, 'error');
+            }
+        }
+        
+        async function saveDemoForecasts() {
+            try {
+                const forecasts = {
+                    savings: parseFloat(document.getElementById('demoSavingsForecast').value) || 0,
+                    stocks: parseFloat(document.getElementById('demoStocksForecast').value) || 0,
+                    retirement: parseFloat(document.getElementById('demoRetirementForecast').value) || 0,
+                    homeEquity: parseFloat(document.getElementById('demoHomeEquityForecast').value) || 0
+                };
+                
+                const response = await fetch('/admin/api/finance/demo/forecasts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(forecasts)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showDemoSaveStatus('Growth rates saved', 'success');
+                    await loadDemoAccounts(); // Refresh to show new forecasts
+                } else {
+                    showDemoSaveStatus('Failed to save: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Failed to save demo forecasts:', err);
+                showDemoSaveStatus('Failed to save: ' + err.message, 'error');
+            }
+        }
+        
+        async function saveDemoSocialSecurity() {
+            try {
+                const monthlyAmount = parseFloat(document.getElementById('demoSocialSecurityAmount').value) || 0;
+                const startAge = parseInt(document.getElementById('demoSocialSecurityAge').value) || 65;
+                
+                const response = await fetch('/admin/api/finance/demo/social-security', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ monthlyAmount, startAge })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showDemoSaveStatus('Social Security settings saved', 'success');
+                    await loadDemoAccounts(); // Refresh account display
+                } else {
+                    showDemoSaveStatus('Failed to save: ' + result.error, 'error');
+                }
+            } catch (err) {
+                console.error('Failed to save demo social security:', err);
+                showDemoSaveStatus('Failed to save: ' + err.message, 'error');
+            }
+        }
+        
+        function showDemoSaveStatus(message, type) {
+            const statusDiv = document.getElementById('demoSaveStatus');
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = type === 'success' ? '#d4edda' : '#f8d7da';
+            statusDiv.style.color = type === 'success' ? '#155724' : '#721c24';
+            statusDiv.style.border = type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
         }
         
         async function loadDemoAccounts() {
@@ -17463,19 +17704,17 @@
                 const accountsList = document.getElementById('demoAccountsList');
                 
                 if (accounts.length === 0) {
-                    accountsList.innerHTML = '<p style="color: #666;">No demo accounts available</p>';
+                    accountsList.innerHTML = '<p style="color: #666;">No accounts configured</p>';
                     return;
                 }
                 
                 accountsList.innerHTML = accounts.map(account => {
                     const type = accountTypes[account.type] || { name: account.type, category: 'other' };
                     const isFutureIncome = type.category === 'future_income';
+                    const hasForecast = account.forecastedIncrease && account.forecastedIncrease > 0;
                     
                     return `
-                        <div class="account-card" style="position: relative;">
-                            <div style="position: absolute; top: 10px; right: 10px; background: #667eea; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
-                                DEMO
-                            </div>
+                        <div class="account-card">
                             <div class="account-card-header">
                                 <div class="account-name">${escapeHtml(account.name)}</div>
                                 <div class="account-type-badge">${type.name}</div>
@@ -17486,17 +17725,12 @@
                                     Monthly: $${parseFloat(account.monthlyPayment).toLocaleString()} starting at age ${account.startAge}
                                 </div>
                             ` : ''}
-                            ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
-                            <div class="account-details">
-                                ${account.startDate ? `
-                                    <div class="account-detail">
-                                        <span class="account-detail-label">Started:</span> ${new Date(account.startDate).toLocaleDateString()}
-                                    </div>
-                                ` : ''}
-                                <div class="account-detail">
-                                    <span class="account-detail-label">Updated:</span> ${new Date(account.updatedAt).toLocaleDateString()}
+                            ${hasForecast ? `
+                                <div style="color: #667eea; font-size: 0.9rem; margin-top: 0.5rem;">
+                                    📈 Forecasted Growth: ${account.forecastedIncrease}% per year
                                 </div>
-                            </div>
+                            ` : ''}
+                            ${account.notes ? `<div style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">${escapeHtml(account.notes)}</div>` : ''}
                         </div>
                     `;
                 }).join('');
