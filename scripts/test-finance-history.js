@@ -281,9 +281,10 @@ async function testHistoryDateFiltering() {
         if (response.status === 200 && Array.isArray(response.data)) {
             console.log(`✅ Retrieved ${response.data.length} history entries between ${startDate} and ${endDate}`);
             
-            // Verify all entries are within the date range
+            // Verify all entries are within the date range using balanceDate (not timestamp)
             const allInRange = response.data.every(entry => {
-                const entryDate = new Date(entry.timestamp);
+                const balanceDate = entry.balanceDate || entry.timestamp;
+                const entryDate = new Date(balanceDate);
                 return entryDate >= new Date(startDate) && entryDate <= new Date(endDate);
             });
             
