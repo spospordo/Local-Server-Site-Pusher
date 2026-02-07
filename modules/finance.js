@@ -1804,9 +1804,13 @@ function evaluateDemoRetirementPlan() {
     
     if (accountsWithForecasts.length > 0) {
       // Use account-specific forecasts for those accounts
-      let forecastedTotal = 0;
-      let nonForecastedTotal = currentAssets;
+      // Initialize account values for tracking independent growth
+      const accountValues = accountsWithForecasts.map(acc => ({
+        value: acc.currentValue,
+        forecastedIncrease: acc.forecastedIncrease
+      }));
       
+      let nonForecastedTotal = currentAssets;
       accountsWithForecasts.forEach(acc => {
         nonForecastedTotal -= acc.currentValue;
       });
@@ -1814,21 +1818,18 @@ function evaluateDemoRetirementPlan() {
       for (let year = 0; year < yearsUntilRetirement; year++) {
         const randomReturn = expectedReturn + (returnVolatility * (Math.random() * 2 - 1));
         
-        // Grow forecasted accounts with their specific rates
-        let forecastedYearTotal = 0;
-        accountsWithForecasts.forEach(acc => {
-          if (year === 0) {
-            forecastedYearTotal += acc.currentValue * (1 + acc.forecastedIncrease);
-          } else {
-            forecastedYearTotal += forecastedYearTotal * (1 + acc.forecastedIncrease);
-          }
+        // Grow each forecasted account independently with its specific rate
+        let forecastedTotal = 0;
+        accountValues.forEach(acc => {
+          acc.value = acc.value * (1 + acc.forecastedIncrease);
+          forecastedTotal += acc.value;
         });
         
-        // Grow non-forecasted accounts with market returns
-        nonForecastedTotal = nonForecastedTotal * (1 + randomReturn);
+        // Grow non-forecasted accounts with market returns and add contributions
+        nonForecastedTotal = nonForecastedTotal * (1 + randomReturn) + annualContribution;
         
-        // Total portfolio including contributions
-        portfolio = forecastedYearTotal + nonForecastedTotal + annualContribution;
+        // Total portfolio
+        portfolio = forecastedTotal + nonForecastedTotal;
       }
     } else {
       // Standard growth phase without specific forecasts

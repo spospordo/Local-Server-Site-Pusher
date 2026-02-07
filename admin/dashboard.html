@@ -17571,11 +17571,11 @@
         async function saveDemoDemographics() {
             try {
                 const demographics = {
-                    age: parseInt(document.getElementById('demoUserAge').value) || null,
+                    age: parseInt(document.getElementById('demoUserAge').value) || 40,
                     retirementAge: parseInt(document.getElementById('demoRetirementAge').value) || 65,
                     annualIncome: parseFloat(document.getElementById('demoAnnualIncome').value) || 0,
                     riskTolerance: document.getElementById('demoRiskTolerance').value,
-                    retirementYear: parseInt(document.getElementById('demoRetirementYear').value) || null,
+                    retirementYear: parseInt(document.getElementById('demoRetirementYear').value) || (new Date().getFullYear() + 25),
                     annualRetirementSpending: parseFloat(document.getElementById('demoAnnualRetirementSpending').value) || 0
                 };
                 
