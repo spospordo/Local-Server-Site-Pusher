@@ -337,16 +337,21 @@ function saveAccount(accountData) {
   if (!accountData.id) {
     accountData.id = Date.now().toString();
     accountData.createdAt = new Date().toISOString();
+    // For new accounts, set updatedAt to null or a very old date
+    // so that the first balance update will work regardless of its date
+    if (!accountData.updatedAt) {
+      accountData.updatedAt = '1970-01-01T00:00:00.000Z';
+    }
+  } else if (!accountData.updatedAt) {
+    // If updating an existing account but no updatedAt is set, use current UTC midnight
+    const now = new Date();
+    accountData.updatedAt = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    )).toISOString();
   }
-  
-  // Set updatedAt to current date at UTC midnight for consistency with balance updates
-  const now = new Date();
-  accountData.updatedAt = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    0, 0, 0, 0
-  )).toISOString();
   
   const existingIndex = data.accounts.findIndex(a => a.id === accountData.id);
   if (existingIndex >= 0) {
