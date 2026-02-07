@@ -18345,6 +18345,9 @@
                     }
                 });
                 
+                // Update summary statistics for category view
+                updateCategorySummary(typeHistory);
+                
             } catch (err) {
                 console.error('Failed to render category chart:', err);
             }
@@ -18466,6 +18469,54 @@
                     <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${latest.liabilities.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                 </div>
             `;
+            
+            document.getElementById('historySummary').innerHTML = summaryHTML;
+        }
+        
+        function updateCategorySummary(typeHistory) {
+            if (!typeHistory || Object.keys(typeHistory).length === 0) {
+                document.getElementById('historySummary').innerHTML = '<p style="color: #999;">No data available</p>';
+                return;
+            }
+            
+            // Calculate summary for each category
+            const categorySummaries = [];
+            Object.keys(typeHistory).forEach(category => {
+                const data = typeHistory[category];
+                if (data && data.length > 0) {
+                    const latest = data[data.length - 1];
+                    const oldest = data[0];
+                    const change = latest.balance - oldest.balance;
+                    const percentChange = oldest.balance !== 0 ? ((change / oldest.balance) * 100) : 0;
+                    
+                    categorySummaries.push({
+                        category: category,
+                        current: latest.balance,
+                        change: change,
+                        percentChange: percentChange
+                    });
+                }
+            });
+            
+            // Sort by current balance descending
+            categorySummaries.sort((a, b) => b.current - a.current);
+            
+            // Generate HTML for each category
+            const summaryHTML = categorySummaries.map(summary => {
+                const categoryName = summary.category.replace('_', ' ').toUpperCase();
+                const color = FINANCE_CATEGORY_COLORS[summary.category] || '#6c757d';
+                
+                return `
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid ${color};">
+                        <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">${categoryName}</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${summary.current.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                        <div style="font-size: 0.85rem; color: ${summary.change >= 0 ? '#28a745' : '#dc3545'};">
+                            ${summary.change >= 0 ? '+' : ''}$${summary.change.toLocaleString('en-US', { minimumFractionDigits: 2 })} 
+                            (${summary.percentChange >= 0 ? '+' : ''}${summary.percentChange.toFixed(2)}%)
+                        </div>
+                    </div>
+                `;
+            }).join('');
             
             document.getElementById('historySummary').innerHTML = summaryHTML;
         }
