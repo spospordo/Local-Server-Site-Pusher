@@ -5,6 +5,26 @@ const Tesseract = require('tesseract.js');
 const { formatFileSystemError, logError, createErrorResponse } = require('./error-helper');
 const logger = require('./logger');
 
+/**
+ * Finance Module - Date Handling Convention
+ * ==========================================
+ * 
+ * IMPORTANT: History entries contain two date fields:
+ * 
+ * 1. `balanceDate` - The EFFECTIVE date of the balance (what date this balance is for)
+ *    - This is the AUTHORITATIVE date field for all date-based operations
+ *    - Always stored as UTC midnight (YYYY-MM-DDT00:00:00.000Z)
+ *    - Used for filtering, sorting, and aggregating history data
+ *    - Example: A balance uploaded on Jan 15 for Dec 31 should use balanceDate='2024-12-31'
+ * 
+ * 2. `timestamp` - When the entry was RECORDED in the system
+ *    - Used for audit purposes only
+ *    - Reflects the actual time the record was created
+ * 
+ * All history queries, aggregations, and chart data MUST use balanceDate (not timestamp)
+ * to ensure correct chronological ordering and avoid timezone/upload-time issues.
+ */
+
 let config = null;
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
@@ -317,9 +337,21 @@ function saveAccount(accountData) {
   if (!accountData.id) {
     accountData.id = Date.now().toString();
     accountData.createdAt = new Date().toISOString();
+    // For new accounts, set updatedAt to null or a very old date
+    // so that the first balance update will work regardless of its date
+    if (!accountData.updatedAt) {
+      accountData.updatedAt = '1970-01-01T00:00:00.000Z';
+    }
+  } else if (!accountData.updatedAt) {
+    // If updating an existing account but no updatedAt is set, use current UTC midnight
+    const now = new Date();
+    accountData.updatedAt = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    )).toISOString();
   }
-  
-  accountData.updatedAt = new Date().toISOString();
   
   const existingIndex = data.accounts.findIndex(a => a.id === accountData.id);
   if (existingIndex >= 0) {
@@ -346,7 +378,15 @@ function updateAccountDisplayName(accountId, displayName) {
   account.displayName = (typeof displayName === 'string' && displayName.trim() !== '') 
     ? displayName.trim() 
     : null;
-  account.updatedAt = new Date().toISOString();
+  
+  // Set updatedAt to current date at UTC midnight for consistency
+  const now = new Date();
+  account.updatedAt = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0, 0
+  )).toISOString();
   
   return saveFinanceData(data);
 }
@@ -633,6 +673,16 @@ function unmergeAccount(accountId, manualBalances = {}) {
 }
 
 // Update account balance (with historical tracking)
+/**
+ * Update account balance with date handling.
+ * 
+ * @param {string} accountId - The account ID to update
+ * @param {number} newBalance - The new balance value
+ * @param {string|null} balanceDate - The effective date of the balance (YYYY-MM-DD format).
+ *                                    If null, treated as "now". 
+ *                                    balanceDate is authoritative for history and stored as UTC midnight.
+ * @returns {Object} Result object with success status
+ */
 function updateAccountBalance(accountId, newBalance, balanceDate = null) {
   const data = loadFinanceData();
   
@@ -644,19 +694,50 @@ function updateAccountBalance(accountId, newBalance, balanceDate = null) {
   const account = data.accounts[accountIndex];
   const oldBalance = account.currentValue || 0;
   
-  // Update the account balance
-  account.currentValue = parseFloat(newBalance);
-  account.updatedAt = new Date().toISOString();
+  // Normalize balanceDate to UTC midnight (YYYY-MM-DDT00:00:00.000Z)
+  // This ensures consistent date comparison across timezones
+  let effectiveBalanceDate;
+  if (balanceDate) {
+    // Parse the date and set to UTC midnight
+    const parsedDate = new Date(balanceDate);
+    effectiveBalanceDate = new Date(Date.UTC(
+      parsedDate.getUTCFullYear(),
+      parsedDate.getUTCMonth(),
+      parsedDate.getUTCDate(),
+      0, 0, 0, 0
+    )).toISOString();
+  } else {
+    // If no date provided, use current date at UTC midnight
+    const now = new Date();
+    effectiveBalanceDate = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    )).toISOString();
+  }
   
-  // Add history entry for balance change
-  const timestamp = balanceDate ? new Date(balanceDate).toISOString() : new Date().toISOString();
+  // Only update currentValue and updatedAt if:
+  // 1. balanceDate is null (meaning "now"), OR
+  // 2. The effective balanceDate is newer than the account's existing updatedAt
+  // Compare using date-only (YYYY-MM-DD) to avoid timezone issues
+  const effectiveDateOnly = effectiveBalanceDate.split('T')[0];
+  const accountUpdatedDateOnly = account.updatedAt ? account.updatedAt.split('T')[0] : '1970-01-01';
+  
+  if (balanceDate === null || effectiveDateOnly >= accountUpdatedDateOnly) {
+    account.currentValue = parseFloat(newBalance);
+    account.updatedAt = effectiveBalanceDate;
+  }
+  
+  // Always add history entry with normalized balanceDate at UTC midnight
+  // and timestamp set to the actual time of recording
   data.history.push({
     accountId: accountId,
     accountName: account.name,
     type: 'balance_update',
     oldBalance: parseFloat(oldBalance),
     newBalance: parseFloat(newBalance),
-    balanceDate: timestamp,
+    balanceDate: effectiveBalanceDate,
     timestamp: new Date().toISOString()
   });
   
@@ -713,6 +794,15 @@ function addHistoryEntry(entry) {
 }
 
 // Get historical data
+/**
+ * Get historical data with optional filters.
+ * Uses balanceDate (not timestamp) for date range filtering.
+ * 
+ * @param {string|null} accountId - Optional account ID filter
+ * @param {string|null} startDate - Optional start date filter (YYYY-MM-DD)
+ * @param {string|null} endDate - Optional end date filter (YYYY-MM-DD)
+ * @returns {Array} Filtered history entries
+ */
 function getHistory(accountId = null, startDate = null, endDate = null) {
   const data = loadFinanceData();
   let history = data.history || [];
@@ -722,11 +812,17 @@ function getHistory(accountId = null, startDate = null, endDate = null) {
   }
   
   if (startDate) {
-    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) >= new Date(startDate);
+    });
   }
   
   if (endDate) {
-    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) <= new Date(endDate);
+    });
   }
   
   return history;
@@ -2218,21 +2314,35 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
   }
 }
 
-// Get historical balance data aggregated by account type
+/**
+ * Get historical balance data aggregated by account type and date.
+ * Uses balanceDate (not timestamp) for date-based grouping.
+ * Aggregates multiple account entries per date into totals per category.
+ * 
+ * @param {string|null} startDate - Optional start date filter (YYYY-MM-DD)
+ * @param {string|null} endDate - Optional end date filter (YYYY-MM-DD)
+ * @returns {Object} Map of category -> array of {timestamp, balance} sorted by date
+ */
 function getHistoryByAccountType(startDate = null, endDate = null) {
   const data = loadFinanceData();
   let history = data.history || [];
   
-  // Filter by date range
+  // Filter by date range using balanceDate (not timestamp)
   if (startDate) {
-    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) >= new Date(startDate);
+    });
   }
   if (endDate) {
-    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) <= new Date(endDate);
+    });
   }
   
-  // Group by account type and timestamp
-  const typeHistory = {};
+  // Group by date and category, aggregating balances
+  const categoryDateBalances = {}; // Map of category -> date -> total balance
   const accounts = data.accounts || [];
   
   history.forEach(entry => {
@@ -2242,82 +2352,145 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
         const accountType = ACCOUNT_TYPES[account.type];
         if (accountType) {
           const category = accountType.category;
-          if (!typeHistory[category]) {
-            typeHistory[category] = [];
+          
+          // Use balanceDate for grouping, normalized to date-only key (YYYY-MM-DD)
+          const balanceDate = entry.balanceDate || entry.timestamp;
+          const dateKey = balanceDate.split('T')[0]; // Extract YYYY-MM-DD
+          
+          if (!categoryDateBalances[category]) {
+            categoryDateBalances[category] = {};
           }
-          typeHistory[category].push({
-            timestamp: entry.balanceDate || entry.timestamp,
-            balance: parseFloat(entry.newBalance),
-            accountId: entry.accountId,
-            accountName: entry.accountName
-          });
+          if (!categoryDateBalances[category][dateKey]) {
+            categoryDateBalances[category][dateKey] = {};
+          }
+          
+          // Track latest balance per account per date
+          categoryDateBalances[category][dateKey][entry.accountId] = parseFloat(entry.newBalance);
         }
       }
     }
   });
   
+  // Convert to array format with per-date totals
+  const typeHistory = {};
+  Object.keys(categoryDateBalances).forEach(category => {
+    const dates = Object.keys(categoryDateBalances[category]).sort();
+    typeHistory[category] = dates.map(dateKey => {
+      // Sum all account balances for this category on this date
+      const accountBalances = categoryDateBalances[category][dateKey];
+      const totalBalance = Object.values(accountBalances).reduce((sum, bal) => sum + bal, 0);
+      
+      return {
+        timestamp: dateKey + 'T00:00:00.000Z',
+        balance: totalBalance
+      };
+    });
+  });
+  
   return typeHistory;
 }
 
-// Get net worth history over time
+/**
+ * Get net worth history over time aggregated by date.
+ * Uses balanceDate (not timestamp) for date-based grouping.
+ * Returns one data point per date with aggregated totals.
+ * 
+ * @param {string|null} startDate - Optional start date filter (YYYY-MM-DD)
+ * @param {string|null} endDate - Optional end date filter (YYYY-MM-DD)
+ * @returns {Array} Array of {timestamp, netWorth, assets, liabilities} sorted by date
+ */
 function getNetWorthHistory(startDate = null, endDate = null) {
   const data = loadFinanceData();
   let history = data.history || [];
   const accounts = data.accounts || [];
   
-  // Filter by date range
+  // Filter by date range using balanceDate (not timestamp)
   if (startDate) {
-    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) >= new Date(startDate);
+    });
   }
   if (endDate) {
-    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) <= new Date(endDate);
+    });
   }
   
-  // Sort history by timestamp
-  history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  // Sort history by balanceDate (not timestamp)
+  history.sort((a, b) => {
+    const dateA = new Date(a.balanceDate || a.timestamp);
+    const dateB = new Date(b.balanceDate || b.timestamp);
+    return dateA - dateB;
+  });
   
-  // Calculate net worth at each point in time
-  const netWorthData = [];
-  const accountBalances = {};
+  // Build account balances over time, grouped by date
+  const dateBalances = {}; // Map of date -> { accountId -> balance }
   
-  // Process history entries in chronological order
-  // Build up balances from scratch rather than starting with current values
   history.forEach(entry => {
     if (entry.type === 'balance_update' && entry.accountId && entry.newBalance != null && !isNaN(entry.newBalance)) {
-      accountBalances[entry.accountId] = parseFloat(entry.newBalance);
+      // Use balanceDate for grouping, normalized to date-only key (YYYY-MM-DD)
+      const balanceDate = entry.balanceDate || entry.timestamp;
+      const dateKey = balanceDate.split('T')[0]; // Extract YYYY-MM-DD
       
-      // Calculate net worth at this point
-      let netWorth = 0;
-      let assets = 0;
-      let liabilities = 0;
+      if (!dateBalances[dateKey]) {
+        dateBalances[dateKey] = {};
+      }
       
-      Object.keys(accountBalances).forEach(accountId => {
-        const account = accounts.find(a => a.id === accountId);
-        if (account) {
-          const accountType = ACCOUNT_TYPES[account.type];
-          if (accountType && accountType.category === 'liabilities') {
-            liabilities += accountBalances[accountId];
-          } else if (accountType && accountType.category !== 'future_income') {
-            assets += accountBalances[accountId];
-          }
-        }
-      });
-      
-      netWorth = assets - liabilities;
-      
-      netWorthData.push({
-        timestamp: entry.balanceDate || entry.timestamp,
-        netWorth: netWorth,
-        assets: assets,
-        liabilities: liabilities
-      });
+      // Latest entry for this account on this date wins
+      dateBalances[dateKey][entry.accountId] = parseFloat(entry.newBalance);
     }
+  });
+  
+  // Calculate net worth for each date
+  const netWorthData = [];
+  const sortedDates = Object.keys(dateBalances).sort();
+  const cumulativeBalances = {}; // Track balances across dates
+  
+  sortedDates.forEach(dateKey => {
+    // Update cumulative balances with this date's entries
+    Object.assign(cumulativeBalances, dateBalances[dateKey]);
+    
+    // Calculate totals for this date
+    let assets = 0;
+    let liabilities = 0;
+    
+    Object.keys(cumulativeBalances).forEach(accountId => {
+      const account = accounts.find(a => a.id === accountId);
+      if (account) {
+        const accountType = ACCOUNT_TYPES[account.type];
+        if (accountType && accountType.category === 'liabilities') {
+          liabilities += cumulativeBalances[accountId];
+        } else if (accountType && accountType.category !== 'future_income') {
+          assets += cumulativeBalances[accountId];
+        }
+      }
+    });
+    
+    const netWorth = assets - liabilities;
+    
+    // Return timestamp as UTC midnight for this date
+    netWorthData.push({
+      timestamp: dateKey + 'T00:00:00.000Z',
+      netWorth: netWorth,
+      assets: assets,
+      liabilities: liabilities
+    });
   });
   
   return netWorthData;
 }
 
-// Get account balance history with snapshots
+/**
+ * Get account balance history with snapshots.
+ * Uses balanceDate (not timestamp) for date filtering and sorting.
+ * 
+ * @param {string} accountId - Account ID to get history for
+ * @param {string|null} startDate - Optional start date filter (YYYY-MM-DD)
+ * @param {string|null} endDate - Optional end date filter (YYYY-MM-DD)
+ * @returns {Array} Array of balance snapshots sorted by date
+ */
 function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   const data = loadFinanceData();
   let history = data.history || [];
@@ -2325,16 +2498,26 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   // Filter by account
   history = history.filter(h => h.accountId === accountId && h.type === 'balance_update');
   
-  // Filter by date range
+  // Filter by date range using balanceDate (not timestamp)
   if (startDate) {
-    history = history.filter(h => new Date(h.timestamp) >= new Date(startDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) >= new Date(startDate);
+    });
   }
   if (endDate) {
-    history = history.filter(h => new Date(h.timestamp) <= new Date(endDate));
+    history = history.filter(h => {
+      const balanceDate = h.balanceDate || h.timestamp;
+      return new Date(balanceDate) <= new Date(endDate);
+    });
   }
   
-  // Sort by timestamp
-  history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  // Sort by balanceDate (not timestamp)
+  history.sort((a, b) => {
+    const dateA = new Date(a.balanceDate || a.timestamp);
+    const dateB = new Date(b.balanceDate || b.timestamp);
+    return dateA - dateB;
+  });
   
   // Map to balance snapshots, filtering out entries with invalid balances
   return history
