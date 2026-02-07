@@ -18487,13 +18487,24 @@
                     const latest = data[data.length - 1];
                     const oldest = data[0];
                     const change = latest.balance - oldest.balance;
-                    const percentChange = oldest.balance !== 0 ? ((change / oldest.balance) * 100) : 0;
+                    
+                    // Calculate percent change, handling zero starting balance
+                    let percentChange = 0;
+                    let percentChangeDisplay = '0.00%';
+                    if (oldest.balance !== 0) {
+                        percentChange = (change / oldest.balance) * 100;
+                        percentChangeDisplay = (percentChange >= 0 ? '+' : '') + percentChange.toFixed(2) + '%';
+                    } else if (change !== 0) {
+                        // Starting from zero with non-zero change
+                        percentChangeDisplay = 'N/A';
+                    }
                     
                     categorySummaries.push({
                         category: category,
                         current: latest.balance,
                         change: change,
-                        percentChange: percentChange
+                        percentChange: percentChange,
+                        percentChangeDisplay: percentChangeDisplay
                     });
                 }
             });
@@ -18503,7 +18514,7 @@
             
             // Generate HTML for each category
             const summaryHTML = categorySummaries.map(summary => {
-                const categoryName = summary.category.replace('_', ' ').toUpperCase();
+                const categoryName = summary.category.replace(/_/g, ' ').toUpperCase();
                 const color = FINANCE_CATEGORY_COLORS[summary.category] || '#6c757d';
                 
                 return `
@@ -18512,7 +18523,7 @@
                         <div style="font-size: 1.5rem; font-weight: bold; color: #333;">$${summary.current.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                         <div style="font-size: 0.85rem; color: ${summary.change >= 0 ? '#28a745' : '#dc3545'};">
                             ${summary.change >= 0 ? '+' : ''}$${summary.change.toLocaleString('en-US', { minimumFractionDigits: 2 })} 
-                            (${summary.percentChange >= 0 ? '+' : ''}${summary.percentChange.toFixed(2)}%)
+                            (${summary.percentChangeDisplay})
                         </div>
                     </div>
                 `;
