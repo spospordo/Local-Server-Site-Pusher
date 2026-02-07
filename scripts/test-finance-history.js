@@ -333,8 +333,219 @@ async function testHistoryAccountFiltering() {
     }
 }
 
+async function testBalanceDateOrdering() {
+    console.log('\n📅 Test 10: Test balance date ordering behavior');
+    try {
+        // Test that older balanceDate doesn't overwrite newer currentValue
+        const testAccountId = testAccountIds[0];
+        
+        // First, update with a future date
+        const futureResponse = await makeRequest('POST', `/admin/api/finance/accounts/${testAccountId}/balance`, {
+            balance: 10000,
+            balanceDate: '2025-01-01'
+        });
+        
+        if (!futureResponse.data.success) {
+            console.log('❌ Failed to set future balance');
+            return false;
+        }
+        
+        // Get the account to check current value
+        const accountResponse1 = await makeRequest('GET', '/admin/api/finance/accounts');
+        const account1 = accountResponse1.data.find(a => a.id === testAccountId);
+        
+        if (account1.currentValue !== 10000) {
+            console.log(`❌ Expected currentValue to be 10000, got ${account1.currentValue}`);
+            return false;
+        }
+        console.log(`✅ Future date update: currentValue = $${account1.currentValue}`);
+        
+        // Now try to update with an older date - currentValue should NOT change
+        const pastResponse = await makeRequest('POST', `/admin/api/finance/accounts/${testAccountId}/balance`, {
+            balance: 5000,
+            balanceDate: '2024-06-01'
+        });
+        
+        if (!pastResponse.data.success) {
+            console.log('❌ Failed to add past balance');
+            return false;
+        }
+        
+        // Get the account again to verify current value didn't change
+        const accountResponse2 = await makeRequest('GET', '/admin/api/finance/accounts');
+        const account2 = accountResponse2.data.find(a => a.id === testAccountId);
+        
+        if (account2.currentValue !== 10000) {
+            console.log(`❌ Expected currentValue to remain 10000, got ${account2.currentValue}`);
+            return false;
+        }
+        console.log(`✅ Past date update preserved: currentValue still = $${account2.currentValue}`);
+        
+        // Verify history was added for the past date
+        const historyResponse = await makeRequest('GET', `/admin/api/finance/history/account/${testAccountId}`);
+        const pastEntry = historyResponse.data.find(h => h.balance === 5000);
+        
+        if (!pastEntry) {
+            console.log('❌ Past balance not found in history');
+            return false;
+        }
+        console.log(`✅ Past balance added to history: $${pastEntry.balance}`);
+        
+        return true;
+    } catch (err) {
+        console.log('❌ Balance date ordering error:', err.message);
+        return false;
+    }
+}
+
+async function testPerDateAggregation() {
+    console.log('\n📊 Test 11: Test per-date aggregation');
+    try {
+        // Create multiple balance updates on the same date for different accounts
+        const testDate = '2024-03-15';
+        
+        // Update multiple accounts on the same date
+        await makeRequest('POST', `/admin/api/finance/accounts/${testAccountIds[0]}/balance`, {
+            balance: 6000,
+            balanceDate: testDate
+        });
+        
+        await makeRequest('POST', `/admin/api/finance/accounts/${testAccountIds[1]}/balance`, {
+            balance: 60000,
+            balanceDate: testDate
+        });
+        
+        // Get net worth history and verify we get one point per date
+        const response = await makeRequest('GET', '/admin/api/finance/history/net-worth');
+        
+        if (!response.data || !Array.isArray(response.data)) {
+            console.log('❌ Failed to get net worth history');
+            return false;
+        }
+        
+        // Count how many entries are on the test date
+        const entriesOnTestDate = response.data.filter(entry => {
+            const entryDate = new Date(entry.timestamp).toISOString().split('T')[0];
+            return entryDate === testDate;
+        });
+        
+        if (entriesOnTestDate.length !== 1) {
+            console.log(`❌ Expected 1 aggregated entry for ${testDate}, got ${entriesOnTestDate.length}`);
+            return false;
+        }
+        
+        console.log(`✅ Correct aggregation: 1 entry for ${testDate}`);
+        console.log(`   Assets: $${entriesOnTestDate[0].assets.toLocaleString()}`);
+        console.log(`   Liabilities: $${entriesOnTestDate[0].liabilities.toLocaleString()}`);
+        console.log(`   Net Worth: $${entriesOnTestDate[0].netWorth.toLocaleString()}`);
+        
+        return true;
+    } catch (err) {
+        console.log('❌ Per-date aggregation error:', err.message);
+        return false;
+    }
+}
+
+async function testUTCDateNormalization() {
+    console.log('\n🌍 Test 12: Test UTC date normalization');
+    try {
+        const testDate = '2024-07-15';
+        const testAccountId = testAccountIds[0];
+        
+        // Update with a specific date
+        const updateResponse = await makeRequest('POST', `/admin/api/finance/accounts/${testAccountId}/balance`, {
+            balance: 7500,
+            balanceDate: testDate
+        });
+        
+        if (!updateResponse.data.success) {
+            console.log('❌ Failed to update balance');
+            return false;
+        }
+        
+        // Get the account history
+        const historyResponse = await makeRequest('GET', `/admin/api/finance/history/account/${testAccountId}`);
+        
+        // Find the entry we just added
+        const entry = historyResponse.data.find(h => h.balance === 7500);
+        
+        if (!entry) {
+            console.log('❌ Entry not found in history');
+            return false;
+        }
+        
+        // Verify timestamp is at UTC midnight
+        const timestamp = new Date(entry.timestamp);
+        const hours = timestamp.getUTCHours();
+        const minutes = timestamp.getUTCMinutes();
+        const seconds = timestamp.getUTCSeconds();
+        const milliseconds = timestamp.getUTCMilliseconds();
+        
+        if (hours !== 0 || minutes !== 0 || seconds !== 0 || milliseconds !== 0) {
+            console.log(`❌ Timestamp not at UTC midnight: ${entry.timestamp}`);
+            return false;
+        }
+        
+        console.log(`✅ Timestamp normalized to UTC midnight: ${entry.timestamp}`);
+        
+        // Verify the date portion is correct
+        const dateOnly = entry.timestamp.split('T')[0];
+        if (dateOnly !== testDate) {
+            console.log(`❌ Date mismatch: expected ${testDate}, got ${dateOnly}`);
+            return false;
+        }
+        
+        console.log(`✅ Date portion preserved correctly: ${dateOnly}`);
+        
+        return true;
+    } catch (err) {
+        console.log('❌ UTC date normalization error:', err.message);
+        return false;
+    }
+}
+
+async function testDateFilteringWithBalanceDate() {
+    console.log('\n🔍 Test 13: Test date filtering uses balanceDate');
+    try {
+        // Create entries with different balanceDate vs timestamp
+        const testAccountId = testAccountIds[0];
+        
+        // Add a historical entry (balanceDate in past)
+        await makeRequest('POST', `/admin/api/finance/accounts/${testAccountId}/balance`, {
+            balance: 8000,
+            balanceDate: '2024-08-01'
+        });
+        
+        // Query with date range that includes the balanceDate
+        const response = await makeRequest('GET', '/admin/api/finance/history/net-worth?startDate=2024-08-01&endDate=2024-08-31');
+        
+        if (!response.data || !Array.isArray(response.data)) {
+            console.log('❌ Failed to get filtered history');
+            return false;
+        }
+        
+        // Should find the entry with balanceDate=2024-08-01
+        const foundEntry = response.data.some(entry => {
+            const date = new Date(entry.timestamp).toISOString().split('T')[0];
+            return date === '2024-08-01';
+        });
+        
+        if (!foundEntry) {
+            console.log('❌ Entry not found in date range - filtering may not be using balanceDate');
+            return false;
+        }
+        
+        console.log('✅ Date filtering correctly uses balanceDate');
+        
+        return true;
+    } catch (err) {
+        console.log('❌ Date filtering error:', err.message);
+        return false;
+    }
+}
+
 async function testCleanup() {
-    console.log('\n🧹 Test 10: Cleanup test accounts');
+    console.log('\n🧹 Test 14: Cleanup test accounts');
     try {
         for (const accountId of testAccountIds) {
             const response = await makeRequest('DELETE', `/admin/api/finance/accounts/${accountId}`);
@@ -371,6 +582,10 @@ async function runTests() {
         testGetAccountBalanceHistory,
         testHistoryDateFiltering,
         testHistoryAccountFiltering,
+        testBalanceDateOrdering,
+        testPerDateAggregation,
+        testUTCDateNormalization,
+        testDateFilteringWithBalanceDate,
         testCleanup
     ];
 

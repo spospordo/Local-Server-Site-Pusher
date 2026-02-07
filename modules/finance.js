@@ -5,6 +5,26 @@ const Tesseract = require('tesseract.js');
 const { formatFileSystemError, logError, createErrorResponse } = require('./error-helper');
 const logger = require('./logger');
 
+/**
+ * Finance Module - Date Handling Convention
+ * ==========================================
+ * 
+ * IMPORTANT: History entries contain two date fields:
+ * 
+ * 1. `balanceDate` - The EFFECTIVE date of the balance (what date this balance is for)
+ *    - This is the AUTHORITATIVE date field for all date-based operations
+ *    - Always stored as UTC midnight (YYYY-MM-DDT00:00:00.000Z)
+ *    - Used for filtering, sorting, and aggregating history data
+ *    - Example: A balance uploaded on Jan 15 for Dec 31 should use balanceDate='2024-12-31'
+ * 
+ * 2. `timestamp` - When the entry was RECORDED in the system
+ *    - Used for audit purposes only
+ *    - Reflects the actual time the record was created
+ * 
+ * All history queries, aggregations, and chart data MUST use balanceDate (not timestamp)
+ * to ensure correct chronological ordering and avoid timezone/upload-time issues.
+ */
+
 let config = null;
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
