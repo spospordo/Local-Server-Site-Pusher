@@ -1,0 +1,64 @@
+{
+  "accounts": [
+    {
+      "id": "test-checking-001",
+      "name": "Test Checking Account",
+      "displayName": "Main Checking",
+      "type": "checking",
+      "currentValue": 5000,
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "test-savings-001",
+      "name": "Test Savings Account",
+      "displayName": "Emergency Fund",
+      "type": "savings",
+      "currentValue": 10000,
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "test-credit-001",
+      "name": "Test Credit Card",
+      "displayName": "Main Credit Card",
+      "type": "credit_card",
+      "currentValue": 2000,
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z"
+    }
+  ],
+  "history": [
+    {
+      "type": "balance_update",
+      "accountId": "test-checking-001",
+      "accountName": "Main Checking",
+      "oldBalance": 0,
+      "newBalance": 5000,
+      "balanceDate": "2024-01-15T00:00:00.000Z",
+      "timestamp": "2024-02-01T10:30:00.000Z",
+      "source": "screenshot_upload"
+    },
+    {
+      "type": "balance_update",
+      "accountId": "test-savings-001",
+      "accountName": "Emergency Fund",
+      "oldBalance": 0,
+      "newBalance": 10000,
+      "balanceDate": "2024-01-15T00:00:00.000Z",
+      "timestamp": "2024-02-01T10:30:00.000Z",
+      "source": "screenshot_upload"
+    },
+    {
+      "type": "balance_update",
+      "accountId": "test-credit-001",
+      "accountName": "Main Credit Card",
+      "oldBalance": 0,
+      "newBalance": 2000,
+      "balanceDate": "2024-01-15T00:00:00.000Z",
+      "timestamp": "2024-02-01T10:30:00.000Z",
+      "source": "screenshot_upload"
+    }
+  ],
+  "apartments": []
+}
