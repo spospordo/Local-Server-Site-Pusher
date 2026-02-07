@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Widget Layout Test - Two Column with Larger Text</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+        
+        .demo-section {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .demo-section h2 {
+            color: #4CAF50;
+            margin-top: 0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+        }
+        
+        .info-box {
+            background: rgba(33, 150, 243, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .info-box h3 {
+            margin-top: 0;
+            font-size: 1rem;
+        }
+        
+        .info-box ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+        
+        .info-box li {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        
+        /* Widget styles */
+        .party-widget {
+            padding: 10px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Party Widget Layout Test - Improved Two-Column with Larger Text</h1>
+        
+        <div class="info-box">
+            <h3>Testing Goals:</h3>
+            <ul>
+                <li>✓ Two-column grid layout with improved spacing (280px min width, 20px gap)</li>
+                <li>✓ Larger text sizes throughout (headers: 1.05rem, content: 0.95rem, details: 0.85rem)</li>
+                <li>✓ Better horizontal space utilization</li>
+                <li>✓ Before party: Menu shows assignments</li>
+                <li>✓ During party: Menu shows descriptions</li>
+            </ul>
+        </div>
+        
+        <!-- Before Party Phase -->
+        <div class="demo-section">
+            <h2>📋 Before Party Phase (with Assignments)</h2>
+            <div id="before-party-widget"></div>
+        </div>
+        
+        <!-- During Party Phase -->
+        <div class="demo-section">
+            <h2>🎊 During Party Phase (with Descriptions)</h2>
+            <div id="during-party-widget"></div>
+        </div>
+    </div>
+
+    <script>
+        // Import the renderParty function from smart-mirror.html
+        // For simplicity, we'll inline a copy here
+        
+        function renderParty(data) {
+            const PARTY_WIDGET_MAX_HEIGHT = '80vh';
+            
+            const container = document.createElement('div');
+            container.className = 'party-widget';
+            container.style.padding = '10px';
+            container.style.maxHeight = PARTY_WIDGET_MAX_HEIGHT;
+            container.style.overflowY = 'auto';
+            
+            const isDuringParty = data.phase === 'during';
+            
+            // Header with icon
+            const headerDiv = document.createElement('div');
+            headerDiv.style.textAlign = 'center';
+            headerDiv.style.marginBottom = '12px';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2rem';
+            iconDiv.style.marginBottom = '5px';
+            iconDiv.textContent = '🎉';
+            headerDiv.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.1rem';
+            titleDiv.style.fontWeight = '600';
+            
+            if (data.daysUntil === 0) {
+                titleDiv.textContent = isDuringParty ? 'Party in Progress!' : 'Party Today!';
+                titleDiv.style.color = '#4CAF50';
+            } else if (data.daysUntil === 1) {
+                titleDiv.textContent = 'Party Tomorrow';
+            } else {
+                titleDiv.textContent = `Party in ${data.daysUntil} days`;
+            }
+            headerDiv.appendChild(titleDiv);
+            
+            const phaseDiv = document.createElement('div');
+            phaseDiv.style.fontSize = '0.75rem';
+            phaseDiv.style.opacity = '0.7';
+            phaseDiv.style.marginTop = '3px';
+            phaseDiv.textContent = isDuringParty ? '🎊 Enjoy the party!' : '📋 Party Planning';
+            headerDiv.appendChild(phaseDiv);
+            
+            const dateDiv = document.createElement('div');
+            dateDiv.style.fontSize = '0.85rem';
+            dateDiv.style.opacity = '0.8';
+            dateDiv.style.marginTop = '3px';
+            dateDiv.textContent = data.dateTime.date + (data.dateTime.startTime ? ` at ${data.dateTime.startTime}` : '');
+            headerDiv.appendChild(dateDiv);
+            
+            container.appendChild(headerDiv);
+            
+            // Content section - Two-column layout for better space utilization
+            const contentDiv = document.createElement('div');
+            contentDiv.style.fontSize = '1rem';
+            contentDiv.style.marginTop = '15px';
+            contentDiv.style.display = 'grid';
+            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+            contentDiv.style.gap = '20px';
+            contentDiv.style.alignItems = 'start';
+            
+            // Tasks - only show in pre-party phase
+            if (!isDuringParty && data.tasks && data.tasks.list && data.tasks.list.length > 0) {
+                const tasksSection = document.createElement('div');
+                tasksSection.style.marginBottom = '15px';
+                
+                const tasksHeader = document.createElement('div');
+                tasksHeader.style.fontWeight = '600';
+                tasksHeader.style.marginBottom = '10px';
+                tasksHeader.style.fontSize = '1.05rem';
+                tasksHeader.innerHTML = '✓ To-Do Items';
+                tasksSection.appendChild(tasksHeader);
+                
+                data.tasks.list.forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.style.marginBottom = '6px';
+                    taskItem.style.paddingLeft = '12px';
+                    taskItem.style.opacity = task.completed ? '0.6' : '1';
+                    taskItem.style.fontSize = '0.95rem';
+                    
+                    const checkbox = document.createElement('span');
+                    checkbox.textContent = task.completed ? '☑' : '☐';
+                    checkbox.style.marginRight = '8px';
+                    checkbox.style.fontSize = '1rem';
+                    
+                    const taskText = document.createElement('span');
+                    taskText.textContent = task.name;
+                    if (task.completed) {
+                        taskText.style.textDecoration = 'line-through';
+                    }
+                    
+                    taskItem.appendChild(checkbox);
+                    taskItem.appendChild(taskText);
+                    
+                    if (task.assignee) {
+                        const assigneeText = document.createElement('span');
+                        assigneeText.textContent = ` (${task.assignee})`;
+                        assigneeText.style.opacity = '0.7';
+                        assigneeText.style.fontSize = '0.85rem';
+                        taskItem.appendChild(assigneeText);
+                    }
+                    
+                    tasksSection.appendChild(taskItem);
+                });
+                
+                contentDiv.appendChild(tasksSection);
+            }
+            
+            // Events
+            if (data.events && data.events.length > 0) {
+                const eventsSection = document.createElement('div');
+                eventsSection.style.marginBottom = '15px';
+                
+                const eventsHeader = document.createElement('div');
+                eventsHeader.style.fontWeight = '600';
+                eventsHeader.style.marginBottom = '10px';
+                eventsHeader.style.fontSize = '1.05rem';
+                eventsHeader.innerHTML = '📋 Events Schedule';
+                eventsSection.appendChild(eventsHeader);
+                
+                data.events.forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.style.marginBottom = '10px';
+                    eventItem.style.paddingLeft = '12px';
+                    
+                    const eventTitle = document.createElement('div');
+                    eventTitle.style.fontWeight = '500';
+                    eventTitle.style.fontSize = '0.95rem';
+                    
+                    if (event.time) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.textContent = event.time + ' - ';
+                        timeSpan.style.color = '#4CAF50';
+                        timeSpan.style.fontWeight = '600';
+                        eventTitle.appendChild(timeSpan);
+                    }
+                    
+                    const titleSpan = document.createElement('span');
+                    titleSpan.textContent = event.title;
+                    eventTitle.appendChild(titleSpan);
+                    
+                    eventItem.appendChild(eventTitle);
+                    
+                    if (event.description) {
+                        const eventDesc = document.createElement('div');
+                        eventDesc.textContent = event.description;
+                        eventDesc.style.fontSize = '0.85rem';
+                        eventDesc.style.opacity = '0.7';
+                        eventDesc.style.marginTop = '4px';
+                        eventItem.appendChild(eventDesc);
+                    }
+                    
+                    eventsSection.appendChild(eventItem);
+                });
+                
+                contentDiv.appendChild(eventsSection);
+            }
+            
+            // Menu - show in both phases with different info based on phase
+            if (data.menu && data.menu.length > 0) {
+                const menuSection = document.createElement('div');
+                menuSection.style.marginBottom = '15px';
+                
+                const menuHeader = document.createElement('div');
+                menuHeader.style.fontWeight = '600';
+                menuHeader.style.marginBottom = '10px';
+                menuHeader.style.fontSize = '1.05rem';
+                menuHeader.innerHTML = isDuringParty ? '🍽️ Menu' : '🍽️ Menu & Assignments';
+                menuSection.appendChild(menuHeader);
+                
+                data.menu.forEach(item => {
+                    const menuItem = document.createElement('div');
+                    menuItem.style.marginBottom = '10px';
+                    menuItem.style.paddingLeft = '12px';
+                    
+                    const itemName = document.createElement('div');
+                    itemName.style.fontWeight = '500';
+                    itemName.style.fontSize = '0.95rem';
+                    itemName.textContent = item.item || item.name;
+                    menuItem.appendChild(itemName);
+                    
+                    if (!isDuringParty && item.assignee) {
+                        const assigneeDiv = document.createElement('div');
+                        assigneeDiv.textContent = `👤 ${item.assignee}`;
+                        assigneeDiv.style.fontSize = '0.85rem';
+                        assigneeDiv.style.opacity = '0.7';
+                        assigneeDiv.style.marginTop = '4px';
+                        assigneeDiv.style.fontStyle = 'italic';
+                        menuItem.appendChild(assigneeDiv);
+                    }
+                    
+                    if (isDuringParty && item.description) {
+                        const itemDesc = document.createElement('div');
+                        itemDesc.textContent = item.description;
+                        itemDesc.style.fontSize = '0.85rem';
+                        itemDesc.style.opacity = '0.7';
+                        itemDesc.style.marginTop = '4px';
+                        menuItem.appendChild(itemDesc);
+                    }
+                    
+                    menuSection.appendChild(menuItem);
+                });
+                
+                contentDiv.appendChild(menuSection);
+            }
+            
+            // Invitees
+            if (data.invitees && data.invitees.list && data.invitees.list.length > 0) {
+                const inviteesSection = document.createElement('div');
+                inviteesSection.style.marginBottom = '15px';
+                
+                const inviteesHeader = document.createElement('div');
+                inviteesHeader.style.fontWeight = '600';
+                inviteesHeader.style.marginBottom = '10px';
+                inviteesHeader.style.fontSize = '1.05rem';
+                inviteesHeader.innerHTML = '👥 Guest List';
+                inviteesSection.appendChild(inviteesHeader);
+                
+                const coming = data.invitees.list.filter(i => i.rsvp === 'coming');
+                const pending = data.invitees.list.filter(i => i.rsvp === 'pending');
+                const notComing = data.invitees.list.filter(i => i.rsvp === 'not-coming');
+                
+                if (coming.length > 0) {
+                    const comingLabel = document.createElement('div');
+                    comingLabel.style.fontSize = '0.85rem';
+                    comingLabel.style.opacity = '0.7';
+                    comingLabel.style.marginTop = '6px';
+                    comingLabel.style.marginBottom = '4px';
+                    comingLabel.textContent = 'Coming:';
+                    inviteesSection.appendChild(comingLabel);
+                    
+                    coming.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
+                        inviteeItem.textContent = `✓ ${invitee.name}`;
+                        inviteeItem.style.color = '#4CAF50';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (pending.length > 0) {
+                    const pendingLabel = document.createElement('div');
+                    pendingLabel.style.fontSize = '0.85rem';
+                    pendingLabel.style.opacity = '0.7';
+                    pendingLabel.style.marginTop = '6px';
+                    pendingLabel.style.marginBottom = '4px';
+                    pendingLabel.textContent = 'Pending:';
+                    inviteesSection.appendChild(pendingLabel);
+                    
+                    pending.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
+                        inviteeItem.textContent = `? ${invitee.name}`;
+                        inviteeItem.style.color = '#FFC107';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                if (notComing.length > 0) {
+                    const notComingLabel = document.createElement('div');
+                    notComingLabel.style.fontSize = '0.85rem';
+                    notComingLabel.style.opacity = '0.7';
+                    notComingLabel.style.marginTop = '6px';
+                    notComingLabel.style.marginBottom = '4px';
+                    notComingLabel.textContent = 'Not Coming:';
+                    inviteesSection.appendChild(notComingLabel);
+                    
+                    notComing.forEach(invitee => {
+                        const inviteeItem = document.createElement('div');
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
+                        inviteeItem.textContent = `✗ ${invitee.name}`;
+                        inviteeItem.style.opacity = '0.5';
+                        inviteesSection.appendChild(inviteeItem);
+                    });
+                }
+                
+                contentDiv.appendChild(inviteesSection);
+            }
+            
+            container.appendChild(contentDiv);
+            
+            return container;
+        }
+        
+        // Sample data for testing
+        const beforePartyData = {
+            daysUntil: 2,
+            phase: 'before',
+            dateTime: {
+                date: '2026-02-09',
+                startTime: '6:00 PM'
+            },
+            tasks: {
+                list: [
+                    { name: 'Send invitations', completed: true, assignee: 'Alice' },
+                    { name: 'Order cake', completed: false, assignee: 'Bob' },
+                    { name: 'Prepare decorations', completed: false, assignee: 'Carol' },
+                    { name: 'Buy drinks', completed: true, assignee: 'David' }
+                ]
+            },
+            events: [
+                { time: '6:00 PM', title: 'Guests Arrive', description: 'Welcome everyone' },
+                { time: '6:30 PM', title: 'Appetizers', description: 'Serve light snacks' },
+                { time: '7:30 PM', title: 'Main Course', description: 'Dinner is served' },
+                { time: '8:30 PM', title: 'Cake & Gifts', description: 'Birthday celebration' }
+            ],
+            menu: [
+                { item: 'Caesar Salad', assignee: 'Alice', description: 'Fresh romaine with homemade dressing' },
+                { item: 'BBQ Chicken Wings', assignee: 'Bob', description: 'Spicy and tangy wings' },
+                { item: 'Grilled Salmon', assignee: 'Carol', description: 'With lemon butter sauce' },
+                { item: 'Vegetable Lasagna', assignee: 'David', description: 'Layered with ricotta and spinach' },
+                { item: 'Chocolate Cake', assignee: 'Alice', description: 'Three-layer chocolate with frosting' },
+                { item: 'Fruit Platter', assignee: 'Bob', description: 'Seasonal fresh fruits' }
+            ],
+            invitees: {
+                list: [
+                    { name: 'Alice Johnson', rsvp: 'coming' },
+                    { name: 'Bob Smith', rsvp: 'coming' },
+                    { name: 'Carol Williams', rsvp: 'coming' },
+                    { name: 'David Brown', rsvp: 'pending' },
+                    { name: 'Eve Davis', rsvp: 'pending' },
+                    { name: 'Frank Miller', rsvp: 'not-coming' }
+                ]
+            }
+        };
+        
+        const duringPartyData = {
+            ...beforePartyData,
+            daysUntil: 0,
+            phase: 'during'
+        };
+        
+        // Render widgets
+        document.getElementById('before-party-widget').appendChild(renderParty(beforePartyData));
+        document.getElementById('during-party-widget').appendChild(renderParty(duringPartyData));
+    </script>
+</body>
+</html>

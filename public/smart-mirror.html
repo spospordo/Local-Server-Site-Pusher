@@ -3090,11 +3090,12 @@
             
             // Content section - Two-column layout for better space utilization
             const contentDiv = document.createElement('div');
-            contentDiv.style.fontSize = '0.8rem';
-            contentDiv.style.marginTop = '10px';
+            contentDiv.style.fontSize = '1rem';
+            contentDiv.style.marginTop = '15px';
             contentDiv.style.display = 'grid';
-            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
-            contentDiv.style.gap = '15px';
+            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+            contentDiv.style.gap = '20px';
+            contentDiv.style.alignItems = 'start';
             
             // Pre-party phase: Show tasks, invitees, menu, events
             // During party phase: Show events, menu, invitees (NO tasks)
@@ -3106,20 +3107,22 @@
                 
                 const tasksHeader = document.createElement('div');
                 tasksHeader.style.fontWeight = '600';
-                tasksHeader.style.marginBottom = '8px';
-                tasksHeader.style.fontSize = '0.9rem';
+                tasksHeader.style.marginBottom = '10px';
+                tasksHeader.style.fontSize = '1.05rem';
                 tasksHeader.innerHTML = '✓ To-Do Items';
                 tasksSection.appendChild(tasksHeader);
                 
                 data.tasks.list.forEach(task => {
                     const taskItem = document.createElement('div');
-                    taskItem.style.marginBottom = '5px';
-                    taskItem.style.paddingLeft = '10px';
+                    taskItem.style.marginBottom = '6px';
+                    taskItem.style.paddingLeft = '12px';
                     taskItem.style.opacity = task.completed ? '0.6' : '1';
+                    taskItem.style.fontSize = '0.95rem';
                     
                     const checkbox = document.createElement('span');
                     checkbox.textContent = task.completed ? '☑' : '☐';
-                    checkbox.style.marginRight = '5px';
+                    checkbox.style.marginRight = '8px';
+                    checkbox.style.fontSize = '1rem';
                     
                     const taskText = document.createElement('span');
                     taskText.textContent = task.name;
@@ -3134,7 +3137,7 @@
                         const assigneeText = document.createElement('span');
                         assigneeText.textContent = ` (${task.assignee})`;
                         assigneeText.style.opacity = '0.7';
-                        assigneeText.style.fontSize = '0.75rem';
+                        assigneeText.style.fontSize = '0.85rem';
                         taskItem.appendChild(assigneeText);
                     }
                     
@@ -3151,23 +3154,25 @@
                 
                 const eventsHeader = document.createElement('div');
                 eventsHeader.style.fontWeight = '600';
-                eventsHeader.style.marginBottom = '8px';
-                eventsHeader.style.fontSize = '0.9rem';
+                eventsHeader.style.marginBottom = '10px';
+                eventsHeader.style.fontSize = '1.05rem';
                 eventsHeader.innerHTML = '📋 Events Schedule';
                 eventsSection.appendChild(eventsHeader);
                 
                 data.events.forEach(event => {
                     const eventItem = document.createElement('div');
-                    eventItem.style.marginBottom = '8px';
-                    eventItem.style.paddingLeft = '10px';
+                    eventItem.style.marginBottom = '10px';
+                    eventItem.style.paddingLeft = '12px';
                     
                     const eventTitle = document.createElement('div');
                     eventTitle.style.fontWeight = '500';
+                    eventTitle.style.fontSize = '0.95rem';
                     
                     if (event.time) {
                         const timeSpan = document.createElement('span');
                         timeSpan.textContent = event.time + ' - ';
                         timeSpan.style.color = '#4CAF50';
+                        timeSpan.style.fontWeight = '600';
                         eventTitle.appendChild(timeSpan);
                     }
                     
@@ -3180,9 +3185,9 @@
                     if (event.description) {
                         const eventDesc = document.createElement('div');
                         eventDesc.textContent = event.description;
-                        eventDesc.style.fontSize = '0.75rem';
+                        eventDesc.style.fontSize = '0.85rem';
                         eventDesc.style.opacity = '0.7';
-                        eventDesc.style.marginTop = '2px';
+                        eventDesc.style.marginTop = '4px';
                         eventItem.appendChild(eventDesc);
                     }
                     
@@ -3199,18 +3204,19 @@
                 
                 const menuHeader = document.createElement('div');
                 menuHeader.style.fontWeight = '600';
-                menuHeader.style.marginBottom = '8px';
-                menuHeader.style.fontSize = '0.9rem';
+                menuHeader.style.marginBottom = '10px';
+                menuHeader.style.fontSize = '1.05rem';
                 menuHeader.innerHTML = isDuringParty ? '🍽️ Menu' : '🍽️ Menu & Assignments';
                 menuSection.appendChild(menuHeader);
                 
                 data.menu.forEach(item => {
                     const menuItem = document.createElement('div');
-                    menuItem.style.marginBottom = '8px';
-                    menuItem.style.paddingLeft = '10px';
+                    menuItem.style.marginBottom = '10px';
+                    menuItem.style.paddingLeft = '12px';
                     
                     const itemName = document.createElement('div');
                     itemName.style.fontWeight = '500';
+                    itemName.style.fontSize = '0.95rem';
                     // Handle both 'item' and 'name' properties for backwards compatibility
                     itemName.textContent = item.item || item.name;
                     menuItem.appendChild(itemName);
@@ -3220,9 +3226,9 @@
                     if (!isDuringParty && item.assignee) {
                         const assigneeDiv = document.createElement('div');
                         assigneeDiv.textContent = `👤 ${item.assignee}`;
-                        assigneeDiv.style.fontSize = '0.75rem';
+                        assigneeDiv.style.fontSize = '0.85rem';
                         assigneeDiv.style.opacity = '0.7';
-                        assigneeDiv.style.marginTop = '2px';
+                        assigneeDiv.style.marginTop = '4px';
                         assigneeDiv.style.fontStyle = 'italic';
                         menuItem.appendChild(assigneeDiv);
                     }
@@ -3230,9 +3236,9 @@
                     if (isDuringParty && item.description) {
                         const itemDesc = document.createElement('div');
                         itemDesc.textContent = item.description;
-                        itemDesc.style.fontSize = '0.75rem';
+                        itemDesc.style.fontSize = '0.85rem';
                         itemDesc.style.opacity = '0.7';
-                        itemDesc.style.marginTop = '2px';
+                        itemDesc.style.marginTop = '4px';
                         menuItem.appendChild(itemDesc);
                     }
                     
@@ -3249,8 +3255,8 @@
                 
                 const inviteesHeader = document.createElement('div');
                 inviteesHeader.style.fontWeight = '600';
-                inviteesHeader.style.marginBottom = '8px';
-                inviteesHeader.style.fontSize = '0.9rem';
+                inviteesHeader.style.marginBottom = '10px';
+                inviteesHeader.style.fontSize = '1.05rem';
                 inviteesHeader.innerHTML = '👥 Guest List';
                 inviteesSection.appendChild(inviteesHeader);
                 
@@ -3261,15 +3267,18 @@
                 
                 if (coming.length > 0) {
                     const comingLabel = document.createElement('div');
-                    comingLabel.style.fontSize = '0.75rem';
+                    comingLabel.style.fontSize = '0.85rem';
                     comingLabel.style.opacity = '0.7';
-                    comingLabel.style.marginTop = '5px';
+                    comingLabel.style.marginTop = '6px';
+                    comingLabel.style.marginBottom = '4px';
                     comingLabel.textContent = 'Coming:';
                     inviteesSection.appendChild(comingLabel);
                     
                     coming.forEach(invitee => {
                         const inviteeItem = document.createElement('div');
-                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
                         inviteeItem.textContent = `✓ ${invitee.name}`;
                         inviteeItem.style.color = '#4CAF50';
                         inviteesSection.appendChild(inviteeItem);
@@ -3278,15 +3287,18 @@
                 
                 if (pending.length > 0) {
                     const pendingLabel = document.createElement('div');
-                    pendingLabel.style.fontSize = '0.75rem';
+                    pendingLabel.style.fontSize = '0.85rem';
                     pendingLabel.style.opacity = '0.7';
-                    pendingLabel.style.marginTop = '5px';
+                    pendingLabel.style.marginTop = '6px';
+                    pendingLabel.style.marginBottom = '4px';
                     pendingLabel.textContent = 'Pending:';
                     inviteesSection.appendChild(pendingLabel);
                     
                     pending.forEach(invitee => {
                         const inviteeItem = document.createElement('div');
-                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
                         inviteeItem.textContent = `? ${invitee.name}`;
                         inviteeItem.style.color = '#FFC107';
                         inviteesSection.appendChild(inviteeItem);
@@ -3295,15 +3307,18 @@
                 
                 if (notComing.length > 0) {
                     const notComingLabel = document.createElement('div');
-                    notComingLabel.style.fontSize = '0.75rem';
+                    notComingLabel.style.fontSize = '0.85rem';
                     notComingLabel.style.opacity = '0.7';
-                    notComingLabel.style.marginTop = '5px';
+                    notComingLabel.style.marginTop = '6px';
+                    notComingLabel.style.marginBottom = '4px';
                     notComingLabel.textContent = 'Not Coming:';
                     inviteesSection.appendChild(notComingLabel);
                     
                     notComing.forEach(invitee => {
                         const inviteeItem = document.createElement('div');
-                        inviteeItem.style.paddingLeft = '10px';
+                        inviteeItem.style.paddingLeft = '12px';
+                        inviteeItem.style.marginBottom = '3px';
+                        inviteeItem.style.fontSize = '0.9rem';
                         inviteeItem.textContent = `✗ ${invitee.name}`;
                         inviteeItem.style.opacity = '0.5';
                         inviteesSection.appendChild(inviteeItem);
