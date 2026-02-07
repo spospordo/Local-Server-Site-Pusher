@@ -23,7 +23,7 @@ if (smartMirrorContent.includes('gridTemplateColumns')) {
     process.exit(1);
 }
 
-if (smartMirrorContent.includes('repeat(auto-fit, minmax(250px, 1fr))')) {
+if (smartMirrorContent.includes('repeat(auto-fit, minmax(280px, 1fr))')) {
     console.log('  ✅ Found responsive two-column grid configuration');
 } else {
     console.log('  ❌ Responsive grid configuration not found');
