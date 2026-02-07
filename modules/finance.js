@@ -339,7 +339,14 @@ function saveAccount(accountData) {
     accountData.createdAt = new Date().toISOString();
   }
   
-  accountData.updatedAt = new Date().toISOString();
+  // Set updatedAt to current date at UTC midnight for consistency with balance updates
+  const now = new Date();
+  accountData.updatedAt = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0, 0
+  )).toISOString();
   
   const existingIndex = data.accounts.findIndex(a => a.id === accountData.id);
   if (existingIndex >= 0) {
@@ -366,7 +373,15 @@ function updateAccountDisplayName(accountId, displayName) {
   account.displayName = (typeof displayName === 'string' && displayName.trim() !== '') 
     ? displayName.trim() 
     : null;
-  account.updatedAt = new Date().toISOString();
+  
+  // Set updatedAt to current date at UTC midnight for consistency
+  const now = new Date();
+  account.updatedAt = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0, 0
+  )).toISOString();
   
   return saveFinanceData(data);
 }
