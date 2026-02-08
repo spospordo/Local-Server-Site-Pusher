@@ -5548,6 +5548,13 @@
                                         Lower numbers = higher priority
                                     </small>
                                 </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetRainCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetRainCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
+                                    </small>
+                                </div>
                             </div>
                             <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
                                 Shows upcoming rain in the forecast (1, 3, or 5 days out). Requires Weather API configuration below.
@@ -5570,6 +5577,13 @@
                                     <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
                                     <small style="color: #666; display: block; margin-top: 4px;">
                                         Lower numbers = higher priority
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetVacationCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetVacationCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
                                     </small>
                                 </div>
                             </div>
@@ -5596,6 +5610,13 @@
                                         Lower numbers = higher priority
                                     </small>
                                 </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetMediaCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetMediaCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
+                                    </small>
+                                </div>
                             </div>
                             <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
                                 Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
@@ -5619,9 +5640,16 @@
                                         Lower numbers = higher priority
                                     </small>
                                 </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetPartyCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetPartyCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
+                                    </small>
+                                </div>
                             </div>
                             <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming party information from Party > Scheduling tab. Only displays when party date is set.
+                                Shows upcoming party information from Party > Scheduling tab. Only displays when party date is set. <strong>On party day, this widget will display exclusively without cycling.</strong>
                             </p>
                         </div>
 
@@ -13094,27 +13122,31 @@
                     
                     // Sub-widgets configuration
                     const subWidgets = smartWidget.subWidgets || [
-                        { type: 'rainForecast', enabled: true, priority: 1 },
-                        { type: 'upcomingVacation', enabled: true, priority: 2 },
-                        { type: 'homeAssistantMedia', enabled: true, priority: 3 },
-                        { type: 'party', enabled: true, priority: 4 }
+                        { type: 'rainForecast', enabled: true, priority: 1, cycleTime: 10 },
+                        { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
+                        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+                        { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
                     ];
                     
-                    const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1 };
+                    const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1, cycleTime: 10 };
                     document.getElementById('smartWidgetRainEnabled').value = rainWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetRainPriority').value = rainWidget.priority || 1;
+                    document.getElementById('smartWidgetRainCycleTime').value = rainWidget.cycleTime || 10;
                     
-                    const vacationSubWidget = subWidgets.find(sw => sw.type === 'upcomingVacation') || { enabled: true, priority: 2 };
+                    const vacationSubWidget = subWidgets.find(sw => sw.type === 'upcomingVacation') || { enabled: true, priority: 2, cycleTime: 10 };
                     document.getElementById('smartWidgetVacationEnabled').value = vacationSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetVacationPriority').value = vacationSubWidget.priority || 2;
+                    document.getElementById('smartWidgetVacationCycleTime').value = vacationSubWidget.cycleTime || 10;
                     
-                    const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3 };
+                    const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3, cycleTime: 10 };
                     document.getElementById('smartWidgetMediaEnabled').value = mediaSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetMediaPriority').value = mediaSubWidget.priority || 3;
+                    document.getElementById('smartWidgetMediaCycleTime').value = mediaSubWidget.cycleTime || 10;
                     
-                    const partySubWidget = subWidgets.find(sw => sw.type === 'party') || { enabled: true, priority: 4 };
+                    const partySubWidget = subWidgets.find(sw => sw.type === 'party') || { enabled: true, priority: 4, cycleTime: 10 };
                     document.getElementById('smartWidgetPartyEnabled').value = partySubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetPartyPriority').value = partySubWidget.priority || 4;
+                    document.getElementById('smartWidgetPartyCycleTime').value = partySubWidget.cycleTime || 10;
                     
                     // Shared configuration (units only - API key and location are now centralized)
                     document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
@@ -13386,22 +13418,26 @@
                                 {
                                     type: 'rainForecast',
                                     enabled: document.getElementById('smartWidgetRainEnabled').value === 'true',
-                                    priority: parseInt(document.getElementById('smartWidgetRainPriority').value)
+                                    priority: parseInt(document.getElementById('smartWidgetRainPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetRainCycleTime').value)
                                 },
                                 {
                                     type: 'upcomingVacation',
                                     enabled: document.getElementById('smartWidgetVacationEnabled').value === 'true',
-                                    priority: parseInt(document.getElementById('smartWidgetVacationPriority').value)
+                                    priority: parseInt(document.getElementById('smartWidgetVacationPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetVacationCycleTime').value)
                                 },
                                 {
                                     type: 'homeAssistantMedia',
                                     enabled: document.getElementById('smartWidgetMediaEnabled').value === 'true',
-                                    priority: parseInt(document.getElementById('smartWidgetMediaPriority').value)
+                                    priority: parseInt(document.getElementById('smartWidgetMediaPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetMediaCycleTime').value)
                                 },
                                 {
                                     type: 'party',
                                     enabled: document.getElementById('smartWidgetPartyEnabled').value === 'true',
-                                    priority: parseInt(document.getElementById('smartWidgetPartyPriority').value)
+                                    priority: parseInt(document.getElementById('smartWidgetPartyPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetPartyCycleTime').value)
                                 }
                             ],
                             apiKey: preserveApiKey(

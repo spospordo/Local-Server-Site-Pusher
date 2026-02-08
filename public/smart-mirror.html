@@ -922,6 +922,7 @@
     <script>
         let config = null;
         let refreshInterval = null;
+        let smartWidgetCycleInterval = null; // Timer for Smart Widget cycling (setTimeout, not setInterval)
         let currentOrientation = 'portrait'; // Track current orientation
 
         // Detect current orientation from URL or screen
@@ -2482,6 +2483,40 @@
             }
         }
         
+        
+        // Helper function to cycle through sub-widgets with per-widget timing
+        function cycleSubWidget(content, subWidgets) {
+            // Clear any existing timer
+            if (smartWidgetCycleInterval) {
+                clearTimeout(smartWidgetCycleInterval);
+                smartWidgetCycleInterval = null;
+            }
+            
+            if (!subWidgets || subWidgets.length === 0) {
+                return;
+            }
+            
+            // Get current index
+            const currentIndex = parseInt(content.dataset.cycleIndex || '0') % subWidgets.length;
+            const currentWidget = subWidgets[currentIndex];
+            
+            // Clear and render current widget
+            content.innerHTML = '';
+            const subDiv = renderSubWidget(currentWidget);
+            if (subDiv) content.appendChild(subDiv);
+            
+            // Calculate cycle time for this widget
+            const widgetCycleTime = (currentWidget.cycleTime || 10) * 1000;
+            
+            // Set up timeout to cycle to next widget
+            smartWidgetCycleInterval = setTimeout(() => {
+                // Move to next widget
+                content.dataset.cycleIndex = String((currentIndex + 1) % subWidgets.length);
+                // Recursively cycle to next
+                cycleSubWidget(content, subWidgets);
+            }, widgetCycleTime);
+        }
+        
         // Smart Widget - Container for multiple sub-widgets
         async function updateSmartWidget(content, widgetConfig) {
             try {
@@ -2517,6 +2552,12 @@
                     emptyDiv.appendChild(msgDiv);
                     
                     content.appendChild(emptyDiv);
+                    
+                    // Clear cycling timer if no widgets
+                    if (smartWidgetCycleInterval) {
+                        clearTimeout(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                     return;
                 }
                 
@@ -2539,27 +2580,55 @@
                     });
                     
                     content.appendChild(container);
+                    
+                    // Clear cycling timer in simultaneous mode
+                    if (smartWidgetCycleInterval) {
+                        clearTimeout(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                 } else if (displayMode === 'priority') {
                     // Show only the highest priority sub-widget with content
                     if (subWidgets.length > 0) {
                         const subDiv = renderSubWidget(subWidgets[0]);
                         if (subDiv) content.appendChild(subDiv);
                     }
+                    
+                    // Clear cycling timer in priority mode
+                    if (smartWidgetCycleInterval) {
+                        clearTimeout(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                 } else {
                     // Cycle mode - show one at a time, cycling through them
-                    const cycleSpeed = (data.cycleSpeed || 10) * 1000; // Convert to milliseconds
                     
-                    // Initialize or get current cycle index
-                    if (!content.dataset.cycleIndex) {
-                        content.dataset.cycleIndex = '0';
+                    // Check if it's party day and party widget is present
+                    const partyWidget = subWidgets.find(sw => sw.type === 'party' && sw.isPartyDay);
+                    
+                    if (partyWidget) {
+                        // On party day, show ONLY the party widget without cycling
+                        const subDiv = renderSubWidget(partyWidget);
+                        if (subDiv) content.appendChild(subDiv);
+                        
+                        // Store party day flag to prevent cycling
+                        content.dataset.isPartyDay = 'true';
+                        
+                        // Clear cycling timer on party day
+                        if (smartWidgetCycleInterval) {
+                            clearTimeout(smartWidgetCycleInterval);
+                            smartWidgetCycleInterval = null;
+                        }
+                    } else {
+                        // Normal cycling behavior
+                        content.dataset.isPartyDay = 'false';
+                        
+                        // Initialize cycle index if not set
+                        if (!content.dataset.cycleIndex) {
+                            content.dataset.cycleIndex = '0';
+                        }
+                        
+                        // Start the cycling with the helper function
+                        cycleSubWidget(content, subWidgets);
                     }
-                    
-                    const currentIndex = parseInt(content.dataset.cycleIndex) % subWidgets.length;
-                    const subDiv = renderSubWidget(subWidgets[currentIndex]);
-                    if (subDiv) content.appendChild(subDiv);
-                    
-                    // Update cycle index for next render
-                    content.dataset.cycleIndex = String((currentIndex + 1) % subWidgets.length);
                 }
                 
             } catch (error) {

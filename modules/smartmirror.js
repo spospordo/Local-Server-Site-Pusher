@@ -167,10 +167,10 @@ function getDefaultWidgets() {
       size: 'large',
       // Sub-widget management
       subWidgets: [
-        { type: 'rainForecast', enabled: true, priority: 1 },
-        { type: 'upcomingVacation', enabled: true, priority: 2 },
-        { type: 'homeAssistantMedia', enabled: true, priority: 3 },
-        { type: 'party', enabled: true, priority: 4 }
+        { type: 'rainForecast', enabled: true, priority: 1, cycleTime: 10 },
+        { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
+        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+        { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
       ],
       // Display settings
       displayMode: 'cycle', // 'cycle', 'simultaneous', or 'priority'

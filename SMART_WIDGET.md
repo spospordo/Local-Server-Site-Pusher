@@ -43,6 +43,7 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
    - Displays menu item count
    - Shows scheduled events count
    - Only appears when a party date is set and is today or in the future
+   - **Special Behavior**: On party day (daysUntil === 0), this widget displays exclusively without cycling to other widgets, ensuring party information is always visible throughout the event
 
 ## Configuration
 
@@ -65,7 +66,7 @@ Navigate to **Admin → Server → Smart Mirror → Smart Widget** to configure:
   - Cycle: Rotate through sub-widgets
   - Simultaneous: Show multiple at once
   - Priority: Show only highest priority
-- **Cycle Speed**: Time between rotations (5-60 seconds)
+- **Cycle Speed**: Global default time between rotations (5-60 seconds) - used as fallback
 - **Max Simultaneous**: Maximum sub-widgets to show at once (1-4)
 
 #### Sub-Widget Configuration
@@ -73,6 +74,10 @@ Navigate to **Admin → Server → Smart Mirror → Smart Widget** to configure:
 Each sub-widget can be:
 - **Enabled/Disabled**: Toggle visibility
 - **Priority**: Set display order (1 = highest priority)
+- **Cycle Time**: Individual display duration in seconds (5-60) when in cycle mode
+  - Each sub-widget can have its own cycle time
+  - Example: Rain forecast for 15s, vacation for 10s, media for 8s
+  - Allows important information to stay visible longer
 
 #### Shared Configuration
 
@@ -105,6 +110,7 @@ Returns aggregated sub-widget data with active content only.
     {
       "type": "rainForecast",
       "priority": 1,
+      "cycleTime": 15,
       "hasContent": true,
       "data": {
         "hasRain": true,
@@ -120,35 +126,31 @@ Returns aggregated sub-widget data with active content only.
       }
     },
     {
-      "type": "upcomingVacation",
-      "priority": 2,
+      "type": "party",
+      "priority": 4,
+      "cycleTime": 20,
       "hasContent": true,
+      "isPartyDay": true,
       "data": {
-        "vacations": [
-          {
-            "destination": "Hawaii",
-            "startDate": "2026-03-15",
-            "endDate": "2026-03-22",
-            "daysUntil": 39
-          },
-          {
-            "destination": "New York City",
-            "startDate": "2026-04-10",
-            "endDate": "2026-04-15",
-            "daysUntil": 65
-          },
-          {
-            "destination": "Paris",
-            "startDate": "2026-05-20",
-            "endDate": "2026-05-27",
-            "daysUntil": 105
-          }
-        ]
+        "dateTime": {
+          "date": "2026-02-08",
+          "startTime": "18:00",
+          "endTime": "22:00"
+        },
+        "daysUntil": 0,
+        "phase": "pre-party",
+        "name": "Birthday Party",
+        "tasks": {
+          "total": 10,
+          "completed": 8
+        }
       }
     }
   ]
 }
 ```
+
+**Note**: The `cycleTime` field specifies how long each sub-widget should display in cycle mode. The `isPartyDay` flag indicates it's the day of the party, which triggers exclusive display behavior.
 
 #### Get Rain Forecast
 ```
@@ -183,9 +185,22 @@ The Smart Widget automatically:
 2. Filters out sub-widgets without active content
 3. Sorts by priority (lowest number first)
 4. Renders based on display mode:
-   - **Cycle**: Shows one sub-widget, rotating through them
+   - **Cycle**: Shows one sub-widget at a time, rotating through them
+     - Each widget displays for its configured `cycleTime` duration
+     - **Special case**: On party day, only the party widget displays without cycling
    - **Simultaneous**: Shows multiple sub-widgets in a grid
    - **Priority**: Shows only the first (highest priority) sub-widget
+
+### Cycling Behavior
+
+In cycle mode:
+- Each sub-widget has its own display duration (`cycleTime` in seconds)
+- Widgets without content are automatically skipped
+- The widget cycles using a dedicated interval timer
+- **Party Day Priority**: When `isPartyDay` is true, only the party widget displays
+  - No cycling occurs on party day
+  - Other widgets are suppressed
+  - Ensures party information is visible throughout the entire day
 
 ### Styling
 
@@ -220,14 +235,25 @@ Each sub-widget:
 
 ## Usage Examples
 
-### Example 1: Cycle Mode
-Shows rain alert, then vacation countdown, then media player info, rotating every 10 seconds.
+### Example 1: Cycle Mode with Different Timings
+- Rain forecast displays for 15 seconds
+- Vacation countdown displays for 10 seconds  
+- Media player displays for 8 seconds
+- Party countdown displays for 20 seconds (when not party day)
+- Widgets without content are skipped automatically
 
-### Example 2: Simultaneous Mode
-Shows both rain forecast and vacation countdown side-by-side if both have content.
+### Example 2: Party Day Behavior
+On the day of a scheduled party (daysUntil === 0):
+- Only the party widget displays
+- No cycling to other widgets occurs
+- Party information remains visible throughout the day
+- Normal cycling resumes after party day
 
-### Example 3: Priority Mode
-Shows only the rain forecast if present, otherwise shows vacation, otherwise shows media.
+### Example 3: Simultaneous Mode
+Shows both rain forecast and vacation countdown side-by-side if both have content. Cycle time settings are ignored in this mode.
+
+### Example 4: Priority Mode
+Shows only the rain forecast if present, otherwise shows vacation, otherwise shows media. Displays the single highest-priority widget with content.
 
 ## Testing
 
@@ -257,17 +283,25 @@ Tests validate:
    - Informational: 3-5
    - Nice-to-have: 6-10
 
-2. **Cycle Speed**: Balance update frequency with readability
-   - Fast (5-8s): For time-sensitive info
-   - Medium (10-15s): Default, good balance
-   - Slow (20-30s): For detailed content
+2. **Cycle Time Configuration**: Balance visibility with information density
+   - Quick glance info (5-8s): Weather alerts, media status
+   - Standard info (10-15s): Vacation countdowns, event reminders
+   - Detailed info (20-30s): Party details with multiple sections
+   - **Important**: Party widget on party day displays exclusively regardless of cycle time
 
 3. **Display Mode Selection**:
    - **Cycle**: Best for 3+ sub-widgets or limited space
+     - Allows per-widget timing customization
+     - Party day automatically switches to exclusive display
    - **Simultaneous**: Best for 2-3 important items
    - **Priority**: Best for single most important alert
 
 4. **API Keys**: Use the same OpenWeatherMap key as other widgets to save costs
+
+5. **Party Day Planning**: 
+   - Set appropriate cycle time for party widget (20-30s recommended for detailed info)
+   - On party day, the widget will display exclusively
+   - Test before the event to ensure all information displays correctly
 
 ## Future Enhancements
 
@@ -277,6 +311,7 @@ Potential additions:
 - Tap-to-pause cycling
 - Sub-widget templates
 - More built-in sub-widgets (traffic, sports scores, etc.)
+- Configurable party day display window (e.g., start showing exclusively 1 hour before party starts)
 
 ## Troubleshooting
 
@@ -415,6 +450,14 @@ The party sub-widget includes robust error handling:
 - **Grid Position**: Inherits position from Smart Widget container settings
 
 ## Version History
+
+- **v2.7.0** (2026-02-08): Per-Widget Cycle Time & Party Day Priority
+  - Added individual `cycleTime` configuration for each sub-widget
+  - Implemented party day exclusive display (no cycling on party day)
+  - Added `isPartyDay` flag to API response
+  - Updated admin UI with cycle time fields for each sub-widget
+  - Created dedicated cycling interval for proper per-widget timing
+  - Enhanced documentation with detailed cycling behavior and examples
 
 - **v2.6.6** (2026-02-03): Grid Editor Integration Fix
   - Added Smart Widget to WIDGET_ICONS registry in admin dashboard
