@@ -2378,8 +2378,8 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
     });
   }
   
-  // Group by date and category, aggregating balances
-  const categoryDateBalances = {}; // Map of category -> date -> total balance
+  // Group by date and category, aggregating balances with cumulative tracking
+  const categoryDateBalances = {}; // Map of category -> date -> { accountId -> balance }
   const accounts = data.accounts || [];
   
   history.forEach(entry => {
@@ -2408,20 +2408,43 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
     }
   });
   
-  // Convert to array format with per-date totals
+  // Convert to array format with per-date totals, carrying forward balances
   const typeHistory = {};
   Object.keys(categoryDateBalances).forEach(category => {
     const dates = Object.keys(categoryDateBalances[category]).sort();
-    typeHistory[category] = dates.map(dateKey => {
+    const cumulativeBalances = {}; // Track account balances across dates for this category
+    
+    const dataPoints = dates.map(dateKey => {
+      // Update cumulative balances with this date's entries
+      Object.assign(cumulativeBalances, categoryDateBalances[category][dateKey]);
+      
       // Sum all account balances for this category on this date
-      const accountBalances = categoryDateBalances[category][dateKey];
-      const totalBalance = Object.values(accountBalances).reduce((sum, bal) => sum + bal, 0);
+      const totalBalance = Object.values(cumulativeBalances).reduce((sum, bal) => sum + bal, 0);
       
       return {
         timestamp: dateKey + 'T00:00:00.000Z',
         balance: totalBalance
       };
     });
+    
+    // Add current date with carried forward balances if we have data
+    if (dataPoints.length > 0 && Object.keys(cumulativeBalances).length > 0) {
+      const today = new Date();
+      const todayKey = today.toISOString().split('T')[0];
+      const targetEndKey = endDate || todayKey;
+      
+      // Only add current/end date if it's after the last history date
+      const lastHistoryDate = dates[dates.length - 1];
+      if (targetEndKey > lastHistoryDate) {
+        const totalBalance = Object.values(cumulativeBalances).reduce((sum, bal) => sum + bal, 0);
+        dataPoints.push({
+          timestamp: targetEndKey + 'T00:00:00.000Z',
+          balance: totalBalance
+        });
+      }
+    }
+    
+    typeHistory[category] = dataPoints;
   });
   
   return typeHistory;
@@ -2516,6 +2539,44 @@ function getNetWorthHistory(startDate = null, endDate = null) {
     });
   });
   
+  // Add current date with carried forward balances if we have history data
+  // This ensures charts always show data up to the present (or endDate if specified)
+  if (netWorthData.length > 0 && Object.keys(cumulativeBalances).length > 0) {
+    // Determine the target end date
+    const today = new Date();
+    const todayKey = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const targetEndKey = endDate || todayKey;
+    
+    // Only add current/end date if it's after the last history date
+    const lastHistoryDate = sortedDates[sortedDates.length - 1];
+    if (targetEndKey > lastHistoryDate) {
+      // Calculate totals using carried forward balances
+      let assets = 0;
+      let liabilities = 0;
+      
+      Object.keys(cumulativeBalances).forEach(accountId => {
+        const account = accounts.find(a => a.id === accountId);
+        if (account) {
+          const accountType = ACCOUNT_TYPES[account.type];
+          if (accountType && accountType.category === 'liabilities') {
+            liabilities += cumulativeBalances[accountId];
+          } else if (accountType && accountType.category !== 'future_income') {
+            assets += cumulativeBalances[accountId];
+          }
+        }
+      });
+      
+      const netWorth = assets - liabilities;
+      
+      netWorthData.push({
+        timestamp: targetEndKey + 'T00:00:00.000Z',
+        netWorth: netWorth,
+        assets: assets,
+        liabilities: liabilities
+      });
+    }
+  }
+  
   return netWorthData;
 }
 
@@ -2557,13 +2618,35 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   });
   
   // Map to balance snapshots, filtering out entries with invalid balances
-  return history
+  const balanceSnapshots = history
     .filter(entry => entry.newBalance != null && !isNaN(entry.newBalance))
     .map(entry => ({
       timestamp: entry.balanceDate || entry.timestamp,
       balance: parseFloat(entry.newBalance),
       accountName: entry.accountName
     }));
+  
+  // Add current date with last known balance if we have data
+  if (balanceSnapshots.length > 0) {
+    const today = new Date();
+    const todayKey = today.toISOString().split('T')[0];
+    const targetEndKey = endDate || todayKey;
+    
+    // Get the last snapshot's date
+    const lastSnapshot = balanceSnapshots[balanceSnapshots.length - 1];
+    const lastDateKey = lastSnapshot.timestamp.split('T')[0];
+    
+    // Only add current/end date if it's after the last history date
+    if (targetEndKey > lastDateKey) {
+      balanceSnapshots.push({
+        timestamp: targetEndKey + 'T00:00:00.000Z',
+        balance: lastSnapshot.balance,
+        accountName: lastSnapshot.accountName
+      });
+    }
+  }
+  
+  return balanceSnapshots;
 }
 
 // ============================================================================
