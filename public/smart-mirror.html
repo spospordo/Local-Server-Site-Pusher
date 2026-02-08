@@ -922,6 +922,7 @@
     <script>
         let config = null;
         let refreshInterval = null;
+        let smartWidgetCycleInterval = null; // Interval for Smart Widget cycling
         let currentOrientation = 'portrait'; // Track current orientation
 
         // Detect current orientation from URL or screen
@@ -2517,6 +2518,12 @@
                     emptyDiv.appendChild(msgDiv);
                     
                     content.appendChild(emptyDiv);
+                    
+                    // Clear cycling interval if no widgets
+                    if (smartWidgetCycleInterval) {
+                        clearInterval(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                     return;
                 }
                 
@@ -2539,27 +2546,79 @@
                     });
                     
                     content.appendChild(container);
+                    
+                    // Clear cycling interval in simultaneous mode
+                    if (smartWidgetCycleInterval) {
+                        clearInterval(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                 } else if (displayMode === 'priority') {
                     // Show only the highest priority sub-widget with content
                     if (subWidgets.length > 0) {
                         const subDiv = renderSubWidget(subWidgets[0]);
                         if (subDiv) content.appendChild(subDiv);
                     }
+                    
+                    // Clear cycling interval in priority mode
+                    if (smartWidgetCycleInterval) {
+                        clearInterval(smartWidgetCycleInterval);
+                        smartWidgetCycleInterval = null;
+                    }
                 } else {
                     // Cycle mode - show one at a time, cycling through them
-                    const cycleSpeed = (data.cycleSpeed || 10) * 1000; // Convert to milliseconds
                     
-                    // Initialize or get current cycle index
-                    if (!content.dataset.cycleIndex) {
-                        content.dataset.cycleIndex = '0';
+                    // Check if it's party day and party widget is present
+                    const partyWidget = subWidgets.find(sw => sw.type === 'party' && sw.isPartyDay);
+                    
+                    if (partyWidget) {
+                        // On party day, show ONLY the party widget without cycling
+                        const subDiv = renderSubWidget(partyWidget);
+                        if (subDiv) content.appendChild(subDiv);
+                        
+                        // Store party day flag to prevent cycling
+                        content.dataset.isPartyDay = 'true';
+                        
+                        // Clear cycling interval on party day
+                        if (smartWidgetCycleInterval) {
+                            clearInterval(smartWidgetCycleInterval);
+                            smartWidgetCycleInterval = null;
+                        }
+                    } else {
+                        // Normal cycling behavior
+                        content.dataset.isPartyDay = 'false';
+                        
+                        // Initialize or get current cycle index
+                        if (!content.dataset.cycleIndex) {
+                            content.dataset.cycleIndex = '0';
+                        }
+                        
+                        const currentIndex = parseInt(content.dataset.cycleIndex) % subWidgets.length;
+                        const currentWidget = subWidgets[currentIndex];
+                        const subDiv = renderSubWidget(currentWidget);
+                        if (subDiv) content.appendChild(subDiv);
+                        
+                        // Get the current widget's cycle time
+                        const widgetCycleTime = (currentWidget.cycleTime || 10) * 1000; // Convert to milliseconds
+                        
+                        // Set up cycling interval for this specific widget's duration
+                        // Clear any existing interval first
+                        if (smartWidgetCycleInterval) {
+                            clearInterval(smartWidgetCycleInterval);
+                        }
+                        
+                        // Set up new interval with current widget's cycle time
+                        smartWidgetCycleInterval = setInterval(() => {
+                            // Move to next widget
+                            const nextIndex = (parseInt(content.dataset.cycleIndex) + 1) % subWidgets.length;
+                            content.dataset.cycleIndex = String(nextIndex);
+                            
+                            // Update the widget display
+                            updateSmartWidget(content, widgetConfig);
+                        }, widgetCycleTime);
+                        
+                        // Update cycle index for next render
+                        content.dataset.cycleIndex = String((currentIndex + 1) % subWidgets.length);
                     }
-                    
-                    const currentIndex = parseInt(content.dataset.cycleIndex) % subWidgets.length;
-                    const subDiv = renderSubWidget(subWidgets[currentIndex]);
-                    if (subDiv) content.appendChild(subDiv);
-                    
-                    // Update cycle index for next render
-                    content.dataset.cycleIndex = String((currentIndex + 1) % subWidgets.length);
                 }
                 
             } catch (error) {

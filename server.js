@@ -7699,6 +7699,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   subWidgetData = {
                     type: 'rainForecast',
                     priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
                     hasContent: true,
                     data: {
                       hasRain: true,
@@ -7739,6 +7740,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 subWidgetData = {
                   type: 'upcomingVacation',
                   priority: subWidget.priority,
+                  cycleTime: subWidget.cycleTime || 10,
                   hasContent: true,
                   data: {
                     vacations: vacationsToShow
@@ -7769,6 +7771,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     subWidgetData = {
                       type: 'homeAssistantMedia',
                       priority: subWidget.priority,
+                      cycleTime: subWidget.cycleTime || 10,
                       hasContent: true,
                       data: {
                         players: activePlayers
@@ -7938,7 +7941,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 subWidgetData = {
                   type: 'party',
                   priority: subWidget.priority,
+                  cycleTime: subWidget.cycleTime || 10,
                   hasContent: true,
+                  isPartyDay: daysUntil === 0, // Flag to indicate it's party day
                   data: {
                     dateTime: normalizedDateTime,
                     daysUntil: daysUntil,
