@@ -953,5 +953,6 @@ module.exports = {
   deleteUploadedTemplateFile,
   getAvailableImages,
   getCurrentTemplatePath,
-  cloneTemplateRepository
+  cloneTemplateRepository,
+  githubUpload
 };

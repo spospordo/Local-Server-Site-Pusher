@@ -522,6 +522,33 @@ function isDirectoryWritable(dirPath) {
   }
 }
 
+// Deep merge function to properly merge nested config objects
+// Preserves user values while adding any missing default fields
+function deepMerge(target, source) {
+  const result = { ...target };
+  
+  for (const key in source) {
+    if (source.hasOwnProperty(key)) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        // If both target and source have object at this key, merge recursively
+        if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key], source[key]);
+        } else if (!result.hasOwnProperty(key)) {
+          // If target doesn't have this key, use source value
+          result[key] = JSON.parse(JSON.stringify(source[key])); // Deep clone
+        }
+        // Otherwise keep the target value (user's value takes precedence)
+      } else if (!result.hasOwnProperty(key)) {
+        // If target doesn't have this key and it's not an object, use source value
+        result[key] = source[key];
+      }
+      // Otherwise keep the target value (user's value takes precedence)
+    }
+  }
+  
+  return result;
+}
+
 // Function to validate and repair configuration
 function validateAndRepairConfig(config) {
   let needsRepair = false;
@@ -572,18 +599,19 @@ function validateAndRepairConfig(config) {
       target[lastPart] = defaultValue;
       needsRepair = true;
     } else if (typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
-      // Merge default with existing object to ensure all required fields exist
+      // Deep merge default with existing object to ensure all required fields exist
       // But preserve existing values over defaults
       const existingValue = current[lastPart];
-      const mergedValue = { ...defaultValue, ...existingValue };
+      const mergedValue = deepMerge(existingValue, defaultValue);
       
-      // Check if merge is needed (if any default keys are missing)
-      const defaultKeys = Object.keys(defaultValue);
+      // Check if merge added any new fields
+      const mergedKeys = Object.keys(mergedValue);
       const existingKeys = Object.keys(existingValue);
-      const needsMerge = defaultKeys.some(key => !(key in existingValue));
+      const hasNewFields = mergedKeys.length > existingKeys.length || 
+        JSON.stringify(mergedValue) !== JSON.stringify(existingValue);
       
-      if (needsMerge) {
-        console.log(`Merging config section: ${sectionPath}`);
+      if (hasNewFields) {
+        console.log(`Deep merging config section: ${sectionPath} (preserving user values, adding missing defaults)`);
         current[lastPart] = mergedValue;
         needsRepair = true;
       }
@@ -712,6 +740,56 @@ flightScheduler.initScheduler();
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
+
+// Automatic repository sync on startup
+// This ensures repositories are cloned or pulled when GitHub Pages upload is enabled
+async function syncRepositoriesOnStartup() {
+  try {
+    console.log('\n🔄 Checking for GitHub Pages repositories to sync on startup...');
+    
+    // Sync Vidiots repository if GitHub Pages is enabled
+    if (config.vidiots?.githubPages?.enabled) {
+      console.log('📥 [Vidiots] GitHub Pages enabled, syncing repository...');
+      const vidiotsResult = await vidiots.githubUpload.cloneOrPullRepository(config.vidiots.githubPages);
+      
+      if (vidiotsResult.success) {
+        console.log(`✅ [Vidiots] Repository ${vidiotsResult.action || 'synced'} successfully`);
+        logger.success(logger.categories.GITHUB, `Vidiots repository ${vidiotsResult.action || 'synced'} on startup`);
+      } else {
+        console.warn(`⚠️ [Vidiots] Repository sync failed: ${vidiotsResult.error}`);
+        logger.warning(logger.categories.GITHUB, `Vidiots repository sync failed on startup: ${vidiotsResult.error}`);
+      }
+    } else {
+      console.log('⏭️ [Vidiots] GitHub Pages not enabled, skipping repository sync');
+    }
+    
+    // Sync Espresso repository if GitHub Pages is enabled
+    if (config.espresso?.githubPages?.enabled) {
+      console.log('📥 [Espresso] GitHub Pages enabled, syncing repository...');
+      const espressoResult = await espresso.githubUpload.cloneOrPullRepository(config.espresso.githubPages);
+      
+      if (espressoResult.success) {
+        console.log(`✅ [Espresso] Repository ${espressoResult.action || 'synced'} successfully`);
+        logger.success(logger.categories.GITHUB, `Espresso repository ${espressoResult.action || 'synced'} on startup`);
+      } else {
+        console.warn(`⚠️ [Espresso] Repository sync failed: ${espressoResult.error}`);
+        logger.warning(logger.categories.GITHUB, `Espresso repository sync failed on startup: ${espressoResult.error}`);
+      }
+    } else {
+      console.log('⏭️ [Espresso] GitHub Pages not enabled, skipping repository sync');
+    }
+    
+    console.log('✅ Startup repository sync complete\n');
+  } catch (error) {
+    console.error('❌ Error during startup repository sync:', error.message);
+    logger.error(logger.categories.GITHUB, `Error during startup repository sync: ${error.message}`);
+  }
+}
+
+// Call repository sync asynchronously (non-blocking)
+syncRepositoriesOnStartup().catch(err => {
+  console.error('Failed to sync repositories on startup:', err);
+});
 
 // Initialize multer configuration after config is loaded
 upload = multer({

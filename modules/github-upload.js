@@ -624,13 +624,15 @@ async function testConnection() {
 }
 
 // Function to clone or pull GitHub repository
-async function cloneOrPullRepository() {
+async function cloneOrPullRepository(moduleConfig = null) {
   try {
-    if (!config?.vidiots?.githubPages?.enabled) {
+    // Use moduleConfig if provided, otherwise fall back to vidiots config for backward compatibility
+    const githubConfig = moduleConfig || config?.vidiots?.githubPages;
+    
+    if (!githubConfig?.enabled) {
       return { success: false, error: 'GitHub Pages integration not enabled' };
     }
     
-    const githubConfig = config.vidiots.githubPages;
     const { repoOwner, repoName, branch = 'main', repoLocalPath, accessToken } = githubConfig;
     
     if (!repoOwner || !repoName || !repoLocalPath) {
