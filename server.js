@@ -7882,17 +7882,95 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
               
               if (upcomingVacations.length > 0) {
-                // Return all upcoming vacations (up to 3) with their details
-                const vacationsToShow = upcomingVacations.slice(0, 3).map(vacation => {
-                  const startDate = new Date(vacation.startDate);
-                  const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
-                  return {
-                    destination: vacation.destination,
-                    startDate: vacation.startDate,
-                    endDate: vacation.endDate,
-                    daysUntil: daysUntil
-                  };
-                });
+                // Get API key and units for weather fetching
+                const weatherApiKey = smartWidgetConfig.apiKey || 
+                                    smartMirrorConfig.widgets?.weather?.apiKey || 
+                                    smartMirrorConfig.widgets?.forecast?.apiKey;
+                const weatherUnits = smartWidgetConfig.units || 
+                                   smartMirrorConfig.widgets?.weather?.units || 
+                                   smartMirrorConfig.widgets?.forecast?.units || 
+                                   'imperial';
+                
+                // Return all upcoming vacations (up to 3) with their details and weather
+                const vacationsToShow = await Promise.all(
+                  upcomingVacations.slice(0, 3).map(async vacation => {
+                    const startDate = new Date(vacation.startDate);
+                    const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    const vacationInfo = {
+                      destination: vacation.destination,
+                      startDate: vacation.startDate,
+                      endDate: vacation.endDate,
+                      daysUntil: daysUntil
+                    };
+                    
+                    // Fetch weather data if API key is configured and destination is validated
+                    if (weatherApiKey && vacation.destination) {
+                      try {
+                        logger.debug(logger.categories.SMART_MIRROR, 
+                          `Fetching weather for vacation destination: ${vacation.destination}`);
+                        
+                        // Try to fetch forecast first, fallback to current weather
+                        let weatherResult = await smartMirror.fetchForecast(
+                          weatherApiKey, 
+                          vacation.destination, 
+                          5, 
+                          weatherUnits
+                        );
+                        
+                        if (weatherResult.success) {
+                          vacationInfo.weather = {
+                            days: weatherResult.days,
+                            location: weatherResult.location,
+                            country: weatherResult.country,
+                            units: weatherResult.units
+                          };
+                          logger.debug(logger.categories.SMART_MIRROR, 
+                            `Weather forecast fetched successfully for ${vacation.destination}`);
+                        } else {
+                          // Fallback to current weather
+                          logger.debug(logger.categories.SMART_MIRROR, 
+                            `Forecast unavailable for ${vacation.destination}, trying current weather`);
+                          const currentWeatherResult = await smartMirror.fetchWeather(
+                            weatherApiKey, 
+                            vacation.destination, 
+                            weatherUnits
+                          );
+                          
+                          if (currentWeatherResult.success) {
+                            const weatherData = currentWeatherResult.data;
+                            vacationInfo.weather = {
+                              days: [{
+                                date: new Date().toISOString().split('T')[0],
+                                tempHigh: weatherData.temp,
+                                tempLow: weatherData.tempMin,
+                                condition: weatherData.condition,
+                                icon: weatherData.icon,
+                                description: weatherData.description
+                              }],
+                              location: vacation.destination,
+                              isFallback: true,
+                              units: weatherUnits
+                            };
+                            logger.debug(logger.categories.SMART_MIRROR, 
+                              `Current weather fetched as fallback for ${vacation.destination}`);
+                          } else {
+                            logger.warning(logger.categories.SMART_MIRROR, 
+                              `Failed to fetch weather for vacation destination: ${vacation.destination} - ${weatherResult.error || currentWeatherResult.error}`);
+                          }
+                        }
+                      } catch (err) {
+                        logger.warning(logger.categories.SMART_MIRROR, 
+                          `Error fetching weather for vacation ${vacation.destination}: ${err.message}`);
+                      }
+                    } else {
+                      logger.debug(logger.categories.SMART_MIRROR, 
+                        'Vacation weather skipped: API key not configured or destination missing');
+                    }
+                    
+                    return vacationInfo;
+                  })
+                );
                 
                 subWidgetData = {
                   type: 'upcomingVacation',
