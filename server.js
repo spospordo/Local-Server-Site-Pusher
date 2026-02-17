@@ -7676,26 +7676,44 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 
-                forecastResult.forecast.days.forEach((day) => {
+                // Log forecast data for diagnostics
+                logger.debug(logger.categories.SMART_MIRROR, `Processing forecast with ${forecastResult.days?.length || 0} days`);
+                
+                const days = forecastResult.days || [];
+                days.forEach((day) => {
                   const dayDate = new Date(day.date);
                   const daysFromNow = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
                   
-                  const hasRain = day.description.toLowerCase().includes('rain') ||
-                                  day.description.toLowerCase().includes('drizzle') ||
-                                  day.description.toLowerCase().includes('thunderstorm') ||
-                                  (day.pop && day.pop.length > 0 && Math.max(...day.pop) > 0.3);
+                  // Check for rain-related conditions in the condition field
+                  const condition = (day.condition || '').toLowerCase();
+                  const hasRainCondition = condition.includes('rain') ||
+                                          condition.includes('drizzle') ||
+                                          condition.includes('showers') ||
+                                          condition.includes('thunderstorm');
+                  
+                  // Check precipitation chance (precipChance is 0-100)
+                  const precipChance = day.precipChance || 0;
+                  const hasHighPrecipChance = precipChance > 30;
+                  
+                  const hasRain = hasRainCondition || hasHighPrecipChance;
                   
                   if (hasRain && daysFromNow >= 0 && daysFromNow <= 5) {
+                    logger.info(logger.categories.SMART_MIRROR, 
+                      `Rain detected on ${day.date}: condition="${day.condition}", precipChance=${precipChance}%`);
+                    
                     rainDays.push({
                       daysFromNow: daysFromNow,
                       date: day.date,
-                      description: day.description,
-                      precipitation: day.pop && day.pop.length > 0 ? Math.max(...day.pop) : 0
+                      description: day.condition || 'Rain expected',
+                      precipitation: precipChance / 100 // Convert to 0-1 range for display
                     });
                   }
                 });
                 
                 if (rainDays.length > 0) {
+                  logger.success(logger.categories.SMART_MIRROR, 
+                    `Rain Forecast sub-widget: ${rainDays.length} day(s) with rain detected`);
+                  
                   subWidgetData = {
                     type: 'rainForecast',
                     priority: subWidget.priority,
@@ -7707,8 +7725,17 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       location: smartWidgetConfig.location
                     }
                   };
+                } else {
+                  logger.debug(logger.categories.SMART_MIRROR, 
+                    'Rain Forecast sub-widget: No rain detected in forecast');
                 }
+              } else {
+                logger.warning(logger.categories.SMART_MIRROR, 
+                  `Rain Forecast sub-widget: Forecast fetch failed - ${forecastResult.error || 'unknown error'}`);
               }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR, 
+                'Rain Forecast sub-widget: API key or location not configured');
             }
             break;
             
