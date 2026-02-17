@@ -7711,6 +7711,58 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
   }
 });
 
+// Helper function to estimate content size for adaptive display mode
+function estimateContentSize(subWidgetData) {
+  // Estimates if content is 'small', 'medium', or 'large' based on data complexity
+  // This helps determine whether to stack or cycle sub-widgets in adaptive mode
+  
+  const type = subWidgetData.type;
+  const data = subWidgetData.data;
+  
+  switch (type) {
+    case 'rainForecast':
+      // Rain forecast is typically compact (icon + text)
+      return 'small';
+      
+    case 'upcomingVacation':
+      // Vacation depends on number of vacations and flight info
+      const vacations = data.vacations || [];
+      if (vacations.length === 1 && !vacations[0].flights?.length) {
+        return 'small';
+      } else if (vacations.length <= 2) {
+        return 'medium';
+      }
+      return 'large';
+      
+    case 'homeAssistantMedia':
+      // Media widget is usually compact (artwork + metadata)
+      return 'small';
+      
+    case 'party':
+      // Party widget has extensive content (weather, tasks, invitees, menu, events)
+      const hasWeather = !!data.weather;
+      const hasTasks = (data.tasks?.list || []).length > 0;
+      const hasInvitees = (data.invitees?.list || []).length > 0;
+      const hasMenu = (data.menu || []).length > 0;
+      const hasEvents = (data.events || []).length > 0;
+      
+      // Count content sections
+      const contentSections = [hasWeather, hasTasks, hasInvitees, hasMenu, hasEvents].filter(Boolean).length;
+      
+      // Party is always at least medium due to header/date display
+      // If it has multiple content sections, it's large
+      if (contentSections >= 3) {
+        return 'large';
+      } else if (contentSections >= 1) {
+        return 'medium';
+      }
+      return 'medium'; // Default for party widget
+      
+    default:
+      return 'medium';
+  }
+}
+
 // Smart Widget data aggregation endpoint
 app.get('/api/smart-mirror/smart-widget', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Smart Widget data requested');
@@ -8076,6 +8128,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
         }
         
         if (subWidgetData) {
+          // Add estimated content size for adaptive display mode
+          subWidgetData.contentSize = estimateContentSize(subWidgetData);
           activeSubWidgets.push(subWidgetData);
         }
       } catch (err) {
@@ -8091,6 +8145,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
       displayMode: smartWidgetConfig.displayMode || 'cycle',
       cycleSpeed: smartWidgetConfig.cycleSpeed || 10,
       simultaneousMax: smartWidgetConfig.simultaneousMax || 2,
+      adaptiveStackThreshold: smartWidgetConfig.adaptiveStackThreshold || 'medium',
       subWidgets: activeSubWidgets
     });
   } catch (err) {
