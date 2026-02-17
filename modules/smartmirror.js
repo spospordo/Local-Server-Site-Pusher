@@ -177,7 +177,7 @@ function getDefaultWidgets() {
       cycleSpeed: 10, // seconds between cycles
       simultaneousMax: 2, // max sub-widgets to show at once in simultaneous mode
       // Adaptive mode settings
-      adaptiveStackThreshold: 'medium' // 'small', 'medium', or 'large' - max size to stack (larger widgets cycle)
+      adaptiveStackThreshold: 'medium', // 'small', 'medium', or 'large' - max size to stack (larger widgets cycle)
       // Shared configuration for sub-widgets
       apiKey: '', // For weather API (rain forecast)
       location: '', // For weather location
