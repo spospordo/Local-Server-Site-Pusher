@@ -2883,6 +2883,70 @@
                 });
                 vacationDiv.appendChild(dateDiv);
                 
+                // Add weather information if available
+                if (vacation.weather && vacation.weather.days && vacation.weather.days.length > 0) {
+                    const weatherDiv = document.createElement('div');
+                    weatherDiv.style.marginTop = '10px';
+                    weatherDiv.style.padding = '8px';
+                    weatherDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+                    weatherDiv.style.borderRadius = '5px';
+                    weatherDiv.style.fontSize = '0.9rem';
+                    
+                    // Use first day of forecast (typically start date or current weather)
+                    const weatherDay = vacation.weather.days[0];
+                    
+                    // Weather icon and temp
+                    const weatherInfoDiv = document.createElement('div');
+                    weatherInfoDiv.style.display = 'flex';
+                    weatherInfoDiv.style.alignItems = 'center';
+                    weatherInfoDiv.style.justifyContent = 'center';
+                    weatherInfoDiv.style.gap = '8px';
+                    
+                    const weatherIcon = document.createElement('span');
+                    weatherIcon.style.fontSize = '1.5rem';
+                    weatherIcon.textContent = getWeatherIcon(weatherDay.icon);
+                    weatherInfoDiv.appendChild(weatherIcon);
+                    
+                    const tempDiv = document.createElement('span');
+                    tempDiv.style.fontWeight = '600';
+                    const tempHigh = Math.round(weatherDay.tempHigh);
+                    const tempLow = weatherDay.tempLow ? Math.round(weatherDay.tempLow) : null;
+                    const tempUnit = vacation.weather.units === 'metric' ? 'C' : 'F';
+                    
+                    if (tempLow !== null && tempLow !== tempHigh) {
+                        tempDiv.textContent = `${tempHigh}°/${tempLow}°${tempUnit}`;
+                    } else {
+                        tempDiv.textContent = `${tempHigh}°${tempUnit}`;
+                    }
+                    weatherInfoDiv.appendChild(tempDiv);
+                    
+                    weatherDiv.appendChild(weatherInfoDiv);
+                    
+                    // Weather condition
+                    if (weatherDay.condition) {
+                        const conditionDiv = document.createElement('div');
+                        conditionDiv.style.fontSize = '0.8rem';
+                        conditionDiv.style.opacity = '0.8';
+                        conditionDiv.style.marginTop = '4px';
+                        conditionDiv.style.textAlign = 'center';
+                        conditionDiv.textContent = weatherDay.condition;
+                        weatherDiv.appendChild(conditionDiv);
+                    }
+                    
+                    // Indicate if using current weather fallback
+                    if (vacation.weather.isFallback) {
+                        const fallbackNote = document.createElement('div');
+                        fallbackNote.style.fontSize = '0.7rem';
+                        fallbackNote.style.opacity = '0.6';
+                        fallbackNote.style.marginTop = '4px';
+                        fallbackNote.style.fontStyle = 'italic';
+                        fallbackNote.textContent = 'Current weather';
+                        weatherDiv.appendChild(fallbackNote);
+                    }
+                    
+                    vacationDiv.appendChild(weatherDiv);
+                }
+                
                 // Add flight information if tracking enabled and flights exist
                 if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
                     const validatedFlights = vacation.flights.filter(f => f.validated);

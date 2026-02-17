@@ -393,6 +393,76 @@ For issues or questions:
 4. Test location validation in admin UI
 5. Check browser console for frontend errors
 
+## Troubleshooting Weather Display
+
+### Weather Not Showing in Vacation Sub-Widget
+
+If weather data is not displaying in the Smart Mirror vacation sub-widget, check the following:
+
+**1. Verify Smart Widget Configuration**
+- Smart Widget must be enabled (`widgets.smartWidget.enabled = true`)
+- Vacation sub-widget must be enabled in `subWidgets` array
+- Weather API key must be configured in one of these locations (checked in order):
+  - `widgets.smartWidget.apiKey`
+  - `widgets.weather.apiKey`
+  - `widgets.forecast.apiKey`
+
+**2. Verify Vacation Location is Valid**
+- Use the "🔍 Test Location for Weather" button in Admin > House > Vacation
+- The location name must return valid weather data from OpenWeatherMap
+- Common valid formats: "New York", "Paris, FR", "London, UK", "Tokyo, JP"
+- Invalid locations will prevent weather fetching
+
+**3. Check Server Logs**
+When Smart Widget API is called, look for these log entries:
+```
+[SMART_MIRROR] Fetching weather for vacation destination: <location>
+[SMART_MIRROR] Weather forecast fetched successfully for <location>
+```
+
+Or these warnings if weather fetch fails:
+```
+[SMART_MIRROR] Failed to fetch weather for vacation destination: <location>
+[SMART_MIRROR] Vacation weather skipped: API key not configured
+```
+
+**4. Run Diagnostic Test Script**
+```bash
+node scripts/test-vacation-weather-display.js
+```
+
+This script will:
+- Check if weather data is returned by the Smart Widget API
+- Verify configuration (API key, enabled status, etc.)
+- Show upcoming vacation destinations
+- Provide actionable next steps
+
+**5. Common Issues and Solutions**
+
+| Issue | Solution |
+|-------|----------|
+| No weather data in API response | Check API key configuration; verify destination is valid |
+| Weather shows "Current weather" fallback | Normal when forecast unavailable; destination may not support 5-day forecast |
+| Weather not updating after location change | Refresh the smart mirror page; check browser cache |
+| All vacations missing weather | Check Smart Widget is enabled; verify at least one API key is configured |
+| Some vacations have weather, others don't | Validate problem locations using test button; some destinations may be invalid |
+
+**6. Weather Data Flow**
+
+The complete flow for weather display:
+1. Admin adds vacation with destination name
+2. Admin validates location using "Test Location" button (optional but recommended)
+3. Smart Widget API calls `/api/smart-mirror/smart-widget`
+4. Backend fetches weather for each vacation destination:
+   - First tries 5-day forecast (`fetchForecast`)
+   - Falls back to current weather (`fetchWeather`) if forecast fails
+   - Logs success/failure for diagnostics
+5. Frontend receives vacation data with weather embedded
+6. `renderUpcomingVacation()` displays weather icon, temperature, and condition
+7. Weather updates on each Smart Widget refresh cycle
+
 ## Conclusion
 
 The vacation widget is fully implemented and tested. All acceptance criteria have been met. The widget is disabled by default and can be enabled by administrators through the smart mirror settings.
+
+**Weather Display Feature:** As of the latest update, the vacation sub-widget now fetches and displays weather information for each validated vacation destination, showing current conditions or forecast data with proper fallback handling.
