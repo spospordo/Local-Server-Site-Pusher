@@ -5025,6 +5025,49 @@
                     </div>
                 </div>
 
+                <!-- Calendar Event Filters -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🔍 Calendar Event Filters (Keyword-Based)
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="eventFiltersEnabled">
+                                Enable Event Filtering
+                            </label>
+                            <small style="color: #666; display: block; margin-top: 4px;">
+                                Filter or modify calendar events based on keywords in their title or description.
+                            </small>
+                        </div>
+                        
+                        <div id="eventFiltersContainer" style="display: none;">
+                            <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 12px; margin: 15px 0; border-radius: 3px;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">📋 How It Works</div>
+                                <small style="color: #555; line-height: 1.6;">
+                                    Create filter rules with keywords. When an event's title or description matches any keyword in a rule:
+                                    <ul style="margin: 8px 0 0 20px; padding: 0;">
+                                        <li><strong>Hide:</strong> Event won't appear in the calendar display</li>
+                                        <li><strong>Replace:</strong> Event title and/or description will be replaced with your custom text</li>
+                                    </ul>
+                                    Keywords are case-insensitive. Rules are applied to all connected calendars.
+                                </small>
+                            </div>
+                            
+                            <div id="eventFilterRulesList" style="margin-bottom: 15px;">
+                                <!-- Filter rules will be added here dynamically -->
+                            </div>
+                            
+                            <button type="button" class="btn-test-connection" onclick="addEventFilterRule()" style="margin-top: 10px;">
+                                ➕ Add Filter Rule
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Weather Widget -->
                 <div class="collapsible-section">
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -13207,6 +13250,9 @@
                     updateAutoThemeStatus('portrait', config);
                     updateAutoThemeStatus('landscape', config);
                     
+                    // Load event filters configuration
+                    loadEventFilters(config);
+                    
                     console.log('Smart Mirror configuration loaded');
                     console.log('Portrait layouts:', portraitLayout);
                     console.log('Landscape layouts:', landscapeLayout);
@@ -13236,6 +13282,137 @@
                 showSmartMirrorAlert('Error loading configuration: ' + error.message, 'error');
             }
         }
+        
+        // Event Filter Management Functions
+        let eventFilterRules = [];
+        
+        function loadEventFilters(config) {
+            const filterConfig = config.calendarEventFilters || { enabled: false, rules: [] };
+            eventFilterRules = filterConfig.rules || [];
+            
+            // Set enabled checkbox
+            document.getElementById('eventFiltersEnabled').checked = filterConfig.enabled || false;
+            
+            // Toggle visibility of filter container
+            toggleEventFiltersContainer();
+            
+            // Render existing rules
+            renderEventFilterRules();
+        }
+        
+        function toggleEventFiltersContainer() {
+            const enabled = document.getElementById('eventFiltersEnabled').checked;
+            const container = document.getElementById('eventFiltersContainer');
+            container.style.display = enabled ? 'block' : 'none';
+        }
+        
+        function renderEventFilterRules() {
+            const container = document.getElementById('eventFilterRulesList');
+            
+            if (eventFilterRules.length === 0) {
+                container.innerHTML = '<div style="padding: 15px; background: #f8f9fa; border-radius: 4px; text-align: center; color: #666;">No filter rules configured. Click "Add Filter Rule" to create one.</div>';
+                return;
+            }
+            
+            let html = '';
+            eventFilterRules.forEach((rule, index) => {
+                html += `
+                    <div class="event-filter-rule" style="background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 12px;">
+                            <div style="flex: 1;">
+                                <strong style="color: #333;">Rule ${index + 1}</strong>
+                                ${rule.action === 'hide' ? '<span style="background: #ffe4e4; color: #c62828; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; margin-left: 8px;">HIDE</span>' : '<span style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; margin-left: 8px;">REPLACE</span>'}
+                            </div>
+                            <button type="button" onclick="removeEventFilterRule(${index})" style="background: #dc3545; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="font-size: 0.9em; font-weight: 600;">Keywords (comma-separated)</label>
+                            <input type="text" 
+                                   value="${(rule.keywords || []).join(', ')}" 
+                                   onchange="updateEventFilterRule(${index}, 'keywords', this.value.split(',').map(k => k.trim()).filter(k => k))"
+                                   placeholder="work, meeting, appointment"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <small style="color: #666; font-size: 0.85em;">Case-insensitive. Matches if any keyword appears in event title or description.</small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="font-size: 0.9em; font-weight: 600;">Action</label>
+                            <select onchange="updateEventFilterRule(${index}, 'action', this.value)" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="hide" ${rule.action === 'hide' ? 'selected' : ''}>Hide Event</option>
+                                <option value="replace" ${rule.action === 'replace' ? 'selected' : ''}>Replace Title/Description</option>
+                            </select>
+                        </div>
+                        
+                        <div id="replaceFields${index}" style="display: ${rule.action === 'replace' ? 'block' : 'none'};">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label style="font-size: 0.9em; font-weight: 600;">Replacement Title</label>
+                                <input type="text" 
+                                       value="${rule.replacementTitle || ''}" 
+                                       onchange="updateEventFilterRule(${index}, 'replacementTitle', this.value)"
+                                       placeholder="Private Event"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: #666; font-size: 0.85em;">Leave blank to keep original title.</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="font-size: 0.9em; font-weight: 600;">Replacement Description</label>
+                                <textarea onchange="updateEventFilterRule(${index}, 'replacementDescription', this.value)"
+                                          placeholder="(Leave blank to keep original description)"
+                                          style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px;">${rule.replacementDescription || ''}</textarea>
+                                <small style="color: #666; font-size: 0.85em;">Leave blank to keep original description.</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function addEventFilterRule() {
+            const newRule = {
+                id: 'rule-' + Date.now(),
+                keywords: [],
+                action: 'hide',
+                replacementTitle: '',
+                replacementDescription: ''
+            };
+            eventFilterRules.push(newRule);
+            renderEventFilterRules();
+        }
+        
+        function removeEventFilterRule(index) {
+            if (confirm('Are you sure you want to remove this filter rule?')) {
+                eventFilterRules.splice(index, 1);
+                renderEventFilterRules();
+            }
+        }
+        
+        function updateEventFilterRule(index, field, value) {
+            if (eventFilterRules[index]) {
+                eventFilterRules[index][field] = value;
+                
+                // If action changed, re-render to show/hide replace fields
+                if (field === 'action') {
+                    const replaceFields = document.getElementById(`replaceFields${index}`);
+                    if (replaceFields) {
+                        replaceFields.style.display = value === 'replace' ? 'block' : 'none';
+                    }
+                }
+            }
+        }
+        
+        // Add event listener for enable/disable toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkbox = document.getElementById('eventFiltersEnabled');
+            if (checkbox) {
+                checkbox.addEventListener('change', toggleEventFiltersContainer);
+            }
+        });
         
         async function saveSmartMirrorConfig() {
             try {
@@ -13488,6 +13665,10 @@
                         ),
                         enabled: document.getElementById('flightApiEnabled').value === 'true',
                         monthlyLimit: parseInt(document.getElementById('flightApiMonthlyLimit').value) || 100
+                    },
+                    calendarEventFilters: {
+                        enabled: document.getElementById('eventFiltersEnabled').checked,
+                        rules: eventFilterRules
                     }
                 };
                 

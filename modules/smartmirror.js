@@ -260,6 +260,18 @@ function getDefaultConfig() {
       apiKey: '',
       enabled: false,
       monthlyLimit: 100
+    },
+    calendarEventFilters: {
+      enabled: false,
+      rules: []
+      // Each rule structure:
+      // {
+      //   id: 'unique-id',
+      //   keywords: ['keyword1', 'keyword2'],  // Case-insensitive keywords to match
+      //   action: 'hide' | 'replace',          // Action to take when matched
+      //   replacementTitle: 'New Title',       // Used when action is 'replace'
+      //   replacementDescription: 'New Desc'   // Used when action is 'replace'
+      // }
     }
   };
 }
@@ -891,6 +903,75 @@ function _extractICalStringValue(property) {
   return String(property);
 }
 
+/**
+ * Apply keyword-based filters to calendar events
+ * @param {Array} events - Array of calendar events
+ * @param {Object} filterConfig - Filter configuration from config
+ * @returns {Array} - Filtered/modified events
+ */
+function _applyEventFilters(events, filterConfig) {
+  // If filtering is disabled or no rules, return events unchanged
+  if (!filterConfig || !filterConfig.enabled || !filterConfig.rules || filterConfig.rules.length === 0) {
+    return events;
+  }
+  
+  logger.debug(logger.categories.SMART_MIRROR, `Applying ${filterConfig.rules.length} event filter rules`);
+  
+  const filteredEvents = [];
+  
+  for (const event of events) {
+    let shouldHide = false;
+    let modifiedEvent = { ...event };
+    
+    // Check each filter rule
+    for (const rule of filterConfig.rules) {
+      if (!rule.keywords || rule.keywords.length === 0) continue;
+      
+      // Check if any keyword matches the title or description (case-insensitive)
+      const titleLower = (event.title || '').toLowerCase();
+      const descriptionLower = (event.description || '').toLowerCase();
+      
+      const hasMatch = rule.keywords.some(keyword => {
+        const keywordLower = keyword.toLowerCase();
+        return titleLower.includes(keywordLower) || descriptionLower.includes(keywordLower);
+      });
+      
+      if (hasMatch) {
+        logger.debug(logger.categories.SMART_MIRROR, `Event "${event.title}" matched filter rule with keywords: ${rule.keywords.join(', ')}`);
+        
+        if (rule.action === 'hide') {
+          shouldHide = true;
+          logger.debug(logger.categories.SMART_MIRROR, `Hiding event: "${event.title}"`);
+          break; // No need to check more rules if we're hiding
+        } else if (rule.action === 'replace') {
+          // Replace title and/or description if provided
+          if (rule.replacementTitle) {
+            modifiedEvent.title = rule.replacementTitle;
+            logger.debug(logger.categories.SMART_MIRROR, `Replaced title: "${event.title}" -> "${rule.replacementTitle}"`);
+          }
+          if (rule.replacementDescription !== undefined) {
+            modifiedEvent.description = rule.replacementDescription;
+            logger.debug(logger.categories.SMART_MIRROR, `Replaced description for event: "${event.title}"`);
+          }
+          // Continue checking other rules in case we also want to hide
+        }
+      }
+    }
+    
+    // Add event to result if not hidden
+    if (!shouldHide) {
+      filteredEvents.push(modifiedEvent);
+    }
+  }
+  
+  const removedCount = events.length - filteredEvents.length;
+  if (removedCount > 0) {
+    logger.info(logger.categories.SMART_MIRROR, `Event filtering: ${removedCount} event(s) hidden, ${filteredEvents.length} event(s) remaining`);
+  }
+  
+  return filteredEvents;
+}
+
 // Fetch calendar events from ICS feed with server-side caching
 async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
   logger.debug(logger.categories.SMART_MIRROR, `Fetching calendar events from ${calendarUrls.length} feeds (forceRefresh: ${forceRefresh})`);
@@ -1069,8 +1150,11 @@ async function fetchCalendarEvents(calendarUrls, forceRefresh = false) {
   // Sort events by start date
   allEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
   
+  // Apply keyword-based filters if configured
+  const filteredEvents = _applyEventFilters(allEvents, config.calendarEventFilters);
+  
   // Limit to 10 most recent events
-  const limitedEvents = allEvents.slice(0, 10);
+  const limitedEvents = filteredEvents.slice(0, 10);
   
   // Build eventsByUrl map for future 304 handling
   // NOTE: This is a simplified implementation that stores all events for each URL.
