@@ -149,7 +149,9 @@ function addVacationDate(vacationDate) {
     destination: vacationDate.destination || "",
     notes: vacationDate.notes || "",
     flights: vacationDate.flights || [],
-    flightTrackingEnabled: vacationDate.flightTrackingEnabled || false
+    flightTrackingEnabled: vacationDate.flightTrackingEnabled || false,
+    addToClockWidget: vacationDate.addToClockWidget || false,
+    timezone: vacationDate.timezone || null
   });
   return saveVacationData(vacation);
 }
@@ -358,6 +360,77 @@ function deleteConnection(id) {
   return saveMediaCenterData(mediaCenter);
 }
 
+// Sync vacation timezones with clock widget
+function syncVacationTimezonesToClock(smartMirror) {
+  try {
+    const vacation = getVacationData();
+    const dates = vacation.dates || [];
+    const now = new Date();
+    
+    // Get current clock config
+    const clockConfig = smartMirror.loadConfig();
+    let additionalTimezones = clockConfig.widgets?.clock?.additionalTimezones || [];
+    
+    // Calculate active vacation timezones
+    const activeVacationTimezones = [];
+    dates.forEach(date => {
+      if (!date.addToClockWidget || !date.timezone || !date.destination) {
+        return;
+      }
+      
+      const startDate = new Date(date.startDate);
+      const endDate = new Date(date.endDate);
+      
+      // Display period: 1 week (7 days) before start, during vacation, 5 days after end
+      const displayStartDate = new Date(startDate);
+      displayStartDate.setDate(displayStartDate.getDate() - 7);
+      
+      const displayEndDate = new Date(endDate);
+      displayEndDate.setDate(displayEndDate.getDate() + 5);
+      
+      // Check if current date is within display period
+      if (now >= displayStartDate && now <= displayEndDate) {
+        activeVacationTimezones.push({
+          city: date.destination,
+          timezone: date.timezone,
+          vacationId: date.id
+        });
+      }
+    });
+    
+    // Remove old vacation timezones (keep permanent ones without vacationId)
+    additionalTimezones = additionalTimezones.filter(tz => !tz.vacationId);
+    
+    // Add active vacation timezones (respecting the max 3 limit)
+    const maxTimezones = 3;
+    const permanentCount = additionalTimezones.length;
+    const availableSlots = Math.max(0, maxTimezones - permanentCount);
+    
+    // Add as many vacation timezones as fit
+    const timezonesToAdd = activeVacationTimezones.slice(0, availableSlots);
+    additionalTimezones.push(...timezonesToAdd);
+    
+    // Update clock config
+    if (!clockConfig.widgets) clockConfig.widgets = {};
+    if (!clockConfig.widgets.clock) clockConfig.widgets.clock = {};
+    clockConfig.widgets.clock.additionalTimezones = additionalTimezones;
+    
+    const result = smartMirror.saveConfig(clockConfig);
+    
+    console.log(`🕐 [House] Synced vacation timezones: ${timezonesToAdd.length} active, ${additionalTimezones.length} total`);
+    
+    return {
+      success: true,
+      activeVacations: timezonesToAdd.length,
+      totalTimezones: additionalTimezones.length,
+      skipped: activeVacationTimezones.length - timezonesToAdd.length
+    };
+  } catch (err) {
+    console.error(`❌ [House] Error syncing vacation timezones: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   init,
   getVacationData,
@@ -383,5 +456,6 @@ module.exports = {
   deleteDevice,
   addConnection,
   updateConnection,
-  deleteConnection
+  deleteConnection,
+  syncVacationTimezonesToClock
 };

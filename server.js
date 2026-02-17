@@ -8262,6 +8262,8 @@ app.post('/admin/api/house/vacation/dates', requireAuth, (req, res) => {
   try {
     const result = house.addVacationDate(req.body);
     if (result.success) {
+      // Sync vacation timezones to clock widget
+      house.syncVacationTimezonesToClock(smartMirror);
       res.json({ success: true, message: 'Vacation date added successfully' });
     } else {
       res.status(500).json({ error: result.error });
@@ -8276,6 +8278,8 @@ app.put('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
   try {
     const result = house.updateVacationDate(req.params.id, req.body);
     if (result.success) {
+      // Sync vacation timezones to clock widget
+      house.syncVacationTimezonesToClock(smartMirror);
       res.json({ success: true, message: 'Vacation date updated successfully' });
     } else {
       res.status(404).json({ error: result.error });
@@ -8290,6 +8294,8 @@ app.delete('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
   try {
     const result = house.deleteVacationDate(req.params.id);
     if (result.success) {
+      // Sync vacation timezones to clock widget
+      house.syncVacationTimezonesToClock(smartMirror);
       res.json({ success: true, message: 'Vacation date deleted successfully' });
     } else {
       res.status(500).json({ error: result.error });
@@ -8666,4 +8672,35 @@ app.listen(PORT, '0.0.0.0', () => {
   
   console.log('📅 Annual expense increase job scheduled for January 1st at midnight');
   logger.info(logger.categories.FINANCE, 'Annual expense increase job scheduled for January 1st');
+  
+  // Schedule vacation timezone sync every day at midnight
+  cron.schedule('0 0 0 * * *', () => {
+    console.log('\n🕐 Running vacation timezone sync job...');
+    logger.info(logger.categories.SYSTEM, 'Starting vacation timezone sync');
+    
+    const result = house.syncVacationTimezonesToClock(smartMirror);
+    
+    if (result.success) {
+      console.log(`✅ Vacation timezone sync complete: ${result.activeVacations} active, ${result.totalTimezones} total`);
+      if (result.skipped > 0) {
+        console.log(`⚠️  ${result.skipped} vacation timezone(s) skipped due to clock widget limit`);
+      }
+      logger.success(logger.categories.SYSTEM, `Vacation timezone sync: ${result.activeVacations} active, ${result.totalTimezones} total`);
+    } else {
+      console.error(`❌ Error syncing vacation timezones: ${result.error}`);
+      logger.error(logger.categories.SYSTEM, `Error syncing vacation timezones: ${result.error}`);
+    }
+  }, {
+    timezone: "America/New_York" // Adjust timezone as needed
+  });
+  
+  console.log('📅 Vacation timezone sync job scheduled for daily at midnight');
+  logger.info(logger.categories.SYSTEM, 'Vacation timezone sync job scheduled');
+  
+  // Initial sync on startup
+  console.log('🕐 Running initial vacation timezone sync...');
+  const initialSyncResult = house.syncVacationTimezonesToClock(smartMirror);
+  if (initialSyncResult.success) {
+    console.log(`✅ Initial sync complete: ${initialSyncResult.activeVacations} active vacation timezone(s)`);
+  }
 });
