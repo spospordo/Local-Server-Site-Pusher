@@ -5549,6 +5549,7 @@
                                     <option value="cycle">Cycle (rotate through sub-widgets)</option>
                                     <option value="simultaneous">Simultaneous (show multiple at once)</option>
                                     <option value="priority">Priority (show highest priority only)</option>
+                                    <option value="adaptive">Adaptive (stack small/medium, cycle large)</option>
                                 </select>
                                 <small style="color: #666; display: block; margin-top: 4px;">
                                     Choose how sub-widgets are displayed
@@ -5563,11 +5564,32 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
-                            <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Maximum number of sub-widgets to show at once in simultaneous mode
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
+                                <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    Maximum number of sub-widgets to show at once in simultaneous mode
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="smartWidgetAdaptiveThreshold">Adaptive Stack Threshold</label>
+                                <select id="smartWidgetAdaptiveThreshold">
+                                    <option value="small">Small (stack only small widgets)</option>
+                                    <option value="medium">Medium (stack small & medium widgets)</option>
+                                    <option value="large">Large (stack all except very large)</option>
+                                </select>
+                                <small style="color: #666; display: block; margin-top: 4px;">
+                                    In adaptive mode, widgets up to this size are stacked vertically; larger widgets cycle
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 10px;">
+                            <small style="color: #666; display: block;">
+                                <strong>Adaptive Mode:</strong> Small/medium widgets (rain, vacation, media) display as horizontally long tabs stacked vertically. Large widgets (party with extensive content) cycle separately.
+                            </small>
+                        </div>
                             </small>
                         </div>
 
@@ -13162,6 +13184,7 @@
                     document.getElementById('smartWidgetDisplayMode').value = smartWidget.displayMode || 'cycle';
                     document.getElementById('smartWidgetCycleSpeed').value = smartWidget.cycleSpeed || 10;
                     document.getElementById('smartWidgetSimultaneousMax').value = smartWidget.simultaneousMax || 2;
+                    document.getElementById('smartWidgetAdaptiveThreshold').value = smartWidget.adaptiveStackThreshold || 'medium';
                     
                     // Sub-widgets configuration
                     const subWidgets = smartWidget.subWidgets || [
@@ -13591,6 +13614,7 @@
                             displayMode: document.getElementById('smartWidgetDisplayMode').value,
                             cycleSpeed: parseInt(document.getElementById('smartWidgetCycleSpeed').value),
                             simultaneousMax: parseInt(document.getElementById('smartWidgetSimultaneousMax').value),
+                            adaptiveStackThreshold: document.getElementById('smartWidgetAdaptiveThreshold').value,
                             subWidgets: [
                                 {
                                     type: 'rainForecast',

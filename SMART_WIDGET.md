@@ -13,8 +13,10 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
   - **Cycle**: Rotates through sub-widgets at a configurable speed
   - **Simultaneous**: Shows multiple sub-widgets at once (configurable maximum)
   - **Priority**: Displays only the highest-priority sub-widget with content
+  - **Adaptive**: Stacks small/medium widgets as horizontal tabs vertically; cycles large widgets separately
 - **Priority-Based Ordering**: Sub-widgets with lower priority numbers appear first
 - **Automatic Updates**: Integrates with the Smart Mirror refresh system
+- **Responsive Layout**: Adaptive mode automatically adjusts based on content size
 
 ### Initial Sub-Widgets
 
@@ -63,11 +65,16 @@ Navigate to **Admin → Server → Smart Mirror → Smart Widget** to configure:
 #### Display Settings
 
 - **Display Mode**: Choose how sub-widgets are shown
-  - Cycle: Rotate through sub-widgets
-  - Simultaneous: Show multiple at once
-  - Priority: Show only highest priority
+  - **Cycle**: Rotate through sub-widgets one at a time
+  - **Simultaneous**: Show multiple at once in a grid
+  - **Priority**: Show only highest priority widget
+  - **Adaptive**: Stack small/medium widgets as horizontal tabs; cycle large widgets
 - **Cycle Speed**: Global default time between rotations (5-60 seconds) - used as fallback
-- **Max Simultaneous**: Maximum sub-widgets to show at once (1-4)
+- **Max Simultaneous**: Maximum sub-widgets to show at once (1-4) in simultaneous mode
+- **Adaptive Stack Threshold**: In adaptive mode, determines which widgets to stack vs cycle
+  - **Small**: Only stack small widgets (rain, media); cycle medium and large
+  - **Medium**: Stack small and medium widgets; cycle large widgets (default)
+  - **Large**: Stack most widgets; cycle only very large widgets
 
 #### Sub-Widget Configuration
 
@@ -190,10 +197,41 @@ The Smart Widget automatically:
      - **Special case**: On party day, only the party widget displays without cycling
    - **Simultaneous**: Shows multiple sub-widgets in a grid
    - **Priority**: Shows only the first (highest priority) sub-widget
+   - **Adaptive**: Intelligently stacks or cycles widgets based on content size
+     - Small/medium widgets display as horizontally long tabs stacked vertically
+     - Large widgets (with extensive content) cycle separately below the stack
+     - Provides at-a-glance viewing of compact info while keeping large content accessible
+
+### Adaptive Mode Details
+
+Adaptive mode combines the best of stacking and cycling:
+
+**Content Size Detection:**
+- Each sub-widget is automatically classified as `small`, `medium`, or `large` based on its data complexity
+- **Small**: Rain forecast, media player (compact icon + text)
+- **Medium**: Vacation (depends on number of destinations), party with minimal data
+- **Large**: Party widget with extensive content (weather, tasks, invitees, menu, events)
+
+**Stack Threshold Configuration:**
+- **Small threshold**: Only stack small widgets; cycle medium and large
+- **Medium threshold** (default): Stack small and medium widgets; cycle large
+- **Large threshold**: Stack most widgets; cycle only very large
+
+**Layout Behavior:**
+- Widgets below the threshold are rendered as horizontally long tabs stacked vertically
+- Each stacked widget displays simultaneously for at-a-glance viewing
+- Widgets above the threshold cycle in a separate area below the stack
+- If all widgets are stackable, no cycling occurs
+- If all widgets are cyclable, behaves like normal cycle mode
+
+**Responsive Design:**
+- Stacked widgets use full width of the container (horizontally long tabs)
+- Vertical scrolling enabled if stacked content exceeds available height
+- Maintains party day priority (party widget takes over entirely on party day)
 
 ### Cycling Behavior
 
-In cycle mode:
+In cycle and adaptive modes:
 - Each sub-widget has its own display duration (`cycleTime` in seconds)
 - Widgets without content are automatically skipped
 - The widget cycles using a dedicated interval timer

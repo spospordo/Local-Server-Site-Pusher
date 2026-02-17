@@ -2598,6 +2598,100 @@
                         clearTimeout(smartWidgetCycleInterval);
                         smartWidgetCycleInterval = null;
                     }
+                } else if (displayMode === 'adaptive') {
+                    // Adaptive mode - stack small/medium widgets, cycle large widgets
+                    const adaptiveStackThreshold = data.adaptiveStackThreshold || 'medium';
+                    
+                    // Define size ordering: small < medium < large
+                    const sizeOrder = { small: 1, medium: 2, large: 3 };
+                    const thresholdLevel = sizeOrder[adaptiveStackThreshold] || 2;
+                    
+                    // Separate widgets into stackable and cyclable
+                    const stackableWidgets = [];
+                    const cyclableWidgets = [];
+                    
+                    subWidgets.forEach(sw => {
+                        const widgetSize = sw.contentSize || 'medium';
+                        const widgetLevel = sizeOrder[widgetSize] || 2;
+                        
+                        if (widgetLevel <= thresholdLevel) {
+                            stackableWidgets.push(sw);
+                        } else {
+                            cyclableWidgets.push(sw);
+                        }
+                    });
+                    
+                    // Create container for stacked widgets
+                    const stackContainer = document.createElement('div');
+                    stackContainer.className = 'smart-widget-adaptive-stack';
+                    stackContainer.style.display = 'flex';
+                    stackContainer.style.flexDirection = 'column';
+                    stackContainer.style.gap = '15px';
+                    stackContainer.style.overflowY = 'auto';
+                    stackContainer.style.maxHeight = '100%';
+                    
+                    // Render all stackable widgets as horizontally long tabs
+                    stackableWidgets.forEach(subWidget => {
+                        const subDiv = renderSubWidget(subWidget);
+                        if (subDiv) {
+                            // Apply horizontally long tab styling
+                            subDiv.style.width = '100%';
+                            subDiv.style.minHeight = 'auto';
+                            stackContainer.appendChild(subDiv);
+                        }
+                    });
+                    
+                    // If we have stackable widgets, add the stack container
+                    if (stackableWidgets.length > 0) {
+                        content.appendChild(stackContainer);
+                    }
+                    
+                    // If we also have cyclable widgets, cycle through them separately
+                    if (cyclableWidgets.length > 0) {
+                        // Check for party day priority
+                        const partyWidget = cyclableWidgets.find(sw => sw.type === 'party' && sw.isPartyDay);
+                        
+                        if (partyWidget) {
+                            // On party day, show ONLY the party widget without cycling
+                            content.innerHTML = ''; // Clear stack to show only party
+                            const subDiv = renderSubWidget(partyWidget);
+                            if (subDiv) content.appendChild(subDiv);
+                            
+                            content.dataset.isPartyDay = 'true';
+                            if (smartWidgetCycleInterval) {
+                                clearTimeout(smartWidgetCycleInterval);
+                                smartWidgetCycleInterval = null;
+                            }
+                        } else if (stackableWidgets.length === 0) {
+                            // No stackable widgets, just cycle through cyclable ones normally
+                            content.dataset.isPartyDay = 'false';
+                            if (!content.dataset.cycleIndex) {
+                                content.dataset.cycleIndex = '0';
+                            }
+                            cycleSubWidget(content, cyclableWidgets);
+                        } else {
+                            // Both stacked and cyclable widgets present
+                            // Create a cycle container below the stack
+                            const cycleContainer = document.createElement('div');
+                            cycleContainer.className = 'smart-widget-adaptive-cycle';
+                            cycleContainer.style.marginTop = '15px';
+                            cycleContainer.style.flex = '1';
+                            cycleContainer.style.minHeight = '200px';
+                            content.appendChild(cycleContainer);
+                            
+                            // Initialize and start cycling in the cycle container
+                            if (!cycleContainer.dataset.cycleIndex) {
+                                cycleContainer.dataset.cycleIndex = '0';
+                            }
+                            cycleSubWidget(cycleContainer, cyclableWidgets);
+                        }
+                    } else {
+                        // No cyclable widgets, clear any cycling
+                        if (smartWidgetCycleInterval) {
+                            clearTimeout(smartWidgetCycleInterval);
+                            smartWidgetCycleInterval = null;
+                        }
+                    }
                 } else {
                     // Cycle mode - show one at a time, cycling through them
                     
