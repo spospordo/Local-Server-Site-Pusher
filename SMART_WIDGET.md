@@ -324,6 +324,11 @@ Potential additions:
 - Verify OpenWeatherMap API key is configured
 - Check location is correct
 - Ensure there's actually rain in the 5-day forecast
+- Check Smart Mirror logs for diagnostic messages (see `RAIN_FORECAST_FIX.md` for details)
+- Rain is detected when:
+  - Weather condition contains "rain", "drizzle", "showers", or "thunderstorm" (case-insensitive), OR
+  - Precipitation chance exceeds 30%
+- See `RAIN_FORECAST_FIX.md` for complete troubleshooting guide
 
 ### Vacation Not Showing
 - Add vacation dates in House → Vacation section
@@ -458,6 +463,18 @@ The party sub-widget includes robust error handling:
   - Updated admin UI with cycle time fields for each sub-widget
   - Created dedicated cycling interval for proper per-widget timing
   - Enhanced documentation with detailed cycling behavior and examples
+
+- **v2.6.30** (2026-02-17): Rain Forecast Sub-Widget Fix
+  - **Fixed critical bug**: Rain Forecast sub-widget not displaying when rain in forecast
+  - Root cause: Data structure mismatch between API response and detection logic
+  - Fixed data access: `forecastResult.days` (was incorrectly `forecastResult.forecast.days`)
+  - Fixed property names: `day.condition` (was incorrectly `day.description`)
+  - Fixed data types: `day.precipChance` number (was incorrectly `day.pop` array)
+  - Added "showers" keyword to rain detection (rain, drizzle, showers, thunderstorm)
+  - Added comprehensive error handling and diagnostic logging
+  - Created test suite: `test-rain-forecast-fix.js` (6/6 tests passing)
+  - Created documentation: `RAIN_FORECAST_FIX.md` and `RAIN_FORECAST_FIX_SUMMARY.md`
+  - Security scan: 0 vulnerabilities (CodeQL)
 
 - **v2.6.6** (2026-02-03): Grid Editor Integration Fix
   - Added Smart Widget to WIDGET_ICONS registry in admin dashboard
