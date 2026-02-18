@@ -404,6 +404,26 @@ Export and import your complete site configuration through the admin interface:
 2. Click **Download Backup File** to export all configurations
 3. Use **Import Data** to restore from a previously exported backup
 
+### SFTP Backup Management
+
+**New Feature**: Automatically upload and download backups to/from remote SFTP storage (e.g., Synology NAS, remote server).
+
+**Features:**
+- 🔐 Secure credential storage with AES-256-GCM encryption
+- 🔑 Supports password and SSH key-based authentication
+- 🧪 Built-in connection testing with diagnostics
+- 📤 One-click backup upload to SFTP server
+- 📥 Browse and download backups from SFTP server
+- 🚀 Streaming transfers for large files
+
+**Quick Setup:**
+1. Navigate to **Settings > General > SFTP Backup Management**
+2. Configure your SFTP server details (host, port, username, credentials)
+3. Test connection to verify settings
+4. Upload or download backups with one click
+
+For detailed setup instructions and troubleshooting, see [SFTP_INTEGRATION.md](SFTP_INTEGRATION.md).
+
 ## Home Assistant Integration
 
 Add a RESTful sensor to your Home Assistant configuration:

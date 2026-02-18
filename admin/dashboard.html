@@ -2336,6 +2336,44 @@
             background: #e3f2fd !important;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
         }
+        
+        /* SFTP Styles */
+        .info-box {
+            background: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b6d4fe;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
     </style>
     <!-- Chart.js for Finance Module -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" 
@@ -5964,6 +6002,171 @@
                 </div>
                 
 
+            </div>
+        </div>
+
+        <!-- SFTP Backup Management - Settings Sub-tab -->
+        <div class="card admin-section settings-section settings-general-section">
+            <div class="card-header">
+                <h2>🌐 SFTP Backup Management</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure SFTP connection to automatically upload and download backup files to/from remote storage (e.g., Synology NAS, remote server).</p>
+                
+                <!-- SFTP Configuration Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            ⚙️ SFTP Configuration
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <div class="info-box" style="margin-bottom: 1rem;">
+                            <strong>🔐 Security:</strong>
+                            <p style="margin: 0.5rem 0 0 0;">All credentials are encrypted using AES-256-GCM and stored securely. Credentials are never exposed to the frontend.</p>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label for="sftpHost">Host / IP Address *</label>
+                                <input type="text" id="sftpHost" placeholder="example.com or 192.168.1.100">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpPort">Port *</label>
+                                <input type="number" id="sftpPort" value="22" min="1" max="65535">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpUsername">Username *</label>
+                                <input type="text" id="sftpUsername" placeholder="username">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpRemotePath">Remote Path</label>
+                                <input type="text" id="sftpRemotePath" placeholder="/backups" value="/">
+                                <small style="color: #666;">Directory on server to store backups (must exist)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sftpAuthMethod">Authentication Method *</label>
+                            <select id="sftpAuthMethod" onchange="toggleSftpAuthFields()">
+                                <option value="password">Password</option>
+                                <option value="key">SSH Private Key</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Password Authentication -->
+                        <div id="sftpPasswordAuth" class="form-group">
+                            <label for="sftpPassword">Password *</label>
+                            <input type="password" id="sftpPassword" placeholder="Enter password">
+                            <small style="color: #666;">Leave blank to keep existing password</small>
+                        </div>
+                        
+                        <!-- Key-based Authentication -->
+                        <div id="sftpKeyAuth" class="form-group" style="display: none;">
+                            <label for="sftpPrivateKey">SSH Private Key (OpenSSH format) *</label>
+                            <textarea id="sftpPrivateKey" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family: monospace; font-size: 0.9em;"></textarea>
+                            <small style="color: #666;">Paste your private key in OpenSSH format. Leave blank to keep existing key.</small>
+                            
+                            <label for="sftpPassphrase" style="margin-top: 0.5rem;">Key Passphrase (if required)</label>
+                            <input type="password" id="sftpPassphrase" placeholder="Enter passphrase if key is encrypted">
+                            <small style="color: #666;">Only needed if your private key is encrypted with a passphrase</small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>
+                                <input type="checkbox" id="sftpEnabled" checked>
+                                Enable SFTP backup integration
+                            </label>
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <button onclick="saveSftpConfig()" class="btn btn-primary">💾 Save SFTP Configuration</button>
+                            <button onclick="testSftpConnection()" class="btn btn-secondary">🔍 Test Connection</button>
+                            <button onclick="deleteSftpConfig()" class="btn btn-danger">🗑️ Delete Configuration</button>
+                        </div>
+                        
+                        <div id="sftpConfigAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Connection Test Results -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🔍 Connection Test & Diagnostics
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Test your SFTP connection to verify settings before uploading backups.</p>
+                        
+                        <div id="sftpTestResults" style="display: none;">
+                            <!-- Test results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Upload Backup Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📤 Upload Backup to SFTP
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Generate a new backup and upload it directly to your SFTP server.</p>
+                        
+                        <button onclick="uploadBackupToSftp()" class="btn btn-primary" id="sftpUploadBtn">
+                            ☁️ Upload New Backup to SFTP
+                        </button>
+                        
+                        <div id="sftpUploadProgress" style="display: none; margin-top: 1rem;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="sftpUploadProgressBar"></div>
+                            </div>
+                            <p id="sftpUploadStatus" style="margin-top: 0.5rem; text-align: center; color: #666;">Preparing backup...</p>
+                        </div>
+                        
+                        <div id="sftpUploadAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Download Backup Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📥 Download Backup from SFTP
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Browse and download backup files from your SFTP server.</p>
+                        
+                        <button onclick="loadSftpBackups()" class="btn btn-secondary" style="margin-bottom: 1rem;">
+                            🔄 Refresh Backup List
+                        </button>
+                        
+                        <div id="sftpBackupsList" style="margin-top: 1rem;">
+                            <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                                Click "Refresh Backup List" to load available backups
+                            </div>
+                        </div>
+                        
+                        <div id="sftpDownloadAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
             </div>
         </div>
 
@@ -21213,6 +21416,431 @@
             } catch (err) {
                 alert('Failed to delete connection: ' + err.message);
             }
+        }
+
+        // ========================================
+        // SFTP Backup Management Functions
+        // ========================================
+        
+        let currentSftpConfig = null;
+        
+        // Toggle between password and key authentication fields
+        function toggleSftpAuthFields() {
+            const authMethod = document.getElementById('sftpAuthMethod').value;
+            const passwordAuth = document.getElementById('sftpPasswordAuth');
+            const keyAuth = document.getElementById('sftpKeyAuth');
+            
+            if (authMethod === 'password') {
+                passwordAuth.style.display = 'block';
+                keyAuth.style.display = 'none';
+            } else {
+                passwordAuth.style.display = 'none';
+                keyAuth.style.display = 'block';
+            }
+        }
+        
+        // Load SFTP configuration on page load
+        async function loadSftpConfig() {
+            try {
+                const response = await fetch('/admin/api/sftp/config');
+                const result = await response.json();
+                
+                if (result.success && result.config) {
+                    currentSftpConfig = result.config;
+                    
+                    // Populate form fields
+                    document.getElementById('sftpHost').value = result.config.host || '';
+                    document.getElementById('sftpPort').value = result.config.port || 22;
+                    document.getElementById('sftpUsername').value = result.config.username || '';
+                    document.getElementById('sftpRemotePath').value = result.config.remotePath || '/';
+                    document.getElementById('sftpAuthMethod').value = result.config.authMethod || 'password';
+                    document.getElementById('sftpEnabled').checked = result.config.enabled !== false;
+                    
+                    // Show appropriate auth fields
+                    toggleSftpAuthFields();
+                    
+                    // Clear credential fields (don't show existing credentials)
+                    document.getElementById('sftpPassword').value = '';
+                    document.getElementById('sftpPrivateKey').value = '';
+                    document.getElementById('sftpPassphrase').value = '';
+                }
+            } catch (err) {
+                console.error('Failed to load SFTP config:', err);
+            }
+        }
+        
+        // Save SFTP configuration
+        async function saveSftpConfig() {
+            const alert = document.getElementById('sftpConfigAlert');
+            alert.style.display = 'none';
+            
+            const config = {
+                host: document.getElementById('sftpHost').value.trim(),
+                port: parseInt(document.getElementById('sftpPort').value),
+                username: document.getElementById('sftpUsername').value.trim(),
+                remotePath: document.getElementById('sftpRemotePath').value.trim(),
+                authMethod: document.getElementById('sftpAuthMethod').value,
+                enabled: document.getElementById('sftpEnabled').checked
+            };
+            
+            // Validation
+            if (!config.host) {
+                showAlert('❌ Host is required', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            if (!config.port || config.port < 1 || config.port > 65535) {
+                showAlert('❌ Valid port number is required (1-65535)', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            if (!config.username) {
+                showAlert('❌ Username is required', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            // Add authentication credentials
+            if (config.authMethod === 'password') {
+                const password = document.getElementById('sftpPassword').value;
+                if (!password && !currentSftpConfig?.hasPassword) {
+                    showAlert('❌ Password is required', 'error', 'sftpConfigAlert');
+                    return;
+                }
+                if (password) {
+                    config.password = password;
+                }
+            } else if (config.authMethod === 'key') {
+                const privateKey = document.getElementById('sftpPrivateKey').value;
+                if (!privateKey && !currentSftpConfig?.hasPrivateKey) {
+                    showAlert('❌ Private key is required', 'error', 'sftpConfigAlert');
+                    return;
+                }
+                if (privateKey) {
+                    config.privateKey = privateKey;
+                }
+                const passphrase = document.getElementById('sftpPassphrase').value;
+                if (passphrase) {
+                    config.passphrase = passphrase;
+                }
+            }
+            
+            try {
+                showAlert('💾 Saving configuration...', 'info', 'sftpConfigAlert');
+                
+                const response = await fetch('/admin/api/sftp/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ SFTP configuration saved successfully!', 'success', 'sftpConfigAlert');
+                    await loadSftpConfig();
+                } else {
+                    showAlert(`❌ Failed to save: ${result.error}`, 'error', 'sftpConfigAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Test SFTP connection
+        async function testSftpConnection() {
+            const alert = document.getElementById('sftpConfigAlert');
+            const resultsDiv = document.getElementById('sftpTestResults');
+            
+            try {
+                showAlert('🔍 Testing SFTP connection...', 'info', 'sftpConfigAlert');
+                resultsDiv.style.display = 'none';
+                
+                const response = await fetch('/admin/api/sftp/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                // Display results
+                let resultsHtml = '';
+                
+                if (result.success) {
+                    resultsHtml = `
+                        <div style="background: #d4edda; color: #155724; padding: 1rem; border-radius: 5px; border: 1px solid #c3e6cb; margin-bottom: 1rem;">
+                            <h4 style="margin: 0 0 0.5rem 0;">✅ Connection Successful!</h4>
+                            <p style="margin: 0.5rem 0 0 0;">
+                                <strong>Host:</strong> ${result.details.host}:${result.details.port}<br>
+                                <strong>Username:</strong> ${result.details.username}<br>
+                                <strong>Remote Path:</strong> ${result.details.remotePath}<br>
+                                <strong>Connection Time:</strong> ${result.details.duration}ms
+                            </p>
+                        </div>
+                    `;
+                    showAlert('✅ Connection test successful!', 'success', 'sftpConfigAlert');
+                } else {
+                    resultsHtml = `
+                        <div style="background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 5px; border: 1px solid #f5c6cb; margin-bottom: 1rem;">
+                            <h4 style="margin: 0 0 0.5rem 0;">❌ Connection Failed</h4>
+                            <p style="margin: 0.5rem 0;"><strong>Error:</strong> ${result.error}</p>
+                    `;
+                    
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        resultsHtml += `
+                            <div style="margin-top: 1rem;">
+                                <strong>💡 Suggestions:</strong>
+                                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                        `;
+                        result.suggestions.forEach(suggestion => {
+                            resultsHtml += `<li>${escapeHtml(suggestion)}</li>`;
+                        });
+                        resultsHtml += `
+                                </ul>
+                            </div>
+                        `;
+                    }
+                    
+                    resultsHtml += '</div>';
+                    showAlert('❌ Connection test failed. See diagnostics below.', 'error', 'sftpConfigAlert');
+                }
+                
+                resultsDiv.innerHTML = resultsHtml;
+                resultsDiv.style.display = 'block';
+                
+                // Expand test results section
+                const testSection = resultsDiv.closest('.collapsible-content');
+                if (testSection && !testSection.classList.contains('expanded')) {
+                    testSection.previousElementSibling.click();
+                }
+                
+            } catch (err) {
+                showAlert(`❌ Test error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Delete SFTP configuration
+        async function deleteSftpConfig() {
+            if (!confirm('Are you sure you want to delete the SFTP configuration? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/sftp/config', {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ SFTP configuration deleted', 'success', 'sftpConfigAlert');
+                    
+                    // Clear form
+                    document.getElementById('sftpHost').value = '';
+                    document.getElementById('sftpPort').value = 22;
+                    document.getElementById('sftpUsername').value = '';
+                    document.getElementById('sftpRemotePath').value = '/';
+                    document.getElementById('sftpPassword').value = '';
+                    document.getElementById('sftpPrivateKey').value = '';
+                    document.getElementById('sftpPassphrase').value = '';
+                    document.getElementById('sftpEnabled').checked = true;
+                    currentSftpConfig = null;
+                } else {
+                    showAlert(`❌ Failed to delete: ${result.error}`, 'error', 'sftpConfigAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Upload backup to SFTP
+        async function uploadBackupToSftp() {
+            const alert = document.getElementById('sftpUploadAlert');
+            const progress = document.getElementById('sftpUploadProgress');
+            const status = document.getElementById('sftpUploadStatus');
+            const uploadBtn = document.getElementById('sftpUploadBtn');
+            
+            alert.style.display = 'none';
+            progress.style.display = 'none';
+            
+            try {
+                uploadBtn.disabled = true;
+                status.textContent = 'Preparing backup...';
+                progress.style.display = 'block';
+                
+                const response = await fetch('/admin/api/sftp/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                progress.style.display = 'none';
+                uploadBtn.disabled = false;
+                
+                if (result.success) {
+                    let message = `✅ Backup uploaded successfully!<br><strong>File:</strong> ${result.details.fileName}`;
+                    if (result.details.duration) {
+                        message += `<br><strong>Upload Time:</strong> ${result.details.duration}s`;
+                    }
+                    showAlert(message, 'success', 'sftpUploadAlert');
+                } else {
+                    let message = `❌ Upload failed: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br><strong>Suggestions:</strong><ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpUploadAlert');
+                }
+            } catch (err) {
+                progress.style.display = 'none';
+                uploadBtn.disabled = false;
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpUploadAlert');
+            }
+        }
+        
+        // Load list of backups from SFTP
+        async function loadSftpBackups() {
+            const listDiv = document.getElementById('sftpBackupsList');
+            const alert = document.getElementById('sftpDownloadAlert');
+            
+            alert.style.display = 'none';
+            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading backups...</div>';
+            
+            try {
+                const response = await fetch('/admin/api/sftp/backups');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    let message = `Failed to load backups: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br>Suggestions:<ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpDownloadAlert');
+                    listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">Failed to load backups</div>';
+                    return;
+                }
+                
+                if (!result.backups || result.backups.length === 0) {
+                    listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">No backup files found on SFTP server</div>';
+                    return;
+                }
+                
+                // Build backups list
+                let html = `
+                    <div style="margin-bottom: 0.5rem; color: #666;">
+                        <strong>Remote Path:</strong> ${escapeHtml(result.remotePath)} 
+                        (${result.backups.length} backup file${result.backups.length !== 1 ? 's' : ''})
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 0.75rem; text-align: left;">Filename</th>
+                                <th style="padding: 0.75rem; text-align: left;">Size</th>
+                                <th style="padding: 0.75rem; text-align: left;">Modified</th>
+                                <th style="padding: 0.75rem; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.backups.forEach(backup => {
+                    const modDate = new Date(backup.modifiedTime);
+                    html += `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.9em;">${escapeHtml(backup.name)}</td>
+                            <td style="padding: 0.75rem;">${escapeHtml(backup.sizeFormatted)}</td>
+                            <td style="padding: 0.75rem;">${modDate.toLocaleString()}</td>
+                            <td style="padding: 0.75rem; text-align: center;">
+                                <button onclick="downloadSftpBackup('${escapeHtml(backup.name)}')" class="btn btn-secondary btn-sm">
+                                    📥 Download & Import
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+                
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpDownloadAlert');
+                listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">Error loading backups</div>';
+            }
+        }
+        
+        // Download backup from SFTP and import
+        async function downloadSftpBackup(filename) {
+            const alert = document.getElementById('sftpDownloadAlert');
+            
+            if (!confirm(`Download and import backup: ${filename}?\n\nThis will overwrite existing configurations.`)) {
+                return;
+            }
+            
+            try {
+                showAlert(`📥 Downloading ${filename}...`, 'info', 'sftpDownloadAlert');
+                
+                const response = await fetch('/admin/api/sftp/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: filename })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    let message = `Failed to download: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br>Suggestions:<ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpDownloadAlert');
+                    return;
+                }
+                
+                // Now import the backup
+                showAlert('📦 Importing backup...', 'info', 'sftpDownloadAlert');
+                
+                const importResponse = await fetch('/admin/api/backup/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(result.backup)
+                });
+                
+                const importResult = await importResponse.json();
+                
+                if (importResult.success) {
+                    let message = `✅ Backup imported successfully!<br><strong>Imported:</strong> ${importResult.results.imported.join(', ')}`;
+                    if (importResult.warnings && importResult.warnings.length > 0) {
+                        message += `<br><strong>Warnings:</strong> ${importResult.warnings.join(', ')}`;
+                    }
+                    showAlert(message, 'success', 'sftpDownloadAlert');
+                    
+                    // Reload page after 2 seconds to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showAlert(`❌ Import failed: ${importResult.error}`, 'error', 'sftpDownloadAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpDownloadAlert');
+            }
+        }
+        
+        // Load SFTP config on page load
+        if (typeof loadSftpConfig === 'function') {
+            window.addEventListener('DOMContentLoaded', loadSftpConfig);
         }
 
         // Diagnostic error handling - catches missing function errors
