@@ -20,10 +20,19 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
 
 ### Initial Sub-Widgets
 
+### Initial Sub-Widgets
+
 1. **🌧️ Rain Forecast**: Shows if rain is expected in the next 1-5 days
-   - Displays earliest rain day
-   - Shows precipitation probability
+   - **Enhanced Display** (v2.7.0+):
+     - Horizontal layout with rain icon and title on left
+     - Up to 3 rain day cards displayed side-by-side
+     - Each card shows: When, Start time, Duration, Intensity, Precipitation chance
+     - Bold blue color scheme with gradient background
+     - Animated effects: pulsing container, glowing border, bouncing icon, slide-in cards
+   - Rain intensity levels: Light (<50%), Moderate (50-69%), Heavy (≥70%)
+   - Duration estimates based on condition and intensity
    - Only appears when rain is in the forecast
+   - See [ENHANCED_RAIN_WIDGET.md](./ENHANCED_RAIN_WIDGET.md) for detailed feature documentation
 
 2. **✈️ Upcoming Vacation**: Displays upcoming vacations from House → Vacation page
    - Shows up to 3 upcoming vacations
