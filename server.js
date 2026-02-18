@@ -16,6 +16,7 @@ const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
 const backup = require('./modules/backup');
+const sftp = require('./modules/sftp');
 const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
@@ -6308,6 +6309,198 @@ app.post('/admin/api/backup/import', requireAuth, (req, res) => {
   } catch (err) {
     logger.error(logger.categories.SYSTEM, `Data import error: ${err.message}`);
     res.status(500).json({ error: 'Failed to import data: ' + err.message });
+  }
+});
+
+// SFTP Backup Management API Endpoints
+// Get SFTP configuration (safe, without credentials)
+app.get('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    const config = sftp.getConfigSafe();
+    res.json({ success: true, config: config });
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to get SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get SFTP configuration' });
+  }
+});
+
+// Save SFTP configuration
+app.post('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    const sftpConfig = req.body;
+    
+    logger.info(logger.categories.SYSTEM, `Admin configuring SFTP: ${sftpConfig.host}:${sftpConfig.port}`);
+    
+    const result = sftp.saveConfig(sftpConfig);
+    
+    if (result.success) {
+      logger.success(logger.categories.SYSTEM, 'SFTP configuration saved');
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to save SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to save SFTP configuration: ' + err.message });
+  }
+});
+
+// Delete SFTP configuration
+app.delete('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin deleting SFTP configuration');
+    
+    const result = sftp.deleteConfig();
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to delete SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to delete SFTP configuration: ' + err.message });
+  }
+});
+
+// Test SFTP connection
+app.post('/admin/api/sftp/test', requireAuth, async (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin testing SFTP connection');
+    
+    // Allow testing with provided config or saved config
+    const testConfig = req.body.config || null;
+    
+    const result = await sftp.testConnection(testConfig);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `SFTP test error: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test SFTP connection: ' + err.message 
+    });
+  }
+});
+
+// List backup files on SFTP server
+app.get('/admin/api/sftp/backups', requireAuth, async (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin listing SFTP backups');
+    
+    const result = await sftp.listBackups();
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to list SFTP backups: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to list backups: ' + err.message 
+    });
+  }
+});
+
+// Upload backup to SFTP server
+app.post('/admin/api/sftp/upload', requireAuth, async (req, res) => {
+  const tempFilePath = path.join(uploadsDir, 'temp-backup-upload.json');
+  
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin uploading backup to SFTP');
+    
+    // Generate backup
+    const backupResult = backup.exportAllData(config);
+    
+    if (!backupResult.success) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to generate backup: ' + backupResult.error 
+      });
+    }
+    
+    // Write backup to temp file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `site-backup-${timestamp}.json`;
+    
+    fs.writeFileSync(tempFilePath, JSON.stringify(backupResult.backup, null, 2));
+    
+    // Upload to SFTP
+    const uploadResult = await sftp.uploadBackup(tempFilePath, filename);
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    
+    if (uploadResult.success) {
+      logger.success(logger.categories.SYSTEM, `Backup uploaded to SFTP: ${filename}`);
+    }
+    
+    res.json(uploadResult);
+  } catch (err) {
+    // Clean up temp file on error
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    logger.error(logger.categories.SYSTEM, `Failed to upload backup to SFTP: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload backup: ' + err.message 
+    });
+  }
+});
+
+// Download backup from SFTP server
+app.post('/admin/api/sftp/download', requireAuth, async (req, res) => {
+  const tempFilePath = path.join(uploadsDir, 'temp-backup-download.json');
+  
+  try {
+    const { filename } = req.body;
+    
+    if (!filename) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Filename is required' 
+      });
+    }
+    
+    logger.info(logger.categories.SYSTEM, `Admin downloading backup from SFTP: ${filename}`);
+    
+    // Download from SFTP
+    const downloadResult = await sftp.downloadBackup(filename, tempFilePath);
+    
+    if (!downloadResult.success) {
+      return res.json(downloadResult);
+    }
+    
+    // Read the backup file
+    const backupData = JSON.parse(fs.readFileSync(tempFilePath, 'utf8'));
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    
+    logger.success(logger.categories.SYSTEM, `Backup downloaded from SFTP: ${filename}`);
+    
+    // Return the backup data
+    res.json({
+      success: true,
+      message: 'Backup downloaded successfully',
+      backup: backupData
+    });
+  } catch (err) {
+    // Clean up temp file on error
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    logger.error(logger.categories.SYSTEM, `Failed to download backup from SFTP: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to download backup: ' + err.message 
+    });
   }
 });
 
