@@ -655,6 +655,106 @@
             }
         }
 
+        /* Rain Forecast Widget Styles and Animations */
+        .rain-forecast-enhanced {
+            animation: rain-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes rain-pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.02);
+                opacity: 0.95;
+            }
+        }
+
+        /* Rain widget container gets a blue highlight */
+        .smart-sub-widget-rainForecast {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.2) 0%, rgba(74, 158, 255, 0.1) 100%) !important;
+            border: 2px solid rgba(74, 158, 255, 0.5) !important;
+            box-shadow: 0 0 25px rgba(74, 158, 255, 0.3);
+            animation: rain-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-rainForecast {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.25) 0%, rgba(74, 158, 255, 0.15) 100%) !important;
+            border: 2px solid rgba(74, 158, 255, 0.6) !important;
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.4);
+        }
+
+        @keyframes rain-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(74, 158, 255, 0.3), 0 0 40px rgba(74, 158, 255, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(74, 158, 255, 0.5), 0 0 60px rgba(74, 158, 255, 0.2);
+            }
+        }
+
+        /* Raindrop animation for icon */
+        .rain-forecast-icon {
+            animation: raindrop 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes raindrop {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            25% {
+                transform: translateY(-3px);
+            }
+            50% {
+                transform: translateY(0px);
+            }
+            75% {
+                transform: translateY(3px);
+            }
+        }
+
+        /* Subtle slide-in animation for rain day cards */
+        .rain-day-card {
+            animation: slide-in 0.5s ease-out;
+        }
+
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Add staggered delay for multiple cards */
+        .rain-day-card:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .rain-day-card:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        /* Responsive rain widget - ensure horizontal scrolling on smaller screens */
+        @media (max-width: 768px) {
+            .rain-forecast-horizontal {
+                flex-wrap: nowrap !important;
+            }
+            
+            .rain-forecast-details {
+                max-width: calc(100vw - 200px);
+            }
+            
+            .rain-day-card {
+                min-width: 180px !important;
+            }
+        }
+
         /* AQI color coding */
         .aqi-good {
             color: #4CAF50;
@@ -2785,44 +2885,114 @@
         // Render rain forecast sub-widget
         function renderRainForecast(data) {
             const container = document.createElement('div');
-            container.className = 'rain-forecast-widget';
-            container.style.textAlign = 'center';
+            container.className = 'rain-forecast-widget rain-forecast-enhanced';
+            
+            // Horizontal layout wrapper
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.className = 'rain-forecast-horizontal';
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'center';
+            horizontalWrapper.style.gap = '20px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.justifyContent = 'space-between';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.className = 'rain-forecast-left';
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '0';
             
             const iconDiv = document.createElement('div');
+            iconDiv.className = 'rain-forecast-icon';
             iconDiv.style.fontSize = '2.5rem';
-            iconDiv.style.marginBottom = '10px';
             iconDiv.textContent = '🌧️';
-            container.appendChild(iconDiv);
+            leftSection.appendChild(iconDiv);
             
             const titleDiv = document.createElement('div');
-            titleDiv.style.fontSize = '1.2rem';
-            titleDiv.style.fontWeight = '600';
-            titleDiv.style.marginBottom = '8px';
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#4A9EFF';
             titleDiv.textContent = 'Rain Expected';
-            container.appendChild(titleDiv);
+            leftSection.appendChild(titleDiv);
             
-            // Show the earliest rain day
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Rain details in horizontal cards
             if (data.rainDays && data.rainDays.length > 0) {
-                const nextRain = data.rainDays[0];
-                const daysText = nextRain.daysFromNow === 0 ? 'Today' :
-                               nextRain.daysFromNow === 1 ? 'Tomorrow' :
-                               `In ${nextRain.daysFromNow} days`;
+                const detailsSection = document.createElement('div');
+                detailsSection.className = 'rain-forecast-details';
+                detailsSection.style.display = 'flex';
+                detailsSection.style.gap = '15px';
+                detailsSection.style.flex = '1';
+                detailsSection.style.overflowX = 'auto';
+                detailsSection.style.paddingRight = '5px';
                 
-                const dayDiv = document.createElement('div');
-                dayDiv.style.fontSize = '1rem';
-                dayDiv.style.marginBottom = '5px';
-                dayDiv.textContent = daysText;
-                container.appendChild(dayDiv);
+                // Show up to 3 rain days
+                const daysToShow = data.rainDays.slice(0, 3);
+                daysToShow.forEach((rainDay, index) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'rain-day-card';
+                    dayCard.style.background = 'rgba(74, 158, 255, 0.15)';
+                    dayCard.style.border = '2px solid rgba(74, 158, 255, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.minWidth = '200px';
+                    dayCard.style.flexShrink = '0';
+                    
+                    // When text
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#4A9EFF';
+                    
+                    const daysText = rainDay.daysFromNow === 0 ? 'Today' :
+                                   rainDay.daysFromNow === 1 ? 'Tomorrow' :
+                                   rainDay.dayName || `In ${rainDay.daysFromNow} days`;
+                    whenDiv.textContent = daysText;
+                    dayCard.appendChild(whenDiv);
+                    
+                    // Create a detail grid for info
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    // Timing
+                    const timingDiv = document.createElement('div');
+                    timingDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Start</div>' +
+                                         `<div style="font-weight: 600;">${rainDay.startTime || 'Morning'}</div>`;
+                    detailGrid.appendChild(timingDiv);
+                    
+                    // Duration
+                    const durationDiv = document.createElement('div');
+                    durationDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Duration</div>' +
+                                           `<div style="font-weight: 600;">${rainDay.duration || 'Several hours'}</div>`;
+                    detailGrid.appendChild(durationDiv);
+                    
+                    // Intensity
+                    const intensityDiv = document.createElement('div');
+                    intensityDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Intensity</div>' +
+                                            `<div style="font-weight: 600;">${rainDay.intensity || 'Moderate'}</div>`;
+                    detailGrid.appendChild(intensityDiv);
+                    
+                    // Precipitation chance
+                    const precipDiv = document.createElement('div');
+                    precipDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Chance</div>' +
+                                         `<div style="font-weight: 600;">${Math.round(rainDay.precipitation * 100)}%</div>`;
+                    detailGrid.appendChild(precipDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
                 
-                if (nextRain.precipitation > 0) {
-                    const probDiv = document.createElement('div');
-                    probDiv.style.fontSize = '0.9rem';
-                    probDiv.style.opacity = '0.8';
-                    probDiv.textContent = `${Math.round(nextRain.precipitation * 100)}% chance`;
-                    container.appendChild(probDiv);
-                }
+                horizontalWrapper.appendChild(detailsSection);
             }
             
+            container.appendChild(horizontalWrapper);
             return container;
         }
         

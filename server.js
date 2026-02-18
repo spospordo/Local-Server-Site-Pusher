@@ -8024,11 +8024,39 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     logger.info(logger.categories.SMART_MIRROR, 
                       `Rain detected on ${day.date}: condition="${day.condition}", precipChance=${precipChance}%`);
                     
+                    // Determine rain intensity based on precipitation chance
+                    let intensity = 'Light';
+                    if (precipChance >= 70) {
+                      intensity = 'Heavy';
+                    } else if (precipChance >= 50) {
+                      intensity = 'Moderate';
+                    }
+                    
+                    // Calculate start time (assume morning for now, could be enhanced with hourly data)
+                    const startTime = daysFromNow === 0 ? 'Later today' : 
+                                     daysFromNow === 1 ? 'Tomorrow' : 
+                                     `${day.dayName || 'Day'} morning`;
+                    
+                    // Estimate duration based on condition type
+                    let duration = 'Several hours';
+                    if (condition.includes('showers')) {
+                      duration = 'Intermittent';
+                    } else if (condition.includes('thunderstorm')) {
+                      duration = '1-2 hours';
+                    } else if (precipChance >= 70) {
+                      duration = 'All day';
+                    }
+                    
                     rainDays.push({
                       daysFromNow: daysFromNow,
                       date: day.date,
+                      dayName: day.dayName || 'Unknown',
                       description: day.condition || 'Rain expected',
-                      precipitation: precipChance / 100 // Convert to 0-1 range for display
+                      precipitation: precipChance / 100, // Convert to 0-1 range for display
+                      precipChance: precipChance,
+                      intensity: intensity,
+                      startTime: startTime,
+                      duration: duration
                     });
                   }
                 });
