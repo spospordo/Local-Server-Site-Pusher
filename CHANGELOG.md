@@ -9,6 +9,24 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.7.0] - 2026-02-18
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #515 from spospordo/copilot/implement-sftp-integration
+  - docs: Add security analysis summary for SFTP integration
+  - test: Verify SFTP module functionality with unit tests
+  - docs: Add comprehensive SFTP integration guide and update README
+  - feat: Add SFTP UI to admin dashboard with connection test and backup management
+  - feat: Add SFTP module and API endpoints for backup management
+  - Initial plan
+  - Merge pull request #511 from spospordo/copilot/fix-weather-display-vacation-widget
+  - Add comprehensive implementation summary
+  - Add visual guide for vacation weather display implementation
+  - ... and 76 more changes
+
+
 ## [2.6.30] - 2026-02-05
 
 ### Patch Update
