@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.7.3] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #521 from spospordo/copilot/enhance-weather-admin-panel
+  - implement Extreme Weather admin panel: Rain Expected, High Heat, Temp Change sub-widgets
+  - Initial plan
+
+
 ## [2.7.2] - 2026-02-19
 
 ### Patch Update
