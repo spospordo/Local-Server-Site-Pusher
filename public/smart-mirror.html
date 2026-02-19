@@ -754,6 +754,88 @@
             min-width: 0;
         }
 
+        /* High Heat Widget Styles and Animations */
+        .smart-sub-widget-highHeat {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.2) 0%, rgba(255, 140, 0, 0.1) 100%) !important;
+            border: 2px solid rgba(255, 140, 0, 0.5) !important;
+            box-shadow: 0 0 25px rgba(255, 140, 0, 0.3);
+            animation: heat-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-highHeat {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(255, 140, 0, 0.15) 100%) !important;
+            border: 2px solid rgba(255, 140, 0, 0.6) !important;
+            box-shadow: 0 0 20px rgba(255, 140, 0, 0.4);
+        }
+
+        @keyframes heat-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(255, 140, 0, 0.3), 0 0 40px rgba(255, 140, 0, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(255, 140, 0, 0.5), 0 0 60px rgba(255, 140, 0, 0.2);
+            }
+        }
+
+        .heat-icon {
+            animation: heat-pulse 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes heat-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+
+        .heat-day-card {
+            animation: slide-in 0.5s ease-out;
+            min-width: 0;
+        }
+
+        .heat-day-card:nth-child(2) { animation-delay: 0.1s; }
+        .heat-day-card:nth-child(3) { animation-delay: 0.2s; }
+
+        /* Temp Change Widget Styles and Animations */
+        .smart-sub-widget-tempChange {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.2) 0%, rgba(138, 43, 226, 0.1) 100%) !important;
+            border: 2px solid rgba(138, 43, 226, 0.5) !important;
+            box-shadow: 0 0 25px rgba(138, 43, 226, 0.3);
+            animation: tempchange-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-tempChange {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.25) 0%, rgba(138, 43, 226, 0.15) 100%) !important;
+            border: 2px solid rgba(138, 43, 226, 0.6) !important;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+        }
+
+        @keyframes tempchange-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(138, 43, 226, 0.3), 0 0 40px rgba(138, 43, 226, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(138, 43, 226, 0.5), 0 0 60px rgba(138, 43, 226, 0.2);
+            }
+        }
+
+        .tempchange-icon {
+            animation: tempchange-bounce 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes tempchange-bounce {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .tempchange-day-card {
+            animation: slide-in 0.5s ease-out;
+            min-width: 0;
+        }
+
+        .tempchange-day-card:nth-child(2) { animation-delay: 0.1s; }
+        .tempchange-day-card:nth-child(3) { animation-delay: 0.2s; }
+
         /* AQI color coding */
         .aqi-good {
             color: #4CAF50;
@@ -2861,6 +2943,12 @@
                 case 'rainForecast':
                     innerContent = renderRainForecast(subWidget.data);
                     break;
+                case 'highHeat':
+                    innerContent = renderHighHeat(subWidget.data);
+                    break;
+                case 'tempChange':
+                    innerContent = renderTempChange(subWidget.data);
+                    break;
                 case 'upcomingVacation':
                     innerContent = renderUpcomingVacation(subWidget.data);
                     break;
@@ -2888,6 +2976,17 @@
         function renderRainForecast(data) {
             const container = document.createElement('div');
             container.className = 'rain-forecast-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
             
             // Horizontal layout wrapper
             const horizontalWrapper = document.createElement('div');
@@ -3002,7 +3101,264 @@
             return container;
         }
         
-        // Render upcoming vacation sub-widget
+        // Render high heat sub-widget
+        function renderHighHeat(data) {
+            const container = document.createElement('div');
+            container.className = 'high-heat-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
+            
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'heat-icon';
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🔥';
+            leftSection.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#FF8C00';
+            titleDiv.textContent = 'High Heat';
+            leftSection.appendChild(titleDiv);
+            
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Hot day cards
+            if (data.hotDays && data.hotDays.length > 0) {
+                const detailsSection = document.createElement('div');
+                detailsSection.style.display = 'flex';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.minWidth = '0';
+                
+                const unitLabel = (data.units === 'metric') ? '°C' : '°F';
+                data.hotDays.slice(0, 3).forEach((hotDay) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'heat-day-card';
+                    dayCard.style.background = 'rgba(255, 140, 0, 0.15)';
+                    dayCard.style.border = '2px solid rgba(255, 140, 0, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
+                    
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#FF8C00';
+                    whenDiv.textContent = hotDay.daysFromNow === 0 ? 'Today' :
+                                         hotDay.daysFromNow === 1 ? 'Tomorrow' :
+                                         hotDay.dayName || `In ${hotDay.daysFromNow} days`;
+                    dayCard.appendChild(whenDiv);
+                    
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    const highDiv = document.createElement('div');
+                    const highVal = document.createElement('div');
+                    highVal.style.opacity = '0.7';
+                    highVal.style.marginBottom = '2px';
+                    highVal.textContent = 'High';
+                    const highTemp = document.createElement('div');
+                    highTemp.style.fontWeight = '600';
+                    highTemp.textContent = `${hotDay.tempHigh}${unitLabel}`;
+                    highDiv.appendChild(highVal);
+                    highDiv.appendChild(highTemp);
+                    detailGrid.appendChild(highDiv);
+                    
+                    const thresholdDiv = document.createElement('div');
+                    const thresholdLabel = document.createElement('div');
+                    thresholdLabel.style.opacity = '0.7';
+                    thresholdLabel.style.marginBottom = '2px';
+                    thresholdLabel.textContent = 'Threshold';
+                    const thresholdTemp = document.createElement('div');
+                    thresholdTemp.style.fontWeight = '600';
+                    thresholdTemp.textContent = `${hotDay.threshold}${unitLabel}`;
+                    thresholdDiv.appendChild(thresholdLabel);
+                    thresholdDiv.appendChild(thresholdTemp);
+                    detailGrid.appendChild(thresholdDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
+                
+                horizontalWrapper.appendChild(detailsSection);
+            }
+            
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
+        
+        // Render temperature change sub-widget
+        function renderTempChange(data) {
+            const container = document.createElement('div');
+            container.className = 'temp-change-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
+            
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'tempchange-icon';
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🌡️';
+            leftSection.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#8A2BE2';
+            titleDiv.textContent = 'Temp Change';
+            leftSection.appendChild(titleDiv);
+            
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Change day cards
+            if (data.changeDays && data.changeDays.length > 0) {
+                const detailsSection = document.createElement('div');
+                detailsSection.style.display = 'flex';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.minWidth = '0';
+                
+                const unitLabel = (data.units === 'metric') ? '°C' : '°F';
+                data.changeDays.slice(0, 3).forEach((changeDay) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'tempchange-day-card';
+                    dayCard.style.background = 'rgba(138, 43, 226, 0.15)';
+                    dayCard.style.border = '2px solid rgba(138, 43, 226, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
+                    
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#8A2BE2';
+                    whenDiv.textContent = changeDay.daysFromNow === 0 ? 'Today' :
+                                         changeDay.daysFromNow === 1 ? 'Tomorrow' :
+                                         changeDay.dayName || `In ${changeDay.daysFromNow} days`;
+                    dayCard.appendChild(whenDiv);
+                    
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    const changeDiv = document.createElement('div');
+                    const changeLabel = document.createElement('div');
+                    changeLabel.style.opacity = '0.7';
+                    changeLabel.style.marginBottom = '2px';
+                    changeLabel.textContent = 'Change';
+                    const changeVal = document.createElement('div');
+                    changeVal.style.fontWeight = '600';
+                    const sign = changeDay.change > 0 ? '+' : '';
+                    changeVal.textContent = `${sign}${changeDay.change}${unitLabel}`;
+                    changeDiv.appendChild(changeLabel);
+                    changeDiv.appendChild(changeVal);
+                    detailGrid.appendChild(changeDiv);
+                    
+                    const directionDiv = document.createElement('div');
+                    const dirLabel = document.createElement('div');
+                    dirLabel.style.opacity = '0.7';
+                    dirLabel.style.marginBottom = '2px';
+                    dirLabel.textContent = 'Trend';
+                    const dirVal = document.createElement('div');
+                    dirVal.style.fontWeight = '600';
+                    dirVal.textContent = changeDay.direction === 'up' ? '↑ Warmer' : '↓ Cooler';
+                    directionDiv.appendChild(dirLabel);
+                    directionDiv.appendChild(dirVal);
+                    detailGrid.appendChild(directionDiv);
+                    
+                    const highDiv = document.createElement('div');
+                    const highLabel = document.createElement('div');
+                    highLabel.style.opacity = '0.7';
+                    highLabel.style.marginBottom = '2px';
+                    highLabel.textContent = 'High';
+                    const highVal = document.createElement('div');
+                    highVal.style.fontWeight = '600';
+                    highVal.textContent = `${changeDay.tempHigh}${unitLabel}`;
+                    highDiv.appendChild(highLabel);
+                    highDiv.appendChild(highVal);
+                    detailGrid.appendChild(highDiv);
+                    
+                    const prevDiv = document.createElement('div');
+                    const prevLabel = document.createElement('div');
+                    prevLabel.style.opacity = '0.7';
+                    prevLabel.style.marginBottom = '2px';
+                    prevLabel.textContent = 'Prev High';
+                    const prevVal = document.createElement('div');
+                    prevVal.style.fontWeight = '600';
+                    prevVal.textContent = `${changeDay.prevTempHigh}${unitLabel}`;
+                    prevDiv.appendChild(prevLabel);
+                    prevDiv.appendChild(prevVal);
+                    detailGrid.appendChild(prevDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
+                
+                horizontalWrapper.appendChild(detailsSection);
+            }
+            
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
         function renderUpcomingVacation(data) {
             const container = document.createElement('div');
             container.className = 'vacation-widget';

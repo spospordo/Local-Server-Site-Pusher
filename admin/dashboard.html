@@ -5633,9 +5633,13 @@
 
                         <h4 style="margin-top: 20px; margin-bottom: 15px;">Sub-Widget Configuration</h4>
                         
-                        <!-- Rain Forecast Sub-Widget -->
+                        <!-- Extreme Weather Sub-Widget Panel -->
                         <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">🌧️ Rain Forecast</h5>
+                            <h5 style="margin-bottom: 15px;">🌩️ Extreme Weather</h5>
+
+                            <!-- Rain Expected -->
+                            <div style="margin-bottom: 15px; padding: 12px; background: rgba(74,158,255,0.08); border-left: 3px solid rgba(74,158,255,0.5); border-radius: 6px;">
+                            <h6 style="margin-bottom: 10px; color: #4A9EFF;">🌧️ Rain Expected</h6>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="smartWidgetRainEnabled">Enabled</label>
@@ -5660,8 +5664,85 @@
                                 </div>
                             </div>
                             <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming rain in the forecast (1, 3, or 5 days out). Requires Weather API configuration below.
+                                Shows upcoming rain in the forecast (next 3–5 days). Requires Weather API configuration below.
                             </p>
+                            </div>
+
+                            <!-- High Heat -->
+                            <div style="margin-bottom: 15px; padding: 12px; background: rgba(255,140,0,0.08); border-left: 3px solid rgba(255,140,0,0.5); border-radius: 6px;">
+                            <h6 style="margin-bottom: 10px; color: #FF8C00;">🔥 High Heat</h6>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetHighHeatEnabled">Enabled</label>
+                                    <select id="smartWidgetHighHeatEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetHighHeatPriority">Priority</label>
+                                    <input type="number" id="smartWidgetHighHeatPriority" min="1" max="10" value="1">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetHighHeatCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetHighHeatCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetHighHeatThreshold">Max High Temperature</label>
+                                    <input type="number" id="smartWidgetHighHeatThreshold" min="50" max="130" value="95">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Show sub-widget if any of the next 3 days exceeds this high (°F/°C)
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Shows a High Heat alert if the forecast high temperature exceeds the configured maximum for any of the next 3 days.
+                            </p>
+                            </div>
+
+                            <!-- Temp Change -->
+                            <div style="padding: 12px; background: rgba(138,43,226,0.08); border-left: 3px solid rgba(138,43,226,0.5); border-radius: 6px;">
+                            <h6 style="margin-bottom: 10px; color: #8A2BE2;">🌡️ Temp Change</h6>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smartWidgetTempChangeEnabled">Enabled</label>
+                                    <select id="smartWidgetTempChangeEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetTempChangePriority">Priority</label>
+                                    <input type="number" id="smartWidgetTempChangePriority" min="1" max="10" value="1">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Lower numbers = higher priority
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetTempChangeCycleTime">Cycle Time (seconds)</label>
+                                    <input type="number" id="smartWidgetTempChangeCycleTime" min="5" max="60" value="10">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        How long to display in cycle mode
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smartWidgetTempChangeThreshold">Significant Change (degrees)</label>
+                                    <input type="number" id="smartWidgetTempChangeThreshold" min="1" max="50" value="15">
+                                    <small style="color: #666; display: block; margin-top: 4px;">
+                                        Show sub-widget if day-to-day high changes by at least this amount
+                                    </small>
+                                </div>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                Shows a temperature change alert if the daily high shifts by more than the configured degrees between any two consecutive days in the next 3-day forecast.
+                            </p>
+                            </div>
                         </div>
 
                         <!-- Upcoming Vacation Sub-Widget -->
@@ -5760,12 +5841,12 @@
                         
                         <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 15px 0; border-radius: 3px;">
                             <small style="color: #555;">
-                                ℹ️ <strong>Rain Forecast API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
+                                ℹ️ <strong>Extreme Weather API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
                             </small>
                         </div>
 
                         <div class="form-group">
-                            <label for="smartWidgetUnits">Temperature Units (for Rain Forecast)</label>
+                            <label for="smartWidgetUnits">Temperature Units (for Extreme Weather)</label>
                             <select id="smartWidgetUnits">
                                 <option value="imperial">Imperial (°F)</option>
                                 <option value="metric">Metric (°C)</option>
@@ -5800,7 +5881,7 @@
 
                         <div class="form-group" style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px;">
                             <p style="margin: 0; color: #2e7d32; font-size: 0.95rem;">
-                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
+                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, high heat alert, significant temp change, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
                             </p>
                         </div>
                     </div>
@@ -13392,6 +13473,8 @@
                     // Sub-widgets configuration
                     const subWidgets = smartWidget.subWidgets || [
                         { type: 'rainForecast', enabled: true, priority: 1, cycleTime: 10 },
+                        { type: 'highHeat', enabled: true, priority: 1, cycleTime: 10, threshold: 95 },
+                        { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
@@ -13401,6 +13484,18 @@
                     document.getElementById('smartWidgetRainEnabled').value = rainWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetRainPriority').value = rainWidget.priority || 1;
                     document.getElementById('smartWidgetRainCycleTime').value = rainWidget.cycleTime || 10;
+                    
+                    const highHeatWidget = subWidgets.find(sw => sw.type === 'highHeat') || { enabled: true, priority: 1, cycleTime: 10, threshold: 95 };
+                    document.getElementById('smartWidgetHighHeatEnabled').value = highHeatWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetHighHeatPriority').value = highHeatWidget.priority || 1;
+                    document.getElementById('smartWidgetHighHeatCycleTime').value = highHeatWidget.cycleTime || 10;
+                    document.getElementById('smartWidgetHighHeatThreshold').value = highHeatWidget.threshold || 95;
+                    
+                    const tempChangeWidget = subWidgets.find(sw => sw.type === 'tempChange') || { enabled: true, priority: 1, cycleTime: 10, threshold: 15 };
+                    document.getElementById('smartWidgetTempChangeEnabled').value = tempChangeWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetTempChangePriority').value = tempChangeWidget.priority || 1;
+                    document.getElementById('smartWidgetTempChangeCycleTime').value = tempChangeWidget.cycleTime || 10;
+                    document.getElementById('smartWidgetTempChangeThreshold').value = tempChangeWidget.threshold || 15;
                     
                     const vacationSubWidget = subWidgets.find(sw => sw.type === 'upcomingVacation') || { enabled: true, priority: 2, cycleTime: 10 };
                     document.getElementById('smartWidgetVacationEnabled').value = vacationSubWidget.enabled ? 'true' : 'false';
@@ -13824,6 +13919,20 @@
                                     enabled: document.getElementById('smartWidgetRainEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetRainPriority').value),
                                     cycleTime: parseInt(document.getElementById('smartWidgetRainCycleTime').value)
+                                },
+                                {
+                                    type: 'highHeat',
+                                    enabled: document.getElementById('smartWidgetHighHeatEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetHighHeatPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetHighHeatCycleTime').value),
+                                    threshold: parseInt(document.getElementById('smartWidgetHighHeatThreshold').value)
+                                },
+                                {
+                                    type: 'tempChange',
+                                    enabled: document.getElementById('smartWidgetTempChangeEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetTempChangePriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetTempChangeCycleTime').value),
+                                    threshold: parseInt(document.getElementById('smartWidgetTempChangeThreshold').value)
                                 },
                                 {
                                     type: 'upcomingVacation',

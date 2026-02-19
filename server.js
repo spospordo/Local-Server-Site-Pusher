@@ -7914,7 +7914,9 @@ function estimateContentSize(subWidgetData) {
   
   switch (type) {
     case 'rainForecast':
-      // Rain forecast is typically compact (icon + text)
+    case 'highHeat':
+    case 'tempChange':
+      // Weather alert widgets are typically compact (icon + text)
       return 'small';
       
     case 'upcomingVacation':
@@ -8087,6 +8089,139 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             } else {
               logger.debug(logger.categories.SMART_MIRROR, 
                 'Rain Forecast sub-widget: API key or location not configured');
+            }
+            break;
+            
+          case 'highHeat':
+            // Check if any of the next 3 forecast days exceeds the high temperature threshold
+            if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
+              const heatThreshold = subWidget.threshold || 95;
+              const heatForecastResult = await smartMirror.fetchForecast(
+                smartWidgetConfig.apiKey,
+                smartWidgetConfig.location,
+                5,
+                smartWidgetConfig.units || 'imperial'
+              );
+              
+              if (heatForecastResult.success) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const hotDays = [];
+                const heatDays = heatForecastResult.days || [];
+                heatDays.forEach((day) => {
+                  const dayDate = new Date(day.date);
+                  const daysFromNow = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
+                  if (daysFromNow >= 0 && daysFromNow <= 2 && day.tempHigh >= heatThreshold) {
+                    hotDays.push({
+                      daysFromNow,
+                      date: day.date,
+                      dayName: day.dayName || 'Unknown',
+                      tempHigh: day.tempHigh,
+                      condition: day.condition || '',
+                      threshold: heatThreshold
+                    });
+                  }
+                });
+                
+                if (hotDays.length > 0) {
+                  logger.success(logger.categories.SMART_MIRROR,
+                    `High Heat sub-widget: ${hotDays.length} day(s) exceeding ${heatThreshold}°`);
+                  subWidgetData = {
+                    type: 'highHeat',
+                    priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
+                    hasContent: true,
+                    data: {
+                      hotDays,
+                      threshold: heatThreshold,
+                      units: smartWidgetConfig.units || 'imperial',
+                      location: smartWidgetConfig.location
+                    }
+                  };
+                } else {
+                  logger.debug(logger.categories.SMART_MIRROR,
+                    `High Heat sub-widget: No days exceed ${heatThreshold}° threshold`);
+                }
+              } else {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `High Heat sub-widget: Forecast fetch failed - ${heatForecastResult.error || 'unknown error'}`);
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'High Heat sub-widget: API key or location not configured');
+            }
+            break;
+            
+          case 'tempChange':
+            // Check if day-to-day high temp change exceeds the threshold over the next 3 days
+            if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
+              const changeThreshold = subWidget.threshold || 15;
+              const changeForecastResult = await smartMirror.fetchForecast(
+                smartWidgetConfig.apiKey,
+                smartWidgetConfig.location,
+                5,
+                smartWidgetConfig.units || 'imperial'
+              );
+              
+              if (changeForecastResult.success) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Collect the next 4 days (today + 3 more) to evaluate 3 day-to-day changes
+                const forecastDays = (changeForecastResult.days || [])
+                  .map(day => ({
+                    ...day,
+                    daysFromNow: Math.round((new Date(day.date) - today) / (1000 * 60 * 60 * 24))
+                  }))
+                  .filter(day => day.daysFromNow >= 0 && day.daysFromNow <= 3)
+                  .sort((a, b) => a.daysFromNow - b.daysFromNow);
+                
+                const changeDays = [];
+                for (let i = 1; i < forecastDays.length; i++) {
+                  const prevDay = forecastDays[i - 1];
+                  const currDay = forecastDays[i];
+                  const change = currDay.tempHigh - prevDay.tempHigh;
+                  if (Math.abs(change) >= changeThreshold) {
+                    changeDays.push({
+                      daysFromNow: currDay.daysFromNow,
+                      date: currDay.date,
+                      dayName: currDay.dayName || 'Unknown',
+                      tempHigh: currDay.tempHigh,
+                      prevTempHigh: prevDay.tempHigh,
+                      change: Math.round(change),
+                      direction: change > 0 ? 'up' : 'down',
+                      threshold: changeThreshold
+                    });
+                  }
+                }
+                
+                if (changeDays.length > 0) {
+                  logger.success(logger.categories.SMART_MIRROR,
+                    `Temp Change sub-widget: ${changeDays.length} significant temperature change(s) detected`);
+                  subWidgetData = {
+                    type: 'tempChange',
+                    priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
+                    hasContent: true,
+                    data: {
+                      changeDays,
+                      threshold: changeThreshold,
+                      units: smartWidgetConfig.units || 'imperial',
+                      location: smartWidgetConfig.location
+                    }
+                  };
+                } else {
+                  logger.debug(logger.categories.SMART_MIRROR,
+                    `Temp Change sub-widget: No day-to-day changes exceed ${changeThreshold}° threshold`);
+                }
+              } else {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `Temp Change sub-widget: Forecast fetch failed - ${changeForecastResult.error || 'unknown error'}`);
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Temp Change sub-widget: API key or location not configured');
             }
             break;
             

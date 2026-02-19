@@ -168,6 +168,8 @@ function getDefaultWidgets() {
       // Sub-widget management
       subWidgets: [
         { type: 'rainForecast', enabled: true, priority: 1, cycleTime: 10 },
+        { type: 'highHeat', enabled: true, priority: 1, cycleTime: 10, threshold: 95 },
+        { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }

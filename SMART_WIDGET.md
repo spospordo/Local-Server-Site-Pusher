@@ -22,17 +22,34 @@ The **Smart Widget** is an intelligent container widget for the Smart Mirror das
 
 ### Initial Sub-Widgets
 
-1. **🌧️ Rain Forecast**: Shows if rain is expected in the next 1-5 days
-   - **Enhanced Display** (v2.7.0+):
-     - Horizontal layout with rain icon and title on left
-     - Up to 3 rain day cards displayed side-by-side
-     - Each card shows: When, Start time, Duration, Intensity, Precipitation chance
-     - Bold blue color scheme with gradient background
-     - Animated effects: pulsing container, glowing border, bouncing icon, slide-in cards
-   - Rain intensity levels: Light (<50%), Moderate (50-69%), Heavy (≥70%)
-   - Duration estimates based on condition and intensity
-   - Only appears when rain is in the forecast
-   - See [ENHANCED_RAIN_WIDGET.md](./ENHANCED_RAIN_WIDGET.md) for detailed feature documentation
+1. **🌩️ Extreme Weather** (admin panel grouping for weather-alert sub-widgets):
+
+   - **🌧️ Rain Expected**: Shows if rain is expected in the next 1-5 days
+     - **Enhanced Display** (v2.7.0+):
+       - Horizontal layout with rain icon and title on left
+       - Up to 3 rain day cards displayed side-by-side
+       - Each card shows: When, Start time, Duration, Intensity, Precipitation chance
+       - Bold blue color scheme with gradient background
+       - Animated effects: pulsing container, glowing border, bouncing icon, slide-in cards
+     - Rain intensity levels: Light (<50%), Moderate (50-69%), Heavy (≥70%)
+     - Duration estimates based on condition and intensity
+     - Only appears when rain is in the forecast
+     - See [ENHANCED_RAIN_WIDGET.md](./ENHANCED_RAIN_WIDGET.md) for detailed feature documentation
+
+   - **🔥 High Heat**: Shows a heat alert if any of the next 3 forecast days exceeds the configured high temperature threshold
+     - Admin sets a maximum high temperature (e.g., 95°F)
+     - If any day's forecast high meets or exceeds the threshold, the sub-widget appears
+     - Horizontal layout with bold orange color scheme and animated glow
+     - Each card shows the day, forecast high, and configured threshold
+     - Only appears when the threshold is exceeded
+
+   - **🌡️ Temp Change**: Shows a temperature change alert when consecutive days have a significant shift in high temperature
+     - Admin sets a degrees-of-change threshold (e.g., 15°F)
+     - Evaluates day-to-day high temp differences across the next 3 days
+     - If any change meets or exceeds the threshold, the sub-widget appears
+     - Horizontal layout with bold purple color scheme and animated glow
+     - Each card shows the day, change amount, direction (warmer/cooler), and both highs
+     - Only appears when a significant temperature shift is detected
 
 2. **✈️ Upcoming Vacation**: Displays upcoming vacations from House → Vacation page
    - Shows up to 3 upcoming vacations
@@ -95,11 +112,16 @@ Each sub-widget can be:
   - Example: Rain forecast for 15s, vacation for 10s, media for 8s
   - Allows important information to stay visible longer
 
+The **Extreme Weather** panel groups three weather-alert sub-widgets:
+- **Rain Expected**: Standard rain forecast (enabled/priority/cycle time)
+- **High Heat**: Set a **Max High Temperature** — the sub-widget appears if any of the next 3 forecast days exceeds it
+- **Temp Change**: Set a **Significant Change (degrees)** — the sub-widget appears if the day-to-day high shifts by at least this amount between any two consecutive days in the next 3-day forecast
+
 #### Shared Configuration
 
-- **OpenWeatherMap API Key**: Required for Rain Forecast
+- **OpenWeatherMap API Key**: Required for Extreme Weather (Rain Expected, High Heat, Temp Change)
 - **Location**: City name for weather lookups
-- **Temperature Units**: Imperial (°F) or Metric (°C)
+- **Temperature Units**: Imperial (°F) or Metric (°C) — applies to all Extreme Weather sub-widgets
 - **Home Assistant URL**: For media player integration
 - **Home Assistant Token**: Long-lived access token
 - **Entity IDs**: Media player entities to monitor
