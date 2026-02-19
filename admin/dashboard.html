@@ -1834,6 +1834,59 @@
             opacity: 1;
         }
 
+        /* Nested collapsible sections – level 1 (inside a top-level section) */
+        .collapsible-nested-l1 {
+            margin: 12px 0;
+        }
+        .collapsible-nested-l1 > .collapsible-header {
+            background: #eef2f7;
+            border-color: #c8d6e5;
+            padding-left: 20px;
+        }
+        .collapsible-nested-l1 > .collapsible-header:hover {
+            background: #e3eaf3;
+        }
+        .collapsible-nested-l1 > .collapsible-content {
+            background: #f8fafc;
+            border-color: #c8d6e5;
+        }
+
+        /* Nested collapsible sections – level 2 (inside level 1) */
+        .collapsible-nested-l2 {
+            margin: 8px 0;
+        }
+        .collapsible-nested-l2 > .collapsible-header {
+            background: #f0f4f8;
+            border-color: #d0dae5;
+            font-size: 0.95em;
+            padding-left: 28px;
+        }
+        .collapsible-nested-l2 > .collapsible-header:hover {
+            background: #e6ecf5;
+        }
+        .collapsible-nested-l2 > .collapsible-content {
+            background: #f5f8fc;
+            border-color: #d0dae5;
+        }
+
+        /* Nested collapsible sections – level 3 (inside level 2) */
+        .collapsible-nested-l3 {
+            margin: 6px 0;
+        }
+        .collapsible-nested-l3 > .collapsible-header {
+            background: #f4f6f9;
+            border-color: #d5dfe8;
+            font-size: 0.9em;
+            padding-left: 36px;
+        }
+        .collapsible-nested-l3 > .collapsible-header:hover {
+            background: #eaeff7;
+        }
+        .collapsible-nested-l3 > .collapsible-content {
+            background: #f9fafb;
+            border-color: #d5dfe8;
+        }
+
         .error-indicator {
             color: #dc3545;
             font-weight: bold;
@@ -5531,13 +5584,13 @@
 
                 <!-- Smart Widget -->
                 <div class="collapsible-section">
-                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
                         <span class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
                             📱 Smart Widget (Intelligent Multi-Widget Display)
                         </span>
                     </div>
-                    <div class="collapsible-content">
+                    <div class="collapsible-content expanded">
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetEnabled">Smart Widget</label>
@@ -5555,7 +5608,7 @@
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetGridX">Grid Position X (0-3)</label>
@@ -5566,7 +5619,7 @@
                                 <input type="number" id="smartWidgetGridY" min="0" max="5" value="2">
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetGridWidth">Width (1-4 cells)</label>
@@ -5578,305 +5631,371 @@
                             </div>
                         </div>
 
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Display Settings</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="smartWidgetDisplayMode">Display Mode</label>
-                                <select id="smartWidgetDisplayMode">
-                                    <option value="cycle">Cycle (rotate through sub-widgets)</option>
-                                    <option value="simultaneous">Simultaneous (show multiple at once)</option>
-                                    <option value="priority">Priority (show highest priority only)</option>
-                                    <option value="adaptive">Adaptive (stack small/medium, cycle large)</option>
-                                </select>
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Choose how sub-widgets are displayed
-                                </small>
+                        <!-- Display Settings (nested level 1, expanded by default) -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    ⚙️ Display Settings
+                                </span>
                             </div>
-                            <div class="form-group">
-                                <label for="smartWidgetCycleSpeed">Cycle Speed (seconds)</label>
-                                <input type="number" id="smartWidgetCycleSpeed" min="5" max="60" value="10">
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Time between cycles in cycle mode
-                                </small>
-                            </div>
-                        </div>
+                            <div class="collapsible-content expanded">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="smartWidgetDisplayMode">Display Mode</label>
+                                        <select id="smartWidgetDisplayMode">
+                                            <option value="cycle">Cycle (rotate through sub-widgets)</option>
+                                            <option value="simultaneous">Simultaneous (show multiple at once)</option>
+                                            <option value="priority">Priority (show highest priority only)</option>
+                                            <option value="adaptive">Adaptive (stack small/medium, cycle large)</option>
+                                        </select>
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Choose how sub-widgets are displayed
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="smartWidgetCycleSpeed">Cycle Speed (seconds)</label>
+                                        <input type="number" id="smartWidgetCycleSpeed" min="5" max="60" value="10">
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Time between cycles in cycle mode
+                                        </small>
+                                    </div>
+                                </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
-                                <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Maximum number of sub-widgets to show at once in simultaneous mode
-                                </small>
-                            </div>
-                            <div class="form-group">
-                                <label for="smartWidgetAdaptiveThreshold">Adaptive Stack Threshold</label>
-                                <select id="smartWidgetAdaptiveThreshold">
-                                    <option value="small">Small (stack only small widgets)</option>
-                                    <option value="medium">Medium (stack small & medium widgets)</option>
-                                    <option value="large">Large (stack all except very large)</option>
-                                </select>
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    In adaptive mode, widgets up to this size are stacked vertically; larger widgets cycle
-                                </small>
-                            </div>
-                        </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
+                                        <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Maximum number of sub-widgets to show at once in simultaneous mode
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="smartWidgetAdaptiveThreshold">Adaptive Stack Threshold</label>
+                                        <select id="smartWidgetAdaptiveThreshold">
+                                            <option value="small">Small (stack only small widgets)</option>
+                                            <option value="medium">Medium (stack small & medium widgets)</option>
+                                            <option value="large">Large (stack all except very large)</option>
+                                        </select>
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            In adaptive mode, widgets up to this size are stacked vertically; larger widgets cycle
+                                        </small>
+                                    </div>
+                                </div>
 
-                        <div class="form-group" style="margin-top: 10px;">
-                            <small style="color: #666; display: block;">
-                                <strong>Adaptive Mode:</strong> Small/medium widgets (rain, vacation, media) display as horizontally long tabs stacked vertically. Large widgets (party with extensive content) cycle separately.
-                            </small>
-                        </div>
-                            </small>
-                        </div>
+                                <div class="form-group" style="margin-top: 10px;">
+                                    <small style="color: #666; display: block;">
+                                        <strong>Adaptive Mode:</strong> Small/medium widgets (rain, vacation, media) display as horizontally long tabs stacked vertically. Large widgets (party with extensive content) cycle separately.
+                                    </small>
+                                </div>
 
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Sub-Widget Configuration</h4>
-                        
-                        <!-- Extreme Weather Sub-Widget Panel -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 15px;">🌩️ Extreme Weather</h5>
-
-                            <!-- Rain Expected -->
-                            <div style="margin-bottom: 15px; padding: 12px; background: rgba(74,158,255,0.08); border-left: 3px solid rgba(74,158,255,0.5); border-radius: 6px;">
-                            <h6 style="margin-bottom: 10px; color: #4A9EFF;">🌧️ Rain Expected</h6>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetRainEnabled">Enabled</label>
-                                    <select id="smartWidgetRainEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
+                                <div class="form-group" style="margin-top: 15px;">
+                                    <label for="smartWidgetUnits">Temperature Units (for Extreme Weather)</label>
+                                    <select id="smartWidgetUnits">
+                                        <option value="imperial">Imperial (°F)</option>
+                                        <option value="metric">Metric (°C)</option>
                                     </select>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetRainPriority">Priority</label>
-                                    <input type="number" id="smartWidgetRainPriority" min="1" max="10" value="1">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetRainCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetRainCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
-                            </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming rain in the forecast (next 3–5 days). Requires Weather API configuration below.
-                            </p>
-                            </div>
-
-                            <!-- High Heat -->
-                            <div style="margin-bottom: 15px; padding: 12px; background: rgba(255,140,0,0.08); border-left: 3px solid rgba(255,140,0,0.5); border-radius: 6px;">
-                            <h6 style="margin-bottom: 10px; color: #FF8C00;">🔥 High Heat</h6>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetHighHeatEnabled">Enabled</label>
-                                    <select id="smartWidgetHighHeatEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetHighHeatPriority">Priority</label>
-                                    <input type="number" id="smartWidgetHighHeatPriority" min="1" max="10" value="1">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetHighHeatCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetHighHeatCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetHighHeatThreshold">Max High Temperature</label>
-                                    <input type="number" id="smartWidgetHighHeatThreshold" min="50" max="130" value="95">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Show sub-widget if any of the next 3 days exceeds this high (°F/°C)
-                                    </small>
-                                </div>
-                            </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows a High Heat alert if the forecast high temperature exceeds the configured maximum for any of the next 3 days.
-                            </p>
-                            </div>
-
-                            <!-- Temp Change -->
-                            <div style="padding: 12px; background: rgba(138,43,226,0.08); border-left: 3px solid rgba(138,43,226,0.5); border-radius: 6px;">
-                            <h6 style="margin-bottom: 10px; color: #8A2BE2;">🌡️ Temp Change</h6>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetTempChangeEnabled">Enabled</label>
-                                    <select id="smartWidgetTempChangeEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetTempChangePriority">Priority</label>
-                                    <input type="number" id="smartWidgetTempChangePriority" min="1" max="10" value="1">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetTempChangeCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetTempChangeCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetTempChangeThreshold">Significant Change (degrees)</label>
-                                    <input type="number" id="smartWidgetTempChangeThreshold" min="1" max="50" value="15">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Show sub-widget if day-to-day high changes by at least this amount
-                                    </small>
-                                </div>
-                            </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows a temperature change alert if the daily high shifts by more than the configured degrees between any two consecutive days in the next 3-day forecast.
-                            </p>
                             </div>
                         </div>
 
-                        <!-- Upcoming Vacation Sub-Widget -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">✈️ Upcoming Vacation</h5>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationEnabled">Enabled</label>
-                                    <select id="smartWidgetVacationEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationPriority">Priority</label>
-                                    <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetVacationCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
+                        <!-- Sub Widgets (nested level 1, collapsed by default) -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    🧩 Sub Widgets
+                                </span>
                             </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Displays the next upcoming vacation from House → Vacation page.
-                            </p>
-                        </div>
+                            <div class="collapsible-content collapsed">
 
-                        <!-- Home Assistant Media Sub-Widget -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">🎵 Home Assistant Media</h5>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaEnabled">Enabled</label>
-                                    <select id="smartWidgetMediaEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
+                                <!-- Extreme Weather (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🌩️ Extreme Weather
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+
+                                        <!-- Rain Expected (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🌧️ Rain Expected
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainEnabled">Enabled</label>
+                                                        <select id="smartWidgetRainEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainPriority">Priority</label>
+                                                        <input type="number" id="smartWidgetRainPriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetRainCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows upcoming rain in the forecast (next 3–5 days). Requires Weather API configuration above.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- High Heat (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🔥 High Heat
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatEnabled">Enabled</label>
+                                                        <select id="smartWidgetHighHeatEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatPriority">Priority</label>
+                                                        <input type="number" id="smartWidgetHighHeatPriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetHighHeatCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatThreshold">Max High Temperature</label>
+                                                        <input type="number" id="smartWidgetHighHeatThreshold" min="50" max="130" value="95">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Show sub-widget if any of the next 3 days exceeds this high (°F/°C)
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows a High Heat alert if the forecast high temperature exceeds the configured maximum for any of the next 3 days.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Temp Change (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🌡️ Temp Change
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeEnabled">Enabled</label>
+                                                        <select id="smartWidgetTempChangeEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangePriority">Priority</label>
+                                                        <input type="number" id="smartWidgetTempChangePriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetTempChangeCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeThreshold">Significant Change (degrees)</label>
+                                                        <input type="number" id="smartWidgetTempChangeThreshold" min="1" max="50" value="15">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Show sub-widget if day-to-day high changes by at least this amount
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows a temperature change alert if the daily high shifts by more than the configured degrees between any two consecutive days in the next 3-day forecast.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
+                                            <small style="color: #555;">
+                                                ℹ️ <strong>Extreme Weather API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaPriority">Priority</label>
-                                    <input type="number" id="smartWidgetMediaPriority" min="1" max="10" value="3">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
+
+                                <!-- Vacation (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            ✈️ Vacation
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationEnabled">Enabled</label>
+                                                <select id="smartWidgetVacationEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationPriority">Priority</label>
+                                                <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetVacationCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Displays the next upcoming vacation from House → Vacation page.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetMediaCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
+
+                                <!-- Party (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🎉 Party
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyEnabled">Enabled</label>
+                                                <select id="smartWidgetPartyEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyPriority">Priority</label>
+                                                <input type="number" id="smartWidgetPartyPriority" min="1" max="10" value="4">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetPartyCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Shows upcoming party information from Party &gt; Scheduling tab. Only displays when party date is set. <strong>On party day, this widget will display exclusively without cycling.</strong>
+                                        </p>
+                                    </div>
                                 </div>
+
+                                <!-- Home Assistant Media (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🎵 Home Assistant Media
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaEnabled">Enabled</label>
+                                                <select id="smartWidgetMediaEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaPriority">Priority</label>
+                                                <input type="number" id="smartWidgetMediaPriority" min="1" max="10" value="3">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetMediaCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
+                                        </p>
+
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Connection Settings</h5>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
+                                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Full URL to your Home Assistant instance
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
+                                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
+                                            <input type="text" id="smartWidgetEntityIds" placeholder="media_player.spotify,media_player.chromecast">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                One or more entity IDs, separated by commas
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
-                            </p>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <h4 style="margin-bottom: 10px;">🎉 Party Sub-Widget</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyEnabled">Enabled</label>
-                                    <select id="smartWidgetPartyEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyPriority">Priority</label>
-                                    <input type="number" id="smartWidgetPartyPriority" min="1" max="10" value="4">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetPartyCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
-                            </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming party information from Party > Scheduling tab. Only displays when party date is set. <strong>On party day, this widget will display exclusively without cycling.</strong>
-                            </p>
-                        </div>
-
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Shared Configuration</h4>
-                        
-                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 15px 0; border-radius: 3px;">
-                            <small style="color: #555;">
-                                ℹ️ <strong>Extreme Weather API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetUnits">Temperature Units (for Extreme Weather)</label>
-                            <select id="smartWidgetUnits">
-                                <option value="imperial">Imperial (°F)</option>
-                                <option value="metric">Metric (°C)</option>
-                            </select>
-                        </div>
-
-                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Settings (for Media Sub-Widget)</h5>
-
-                        <div class="form-group">
-                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
-                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Full URL to your Home Assistant instance
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
-                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
-                            <input type="text" id="smartWidgetEntityIds" placeholder="media_player.spotify,media_player.chromecast">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                One or more entity IDs, separated by commas
-                            </small>
                         </div>
 
                         <div class="form-group" style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px;">
