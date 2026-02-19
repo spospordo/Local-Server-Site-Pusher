@@ -740,19 +740,18 @@
             animation-delay: 0.2s;
         }
 
-        /* Responsive rain widget - ensure horizontal scrolling on smaller screens */
-        @media (max-width: 768px) {
-            .rain-forecast-horizontal {
-                flex-wrap: nowrap !important;
-            }
-            
-            .rain-forecast-details {
-                max-width: calc(100vw - 200px);
-            }
-            
-            .rain-day-card {
-                min-width: 180px !important;
-            }
+        /* Responsive rain widget - wrap cards to prevent horizontal scroll */
+        .rain-forecast-horizontal {
+            flex-wrap: wrap;
+        }
+
+        .rain-forecast-details {
+            overflow-x: hidden;
+            min-width: 0;
+        }
+
+        .rain-day-card {
+            min-width: 0;
         }
 
         /* AQI color coding */
@@ -2853,6 +2852,9 @@
             container.style.padding = '15px';
             container.style.borderRadius = '10px';
             container.style.background = 'rgba(255, 255, 255, 0.05)';
+            container.style.overflow = 'hidden';
+            container.style.width = '100%';
+            container.style.boxSizing = 'border-box';
             
             let innerContent = null;
             switch (subWidget.type) {
@@ -2891,10 +2893,10 @@
             const horizontalWrapper = document.createElement('div');
             horizontalWrapper.className = 'rain-forecast-horizontal';
             horizontalWrapper.style.display = 'flex';
-            horizontalWrapper.style.alignItems = 'center';
-            horizontalWrapper.style.gap = '20px';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
             horizontalWrapper.style.width = '100%';
-            horizontalWrapper.style.justifyContent = 'space-between';
+            horizontalWrapper.style.flexWrap = 'wrap';
             
             // Left section: Icon and title
             const leftSection = document.createElement('div');
@@ -2902,7 +2904,8 @@
             leftSection.style.display = 'flex';
             leftSection.style.alignItems = 'center';
             leftSection.style.gap = '12px';
-            leftSection.style.flexShrink = '0';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
             
             const iconDiv = document.createElement('div');
             iconDiv.className = 'rain-forecast-icon';
@@ -2914,6 +2917,8 @@
             titleDiv.style.fontSize = '1.3rem';
             titleDiv.style.fontWeight = '700';
             titleDiv.style.color = '#4A9EFF';
+            titleDiv.style.wordBreak = 'normal';
+            titleDiv.style.overflowWrap = 'break-word';
             titleDiv.textContent = 'Rain Expected';
             leftSection.appendChild(titleDiv);
             
@@ -2924,10 +2929,11 @@
                 const detailsSection = document.createElement('div');
                 detailsSection.className = 'rain-forecast-details';
                 detailsSection.style.display = 'flex';
-                detailsSection.style.gap = '15px';
-                detailsSection.style.flex = '1';
-                detailsSection.style.overflowX = 'auto';
-                detailsSection.style.paddingRight = '5px';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.overflowX = 'hidden';
+                detailsSection.style.minWidth = '0';
                 
                 // Show up to 3 rain days
                 const daysToShow = data.rainDays.slice(0, 3);
@@ -2938,8 +2944,8 @@
                     dayCard.style.border = '2px solid rgba(74, 158, 255, 0.4)';
                     dayCard.style.borderRadius = '8px';
                     dayCard.style.padding = '12px 15px';
-                    dayCard.style.minWidth = '200px';
-                    dayCard.style.flexShrink = '0';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
                     
                     // When text
                     const whenDiv = document.createElement('div');
@@ -3490,7 +3496,7 @@
             contentDiv.style.fontSize = '1rem';
             contentDiv.style.marginTop = '15px';
             contentDiv.style.display = 'grid';
-            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))';
             contentDiv.style.gap = '20px';
             contentDiv.style.alignItems = 'start';
             
