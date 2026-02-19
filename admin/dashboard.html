@@ -552,6 +552,46 @@
             color: #666;
         }
         
+        .palette-widget-status-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-right: 4px;
+        }
+        
+        .palette-widget-status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .palette-widget-status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .palette-sub-widgets {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #dee2e6;
+            width: 100%;
+        }
+        
+        .palette-sub-widget-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            padding: 2px 0;
+            color: #555;
+        }
+        
+        .palette-sub-widget-item .palette-widget-status-badge {
+            font-size: 0.65rem;
+            padding: 0px 5px;
+        }
+        
         .grid-legend {
             margin-top: 15px;
             padding: 10px;
@@ -4783,6 +4823,10 @@
                                 <div class="legend-item">
                                     <div class="legend-color" style="border: 2px solid #ff4444; background: transparent;"></div>
                                     <span>Overlapping</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="palette-widget-status-badge active" style="margin:0;">Active</span>
+                                    <span style="margin-left:4px;">/ <span class="palette-widget-status-badge inactive">Inactive</span> status badge</span>
                                 </div>
                             </div>
                         </div>
@@ -14994,7 +15038,8 @@
         // Widget icons for the grid editor
         // To add a new widget to the grid editor, simply:
         // 1. Add it to this WIDGET_ICONS object with an appropriate emoji
-        // 2. Create form fields following the naming pattern: {widgetType}Enabled, {widgetType}GridX, etc.
+        // 2. Add a display name to WIDGET_NAMES
+        // 3. Create form fields following the naming pattern: {widgetType}Enabled, {widgetType}GridX, etc.
         // The grid editor will automatically discover and display the widget - no other changes needed!
         const WIDGET_ICONS = {
             clock: '🕐',
@@ -15006,6 +15051,28 @@
             vacation: '🏖️',
             smartWidget: '🧠'
         };
+        
+        // Human-readable display names for each widget type
+        const WIDGET_NAMES = {
+            clock: 'Clock',
+            calendar: 'Calendar',
+            weather: 'Weather',
+            forecast: 'Forecast',
+            news: 'News',
+            media: 'Media Player',
+            vacation: 'Vacation',
+            smartWidget: 'Smart Widget'
+        };
+        
+        // Sub-widgets that belong to the Smart Widget, shown nested in the palette
+        const SMART_SUB_WIDGETS = [
+            { id: 'smartWidgetRainEnabled',     icon: '🌧️', name: 'Rain Expected' },
+            { id: 'smartWidgetHighHeatEnabled', icon: '🔥', name: 'High Heat' },
+            { id: 'smartWidgetTempChangeEnabled', icon: '🌡️', name: 'Temp Change' },
+            { id: 'smartWidgetVacationEnabled', icon: '✈️', name: 'Vacation' },
+            { id: 'smartWidgetPartyEnabled',    icon: '🎉', name: 'Party' },
+            { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' }
+        ];
         
         // Switch between portrait and landscape editing
         function switchOrientation(orientation) {
@@ -15125,11 +15192,28 @@
                 // Add to palette
                 const paletteItem = document.createElement('div');
                 paletteItem.className = `palette-widget ${!enabled ? 'disabled' : ''}`;
+                paletteItem.dataset.type = type;
+                const displayName = WIDGET_NAMES[type] || (type.charAt(0).toUpperCase() + type.slice(1));
+                const statusBadge = `<span class="palette-widget-status-badge ${enabled ? 'active' : 'inactive'}">${enabled ? 'Active' : 'Inactive'}</span>`;
+                const statusDetail = enabled ? `Position: (${x},${y}) Size: ${width}×${height}` : '';
+                
+                // Build sub-widget section for Smart Widget
+                let subWidgetHtml = '';
+                if (type === 'smartWidget') {
+                    const subRows = SMART_SUB_WIDGETS.map(sw => {
+                        const swEnabled = document.getElementById(sw.id)?.value === 'true';
+                        const swBadge = `<span class="palette-widget-status-badge ${swEnabled ? 'active' : 'inactive'}">${swEnabled ? 'On' : 'Off'}</span>`;
+                        return `<div class="palette-sub-widget-item">${sw.icon} ${sw.name} ${swBadge}</div>`;
+                    }).join('');
+                    subWidgetHtml = `<div class="palette-sub-widgets">${subRows}</div>`;
+                }
+                
                 paletteItem.innerHTML = `
                     <div class="palette-widget-icon">${WIDGET_ICONS[type]}</div>
                     <div class="palette-widget-info">
-                        <div class="palette-widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-                        <div class="palette-widget-status">${enabled ? `Position: (${x},${y}) Size: ${width}×${height}` : 'Disabled'}</div>
+                        <div class="palette-widget-name">${displayName}</div>
+                        <div class="palette-widget-status">${statusBadge}${statusDetail}</div>
+                        ${subWidgetHtml}
                     </div>
                 `;
                 palette.appendChild(paletteItem);
@@ -15183,7 +15267,7 @@
                 
                 widgetEl.innerHTML = `
                     <div class="widget-icon">${WIDGET_ICONS[type]}</div>
-                    <div class="widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                    <div class="widget-name">${WIDGET_NAMES[type] || (type.charAt(0).toUpperCase() + type.slice(1))}</div>
                     <div class="widget-position">(${widget.x},${widget.y}) ${widget.width}×${widget.height}</div>
                 `;
                 
@@ -15452,17 +15536,15 @@
         function updatePaletteStatus(type) {
             const widget = gridState.widgets[type];
             const palette = document.getElementById('widgetPalette');
-            const items = palette.querySelectorAll('.palette-widget');
+            const item = palette.querySelector(`.palette-widget[data-type="${type}"]`);
+            if (!item) return;
             
-            items.forEach(item => {
-                const name = item.querySelector('.palette-widget-name').textContent.toLowerCase();
-                if (name === type) {
-                    const status = item.querySelector('.palette-widget-status');
-                    if (widget.enabled) {
-                        status.textContent = `Position: (${widget.x},${widget.y}) Size: ${widget.width}×${widget.height}`;
-                    }
-                }
-            });
+            const status = item.querySelector('.palette-widget-status');
+            if (!status) return;
+            
+            const badge = `<span class="palette-widget-status-badge ${widget.enabled ? 'active' : 'inactive'}">${widget.enabled ? 'Active' : 'Inactive'}</span>`;
+            const detail = widget.enabled ? `Position: (${widget.x},${widget.y}) Size: ${widget.width}×${widget.height}` : '';
+            status.innerHTML = badge + detail;
         }
         
         function resetGridLayout() {
