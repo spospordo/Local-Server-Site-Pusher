@@ -20395,7 +20395,7 @@
                 if (!result.success) return;
                 const diag = result.diagnostics;
                 if (diag.apiKeyConfigured && diag.enabled) {
-                    banner.innerHTML = '<div style="padding: 8px 10px; background: #d1fae5; border-radius: 5px; color: #065f46;">✅ AviationStack API is configured and enabled — real-time flight validation available.</div>';
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #d1fae5; border-radius: 5px; color: #065f46;">✅ AviationStack API is configured and enabled. Free Plan users: format validation only — upgrade for real-time tracking.</div>';
                 } else if (diag.apiKeyConfigured && !diag.enabled) {
                     banner.innerHTML = '<div style="padding: 8px 10px; background: #fef3c7; border-radius: 5px; color: #92400e;">⚠️ AviationStack API key is set but Flight API is disabled. Enable it in Smart Mirror → APIs and Connections to use real-time validation.</div>';
                 } else {
@@ -20508,13 +20508,24 @@
                     };
                     const safeError = escapeHtml(result.error || 'Unknown error');
                     
+                    // Check if error indicates a plan restriction (Free Plan limitation)
+                    const errLower = result.error ? result.error.toLowerCase() : '';
+                    const isPlanRestriction = result.error && (
+                        errLower.includes('subscription') ||
+                        errLower.includes('does not support') ||
+                        (errLower.includes('plan') && errLower.includes('restrict'))
+                    );
                     // Check if error is related to missing API key
-                    if (result.error && result.error.includes('API key')) {
+                    if (isPlanRestriction) {
+                        statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Free Plan limitation</span><br><small style="color: #6b7280;">Your AviationStack Free Plan does not support flight-specific queries. Flight number format is valid. Upgrade for real-time tracking.</small>`;
+                        flightDiv.dataset.validated = 'true';
+                    } else if (result.error && result.error.includes('API key')) {
                         statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
+                        flightDiv.dataset.validated = 'false';
                     } else {
                         statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span>`;
+                        flightDiv.dataset.validated = 'false';
                     }
-                    flightDiv.dataset.validated = 'false';
                 }
             } catch (err) {
                 // Escape HTML in error message to prevent XSS

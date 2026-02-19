@@ -2392,33 +2392,47 @@
                                         flightNumSpan.textContent = flightStatus.flightNumber;
                                         headerDiv.appendChild(flightNumSpan);
                                         
-                                        // Status badge
+                                        // Status badge — show Free Plan indicator when tracking is limited
                                         const statusSpan = document.createElement('span');
                                         statusSpan.style.padding = '2px 6px';
                                         statusSpan.style.borderRadius = '3px';
                                         statusSpan.style.fontSize = '0.75rem';
                                         statusSpan.style.fontWeight = 'bold';
                                         
-                                        if (flightStatus.status === 'On Time') {
+                                        if (flightStatus.limited) {
+                                            statusSpan.style.background = '#f59e0b';
+                                            statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = 'Free Plan';
+                                        } else if (flightStatus.status === 'On Time') {
                                             statusSpan.style.background = '#10b981';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else if (flightStatus.status === 'Delayed') {
                                             statusSpan.style.background = '#ef4444';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else if (flightStatus.status === 'Completed') {
                                             statusSpan.style.background = '#6b7280';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else {
                                             statusSpan.style.background = '#3b82f6';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         }
-                                        statusSpan.textContent = flightStatus.status;
                                         headerDiv.appendChild(statusSpan);
                                         
                                         flightItemDiv.appendChild(headerDiv);
                                         
-                                        // Flight details
-                                        if (flightStatus.gate || flightStatus.terminal) {
+                                        // Show Free Plan limitation note or flight details
+                                        if (flightStatus.limited) {
+                                            const limitedDiv = document.createElement('div');
+                                            limitedDiv.style.opacity = '0.7';
+                                            limitedDiv.style.fontSize = '0.75rem';
+                                            limitedDiv.style.marginLeft = '20px';
+                                            limitedDiv.textContent = 'Real-time tracking unavailable on Free Plan';
+                                            flightItemDiv.appendChild(limitedDiv);
+                                        } else if (flightStatus.gate || flightStatus.terminal) {
                                             const detailsDiv = document.createElement('div');
                                             detailsDiv.style.opacity = '0.8';
                                             detailsDiv.style.fontSize = '0.8rem';

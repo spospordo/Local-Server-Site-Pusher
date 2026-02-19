@@ -109,7 +109,7 @@ async function testConnection(apiKey) {
 
     // Check for AviationStack error in response body (API returns HTTP 200 with error object)
     if (response.data && response.data.success === false && response.data.error) {
-      const errCode = response.data.error.code;
+      const errCode = parseInt(response.data.error.code, 10);
       const errInfo = response.data.error.info || response.data.error.message;
       logger.error(logger.categories.SMART_MIRROR, `AviationStack connection test error in response body: code=${errCode}, info=${errInfo}`);
       if (errCode === 106) {
@@ -154,7 +154,7 @@ async function testConnection(apiKey) {
       if (status === 401 || status === 403) {
         // Check AviationStack error body before returning generic message
         if (data && data.error) {
-          const errCode = data.error.code;
+          const errCode = parseInt(data.error.code, 10);
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
           if (errCode === 106) {
@@ -278,7 +278,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       };
     } else if (response.data && response.data.success === false && response.data.error) {
       // AviationStack returned an error in the response body (HTTP 200 with error object)
-      const errCode = response.data.error.code;
+      const errCode = parseInt(response.data.error.code, 10);
       const errInfo = response.data.error.info || response.data.error.message;
       logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
       if (errCode === 101) {
@@ -319,7 +319,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       if (status === 401 || status === 403) {
         // Check AviationStack error body before returning generic message
         if (data && data.error) {
-          const errCode = data.error.code;
+          const errCode = parseInt(data.error.code, 10);
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
           if (errCode === 105) {
@@ -459,7 +459,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       };
     } else if (response.data && response.data.success === false && response.data.error) {
       // AviationStack returned an error in the response body (HTTP 200 with error object)
-      const errCode = response.data.error.code;
+      const errCode = parseInt(response.data.error.code, 10);
       const errInfo = response.data.error.info || response.data.error.message;
       logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
       if (errCode === 106) {
@@ -498,7 +498,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       if (status === 401 || status === 403) {
         // Check AviationStack error body before returning generic message
         if (data && data.error) {
-          const errCode = data.error.code;
+          const errCode = parseInt(data.error.code, 10);
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
           if (errCode === 106) {
