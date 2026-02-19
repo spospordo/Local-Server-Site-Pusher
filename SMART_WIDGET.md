@@ -233,8 +233,11 @@ Adaptive mode combines the best of stacking and cycling:
 - If all widgets are stackable, no cycling occurs
 - If all widgets are cyclable, behaves like normal cycle mode
 
-**Responsive Design:**
+### Responsive Design
+
 - Stacked widgets use full width of the container (horizontally long tabs)
+- Rain day cards wrap to a new row when the container is too narrow to fit them side-by-side, ensuring no horizontal scroll
+- The "Rain Expected" title wraps over multiple lines when space is limited
 - Vertical scrolling enabled if stacked content exceeds available height
 - Maintains party day priority (party widget takes over entirely on party day)
 
@@ -349,6 +352,13 @@ Tests validate:
    - Set appropriate cycle time for party widget (20-30s recommended for detailed info)
    - On party day, the widget will display exclusively
    - Test before the event to ensure all information displays correctly
+
+6. **Responsive Layout**:
+   - All sub-widget tabs resize to fit the Smart Widget container width with no horizontal scroll
+   - Rain day cards automatically wrap to additional rows when space is limited
+   - The "Rain Expected" title wraps over multiple lines for space savings
+   - Party section columns collapse to a single column on narrow containers
+   - Position the Smart Widget to span at least 2 grid columns for optimal rain card display
 
 ## Future Enhancements
 

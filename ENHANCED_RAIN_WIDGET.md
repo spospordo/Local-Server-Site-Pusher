@@ -22,26 +22,34 @@ The rain sub-widget now displays detailed information for each rain event:
 | **Intensity** | Rain intensity level | "Light" (<50%), "Moderate" (50-69%), "Heavy" (≥70%) |
 | **Chance** | Precipitation probability | "65%", "80%" |
 
-### 2. Horizontal Expansion Layout
+### 2. Responsive Wrap Layout
 
-The rain sub-widget uses a full-width horizontal layout:
+The rain sub-widget uses a full-width responsive layout:
 
 ```
+Wide container:
 ┌────────────────────────────────────────────────────────────────┐
 │ 🌧️ Rain Expected │ [Today Card] [Tomorrow Card] [Wed Card]   │
+└────────────────────────────────────────────────────────────────┘
+
+Narrow container (cards wrap to next row):
+┌────────────────────────────────────────────────────────────────┐
+│ 🌧️ Rain Expected                                              │
+│ [Today Card]  [Tomorrow Card]                                  │
+│ [Wed Card]                                                     │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 **Layout Structure**:
-- **Left Section**: Rain icon (🌧️) and title with blue accent
-- **Right Section**: Scrollable horizontal cards for up to 3 rain days
-- **Cards**: Each displays all rain details in a compact grid format
+- **Left Section**: Rain icon (🌧️) and title with blue accent (title wraps over multiple lines when needed)
+- **Right Section**: Responsive wrapping cards for up to 3 rain days
+- **Cards**: Each displays all rain details in a compact grid format; cards flex to fill available width
 
 **Benefits**:
 - Shows all information at a glance
-- No vertical stacking/cramping
+- No horizontal scrolling — content wraps responsively
 - Clear separation between different rain events
-- Horizontal scrolling for multiple days on smaller screens
+- Cards wrap to additional rows on narrower containers, using vertical space efficiently
 
 ### 3. Visual Prominence and Animations
 
