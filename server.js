@@ -6938,19 +6938,29 @@ app.post('/admin/api/smart-mirror/test/weather', requireAuth, async (req, res) =
   
   try {
     const { apiKey, location, units } = req.body;
-    
-    if (!apiKey || !location) {
+
+    // Fall back to saved config values when not provided in the request
+    const config = smartMirror.loadConfig();
+    const effectiveApiKey = apiKey ||
+      config.widgets?.weather?.apiKey ||
+      config.widgets?.forecast?.apiKey ||
+      config.widgets?.smartWidget?.apiKey;
+    const effectiveLocation = location ||
+      config.widgets?.weather?.location ||
+      config.widgets?.smartWidget?.location;
+
+    if (!effectiveApiKey || !effectiveLocation) {
       return res.status(400).json({
         success: false,
         error: 'Missing Parameters',
-        message: 'API key and location are required.'
+        message: 'API key and location are required. Please configure them in the settings or enter them above.'
       });
     }
     
-    const result = await smartMirror.testWeatherConnection(apiKey, location, units || 'imperial');
+    const result = await smartMirror.testWeatherConnection(effectiveApiKey, effectiveLocation, units || 'imperial');
     
     if (result.success) {
-      logger.success(logger.categories.SMART_MIRROR, `Weather test successful for ${location}`);
+      logger.success(logger.categories.SMART_MIRROR, `Weather test successful for ${effectiveLocation}`);
     } else {
       logger.warning(logger.categories.SMART_MIRROR, `Weather test failed: ${result.error}`);
     }
@@ -7100,19 +7110,23 @@ app.post('/admin/api/flight-api/test-connection', requireAuth, async (req, res) 
   
   try {
     const { apiKey } = req.body;
-    
-    if (!apiKey) {
+
+    // Fall back to saved config value when not provided in the request
+    const config = smartMirror.loadConfig();
+    const effectiveApiKey = apiKey || config.flightApi?.apiKey;
+
+    if (!effectiveApiKey) {
       return res.status(400).json({
         success: false,
         error: 'API key is required'
       });
     }
     
-    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(effectiveApiKey);
     logger.info(logger.categories.SMART_MIRROR, `Testing connection with API key ${keyFingerprint}`);
     
     // Test the connection
-    const result = await aviationstack.testConnection(apiKey);
+    const result = await aviationstack.testConnection(effectiveApiKey);
     
     if (result.success) {
       logger.success(logger.categories.SMART_MIRROR, 'Flight API connection test successful');
