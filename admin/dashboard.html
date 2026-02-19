@@ -4848,7 +4848,15 @@
                             Configure API keys and connection settings used by multiple widgets. Managing credentials here reduces duplication and simplifies maintenance.
                         </p>
 
-                        <h4 style="margin-bottom: 15px;">🌤️ OpenWeatherMap API</h4>
+                        <!-- OpenWeatherMap nested collapsible -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    🌤️ OpenWeatherMap API
+                                </span>
+                            </div>
+                            <div class="collapsible-content collapsed">
                         <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
                             This API is used by the Weather Widget, Forecast Widget, Vacation Widget, and Smart Widget (Rain Forecast). 
                             Get a free API key at <a href="https://openweathermap.org/api" target="_blank" style="color: #667eea;">openweathermap.org/api</a>.
@@ -4898,10 +4906,19 @@
                                 Only the API credentials are centralized here for easier management.
                             </p>
                         </div>
+                            </div>
+                        </div>
+                        <!-- End OpenWeatherMap nested collapsible -->
 
-                        <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 30px;"></div>
-
-                        <h4 style="margin-bottom: 15px;">✈️ AviationStack Flight API</h4>
+                        <!-- AviationStack Flight API nested collapsible -->
+                        <div class="collapsible-section collapsible-nested-l1" style="margin-top: 12px;">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    ✈️ AviationStack Flight API
+                                </span>
+                            </div>
+                            <div class="collapsible-content collapsed">
                         <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
                             This API is used for flight tracking in the Vacation Widget. It provides real-time flight status, delays, gate information, and more.
                             Get a free API key at <a href="https://aviationstack.com/" target="_blank" style="color: #667eea;">aviationstack.com</a> (Free tier: 100 API calls/month).
@@ -5015,6 +5032,9 @@
                                 <div class="test-result-content"></div>
                             </div>
                         </div>
+                            </div>
+                        </div>
+                        <!-- End AviationStack Flight API nested collapsible -->
                     </div>
                 </div>
 
@@ -14445,16 +14465,27 @@
         
         // Test central weather API connection
         async function testCentralWeatherConnection() {
-            const apiKey = document.getElementById('centralWeatherApiKey').value.trim();
+            const apiKeyInput = document.getElementById('centralWeatherApiKey');
+            const apiKey = apiKeyInput.value.trim();
+            const hasSavedKey = apiKeyInput.dataset.hasKey === 'true';
             const location = document.getElementById('centralWeatherLocation').value.trim();
             const units = document.getElementById('centralWeatherUnits').value;
             const containerId = 'centralWeatherTestResult';
-            
-            if (!apiKey || !location) {
+
+            // Require either a typed key or a saved key; location must be set too
+            if (!apiKey && !hasSavedKey) {
                 displayTestResult(containerId, {
                     success: false,
                     error: 'Missing Information',
-                    message: 'Please enter both an API key and location before testing.'
+                    message: 'Please enter an API key before testing.'
+                });
+                return;
+            }
+            if (!location) {
+                displayTestResult(containerId, {
+                    success: false,
+                    error: 'Missing Information',
+                    message: 'Please enter a location before testing.'
                 });
                 return;
             }
@@ -14471,7 +14502,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ apiKey, location, units })
+                    body: JSON.stringify({ apiKey: apiKey || '', location, units })
                 });
                 
                 const result = await response.json();
@@ -14487,10 +14518,12 @@
         
         // Test Flight API connection
         async function testFlightApiConnection() {
-            const apiKey = document.getElementById('flightApiKey').value.trim();
+            const apiKeyInput = document.getElementById('flightApiKey');
+            const apiKey = apiKeyInput.value.trim();
+            const hasSavedKey = apiKeyInput.dataset.hasKey === 'true';
             const containerId = 'flightApiTestResult';
-            
-            if (!apiKey) {
+
+            if (!apiKey && !hasSavedKey) {
                 displayTestResult(containerId, {
                     success: false,
                     error: 'Missing Information',
@@ -14511,7 +14544,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ apiKey })
+                    body: JSON.stringify({ apiKey: apiKey || '' })
                 });
                 
                 const result = await response.json();
