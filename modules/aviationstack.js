@@ -107,6 +107,17 @@ async function testConnection(apiKey) {
     
     incrementUsage();
 
+    // Check for AviationStack error in response body (API returns HTTP 200 with error object)
+    if (response.data && response.data.success === false && response.data.error) {
+      const errCode = response.data.error.code;
+      const errInfo = response.data.error.info || response.data.error.message;
+      logger.error(logger.categories.SMART_MIRROR, `AviationStack connection test error in response body: code=${errCode}, info=${errInfo}`);
+      return {
+        success: false,
+        error: errInfo || 'AviationStack API error'
+      };
+    }
+
     if (response.data && response.data.data !== undefined) {
       logger.info(logger.categories.SMART_MIRROR, 'AviationStack API connection successful');
       return {
@@ -131,6 +142,15 @@ async function testConnection(apiKey) {
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        // Check AviationStack error body before returning generic message
+        if (data && data.error) {
+          const errCode = data.error.code;
+          const errInfo = data.error.info || data.error.message;
+          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          if (errInfo) {
+            return { success: false, error: errInfo };
+          }
+        }
         logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,
@@ -237,6 +257,32 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
           validated: true
         }
       };
+    } else if (response.data && response.data.success === false && response.data.error) {
+      // AviationStack returned an error in the response body (HTTP 200 with error object)
+      const errCode = response.data.error.code;
+      const errInfo = response.data.error.info || response.data.error.message;
+      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
+      if (errCode === 101) {
+        return { success: false, error: 'Invalid API key. Please verify your AviationStack API key in Smart Mirror settings is correct and active.' };
+      } else if (errCode === 102) {
+        return { success: false, error: 'AviationStack account is inactive. Please check your account status at aviationstack.com.' };
+      } else if (errCode === 105) {
+        return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
+      } else if (errCode === 106) {
+        logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction for flight_iata filter, falling back to format-only validation`);
+        return {
+          success: true,
+          message: 'Flight format validated (your AviationStack plan does not support flight-specific queries; upgrade for full real-time validation)',
+          flightInfo: {
+            flightNumber: flightIata.toUpperCase(),
+            date: flightDate,
+            validated: true,
+            limitedValidation: true
+          }
+        };
+      } else {
+        return { success: false, error: errInfo || 'AviationStack API error. Please try again.' };
+      }
     } else {
       logger.warning(logger.categories.SMART_MIRROR, `Flight ${flightIata} not found on ${flightDate}`);
       return {
@@ -252,6 +298,30 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        // Check AviationStack error body before returning generic message
+        if (data && data.error) {
+          const errCode = data.error.code;
+          const errInfo = data.error.info || data.error.message;
+          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          if (errCode === 105) {
+            return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
+          } else if (errCode === 106) {
+            // Plan restriction - fall back to format-only validation instead of showing an error
+            logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction (HTTP ${status}), falling back to format-only validation`);
+            return {
+              success: true,
+              message: 'Flight format validated (your AviationStack plan does not support flight-specific queries; upgrade for full real-time validation)',
+              flightInfo: {
+                flightNumber: flightIata.toUpperCase(),
+                date: flightDate,
+                validated: true,
+                limitedValidation: true
+              }
+            };
+          } else if (errInfo) {
+            return { success: false, error: errInfo };
+          }
+        }
         logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,
@@ -368,6 +438,15 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
           lastUpdated: new Date().toISOString()
         }
       };
+    } else if (response.data && response.data.success === false && response.data.error) {
+      // AviationStack returned an error in the response body (HTTP 200 with error object)
+      const errCode = response.data.error.code;
+      const errInfo = response.data.error.info || response.data.error.message;
+      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
+      return {
+        success: false,
+        error: errInfo || 'AviationStack API error. Please check your API key and plan settings.'
+      };
     } else {
       logger.warning(logger.categories.SMART_MIRROR, `Flight ${flightIata} not found on ${flightDate}`);
       return {
@@ -383,6 +462,15 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       const data = error.response.data;
       
       if (status === 401 || status === 403) {
+        // Check AviationStack error body before returning generic message
+        if (data && data.error) {
+          const errCode = data.error.code;
+          const errInfo = data.error.info || data.error.message;
+          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          if (errInfo) {
+            return { success: false, error: errInfo };
+          }
+        }
         logger.error(logger.categories.SMART_MIRROR, `AviationStack API authentication failed: HTTP ${status}`);
         return {
           success: false,

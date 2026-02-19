@@ -7097,8 +7097,9 @@
                         <div id="flightsList" style="margin-bottom: 15px;">
                             <!-- Flight entries will be added here dynamically -->
                         </div>
+                        <div id="flightApiStatusBanner" style="margin-bottom: 10px; font-size: 0.85rem;"></div>
                         <div style="padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.85rem; color: #666;">
-                            <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking.
+                            <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking. Configure the AviationStack API key in Smart Mirror → APIs and Connections to enable real-time validation.
                         </div>
                     </div>
                     
@@ -20339,7 +20340,9 @@
             document.getElementById('vacationNotes').value = '';
             document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('flightsList').innerHTML = '';
+            document.getElementById('flightApiStatusBanner').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
+            checkFlightApiStatus();
         }
         
         function editVacationDate(id) {
@@ -20354,12 +20357,35 @@
             document.getElementById('vacationNotes').value = date.notes || '';
             document.getElementById('locationTestResult').innerHTML = '';
             loadFlightsIntoModal(date.flights || []);
+            document.getElementById('flightApiStatusBanner').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
+            checkFlightApiStatus();
         }
         
         function closeVacationDateModal() {
             document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'none';
+        }
+        
+        async function checkFlightApiStatus() {
+            const banner = document.getElementById('flightApiStatusBanner');
+            if (!banner) return;
+            try {
+                const response = await fetch('/admin/api/flight-api/diagnostics');
+                if (!response.ok) return;
+                const result = await response.json();
+                if (!result.success) return;
+                const diag = result.diagnostics;
+                if (diag.apiKeyConfigured && diag.enabled) {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #d1fae5; border-radius: 5px; color: #065f46;">✅ AviationStack API is configured and enabled — real-time flight validation available.</div>';
+                } else if (diag.apiKeyConfigured && !diag.enabled) {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #fef3c7; border-radius: 5px; color: #92400e;">⚠️ AviationStack API key is set but Flight API is disabled. Enable it in Smart Mirror → APIs and Connections to use real-time validation.</div>';
+                } else {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #fef3c7; border-radius: 5px; color: #92400e;">⚠️ AviationStack API key not configured. Format-only validation will be used. Configure in Smart Mirror → APIs and Connections.</div>';
+                }
+            } catch (e) {
+                // Silently ignore — status banner is informational only
+            }
         }
         
         // Flight information management
@@ -20443,7 +20469,17 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                    if (result.flightInfo && result.flightInfo.limitedValidation) {
+                        // Escape HTML in message to prevent XSS
+                        const escapeHtml = (str) => {
+                            const div = document.createElement('div');
+                            div.textContent = str;
+                            return div.innerHTML;
+                        };
+                        statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Format validated</span><br><small style="color: #6b7280;">${escapeHtml(result.message || 'Limited validation only')}</small>`;
+                    } else {
+                        statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                    }
                     flightDiv.dataset.validated = 'true';
                 } else {
                     // Escape HTML in error message to prevent XSS
