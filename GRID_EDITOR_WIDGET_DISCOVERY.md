@@ -45,25 +45,61 @@ const WIDGET_ICONS = {
     weather: '🌤️',
     forecast: '🌦️',
     news: '📰',
-    media: '🎵'
+    media: '🎵',
+    vacation: '🏖️',
+    smartWidget: '🧠'
 };
 ```
 
-### 2. Dynamic Discovery
+### 2. Widget Display Names
+
+Human-readable display names for all widgets are defined in `WIDGET_NAMES`:
+
+```javascript
+const WIDGET_NAMES = {
+    clock: 'Clock',
+    calendar: 'Calendar',
+    weather: 'Weather',
+    forecast: 'Forecast',
+    news: 'News',
+    media: 'Media Player',
+    vacation: 'Vacation',
+    smartWidget: 'Smart Widget'
+};
+```
+
+### 3. Smart Widget Sub-Widgets
+
+Sub-widgets of the Smart Widget are listed in `SMART_SUB_WIDGETS` and displayed nested under the Smart Widget palette tile:
+
+```javascript
+const SMART_SUB_WIDGETS = [
+    { id: 'smartWidgetRainEnabled',       icon: '🌧️', name: 'Rain Expected' },
+    { id: 'smartWidgetHighHeatEnabled',   icon: '🔥', name: 'High Heat' },
+    { id: 'smartWidgetTempChangeEnabled', icon: '🌡️', name: 'Temp Change' },
+    { id: 'smartWidgetVacationEnabled',   icon: '✈️', name: 'Vacation' },
+    { id: 'smartWidgetPartyEnabled',      icon: '🎉', name: 'Party' },
+    { id: 'smartWidgetMediaEnabled',      icon: '🎵', name: 'HA Media' }
+];
+```
+
+### 4. Dynamic Discovery
 
 The `loadGridWidgets()` function:
 1. Iterates through all keys in `WIDGET_ICONS`
 2. Checks if form fields exist for each widget (e.g., `clockEnabled`, `mediaEnabled`)
 3. Automatically includes all discovered widgets in the grid editor
 4. Renders enabled widgets on the grid canvas
-5. Shows all widgets (enabled and disabled) in the widget palette
+5. Shows all widgets (enabled and disabled) in the widget palette with color-coded **Active/Inactive** badges
+6. For the Smart Widget, shows nested sub-widget entries with their own **On/Off** status badges
 
-### 3. Widget Requirements
+### 5. Widget Requirements
 
 For a widget to appear in the grid editor, it must have:
 
 1. **An entry in WIDGET_ICONS** with an appropriate emoji
-2. **Form fields following the naming convention:**
+2. **An entry in WIDGET_NAMES** with a human-readable display name
+3. **Form fields following the naming convention:**
    - `{widgetType}Enabled` - Enable/disable dropdown
    - `{widgetType}GridX` - X position input
    - `{widgetType}GridY` - Y position input
@@ -76,19 +112,21 @@ That's it! No other code changes needed.
 
 To add a new widget to the grid editor:
 
-### Step 1: Add to WIDGET_ICONS
+### Step 1: Add to WIDGET_ICONS and WIDGET_NAMES
 
-In `admin/dashboard.html`, add your widget to the `WIDGET_ICONS` object:
+In `admin/dashboard.html`, add your widget to the `WIDGET_ICONS` and `WIDGET_NAMES` objects:
 
 ```javascript
 const WIDGET_ICONS = {
     clock: '🕐',
-    calendar: '📅',
-    weather: '🌤️',
-    forecast: '🌦️',
-    news: '📰',
-    media: '🎵',
+    // ...existing entries...
     yourNewWidget: '🆕'  // ← Add your widget here
+};
+
+const WIDGET_NAMES = {
+    clock: 'Clock',
+    // ...existing entries...
+    yourNewWidget: 'Your New Widget'  // ← Add display name here
 };
 ```
 

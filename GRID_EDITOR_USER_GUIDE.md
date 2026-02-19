@@ -23,9 +23,21 @@ The grid editor displays a 4×3 grid representing your Smart Mirror dashboard:
 ### Widget Palette
 
 The sidebar shows all available widgets with their current status:
-- **Enabled Widgets**: Show current position and size
-- **Disabled Widgets**: Grayed out and not shown on the grid
-- **Real-time Updates**: Position and size update as you make changes
+- **Enabled Widgets**: Show a green **Active** badge and current position/size
+- **Disabled Widgets**: Show a red **Inactive** badge, grayed out and not shown on the grid
+- **Real-time Updates**: Position, size, and status badges update as you make changes
+
+#### Smart Widget Sub-Widgets
+
+The **Smart Widget** tile in the palette also lists all of its sub-widgets beneath it, each with their own **On/Off** status badge:
+- 🌧️ Rain Expected
+- 🔥 High Heat
+- 🌡️ Temp Change
+- ✈️ Vacation
+- 🎉 Party
+- 🎵 HA Media
+
+Sub-widget statuses are read-only in the grid editor — they reflect the settings configured in the Smart Widget section below the editor.
 
 ### Color Coding
 
@@ -33,6 +45,8 @@ The sidebar shows all available widgets with their current status:
 - **Gray**: Disabled widgets
 - **Gold Border**: Selected widget
 - **Red Border**: Overlapping widgets (warning)
+- **Green Badge** (Active): Widget or sub-widget is enabled
+- **Red Badge** (Inactive/Off): Widget or sub-widget is disabled
 
 ## Using the Grid Editor
 
