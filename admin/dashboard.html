@@ -4961,6 +4961,16 @@
                             </div>
                         </div>
 
+                        <div id="flightApiFreePlanBanner" style="display: none; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 15px; border-radius: 5px;">
+                            <strong style="color: #92400e;">⚠️ Free Plan Limitations Detected</strong>
+                            <p style="margin: 8px 0 0 0; color: #78350f; font-size: 0.9rem;">
+                                Your AviationStack Free Plan does not support real-time flight-specific queries (e.g. filtering by flight number or date).
+                                Flight number <strong>format validation</strong> is still available.
+                                For live departure/arrival times, delays, and gate info, consider upgrading your
+                                <a href="https://aviationstack.com/product" target="_blank" style="color: #b45309;">AviationStack plan</a>.
+                            </p>
+                        </div>
+
                         <div id="flightApiUsage" style="background: #f0f7ff; border-left: 4px solid #3b82f6; padding: 15px; margin-top: 15px; border-radius: 5px; display: none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <strong style="color: #333;">📊 API Usage This Month</strong>
@@ -7100,6 +7110,7 @@
                         <div id="flightApiStatusBanner" style="margin-bottom: 10px; font-size: 0.85rem;"></div>
                         <div style="padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.85rem; color: #666;">
                             <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking. Configure the AviationStack API key in Smart Mirror → APIs and Connections to enable real-time validation.
+                            Free Plan users will see <strong>⚠️ Format validated</strong> — the flight number format is checked but live data is not available. Upgrade your AviationStack plan for full real-time tracking.
                         </div>
                     </div>
                     
@@ -14376,6 +14387,9 @@
             if (result.loading) {
                 statusClass = 'loading';
                 icon = '<span class="spinner"></span>';
+            } else if (result.success && result.freePlan) {
+                statusClass = 'warning';
+                icon = '⚠️';
             } else if (result.success) {
                 statusClass = 'success';
                 icon = '✅';
@@ -14389,7 +14403,7 @@
             let html = `
                 <div class="test-result-header">
                     <span class="test-result-icon">${icon}</span>
-                    <span>${result.loading ? 'Testing connection...' : result.success ? 'Success' : result.error || 'Error'}</span>
+                    <span>${result.loading ? 'Testing connection...' : result.success && result.freePlan ? 'Free Plan Detected' : result.success ? 'Success' : result.error || 'Error'}</span>
                 </div>
             `;
             
@@ -14551,12 +14565,16 @@
                 const result = await response.json();
                 displayTestResult(containerId, result);
                 
-                // If successful, show usage stats and refresh them
+                // If successful (including Free Plan), show usage stats and refresh them
                 if (result.success) {
                     document.getElementById('flightApiUsage').style.display = 'block';
                     await refreshFlightApiUsage();
                     // Also show diagnostics to help with troubleshooting
                     await showFlightApiDiagnostics();
+                    if (result.freePlan) {
+                        const freePlanBanner = document.getElementById('flightApiFreePlanBanner');
+                        if (freePlanBanner) freePlanBanner.style.display = 'block';
+                    }
                 }
             } catch (error) {
                 displayTestResult(containerId, {
