@@ -112,6 +112,16 @@ async function testConnection(apiKey) {
       const errCode = response.data.error.code;
       const errInfo = response.data.error.info || response.data.error.message;
       logger.error(logger.categories.SMART_MIRROR, `AviationStack connection test error in response body: code=${errCode}, info=${errInfo}`);
+      if (errCode === 106) {
+        // Plan restriction — key is valid but Free Plan does not support this endpoint/filter
+        logger.warning(logger.categories.SMART_MIRROR, 'AviationStack Free Plan detected: API key is valid but plan has restrictions');
+        return {
+          success: true,
+          freePlan: true,
+          message: 'AviationStack Free Plan detected. Your API key is valid. Basic flight format validation is available; real-time flight tracking requires a paid plan.',
+          data: { apiActive: true, freePlan: true }
+        };
+      }
       return {
         success: false,
         error: errInfo || 'AviationStack API error'
@@ -147,6 +157,15 @@ async function testConnection(apiKey) {
           const errCode = data.error.code;
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          if (errCode === 106) {
+            logger.warning(logger.categories.SMART_MIRROR, 'AviationStack Free Plan detected: API key is valid but plan has restrictions');
+            return {
+              success: true,
+              freePlan: true,
+              message: 'AviationStack Free Plan detected. Your API key is valid. Basic flight format validation is available; real-time flight tracking requires a paid plan.',
+              data: { apiActive: true, freePlan: true }
+            };
+          }
           if (errInfo) {
             return { success: false, error: errInfo };
           }
@@ -443,6 +462,21 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       const errCode = response.data.error.code;
       const errInfo = response.data.error.info || response.data.error.message;
       logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
+      if (errCode === 106) {
+        // Plan restriction — Free Plan does not support flight-specific queries
+        logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction for getFlightStatus, returning limited status`);
+        return {
+          success: true,
+          freePlan: true,
+          flightStatus: {
+            flightNumber: flightIata.toUpperCase(),
+            status: 'unknown',
+            limited: true,
+            limitedReason: 'Free Plan does not support real-time flight status queries. Upgrade your AviationStack plan for full tracking.',
+            lastUpdated: new Date().toISOString()
+          }
+        };
+      }
       return {
         success: false,
         error: errInfo || 'AviationStack API error. Please check your API key and plan settings.'
@@ -467,6 +501,20 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
           const errCode = data.error.code;
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          if (errCode === 106) {
+            logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction (HTTP ${status}), returning limited flight status`);
+            return {
+              success: true,
+              freePlan: true,
+              flightStatus: {
+                flightNumber: flightIata.toUpperCase(),
+                status: 'unknown',
+                limited: true,
+                limitedReason: 'Free Plan does not support real-time flight status queries. Upgrade your AviationStack plan for full tracking.',
+                lastUpdated: new Date().toISOString()
+              }
+            };
+          }
           if (errInfo) {
             return { success: false, error: errInfo };
           }
