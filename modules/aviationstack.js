@@ -8,7 +8,13 @@ const logger = require('./logger');
  * API Documentation: https://aviationstack.com/documentation
  */
 
-const AVIATIONSTACK_BASE_URL = 'https://api.aviationstack.com/v1';
+// AviationStack Free Plan requires HTTP (not HTTPS).
+// HTTPS access is restricted to paid plans (error code 105).
+// Always use HTTP for Free Plan compatibility.
+// ⚠️  Security note: HTTP transmits the API key and flight data in plaintext.
+// For production environments handling sensitive data, consider upgrading to a
+// paid AviationStack plan which supports HTTPS.
+const AVIATIONSTACK_BASE_URL = 'http://api.aviationstack.com/v1';
 
 // API usage tracking
 let apiUsage = {
@@ -286,7 +292,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       } else if (errCode === 102) {
         return { success: false, error: 'AviationStack account is inactive. Please check your account status at aviationstack.com.' };
       } else if (errCode === 105) {
-        return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
+        return { success: false, error: 'HTTPS access is restricted on the Free Plan. The application is configured to use HTTP — if you see this error, please ensure no proxy or network layer is forcing HTTPS for api.aviationstack.com.' };
       } else if (errCode === 106) {
         logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction for flight_iata filter, falling back to format-only validation`);
         return {
@@ -323,7 +329,7 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
           const errInfo = data.error.info || data.error.message;
           logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
           if (errCode === 105) {
-            return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
+            return { success: false, error: 'HTTPS access is restricted on the Free Plan. The application is configured to use HTTP — if you see this error, please ensure no proxy or network layer is forcing HTTPS for api.aviationstack.com.' };
           } else if (errCode === 106) {
             // Plan restriction - fall back to format-only validation instead of showing an error
             logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction (HTTP ${status}), falling back to format-only validation`);

@@ -52,10 +52,12 @@ This schedule maximizes data freshness while staying well within the 100 calls/m
    - Sign up at [aviationstack.com](https://aviationstack.com/)
    - Free tier includes 100 API calls per month
    - No credit card required for free tier
+   - **⚠️ Free Plan HTTP Requirement**: The AviationStack Free Plan only supports HTTP (not HTTPS). The application is pre-configured to use `http://api.aviationstack.com/v1` for all API calls to ensure Free Plan compatibility. Note that HTTP transmits the API key in plaintext; for production environments with strict security requirements, upgrading to a paid plan (which supports HTTPS) is recommended. If your network or proxy forces HTTPS for port 80 connections, you may see error code 105 — in that case, allow egress to `api.aviationstack.com:80` over plain HTTP.
 
 2. **System Requirements**
    - Node.js (included in Docker container)
    - Access to admin dashboard
+   - Outbound HTTP access to `api.aviationstack.com:80` (required for Free Plan)
 
 ### Setup Instructions
 
