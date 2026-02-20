@@ -8271,10 +8271,13 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       destination: vacation.destination,
                       startDate: vacation.startDate,
                       endDate: vacation.endDate,
-                      daysUntil: daysUntil
+                      daysUntil: daysUntil,
+                      notes: vacation.notes || '',
+                      flightTrackingEnabled: vacation.flightTrackingEnabled || false,
+                      flights: (vacation.flights || []).filter(f => f.validated)
                     };
                     
-                    // Fetch weather data if API key is configured and destination is validated
+                    // Fetch weather data and timezone if API key is configured and destination is set
                     if (weatherApiKey && vacation.destination) {
                       try {
                         logger.debug(logger.categories.SMART_MIRROR, 
@@ -8329,13 +8332,24 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                               `Failed to fetch weather for vacation destination: ${vacation.destination} - ${weatherResult.error || currentWeatherResult.error}`);
                           }
                         }
+                        
+                        // Fetch timezone data for local time display
+                        try {
+                          const timezoneResult = await smartMirror.fetchLocationTimezone(weatherApiKey, vacation.destination);
+                          if (timezoneResult.success && timezoneResult.data) {
+                            vacationInfo.timezoneOffset = timezoneResult.data.timezoneOffset;
+                          }
+                        } catch (tzErr) {
+                          logger.warning(logger.categories.SMART_MIRROR, 
+                            `Error fetching timezone for vacation ${vacation.destination}: ${tzErr.message}`);
+                        }
                       } catch (err) {
                         logger.warning(logger.categories.SMART_MIRROR, 
                           `Error fetching weather for vacation ${vacation.destination}: ${err.message}`);
                       }
                     } else {
                       logger.debug(logger.categories.SMART_MIRROR, 
-                        'Vacation weather skipped: API key not configured or destination missing');
+                        'Vacation weather/timezone skipped: API key not configured or destination missing');
                     }
                     
                     return vacationInfo;
