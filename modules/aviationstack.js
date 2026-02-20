@@ -8,7 +8,13 @@ const logger = require('./logger');
  * API Documentation: https://aviationstack.com/documentation
  */
 
-const AVIATIONSTACK_BASE_URL = 'https://api.aviationstack.com/v1';
+// AviationStack Free Plan requires HTTP (not HTTPS).
+// HTTPS access is restricted to paid plans (error code 105).
+// Always use HTTP for Free Plan compatibility.
+// ⚠️  Security note: HTTP transmits the API key and flight data in plaintext.
+// For production environments handling sensitive data, consider upgrading to a
+// paid AviationStack plan which supports HTTPS.
+const AVIATIONSTACK_BASE_URL = 'http://api.aviationstack.com/v1';
 
 // API usage tracking
 let apiUsage = {
@@ -233,10 +239,12 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
 
   try {
     const url = `${AVIATIONSTACK_BASE_URL}/flights`;
+    // Free Plan does not support the flight_date filter (returns 403 function_access_restricted).
+    // Request by flight_iata only and match the desired date client-side.
     const params = {
       access_key: apiKey,
       flight_iata: flightIata,
-      flight_date: flightDate
+      limit: 10
     };
 
     const keyFingerprint = getApiKeyFingerprint(apiKey);
@@ -247,12 +255,17 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
     incrementUsage();
 
     if (response.data && response.data.data && response.data.data.length > 0) {
-      const flight = response.data.data[0];
-      logger.info(logger.categories.SMART_MIRROR, `Flight ${flightIata} validated successfully`);
+      // Try to find the record matching the requested date; fall back to the first result
+      const allFlights = response.data.data;
+      const flight = allFlights.find(f => f.flight_date === flightDate) || allFlights[0];
+      const dateNote = flight.flight_date !== flightDate
+        ? ` (closest available record is for ${flight.flight_date}; real-time data for ${flightDate} may not be in the schedule yet)`
+        : '';
+      logger.info(logger.categories.SMART_MIRROR, `Flight ${flightIata} validated successfully${dateNote}`);
       
       return {
         success: true,
-        message: 'Flight validated successfully',
+        message: `Flight validated successfully${dateNote}`,
         flightInfo: {
           flightIata: flight.flight.iata,
           flightNumber: flight.flight.number,
@@ -278,20 +291,21 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       };
     } else if (response.data && response.data.success === false && response.data.error) {
       // AviationStack returned an error in the response body (HTTP 200 with error object)
-      const errCode = parseInt(response.data.error.code, 10);
+      const rawCode = response.data.error.code;
+      const errCode = parseInt(rawCode, 10);
       const errInfo = response.data.error.info || response.data.error.message;
-      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
+      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${rawCode}, info=${errInfo}`);
       if (errCode === 101) {
         return { success: false, error: 'Invalid API key. Please verify your AviationStack API key in Smart Mirror settings is correct and active.' };
       } else if (errCode === 102) {
         return { success: false, error: 'AviationStack account is inactive. Please check your account status at aviationstack.com.' };
       } else if (errCode === 105) {
-        return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
-      } else if (errCode === 106) {
+        return { success: false, error: 'HTTPS access is restricted on the Free Plan. The application is configured to use HTTP — if you see this error, please ensure no proxy or network layer is forcing HTTPS for api.aviationstack.com.' };
+      } else if (errCode === 106 || rawCode === 'function_access_restricted') {
         logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction for flight_iata filter, falling back to format-only validation`);
         return {
           success: true,
-          message: 'Flight format validated (your AviationStack plan does not support flight-specific queries; upgrade for full real-time validation)',
+          message: 'Flight format validated (your AviationStack Free Plan does not support this query parameter; flight format is valid)',
           flightInfo: {
             flightNumber: flightIata.toUpperCase(),
             date: flightDate,
@@ -319,17 +333,18 @@ async function validateFlight(apiKey, flightIata, flightDate, bypassLimit = fals
       if (status === 401 || status === 403) {
         // Check AviationStack error body before returning generic message
         if (data && data.error) {
-          const errCode = parseInt(data.error.code, 10);
+          const rawCode = data.error.code;
+          const errCode = parseInt(rawCode, 10);
           const errInfo = data.error.info || data.error.message;
-          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
+          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${rawCode}, info=${errInfo}`);
           if (errCode === 105) {
-            return { success: false, error: 'Your AviationStack plan does not support HTTPS. Please upgrade your plan or contact AviationStack support.' };
-          } else if (errCode === 106) {
+            return { success: false, error: 'HTTPS access is restricted on the Free Plan. The application is configured to use HTTP — if you see this error, please ensure no proxy or network layer is forcing HTTPS for api.aviationstack.com.' };
+          } else if (errCode === 106 || rawCode === 'function_access_restricted') {
             // Plan restriction - fall back to format-only validation instead of showing an error
             logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction (HTTP ${status}), falling back to format-only validation`);
             return {
               success: true,
-              message: 'Flight format validated (your AviationStack plan does not support flight-specific queries; upgrade for full real-time validation)',
+              message: 'Flight format validated (your AviationStack Free Plan does not support this query parameter; flight format is valid)',
               flightInfo: {
                 flightNumber: flightIata.toUpperCase(),
                 date: flightDate,
@@ -404,10 +419,12 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
 
   try {
     const url = `${AVIATIONSTACK_BASE_URL}/flights`;
+    // Free Plan does not support the flight_date filter (returns 403 function_access_restricted).
+    // Request by flight_iata only and match the desired date client-side.
     const params = {
       access_key: apiKey,
       flight_iata: flightIata,
-      flight_date: flightDate
+      limit: 10
     };
 
     const keyFingerprint = getApiKeyFingerprint(apiKey);
@@ -418,10 +435,12 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
     incrementUsage();
 
     if (response.data && response.data.data && response.data.data.length > 0) {
-      const flight = response.data.data[0];
-      const status = flight.flight_status || 'scheduled';
+      // Find record matching the requested date; fall back to first result
+      const allFlights = response.data.data;
+      const flight = allFlights.find(f => f.flight_date === flightDate) || allFlights[0];
+      const flightStatus = flight.flight_status || 'scheduled';
       
-      logger.info(logger.categories.SMART_MIRROR, `Flight ${flightIata} status: ${status}`);
+      logger.info(logger.categories.SMART_MIRROR, `Flight ${flightIata} status: ${flightStatus} (record date: ${flight.flight_date})`);
       
       return {
         success: true,
@@ -432,7 +451,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
             name: flight.airline.name,
             iata: flight.airline.iata
           },
-          status: status,
+          status: flightStatus,
           departure: {
             airport: flight.departure.airport,
             iata: flight.departure.iata,
@@ -459,11 +478,12 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       };
     } else if (response.data && response.data.success === false && response.data.error) {
       // AviationStack returned an error in the response body (HTTP 200 with error object)
-      const errCode = parseInt(response.data.error.code, 10);
+      const rawCode = response.data.error.code;
+      const errCode = parseInt(rawCode, 10);
       const errInfo = response.data.error.info || response.data.error.message;
-      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${errCode}, info=${errInfo}`);
-      if (errCode === 106) {
-        // Plan restriction — Free Plan does not support flight-specific queries
+      logger.error(logger.categories.SMART_MIRROR, `AviationStack API error in response body: code=${rawCode}, info=${errInfo}`);
+      if (errCode === 106 || rawCode === 'function_access_restricted') {
+        // Plan restriction — Free Plan does not support this filter
         logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction for getFlightStatus, returning limited status`);
         return {
           success: true,
@@ -472,7 +492,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
             flightNumber: flightIata.toUpperCase(),
             status: 'unknown',
             limited: true,
-            limitedReason: 'Free Plan does not support real-time flight status queries. Upgrade your AviationStack plan for full tracking.',
+            limitedReason: 'Your AviationStack Free Plan does not support this query. Upgrade your plan for full real-time flight status.',
             lastUpdated: new Date().toISOString()
           }
         };
@@ -498,10 +518,11 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
       if (status === 401 || status === 403) {
         // Check AviationStack error body before returning generic message
         if (data && data.error) {
-          const errCode = parseInt(data.error.code, 10);
+          const rawCode = data.error.code;
+          const errCode = parseInt(rawCode, 10);
           const errInfo = data.error.info || data.error.message;
-          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${errCode}, info=${errInfo}`);
-          if (errCode === 106) {
+          logger.error(logger.categories.SMART_MIRROR, `AviationStack API error (HTTP ${status}): code=${rawCode}, info=${errInfo}`);
+          if (errCode === 106 || rawCode === 'function_access_restricted') {
             logger.warning(logger.categories.SMART_MIRROR, `AviationStack plan restriction (HTTP ${status}), returning limited flight status`);
             return {
               success: true,
@@ -510,7 +531,7 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
                 flightNumber: flightIata.toUpperCase(),
                 status: 'unknown',
                 limited: true,
-                limitedReason: 'Free Plan does not support real-time flight status queries. Upgrade your AviationStack plan for full tracking.',
+                limitedReason: 'Your AviationStack Free Plan does not support this query. Upgrade your plan for full real-time flight status.',
                 lastUpdated: new Date().toISOString()
               }
             };
