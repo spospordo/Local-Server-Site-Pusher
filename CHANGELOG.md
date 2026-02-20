@@ -9,6 +9,18 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.7.10] - 2026-02-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #535 from spospordo/copilot/fix-aviationstack-api-endpoint
+  - Fix: Remove flight_date param (Free Plan restriction); add client-side date matching and string error code handling
+  - Co-authored-by: spospordo <15280983+spospordo@users.noreply.github.com>
+  - Fix: Use HTTP endpoint for AviationStack Free Plan API calls
+  - Initial plan
+
+
 ## [2.7.9] - 2026-02-19
 
 ### Patch Update
