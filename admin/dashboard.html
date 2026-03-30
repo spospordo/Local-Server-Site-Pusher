@@ -20843,7 +20843,8 @@
                             alertMsg += ` ℹ️ Clock time for "${clockCity}" will be shown during the vacation window (1 week before through 5 days after).`;
                         }
                     }
-                    showAlert(alertMsg, addToDashboardClock && result.clockSync?.skipped > 0 ? 'warning' : 'success', 'vacationAlert');
+                    const alertType = (addToDashboardClock && result.clockSync?.skipped > 0) ? 'warning' : 'success';
+                    showAlert(alertMsg, alertType, 'vacationAlert');
                 } else {
                     alert('Failed to save vacation date: ' + result.error);
                 }

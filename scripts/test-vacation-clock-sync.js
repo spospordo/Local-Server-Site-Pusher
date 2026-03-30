@@ -124,7 +124,6 @@ function runSync(vacationDates, smConfig) {
 
   const removed = vacationEntries.filter(e =>
     !newVacationEntries.some(n => n.timezone === e.timezone)).length;
-
   // Return the updated config snapshot and the result summary
   const updatedConfig = {
     ...smConfig,

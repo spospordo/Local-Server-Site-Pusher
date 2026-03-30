@@ -8707,8 +8707,8 @@ function syncVacationClockTimezones() {
     const newJson = JSON.stringify(finalAdditionalTzs);
     const oldMetaJson = JSON.stringify(vacationEntries);
     const newMetaJson = JSON.stringify(newVacationEntries);
-    const removed = vacationEntries.length - newVacationEntries.filter(e =>
-      vacationEntries.some(v => v.timezone === e.timezone)).length;
+    const removed = vacationEntries.filter(e =>
+      !newVacationEntries.some(n => n.timezone === e.timezone)).length;
 
     if (oldJson !== newJson || oldMetaJson !== newMetaJson) {
       const updatedConfig = {
