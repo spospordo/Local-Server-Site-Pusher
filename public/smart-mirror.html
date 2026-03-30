@@ -655,6 +655,187 @@
             }
         }
 
+        /* Rain Forecast Widget Styles and Animations */
+        .rain-forecast-enhanced {
+            animation: rain-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes rain-pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.02);
+                opacity: 0.95;
+            }
+        }
+
+        /* Rain widget container gets a blue highlight */
+        .smart-sub-widget-rainForecast {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.2) 0%, rgba(74, 158, 255, 0.1) 100%) !important;
+            border: 2px solid rgba(74, 158, 255, 0.5) !important;
+            box-shadow: 0 0 25px rgba(74, 158, 255, 0.3);
+            animation: rain-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-rainForecast {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.25) 0%, rgba(74, 158, 255, 0.15) 100%) !important;
+            border: 2px solid rgba(74, 158, 255, 0.6) !important;
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.4);
+        }
+
+        @keyframes rain-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(74, 158, 255, 0.3), 0 0 40px rgba(74, 158, 255, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(74, 158, 255, 0.5), 0 0 60px rgba(74, 158, 255, 0.2);
+            }
+        }
+
+        /* Raindrop animation for icon */
+        .rain-forecast-icon {
+            animation: raindrop 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes raindrop {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            25% {
+                transform: translateY(-3px);
+            }
+            50% {
+                transform: translateY(0px);
+            }
+            75% {
+                transform: translateY(3px);
+            }
+        }
+
+        /* Subtle slide-in animation for rain day cards */
+        .rain-day-card {
+            animation: slide-in 0.5s ease-out;
+        }
+
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Add staggered delay for multiple cards */
+        .rain-day-card:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .rain-day-card:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        /* Responsive rain widget - wrap cards to prevent horizontal scroll */
+        .rain-forecast-horizontal {
+            flex-wrap: wrap;
+        }
+
+        .rain-forecast-details {
+            overflow-x: hidden;
+            min-width: 0;
+        }
+
+        .rain-day-card {
+            min-width: 0;
+        }
+
+        /* High Heat Widget Styles and Animations */
+        .smart-sub-widget-highHeat {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.2) 0%, rgba(255, 140, 0, 0.1) 100%) !important;
+            border: 2px solid rgba(255, 140, 0, 0.5) !important;
+            box-shadow: 0 0 25px rgba(255, 140, 0, 0.3);
+            animation: heat-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-highHeat {
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(255, 140, 0, 0.15) 100%) !important;
+            border: 2px solid rgba(255, 140, 0, 0.6) !important;
+            box-shadow: 0 0 20px rgba(255, 140, 0, 0.4);
+        }
+
+        @keyframes heat-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(255, 140, 0, 0.3), 0 0 40px rgba(255, 140, 0, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(255, 140, 0, 0.5), 0 0 60px rgba(255, 140, 0, 0.2);
+            }
+        }
+
+        .heat-icon {
+            animation: heat-pulse 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes heat-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+
+        .heat-day-card {
+            animation: slide-in 0.5s ease-out;
+            min-width: 0;
+        }
+
+        .heat-day-card:nth-child(2) { animation-delay: 0.1s; }
+        .heat-day-card:nth-child(3) { animation-delay: 0.2s; }
+
+        /* Temp Change Widget Styles and Animations */
+        .smart-sub-widget-tempChange {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.2) 0%, rgba(138, 43, 226, 0.1) 100%) !important;
+            border: 2px solid rgba(138, 43, 226, 0.5) !important;
+            box-shadow: 0 0 25px rgba(138, 43, 226, 0.3);
+            animation: tempchange-glow 2s ease-in-out infinite;
+        }
+
+        body.theme-light .smart-sub-widget-tempChange {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.25) 0%, rgba(138, 43, 226, 0.15) 100%) !important;
+            border: 2px solid rgba(138, 43, 226, 0.6) !important;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+        }
+
+        @keyframes tempchange-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(138, 43, 226, 0.3), 0 0 40px rgba(138, 43, 226, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(138, 43, 226, 0.5), 0 0 60px rgba(138, 43, 226, 0.2);
+            }
+        }
+
+        .tempchange-icon {
+            animation: tempchange-bounce 2s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes tempchange-bounce {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .tempchange-day-card {
+            animation: slide-in 0.5s ease-out;
+            min-width: 0;
+        }
+
+        .tempchange-day-card:nth-child(2) { animation-delay: 0.1s; }
+        .tempchange-day-card:nth-child(3) { animation-delay: 0.2s; }
+
         /* AQI color coding */
         .aqi-good {
             color: #4CAF50;
@@ -2211,33 +2392,47 @@
                                         flightNumSpan.textContent = flightStatus.flightNumber;
                                         headerDiv.appendChild(flightNumSpan);
                                         
-                                        // Status badge
+                                        // Status badge — show Free Plan indicator when tracking is limited
                                         const statusSpan = document.createElement('span');
                                         statusSpan.style.padding = '2px 6px';
                                         statusSpan.style.borderRadius = '3px';
                                         statusSpan.style.fontSize = '0.75rem';
                                         statusSpan.style.fontWeight = 'bold';
                                         
-                                        if (flightStatus.status === 'On Time') {
+                                        if (flightStatus.limited) {
+                                            statusSpan.style.background = '#f59e0b';
+                                            statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = 'Free Plan';
+                                        } else if (flightStatus.status === 'On Time') {
                                             statusSpan.style.background = '#10b981';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else if (flightStatus.status === 'Delayed') {
                                             statusSpan.style.background = '#ef4444';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else if (flightStatus.status === 'Completed') {
                                             statusSpan.style.background = '#6b7280';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         } else {
                                             statusSpan.style.background = '#3b82f6';
                                             statusSpan.style.color = '#fff';
+                                            statusSpan.textContent = flightStatus.status;
                                         }
-                                        statusSpan.textContent = flightStatus.status;
                                         headerDiv.appendChild(statusSpan);
                                         
                                         flightItemDiv.appendChild(headerDiv);
                                         
-                                        // Flight details
-                                        if (flightStatus.gate || flightStatus.terminal) {
+                                        // Show Free Plan limitation note or flight details
+                                        if (flightStatus.limited) {
+                                            const limitedDiv = document.createElement('div');
+                                            limitedDiv.style.opacity = '0.7';
+                                            limitedDiv.style.fontSize = '0.75rem';
+                                            limitedDiv.style.marginLeft = '20px';
+                                            limitedDiv.textContent = 'Real-time tracking unavailable on Free Plan';
+                                            flightItemDiv.appendChild(limitedDiv);
+                                        } else if (flightStatus.gate || flightStatus.terminal) {
                                             const detailsDiv = document.createElement('div');
                                             detailsDiv.style.opacity = '0.8';
                                             detailsDiv.style.fontSize = '0.8rem';
@@ -2753,11 +2948,20 @@
             container.style.padding = '15px';
             container.style.borderRadius = '10px';
             container.style.background = 'rgba(255, 255, 255, 0.05)';
+            container.style.overflow = 'hidden';
+            container.style.width = '100%';
+            container.style.boxSizing = 'border-box';
             
             let innerContent = null;
             switch (subWidget.type) {
                 case 'rainForecast':
                     innerContent = renderRainForecast(subWidget.data);
+                    break;
+                case 'highHeat':
+                    innerContent = renderHighHeat(subWidget.data);
+                    break;
+                case 'tempChange':
+                    innerContent = renderTempChange(subWidget.data);
                     break;
                 case 'upcomingVacation':
                     innerContent = renderUpcomingVacation(subWidget.data);
@@ -2785,216 +2989,640 @@
         // Render rain forecast sub-widget
         function renderRainForecast(data) {
             const container = document.createElement('div');
-            container.className = 'rain-forecast-widget';
-            container.style.textAlign = 'center';
+            container.className = 'rain-forecast-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
+            
+            // Horizontal layout wrapper
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.className = 'rain-forecast-horizontal';
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.className = 'rain-forecast-left';
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
             
             const iconDiv = document.createElement('div');
+            iconDiv.className = 'rain-forecast-icon';
             iconDiv.style.fontSize = '2.5rem';
-            iconDiv.style.marginBottom = '10px';
             iconDiv.textContent = '🌧️';
-            container.appendChild(iconDiv);
+            leftSection.appendChild(iconDiv);
             
             const titleDiv = document.createElement('div');
-            titleDiv.style.fontSize = '1.2rem';
-            titleDiv.style.fontWeight = '600';
-            titleDiv.style.marginBottom = '8px';
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#4A9EFF';
+            titleDiv.style.wordBreak = 'normal';
+            titleDiv.style.overflowWrap = 'break-word';
             titleDiv.textContent = 'Rain Expected';
-            container.appendChild(titleDiv);
+            leftSection.appendChild(titleDiv);
             
-            // Show the earliest rain day
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Rain details in horizontal cards
             if (data.rainDays && data.rainDays.length > 0) {
-                const nextRain = data.rainDays[0];
-                const daysText = nextRain.daysFromNow === 0 ? 'Today' :
-                               nextRain.daysFromNow === 1 ? 'Tomorrow' :
-                               `In ${nextRain.daysFromNow} days`;
+                const detailsSection = document.createElement('div');
+                detailsSection.className = 'rain-forecast-details';
+                detailsSection.style.display = 'flex';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.overflowX = 'hidden';
+                detailsSection.style.minWidth = '0';
                 
-                const dayDiv = document.createElement('div');
-                dayDiv.style.fontSize = '1rem';
-                dayDiv.style.marginBottom = '5px';
-                dayDiv.textContent = daysText;
-                container.appendChild(dayDiv);
+                // Show up to 3 rain days
+                const daysToShow = data.rainDays.slice(0, 3);
+                daysToShow.forEach((rainDay, index) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'rain-day-card';
+                    dayCard.style.background = 'rgba(74, 158, 255, 0.15)';
+                    dayCard.style.border = '2px solid rgba(74, 158, 255, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
+                    
+                    // When text
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#4A9EFF';
+                    
+                    const daysText = rainDay.daysFromNow === 0 ? 'Today' :
+                                   rainDay.daysFromNow === 1 ? 'Tomorrow' :
+                                   rainDay.dayName || `In ${rainDay.daysFromNow} days`;
+                    whenDiv.textContent = daysText;
+                    dayCard.appendChild(whenDiv);
+                    
+                    // Create a detail grid for info
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    // Timing
+                    const timingDiv = document.createElement('div');
+                    timingDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Start</div>' +
+                                         `<div style="font-weight: 600;">${rainDay.startTime || 'Morning'}</div>`;
+                    detailGrid.appendChild(timingDiv);
+                    
+                    // Duration
+                    const durationDiv = document.createElement('div');
+                    durationDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Duration</div>' +
+                                           `<div style="font-weight: 600;">${rainDay.duration || 'Several hours'}</div>`;
+                    detailGrid.appendChild(durationDiv);
+                    
+                    // Intensity
+                    const intensityDiv = document.createElement('div');
+                    intensityDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Intensity</div>' +
+                                            `<div style="font-weight: 600;">${rainDay.intensity || 'Moderate'}</div>`;
+                    detailGrid.appendChild(intensityDiv);
+                    
+                    // Precipitation chance
+                    const precipDiv = document.createElement('div');
+                    precipDiv.innerHTML = '<div style="opacity: 0.7; margin-bottom: 2px;">Chance</div>' +
+                                         `<div style="font-weight: 600;">${Math.round(rainDay.precipitation * 100)}%</div>`;
+                    detailGrid.appendChild(precipDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
                 
-                if (nextRain.precipitation > 0) {
-                    const probDiv = document.createElement('div');
-                    probDiv.style.fontSize = '0.9rem';
-                    probDiv.style.opacity = '0.8';
-                    probDiv.textContent = `${Math.round(nextRain.precipitation * 100)}% chance`;
-                    container.appendChild(probDiv);
-                }
+                horizontalWrapper.appendChild(detailsSection);
             }
             
+            container.appendChild(horizontalWrapper);
             return container;
         }
         
-        // Render upcoming vacation sub-widget
+        // Render high heat sub-widget
+        function renderHighHeat(data) {
+            const container = document.createElement('div');
+            container.className = 'high-heat-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
+            
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'heat-icon';
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🔥';
+            leftSection.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#FF8C00';
+            titleDiv.textContent = 'High Heat';
+            leftSection.appendChild(titleDiv);
+            
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Hot day cards
+            if (data.hotDays && data.hotDays.length > 0) {
+                const detailsSection = document.createElement('div');
+                detailsSection.style.display = 'flex';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.minWidth = '0';
+                
+                const unitLabel = (data.units === 'metric') ? '°C' : '°F';
+                data.hotDays.slice(0, 3).forEach((hotDay) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'heat-day-card';
+                    dayCard.style.background = 'rgba(255, 140, 0, 0.15)';
+                    dayCard.style.border = '2px solid rgba(255, 140, 0, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
+                    
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#FF8C00';
+                    whenDiv.textContent = hotDay.daysFromNow === 0 ? 'Today' :
+                                         hotDay.daysFromNow === 1 ? 'Tomorrow' :
+                                         hotDay.dayName || `In ${hotDay.daysFromNow} days`;
+                    dayCard.appendChild(whenDiv);
+                    
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    const highDiv = document.createElement('div');
+                    const highVal = document.createElement('div');
+                    highVal.style.opacity = '0.7';
+                    highVal.style.marginBottom = '2px';
+                    highVal.textContent = 'High';
+                    const highTemp = document.createElement('div');
+                    highTemp.style.fontWeight = '600';
+                    highTemp.textContent = `${hotDay.tempHigh}${unitLabel}`;
+                    highDiv.appendChild(highVal);
+                    highDiv.appendChild(highTemp);
+                    detailGrid.appendChild(highDiv);
+                    
+                    const thresholdDiv = document.createElement('div');
+                    const thresholdLabel = document.createElement('div');
+                    thresholdLabel.style.opacity = '0.7';
+                    thresholdLabel.style.marginBottom = '2px';
+                    thresholdLabel.textContent = 'Threshold';
+                    const thresholdTemp = document.createElement('div');
+                    thresholdTemp.style.fontWeight = '600';
+                    thresholdTemp.textContent = `${hotDay.threshold}${unitLabel}`;
+                    thresholdDiv.appendChild(thresholdLabel);
+                    thresholdDiv.appendChild(thresholdTemp);
+                    detailGrid.appendChild(thresholdDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
+                
+                horizontalWrapper.appendChild(detailsSection);
+            }
+            
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
+        
+        // Render temperature change sub-widget
+        function renderTempChange(data) {
+            const container = document.createElement('div');
+            container.className = 'temp-change-widget rain-forecast-enhanced';
+            
+            // Extreme Weather section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🌩️ Extreme Weather';
+            container.appendChild(sectionHeading);
+            
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+            
+            // Left section: Icon and title
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'tempchange-icon';
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🌡️';
+            leftSection.appendChild(iconDiv);
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#8A2BE2';
+            titleDiv.textContent = 'Temp Change';
+            leftSection.appendChild(titleDiv);
+            
+            horizontalWrapper.appendChild(leftSection);
+            
+            // Right section: Change day cards
+            if (data.changeDays && data.changeDays.length > 0) {
+                const detailsSection = document.createElement('div');
+                detailsSection.style.display = 'flex';
+                detailsSection.style.flexWrap = 'wrap';
+                detailsSection.style.gap = '10px';
+                detailsSection.style.flex = '1 1 auto';
+                detailsSection.style.minWidth = '0';
+                
+                const unitLabel = (data.units === 'metric') ? '°C' : '°F';
+                data.changeDays.slice(0, 3).forEach((changeDay) => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'tempchange-day-card';
+                    dayCard.style.background = 'rgba(138, 43, 226, 0.15)';
+                    dayCard.style.border = '2px solid rgba(138, 43, 226, 0.4)';
+                    dayCard.style.borderRadius = '8px';
+                    dayCard.style.padding = '12px 15px';
+                    dayCard.style.flex = '1 1 160px';
+                    dayCard.style.minWidth = '0';
+                    
+                    const whenDiv = document.createElement('div');
+                    whenDiv.style.fontSize = '1.1rem';
+                    whenDiv.style.fontWeight = '600';
+                    whenDiv.style.marginBottom = '8px';
+                    whenDiv.style.color = '#8A2BE2';
+                    whenDiv.textContent = changeDay.daysFromNow === 0 ? 'Today' :
+                                         changeDay.daysFromNow === 1 ? 'Tomorrow' :
+                                         changeDay.dayName || `In ${changeDay.daysFromNow} days`;
+                    dayCard.appendChild(whenDiv);
+                    
+                    const detailGrid = document.createElement('div');
+                    detailGrid.style.display = 'grid';
+                    detailGrid.style.gridTemplateColumns = '1fr 1fr';
+                    detailGrid.style.gap = '8px';
+                    detailGrid.style.fontSize = '0.85rem';
+                    
+                    const changeDiv = document.createElement('div');
+                    const changeLabel = document.createElement('div');
+                    changeLabel.style.opacity = '0.7';
+                    changeLabel.style.marginBottom = '2px';
+                    changeLabel.textContent = 'Change';
+                    const changeVal = document.createElement('div');
+                    changeVal.style.fontWeight = '600';
+                    const sign = changeDay.change > 0 ? '+' : '';
+                    changeVal.textContent = `${sign}${changeDay.change}${unitLabel}`;
+                    changeDiv.appendChild(changeLabel);
+                    changeDiv.appendChild(changeVal);
+                    detailGrid.appendChild(changeDiv);
+                    
+                    const directionDiv = document.createElement('div');
+                    const dirLabel = document.createElement('div');
+                    dirLabel.style.opacity = '0.7';
+                    dirLabel.style.marginBottom = '2px';
+                    dirLabel.textContent = 'Trend';
+                    const dirVal = document.createElement('div');
+                    dirVal.style.fontWeight = '600';
+                    dirVal.textContent = changeDay.direction === 'up' ? '↑ Warmer' : '↓ Cooler';
+                    directionDiv.appendChild(dirLabel);
+                    directionDiv.appendChild(dirVal);
+                    detailGrid.appendChild(directionDiv);
+                    
+                    const highDiv = document.createElement('div');
+                    const highLabel = document.createElement('div');
+                    highLabel.style.opacity = '0.7';
+                    highLabel.style.marginBottom = '2px';
+                    highLabel.textContent = 'High';
+                    const highVal = document.createElement('div');
+                    highVal.style.fontWeight = '600';
+                    highVal.textContent = `${changeDay.tempHigh}${unitLabel}`;
+                    highDiv.appendChild(highLabel);
+                    highDiv.appendChild(highVal);
+                    detailGrid.appendChild(highDiv);
+                    
+                    const prevDiv = document.createElement('div');
+                    const prevLabel = document.createElement('div');
+                    prevLabel.style.opacity = '0.7';
+                    prevLabel.style.marginBottom = '2px';
+                    prevLabel.textContent = 'Prev High';
+                    const prevVal = document.createElement('div');
+                    prevVal.style.fontWeight = '600';
+                    prevVal.textContent = `${changeDay.prevTempHigh}${unitLabel}`;
+                    prevDiv.appendChild(prevLabel);
+                    prevDiv.appendChild(prevVal);
+                    detailGrid.appendChild(prevDiv);
+                    
+                    dayCard.appendChild(detailGrid);
+                    detailsSection.appendChild(dayCard);
+                });
+                
+                horizontalWrapper.appendChild(detailsSection);
+            }
+            
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
         function renderUpcomingVacation(data) {
+            const SECONDS_PER_HOUR = 3600;
+            const MILLISECONDS_PER_HOUR = 3600000;
+            const MIN_TIMEZONE_DIFF_HOURS = 1;
+            const VACATION_COLOR = '#F59E0B';
+
             const container = document.createElement('div');
             container.className = 'vacation-widget';
-            container.style.textAlign = 'center';
-            
-            // Handle multiple vacations
+
+            // Section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = 'Upcoming Vacation';
+            container.appendChild(sectionHeading);
+
+            // Horizontal layout wrapper
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+
+            // Left section: icon + label
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '✈️';
+            leftSection.appendChild(iconDiv);
+
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.3rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = VACATION_COLOR;
+            titleDiv.textContent = 'Vacation';
+            leftSection.appendChild(titleDiv);
+
+            horizontalWrapper.appendChild(leftSection);
+
+            // Right section: one card per vacation
             const vacations = data.vacations || [data];
-            
-            // Header with icon
-            const headerDiv = document.createElement('div');
-            headerDiv.style.fontSize = '2.5rem';
-            headerDiv.style.marginBottom = '10px';
-            headerDiv.textContent = '✈️';
-            container.appendChild(headerDiv);
-            
-            // Display each vacation
-            vacations.forEach((vacation, index) => {
-                const vacationDiv = document.createElement('div');
-                vacationDiv.style.marginBottom = index < vacations.length - 1 ? '15px' : '0';
-                vacationDiv.style.paddingBottom = index < vacations.length - 1 ? '15px' : '0';
-                if (index < vacations.length - 1) {
-                    vacationDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.2)';
-                }
-                
+            const detailsSection = document.createElement('div');
+            detailsSection.style.display = 'flex';
+            detailsSection.style.flexWrap = 'wrap';
+            detailsSection.style.gap = '10px';
+            detailsSection.style.flex = '1 1 auto';
+            detailsSection.style.minWidth = '0';
+
+            vacations.forEach(vacation => {
+                const card = document.createElement('div');
+                card.style.background = `rgba(245, 158, 11, 0.12)`;
+                card.style.border = `2px solid rgba(245, 158, 11, 0.4)`;
+                card.style.borderRadius = '8px';
+                card.style.padding = '12px 14px';
+                card.style.flex = '1 1 200px';
+                card.style.minWidth = '0';
+                card.style.fontSize = '0.85rem';
+
+                // Destination
                 const destDiv = document.createElement('div');
-                destDiv.style.fontSize = '1.2rem';
-                destDiv.style.fontWeight = '600';
-                destDiv.style.marginBottom = '8px';
-                destDiv.textContent = vacation.destination;
-                vacationDiv.appendChild(destDiv);
-                
-                const daysDiv = document.createElement('div');
-                daysDiv.style.fontSize = '1rem';
-                daysDiv.style.marginBottom = '5px';
-                
-                if (vacation.daysUntil === 0) {
-                    daysDiv.textContent = 'Starts Today!';
-                    daysDiv.style.color = '#4CAF50';
-                } else if (vacation.daysUntil === 1) {
-                    daysDiv.textContent = 'Tomorrow';
-                } else {
-                    daysDiv.textContent = `In ${vacation.daysUntil} days`;
-                }
-                vacationDiv.appendChild(daysDiv);
-                
-                const dateDiv = document.createElement('div');
-                dateDiv.style.fontSize = '0.9rem';
-                dateDiv.style.opacity = '0.8';
+                destDiv.style.fontSize = '1.05rem';
+                destDiv.style.fontWeight = '700';
+                destDiv.style.color = VACATION_COLOR;
+                destDiv.style.marginBottom = '6px';
+                destDiv.style.whiteSpace = 'nowrap';
+                destDiv.style.overflow = 'hidden';
+                destDiv.style.textOverflow = 'ellipsis';
+                destDiv.textContent = vacation.destination || 'Vacation';
+                card.appendChild(destDiv);
+
+                // Date range
                 const startDate = new Date(vacation.startDate);
-                dateDiv.textContent = startDate.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-                vacationDiv.appendChild(dateDiv);
-                
-                // Add weather information if available
+                const endDate = new Date(vacation.endDate);
+                const dateDiv = document.createElement('div');
+                dateDiv.style.marginBottom = '4px';
+                dateDiv.style.opacity = '0.9';
+                dateDiv.textContent = formatDateRange(startDate, endDate);
+                card.appendChild(dateDiv);
+
+                // Countdown
+                const countdownDiv = document.createElement('div');
+                countdownDiv.style.marginBottom = '6px';
+                if (vacation.daysUntil === 0) {
+                    countdownDiv.style.color = '#4ade80';
+                    countdownDiv.textContent = '🎉 Starts Today!';
+                } else if (vacation.daysUntil === 1) {
+                    countdownDiv.style.color = VACATION_COLOR;
+                    countdownDiv.textContent = '🗓️ Tomorrow';
+                } else {
+                    countdownDiv.textContent = `🗓️ In ${vacation.daysUntil} days`;
+                }
+                card.appendChild(countdownDiv);
+
+                // Local time (if timezone offset available and differs by >= 1 hour from browser)
+                if (vacation.timezoneOffset !== undefined && vacation.timezoneOffset !== null) {
+                    const localOffset = new Date().getTimezoneOffset() * -60; // browser offset in seconds
+                    const offsetDiff = (vacation.timezoneOffset - localOffset) / SECONDS_PER_HOUR;
+                    if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
+                        const now = new Date();
+                        const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
+                        const timeDiv = document.createElement('div');
+                        timeDiv.style.marginBottom = '6px';
+                        timeDiv.style.display = 'flex';
+                        timeDiv.style.alignItems = 'center';
+                        timeDiv.style.gap = '4px';
+                        const timeText = document.createElement('span');
+                        timeText.textContent = `🕐 Local: ${destTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                        timeDiv.appendChild(timeText);
+                        const offsetText = document.createElement('span');
+                        offsetText.style.opacity = '0.7';
+                        offsetText.textContent = ` (${offsetDiff >= 0 ? '+' : ''}${offsetDiff.toFixed(0)}h)`;
+                        timeDiv.appendChild(offsetText);
+                        card.appendChild(timeDiv);
+                    }
+                }
+
+                // Weather
                 if (vacation.weather && vacation.weather.days && vacation.weather.days.length > 0) {
-                    const weatherDiv = document.createElement('div');
-                    weatherDiv.style.marginTop = '10px';
-                    weatherDiv.style.padding = '8px';
-                    weatherDiv.style.background = 'rgba(255, 255, 255, 0.05)';
-                    weatherDiv.style.borderRadius = '5px';
-                    weatherDiv.style.fontSize = '0.9rem';
-                    
-                    // Use first day of forecast (typically start date or current weather)
-                    const weatherDay = vacation.weather.days[0];
-                    
-                    // Weather icon and temp
-                    const weatherInfoDiv = document.createElement('div');
-                    weatherInfoDiv.style.display = 'flex';
-                    weatherInfoDiv.style.alignItems = 'center';
-                    weatherInfoDiv.style.justifyContent = 'center';
-                    weatherInfoDiv.style.gap = '8px';
-                    
-                    const weatherIcon = document.createElement('span');
-                    weatherIcon.style.fontSize = '1.5rem';
-                    weatherIcon.textContent = getWeatherIcon(weatherDay.icon);
-                    weatherInfoDiv.appendChild(weatherIcon);
-                    
-                    const tempDiv = document.createElement('span');
-                    tempDiv.style.fontWeight = '600';
-                    const tempHigh = Math.round(weatherDay.tempHigh);
-                    const tempLow = weatherDay.tempLow ? Math.round(weatherDay.tempLow) : null;
+                    const startDateStr = vacation.startDate ? vacation.startDate.split('T')[0] : null;
+                    const endDateStr = vacation.endDate ? vacation.endDate.split('T')[0] : null;
+                    const vacationDays = vacation.weather.days.filter(day => {
+                        if (!startDateStr || !endDateStr) return false;
+                        return day.date >= startDateStr && day.date <= endDateStr;
+                    });
+                    const weatherDay = vacationDays.length > 0 ? vacationDays[0] : vacation.weather.days[0];
                     const tempUnit = vacation.weather.units === 'metric' ? 'C' : 'F';
-                    
+                    const tempHigh = Math.round(weatherDay.tempHigh);
+                    const tempLow = weatherDay.tempLow !== undefined && weatherDay.tempLow !== null ? Math.round(weatherDay.tempLow) : null;
+
+                    const weatherDiv = document.createElement('div');
+                    weatherDiv.style.marginTop = '4px';
+                    weatherDiv.style.marginBottom = '4px';
+                    weatherDiv.style.display = 'flex';
+                    weatherDiv.style.alignItems = 'center';
+                    weatherDiv.style.gap = '6px';
+                    weatherDiv.style.flexWrap = 'wrap';
+
+                    const wIcon = document.createElement('span');
+                    wIcon.style.fontSize = '1.3rem';
+                    wIcon.textContent = getWeatherIcon(weatherDay.icon);
+                    weatherDiv.appendChild(wIcon);
+
+                    const tempSpan = document.createElement('span');
+                    tempSpan.style.fontWeight = '600';
                     if (tempLow !== null && tempLow !== tempHigh) {
-                        tempDiv.textContent = `${tempHigh}°/${tempLow}°${tempUnit}`;
+                        tempSpan.textContent = `${tempHigh}° / ${tempLow}°${tempUnit}`;
                     } else {
-                        tempDiv.textContent = `${tempHigh}°${tempUnit}`;
+                        tempSpan.textContent = `${tempHigh}°${tempUnit}`;
                     }
-                    weatherInfoDiv.appendChild(tempDiv);
-                    
-                    weatherDiv.appendChild(weatherInfoDiv);
-                    
-                    // Weather condition
-                    if (weatherDay.condition) {
-                        const conditionDiv = document.createElement('div');
-                        conditionDiv.style.fontSize = '0.8rem';
-                        conditionDiv.style.opacity = '0.8';
-                        conditionDiv.style.marginTop = '4px';
-                        conditionDiv.style.textAlign = 'center';
-                        conditionDiv.textContent = weatherDay.condition;
-                        weatherDiv.appendChild(conditionDiv);
-                    }
-                    
-                    // Indicate if using current weather fallback
+                    weatherDiv.appendChild(tempSpan);
+
+                    const condSpan = document.createElement('span');
+                    condSpan.style.opacity = '0.8';
+                    condSpan.textContent = weatherDay.condition || weatherDay.description || '';
+                    weatherDiv.appendChild(condSpan);
+
+                    card.appendChild(weatherDiv);
+
                     if (vacation.weather.isFallback) {
                         const fallbackNote = document.createElement('div');
-                        fallbackNote.style.fontSize = '0.7rem';
+                        fallbackNote.style.fontSize = '0.75rem';
                         fallbackNote.style.opacity = '0.6';
-                        fallbackNote.style.marginTop = '4px';
                         fallbackNote.style.fontStyle = 'italic';
-                        fallbackNote.textContent = 'Current weather';
-                        weatherDiv.appendChild(fallbackNote);
+                        fallbackNote.textContent = '(Current weather — forecast unavailable)';
+                        card.appendChild(fallbackNote);
+                    } else if (vacationDays.length === 0) {
+                        const noForecastNote = document.createElement('div');
+                        noForecastNote.style.fontSize = '0.75rem';
+                        noForecastNote.style.opacity = '0.6';
+                        noForecastNote.textContent = '⛅ Forecast unavailable for dates';
+                        card.appendChild(noForecastNote);
                     }
-                    
-                    vacationDiv.appendChild(weatherDiv);
                 }
-                
-                // Add flight information if tracking enabled and flights exist
+
+                // Flights
                 if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
-                    const validatedFlights = vacation.flights.filter(f => f.validated);
-                    if (validatedFlights.length > 0) {
-                        const flightDiv = document.createElement('div');
-                        flightDiv.style.marginTop = '10px';
-                        flightDiv.style.fontSize = '0.85rem';
-                        flightDiv.style.opacity = '0.9';
-                        flightDiv.style.padding = '8px';
-                        flightDiv.style.background = 'rgba(255, 255, 255, 0.05)';
-                        flightDiv.style.borderRadius = '5px';
-                        
-                        // Show first flight only in compact view
-                        const flight = validatedFlights[0];
-                        const flightInfoDiv = document.createElement('div');
-                        flightInfoDiv.style.display = 'flex';
-                        flightInfoDiv.style.alignItems = 'center';
-                        flightInfoDiv.style.justifyContent = 'center';
-                        flightInfoDiv.style.gap = '6px';
-                        
-                        const planeIcon = document.createElement('span');
-                        planeIcon.textContent = '✈️';
-                        flightInfoDiv.appendChild(planeIcon);
-                        
-                        const flightNum = document.createElement('span');
-                        flightNum.style.fontWeight = '600';
-                        flightNum.textContent = flight.flightNumber;
-                        flightInfoDiv.appendChild(flightNum);
-                        
-                        flightDiv.appendChild(flightInfoDiv);
-                        
-                        // If multiple flights, show count
-                        if (validatedFlights.length > 1) {
-                            const countDiv = document.createElement('div');
-                            countDiv.style.fontSize = '0.75rem';
-                            countDiv.style.opacity = '0.7';
-                            countDiv.style.marginTop = '4px';
-                            countDiv.textContent = `+${validatedFlights.length - 1} more`;
-                            flightDiv.appendChild(countDiv);
+                    const flightSection = document.createElement('div');
+                    flightSection.style.marginTop = '6px';
+                    flightSection.style.padding = '6px 8px';
+                    flightSection.style.background = 'rgba(255, 255, 255, 0.05)';
+                    flightSection.style.borderRadius = '5px';
+
+                    vacation.flights.forEach((flight, fi) => {
+                        const flightRow = document.createElement('div');
+                        flightRow.style.display = 'flex';
+                        flightRow.style.alignItems = 'center';
+                        flightRow.style.gap = '6px';
+                        flightRow.style.flexWrap = 'wrap';
+                        if (fi > 0) {
+                            flightRow.style.marginTop = '4px';
+                            flightRow.style.paddingTop = '4px';
+                            flightRow.style.borderTop = '1px solid rgba(255,255,255,0.1)';
                         }
-                        
-                        vacationDiv.appendChild(flightDiv);
-                    }
+
+                        const planeSpan = document.createElement('span');
+                        planeSpan.textContent = '✈️';
+                        flightRow.appendChild(planeSpan);
+
+                        const numSpan = document.createElement('span');
+                        numSpan.style.fontWeight = '600';
+                        numSpan.textContent = flight.flightNumber;
+                        flightRow.appendChild(numSpan);
+
+                        if (flight.airline) {
+                            const airlineSpan = document.createElement('span');
+                            airlineSpan.style.opacity = '0.7';
+                            airlineSpan.textContent = flight.airline;
+                            flightRow.appendChild(airlineSpan);
+                        }
+
+                        if (flight.date) {
+                            const dateSpan = document.createElement('span');
+                            dateSpan.style.opacity = '0.6';
+                            dateSpan.textContent = new Date(flight.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            flightRow.appendChild(dateSpan);
+                        }
+
+                        flightSection.appendChild(flightRow);
+                    });
+
+                    card.appendChild(flightSection);
                 }
-                
-                container.appendChild(vacationDiv);
+
+                // Notes
+                if (vacation.notes && vacation.notes.trim()) {
+                    const notesDiv = document.createElement('div');
+                    notesDiv.style.marginTop = '6px';
+                    notesDiv.style.fontSize = '0.8rem';
+                    notesDiv.style.opacity = '0.7';
+                    notesDiv.style.fontStyle = 'italic';
+                    notesDiv.textContent = vacation.notes;
+                    card.appendChild(notesDiv);
+                }
+
+                detailsSection.appendChild(card);
             });
-            
+
+            horizontalWrapper.appendChild(detailsSection);
+            container.appendChild(horizontalWrapper);
             return container;
         }
         
@@ -3320,7 +3948,7 @@
             contentDiv.style.fontSize = '1rem';
             contentDiv.style.marginTop = '15px';
             contentDiv.style.display = 'grid';
-            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+            contentDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))';
             contentDiv.style.gap = '20px';
             contentDiv.style.alignItems = 'start';
             

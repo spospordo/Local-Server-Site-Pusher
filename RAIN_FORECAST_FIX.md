@@ -192,16 +192,87 @@ This fix updates the server-side rain detection logic to match the existing weat
 
 ## Related Files
 
-- `server.js` (lines 7664-7733): Smart Widget API endpoint - rain detection logic
+- `server.js` (lines 7987-8063): Smart Widget API endpoint - rain detection logic with enhanced data
 - `modules/smartmirror.js` (lines 1256-1353): Weather forecast API
-- `public/smart-mirror.html` (lines 2665-2730): Client-side rain forecast rendering
-- `scripts/test-rain-forecast-fix.js`: Comprehensive test script
+- `public/smart-mirror.html` (lines 2786-2890): Client-side rain forecast rendering with horizontal layout and animations
+- `scripts/test-rain-forecast-fix.js`: Original rain detection test script
+- `scripts/test-enhanced-rain-widget.js`: Enhanced rain widget test script
+
+## Enhanced Rain Sub-Widget Features (v2.7.0+)
+
+The rain sub-widget has been significantly enhanced to provide more detailed information and better visual prominence:
+
+### Additional Information Displayed
+
+1. **Rain Intensity**: Calculated based on precipitation chance
+   - Light: < 50%
+   - Moderate: 50-69%
+   - Heavy: ≥ 70%
+
+2. **Start Time**: When rain is expected to begin
+   - "Later today" for same-day rain
+   - "Tomorrow" for next-day rain
+   - "[Day] morning" for future days
+
+3. **Duration**: Estimated rain duration
+   - "Intermittent" for showers
+   - "1-2 hours" for thunderstorms
+   - "All day" for heavy rain (≥ 70% chance)
+   - "Several hours" as default
+
+4. **Multiple Rain Days**: Shows up to 3 upcoming rain days simultaneously
+
+### Horizontal Layout
+
+The rain sub-widget now uses a horizontal layout with:
+- Left section: Rain icon and title
+- Right section: Scrollable cards for each rain day
+- Each card displays: When, Start time, Duration, Intensity, and Precipitation chance
+
+### Visual Enhancements
+
+1. **Animation Effects**:
+   - Pulsing container animation (`rain-pulse`)
+   - Glowing border effect (`rain-glow`)
+   - Bouncing raindrop icon animation
+   - Slide-in animation for rain day cards
+
+2. **Bold Color Scheme**:
+   - Gradient blue background (rgba(74, 158, 255))
+   - Blue borders with glow effect
+   - Blue highlights for text
+   - Enhanced visibility in both dark and light themes
+
+3. **Responsive Design**:
+   - Horizontal scrolling on smaller screens
+   - Adaptive card sizing
+   - Mobile-friendly layout
+
+### Configuration
+
+No additional configuration is required. The enhancements automatically apply when the Rain Forecast sub-widget is enabled in Smart Widget settings.
+
+### Testing
+
+New test script validates enhanced features:
+```bash
+node scripts/test-enhanced-rain-widget.js
+```
+
+Tests cover:
+- Intensity calculation logic
+- Duration calculation logic  
+- Start time formatting
+- Complete rain data structure
 
 ## Future Enhancements
 
 Potential improvements for future consideration:
-1. Configurable precipitation threshold (currently hardcoded to 30%)
-2. Configurable forecast window (currently hardcoded to 5 days)
-3. Display multiple rain days in sub-widget (currently shows earliest only)
-4. Add rain intensity levels (light, moderate, heavy)
-5. Add rain timing information (morning, afternoon, evening)
+1. ~~Configurable precipitation threshold (currently hardcoded to 30%)~~
+2. ~~Configurable forecast window (currently hardcoded to 5 days)~~
+3. ~~Display multiple rain days in sub-widget (currently shows earliest only)~~ ✅ Implemented
+4. ~~Add rain intensity levels (light, moderate, heavy)~~ ✅ Implemented
+5. ~~Add rain timing information (morning, afternoon, evening)~~ ✅ Implemented
+6. Hourly rain forecast integration for more accurate timing
+7. Configurable animation intensity (subtle/normal/prominent)
+8. Rain radar integration

@@ -217,6 +217,91 @@ async function testFlightApiKeyPreservation() {
             passedTests++; // Not a critical failure
         }
         
+        // Test 5: Verify aviationstack.js handles AviationStack error response body (200 with error)
+        logStep(5, 'Checking aviationstack.js handles AviationStack 200-with-error responses');
+        
+        if (fs.existsSync(aviationstackPath)) {
+            const aviationstackContent = fs.readFileSync(aviationstackPath, 'utf8');
+            
+            // Check for handling of response.data.success === false in success path
+            if (aviationstackContent.includes('response.data.success === false && response.data.error')) {
+                logSuccess('validateFlight() handles AviationStack error responses in HTTP 200 body');
+                passedTests++;
+            } else {
+                logError('validateFlight() does not handle AviationStack error responses in HTTP 200 body');
+                failedTests++;
+            }
+            
+            // Check for plan restriction (code 106) handling with fallback
+            if (aviationstackContent.includes('errCode === 106') && aviationstackContent.includes('limitedValidation: true')) {
+                logSuccess('validateFlight() falls back gracefully for plan restriction (code 106)');
+                passedTests++;
+            } else {
+                logError('validateFlight() does not handle plan restriction (code 106) gracefully');
+                failedTests++;
+            }
+            
+            // Check that 401/403 handler now checks error body before returning generic message
+            if (aviationstackContent.includes('data && data.error') && aviationstackContent.includes('errCode === 106')) {
+                logSuccess('validateFlight() checks error body before returning generic 401/403 message');
+                passedTests++;
+            } else {
+                logError('validateFlight() does not check error body for 401/403 responses');
+                failedTests++;
+            }
+        } else {
+            logError('aviationstack.js not found');
+            failedTests++;
+        }
+        
+        // Test 6: Verify dashboard.html has flight API status banner and checkFlightApiStatus
+        logStep(6, 'Checking dashboard.html for vacation page flight API status sharing');
+        
+        const dashboardPath = path.join(__dirname, '..', 'admin', 'dashboard.html');
+        if (fs.existsSync(dashboardPath)) {
+            const dashboardContent = fs.readFileSync(dashboardPath, 'utf8');
+            
+            // Check for flightApiStatusBanner element
+            if (dashboardContent.includes('flightApiStatusBanner')) {
+                logSuccess('Vacation modal has flightApiStatusBanner element for shared API status');
+                passedTests++;
+            } else {
+                logError('Vacation modal missing flightApiStatusBanner element');
+                failedTests++;
+            }
+            
+            // Check for checkFlightApiStatus function
+            if (dashboardContent.includes('async function checkFlightApiStatus()') &&
+                dashboardContent.includes('/admin/api/flight-api/diagnostics')) {
+                logSuccess('checkFlightApiStatus() function uses diagnostics endpoint to share API status');
+                passedTests++;
+            } else {
+                logError('checkFlightApiStatus() function missing or not using diagnostics endpoint');
+                failedTests++;
+            }
+            
+            // Check that checkFlightApiStatus is called when modal opens
+            if ((dashboardContent.match(/checkFlightApiStatus\(\)/g) || []).length >= 2) {
+                logSuccess('checkFlightApiStatus() is called on both Add and Edit vacation modal open');
+                passedTests++;
+            } else {
+                logError('checkFlightApiStatus() not called on modal open');
+                failedTests++;
+            }
+            
+            // Check that limitedValidation is handled in UI
+            if (dashboardContent.includes('result.flightInfo && result.flightInfo.limitedValidation')) {
+                logSuccess('validateFlight JS shows appropriate message for limitedValidation responses');
+                passedTests++;
+            } else {
+                logError('validateFlight JS does not handle limitedValidation responses');
+                failedTests++;
+            }
+        } else {
+            logError('admin/dashboard.html not found');
+            failedTests++;
+        }
+        
     } catch (error) {
         logError(`Test execution error: ${error.message}`);
         failedTests++;
@@ -245,7 +330,10 @@ async function testFlightApiKeyPreservation() {
         log('   1. Smart Mirror config now preserves flightApi configuration including API key', 'blue');
         log('   2. Added detailed logging to track API key usage for debugging', 'blue');
         log('   3. Improved error messages to guide users to correct settings', 'blue');
-        log('   4. validate-flight endpoint logs API key presence and status\n', 'blue');
+        log('   4. validate-flight endpoint logs API key presence and status', 'blue');
+        log('   5. validateFlight() now handles AviationStack error responses in HTTP 200 body', 'blue');
+        log('   6. validateFlight() falls back gracefully for plan restrictions (code 106)', 'blue');
+        log('   7. Vacation modal shows shared flight API status from dashboard diagnostics\n', 'blue');
         process.exit(0);
     } else {
         log('\n⚠️  Some tests failed. Please review the output above.', 'yellow');

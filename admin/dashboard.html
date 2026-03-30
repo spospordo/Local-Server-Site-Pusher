@@ -552,6 +552,46 @@
             color: #666;
         }
         
+        .palette-widget-status-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-right: 4px;
+        }
+        
+        .palette-widget-status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .palette-widget-status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .palette-sub-widgets {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed #dee2e6;
+            width: 100%;
+        }
+        
+        .palette-sub-widget-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            padding: 2px 0;
+            color: #555;
+        }
+        
+        .palette-sub-widget-item .palette-widget-status-badge {
+            font-size: 0.65rem;
+            padding: 0px 5px;
+        }
+        
         .grid-legend {
             margin-top: 15px;
             padding: 10px;
@@ -1834,6 +1874,59 @@
             opacity: 1;
         }
 
+        /* Nested collapsible sections – level 1 (inside a top-level section) */
+        .collapsible-nested-l1 {
+            margin: 12px 0;
+        }
+        .collapsible-nested-l1 > .collapsible-header {
+            background: #eef2f7;
+            border-color: #c8d6e5;
+            padding-left: 20px;
+        }
+        .collapsible-nested-l1 > .collapsible-header:hover {
+            background: #e3eaf3;
+        }
+        .collapsible-nested-l1 > .collapsible-content {
+            background: #f8fafc;
+            border-color: #c8d6e5;
+        }
+
+        /* Nested collapsible sections – level 2 (inside level 1) */
+        .collapsible-nested-l2 {
+            margin: 8px 0;
+        }
+        .collapsible-nested-l2 > .collapsible-header {
+            background: #f0f4f8;
+            border-color: #d0dae5;
+            font-size: 0.95em;
+            padding-left: 28px;
+        }
+        .collapsible-nested-l2 > .collapsible-header:hover {
+            background: #e6ecf5;
+        }
+        .collapsible-nested-l2 > .collapsible-content {
+            background: #f5f8fc;
+            border-color: #d0dae5;
+        }
+
+        /* Nested collapsible sections – level 3 (inside level 2) */
+        .collapsible-nested-l3 {
+            margin: 6px 0;
+        }
+        .collapsible-nested-l3 > .collapsible-header {
+            background: #f4f6f9;
+            border-color: #d5dfe8;
+            font-size: 0.9em;
+            padding-left: 36px;
+        }
+        .collapsible-nested-l3 > .collapsible-header:hover {
+            background: #eaeff7;
+        }
+        .collapsible-nested-l3 > .collapsible-content {
+            background: #f9fafb;
+            border-color: #d5dfe8;
+        }
+
         .error-indicator {
             color: #dc3545;
             font-weight: bold;
@@ -2335,6 +2428,44 @@
             border-color: #2196f3 !important;
             background: #e3f2fd !important;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+        
+        /* SFTP Styles */
+        .info-box {
+            background: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b6d4fe;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85rem;
         }
     </style>
     <!-- Chart.js for Finance Module -->
@@ -4693,6 +4824,10 @@
                                     <div class="legend-color" style="border: 2px solid #ff4444; background: transparent;"></div>
                                     <span>Overlapping</span>
                                 </div>
+                                <div class="legend-item">
+                                    <span class="palette-widget-status-badge active" style="margin:0;">Active</span>
+                                    <span style="margin-left:4px;">/ <span class="palette-widget-status-badge inactive">Inactive</span> status badge</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4713,7 +4848,15 @@
                             Configure API keys and connection settings used by multiple widgets. Managing credentials here reduces duplication and simplifies maintenance.
                         </p>
 
-                        <h4 style="margin-bottom: 15px;">🌤️ OpenWeatherMap API</h4>
+                        <!-- OpenWeatherMap nested collapsible -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    🌤️ OpenWeatherMap API
+                                </span>
+                            </div>
+                            <div class="collapsible-content collapsed">
                         <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
                             This API is used by the Weather Widget, Forecast Widget, Vacation Widget, and Smart Widget (Rain Forecast). 
                             Get a free API key at <a href="https://openweathermap.org/api" target="_blank" style="color: #667eea;">openweathermap.org/api</a>.
@@ -4763,10 +4906,19 @@
                                 Only the API credentials are centralized here for easier management.
                             </p>
                         </div>
+                            </div>
+                        </div>
+                        <!-- End OpenWeatherMap nested collapsible -->
 
-                        <div style="margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 30px;"></div>
-
-                        <h4 style="margin-bottom: 15px;">✈️ AviationStack Flight API</h4>
+                        <!-- AviationStack Flight API nested collapsible -->
+                        <div class="collapsible-section collapsible-nested-l1" style="margin-top: 12px;">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    ✈️ AviationStack Flight API
+                                </span>
+                            </div>
+                            <div class="collapsible-content collapsed">
                         <p style="margin-bottom: 15px; color: #666; font-size: 0.95rem;">
                             This API is used for flight tracking in the Vacation Widget. It provides real-time flight status, delays, gate information, and more.
                             Get a free API key at <a href="https://aviationstack.com/" target="_blank" style="color: #667eea;">aviationstack.com</a> (Free tier: 100 API calls/month).
@@ -4807,6 +4959,16 @@
                             <div id="flightApiTestResult" class="test-result-container" style="display: none; margin-top: 10px;">
                                 <div class="test-result-content"></div>
                             </div>
+                        </div>
+
+                        <div id="flightApiFreePlanBanner" style="display: none; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 15px; border-radius: 5px;">
+                            <strong style="color: #92400e;">⚠️ Free Plan Limitations Detected</strong>
+                            <p style="margin: 8px 0 0 0; color: #78350f; font-size: 0.9rem;">
+                                Your AviationStack Free Plan does not support real-time flight-specific queries (e.g. filtering by flight number or date).
+                                Flight number <strong>format validation</strong> is still available.
+                                For live departure/arrival times, delays, and gate info, consider upgrading your
+                                <a href="https://aviationstack.com/product" target="_blank" style="color: #b45309;">AviationStack plan</a>.
+                            </p>
                         </div>
 
                         <div id="flightApiUsage" style="background: #f0f7ff; border-left: 4px solid #3b82f6; padding: 15px; margin-top: 15px; border-radius: 5px; display: none;">
@@ -4880,6 +5042,9 @@
                                 <div class="test-result-content"></div>
                             </div>
                         </div>
+                            </div>
+                        </div>
+                        <!-- End AviationStack Flight API nested collapsible -->
                     </div>
                 </div>
 
@@ -5493,13 +5658,13 @@
 
                 <!-- Smart Widget -->
                 <div class="collapsible-section">
-                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
                         <span class="collapsible-title">
                             <span class="collapsible-icon">▶</span>
                             📱 Smart Widget (Intelligent Multi-Widget Display)
                         </span>
                     </div>
-                    <div class="collapsible-content">
+                    <div class="collapsible-content expanded">
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetEnabled">Smart Widget</label>
@@ -5517,7 +5682,7 @@
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetGridX">Grid Position X (0-3)</label>
@@ -5528,7 +5693,7 @@
                                 <input type="number" id="smartWidgetGridY" min="0" max="5" value="2">
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="smartWidgetGridWidth">Width (1-4 cells)</label>
@@ -5540,229 +5705,376 @@
                             </div>
                         </div>
 
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Display Settings</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="smartWidgetDisplayMode">Display Mode</label>
-                                <select id="smartWidgetDisplayMode">
-                                    <option value="cycle">Cycle (rotate through sub-widgets)</option>
-                                    <option value="simultaneous">Simultaneous (show multiple at once)</option>
-                                    <option value="priority">Priority (show highest priority only)</option>
-                                    <option value="adaptive">Adaptive (stack small/medium, cycle large)</option>
-                                </select>
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Choose how sub-widgets are displayed
-                                </small>
+                        <!-- Display Settings (nested level 1, expanded by default) -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    ⚙️ Display Settings
+                                </span>
                             </div>
-                            <div class="form-group">
-                                <label for="smartWidgetCycleSpeed">Cycle Speed (seconds)</label>
-                                <input type="number" id="smartWidgetCycleSpeed" min="5" max="60" value="10">
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Time between cycles in cycle mode
-                                </small>
-                            </div>
-                        </div>
+                            <div class="collapsible-content expanded">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="smartWidgetDisplayMode">Display Mode</label>
+                                        <select id="smartWidgetDisplayMode">
+                                            <option value="cycle">Cycle (rotate through sub-widgets)</option>
+                                            <option value="simultaneous">Simultaneous (show multiple at once)</option>
+                                            <option value="priority">Priority (show highest priority only)</option>
+                                            <option value="adaptive">Adaptive (stack small/medium, cycle large)</option>
+                                        </select>
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Choose how sub-widgets are displayed
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="smartWidgetCycleSpeed">Cycle Speed (seconds)</label>
+                                        <input type="number" id="smartWidgetCycleSpeed" min="5" max="60" value="10">
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Time between cycles in cycle mode
+                                        </small>
+                                    </div>
+                                </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
-                                <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    Maximum number of sub-widgets to show at once in simultaneous mode
-                                </small>
-                            </div>
-                            <div class="form-group">
-                                <label for="smartWidgetAdaptiveThreshold">Adaptive Stack Threshold</label>
-                                <select id="smartWidgetAdaptiveThreshold">
-                                    <option value="small">Small (stack only small widgets)</option>
-                                    <option value="medium">Medium (stack small & medium widgets)</option>
-                                    <option value="large">Large (stack all except very large)</option>
-                                </select>
-                                <small style="color: #666; display: block; margin-top: 4px;">
-                                    In adaptive mode, widgets up to this size are stacked vertically; larger widgets cycle
-                                </small>
-                            </div>
-                        </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="smartWidgetSimultaneousMax">Max Simultaneous Widgets</label>
+                                        <input type="number" id="smartWidgetSimultaneousMax" min="1" max="4" value="2">
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            Maximum number of sub-widgets to show at once in simultaneous mode
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="smartWidgetAdaptiveThreshold">Adaptive Stack Threshold</label>
+                                        <select id="smartWidgetAdaptiveThreshold">
+                                            <option value="small">Small (stack only small widgets)</option>
+                                            <option value="medium">Medium (stack small & medium widgets)</option>
+                                            <option value="large">Large (stack all except very large)</option>
+                                        </select>
+                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                            In adaptive mode, widgets up to this size are stacked vertically; larger widgets cycle
+                                        </small>
+                                    </div>
+                                </div>
 
-                        <div class="form-group" style="margin-top: 10px;">
-                            <small style="color: #666; display: block;">
-                                <strong>Adaptive Mode:</strong> Small/medium widgets (rain, vacation, media) display as horizontally long tabs stacked vertically. Large widgets (party with extensive content) cycle separately.
-                            </small>
-                        </div>
-                            </small>
-                        </div>
+                                <div class="form-group" style="margin-top: 10px;">
+                                    <small style="color: #666; display: block;">
+                                        <strong>Adaptive Mode:</strong> Small/medium widgets (rain, vacation, media) display as horizontally long tabs stacked vertically. Large widgets (party with extensive content) cycle separately.
+                                    </small>
+                                </div>
 
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Sub-Widget Configuration</h4>
-                        
-                        <!-- Rain Forecast Sub-Widget -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">🌧️ Rain Forecast</h5>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetRainEnabled">Enabled</label>
-                                    <select id="smartWidgetRainEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
+                                <div class="form-group" style="margin-top: 15px;">
+                                    <label for="smartWidgetUnits">Temperature Units (for Extreme Weather)</label>
+                                    <select id="smartWidgetUnits">
+                                        <option value="imperial">Imperial (°F)</option>
+                                        <option value="metric">Metric (°C)</option>
                                     </select>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetRainPriority">Priority</label>
-                                    <input type="number" id="smartWidgetRainPriority" min="1" max="10" value="1">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetRainCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetRainCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
                             </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming rain in the forecast (1, 3, or 5 days out). Requires Weather API configuration below.
-                            </p>
                         </div>
 
-                        <!-- Upcoming Vacation Sub-Widget -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">✈️ Upcoming Vacation</h5>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationEnabled">Enabled</label>
-                                    <select id="smartWidgetVacationEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationPriority">Priority</label>
-                                    <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetVacationCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetVacationCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
+                        <!-- Sub Widgets (nested level 1, collapsed by default) -->
+                        <div class="collapsible-section collapsible-nested-l1">
+                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                <span class="collapsible-title">
+                                    <span class="collapsible-icon">▶</span>
+                                    🧩 Sub Widgets
+                                </span>
                             </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Displays the next upcoming vacation from House → Vacation page.
-                            </p>
-                        </div>
+                            <div class="collapsible-content collapsed">
 
-                        <!-- Home Assistant Media Sub-Widget -->
-                        <div class="sub-widget-section" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                            <h5 style="margin-bottom: 10px;">🎵 Home Assistant Media</h5>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaEnabled">Enabled</label>
-                                    <select id="smartWidgetMediaEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
+                                <!-- Extreme Weather (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🌩️ Extreme Weather
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+
+                                        <!-- Rain Expected (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🌧️ Rain Expected
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainEnabled">Enabled</label>
+                                                        <select id="smartWidgetRainEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainPriority">Priority</label>
+                                                        <input type="number" id="smartWidgetRainPriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetRainCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetRainCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows upcoming rain in the forecast (next 3–5 days). Requires Weather API configuration above.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- High Heat (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🔥 High Heat
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatEnabled">Enabled</label>
+                                                        <select id="smartWidgetHighHeatEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatPriority">Priority</label>
+                                                        <input type="number" id="smartWidgetHighHeatPriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetHighHeatCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetHighHeatThreshold">Max High Temperature</label>
+                                                        <input type="number" id="smartWidgetHighHeatThreshold" min="50" max="130" value="95">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Show sub-widget if any of the next 3 days exceeds this high (°F/°C)
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows a High Heat alert if the forecast high temperature exceeds the configured maximum for any of the next 3 days.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Temp Change (nested level 3, collapsed by default) -->
+                                        <div class="collapsible-section collapsible-nested-l3">
+                                            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                                <span class="collapsible-title">
+                                                    <span class="collapsible-icon">▶</span>
+                                                    🌡️ Temp Change
+                                                </span>
+                                            </div>
+                                            <div class="collapsible-content collapsed">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeEnabled">Enabled</label>
+                                                        <select id="smartWidgetTempChangeEnabled">
+                                                            <option value="true">Yes</option>
+                                                            <option value="false">No</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangePriority">Priority</label>
+                                                        <input type="number" id="smartWidgetTempChangePriority" min="1" max="10" value="1">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Lower numbers = higher priority
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeCycleTime">Cycle Time (seconds)</label>
+                                                        <input type="number" id="smartWidgetTempChangeCycleTime" min="5" max="60" value="10">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            How long to display in cycle mode
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="smartWidgetTempChangeThreshold">Significant Change (degrees)</label>
+                                                        <input type="number" id="smartWidgetTempChangeThreshold" min="1" max="50" value="15">
+                                                        <small style="color: #666; display: block; margin-top: 4px;">
+                                                            Show sub-widget if day-to-day high changes by at least this amount
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                                    Shows a temperature change alert if the daily high shifts by more than the configured degrees between any two consecutive days in the next 3-day forecast.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
+                                            <small style="color: #555;">
+                                                ℹ️ <strong>Extreme Weather API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaPriority">Priority</label>
-                                    <input type="number" id="smartWidgetMediaPriority" min="1" max="10" value="3">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
+
+                                <!-- Vacation (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            ✈️ Vacation
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationEnabled">Enabled</label>
+                                                <select id="smartWidgetVacationEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationPriority">Priority</label>
+                                                <input type="number" id="smartWidgetVacationPriority" min="1" max="10" value="2">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetVacationCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetVacationCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Displays the next upcoming vacation from House → Vacation page.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetMediaCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetMediaCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
+
+                                <!-- Party (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🎉 Party
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyEnabled">Enabled</label>
+                                                <select id="smartWidgetPartyEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyPriority">Priority</label>
+                                                <input type="number" id="smartWidgetPartyPriority" min="1" max="10" value="4">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetPartyCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetPartyCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Shows upcoming party information from Party &gt; Scheduling tab. Only displays when party date is set. <strong>On party day, this widget will display exclusively without cycling.</strong>
+                                        </p>
+                                    </div>
                                 </div>
+
+                                <!-- Home Assistant Media (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🎵 Home Assistant Media
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaEnabled">Enabled</label>
+                                                <select id="smartWidgetMediaEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaPriority">Priority</label>
+                                                <input type="number" id="smartWidgetMediaPriority" min="1" max="10" value="3">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetMediaCycleTime" min="5" max="60" value="10">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
+                                        </p>
+
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Connection Settings</h5>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
+                                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Full URL to your Home Assistant instance
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
+                                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
+                                            <input type="text" id="smartWidgetEntityIds" placeholder="media_player.spotify,media_player.chromecast">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                One or more entity IDs, separated by commas
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
-                            </p>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <h4 style="margin-bottom: 10px;">🎉 Party Sub-Widget</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyEnabled">Enabled</label>
-                                    <select id="smartWidgetPartyEnabled">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyPriority">Priority</label>
-                                    <input type="number" id="smartWidgetPartyPriority" min="1" max="10" value="4">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        Lower numbers = higher priority
-                                    </small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="smartWidgetPartyCycleTime">Cycle Time (seconds)</label>
-                                    <input type="number" id="smartWidgetPartyCycleTime" min="5" max="60" value="10">
-                                    <small style="color: #666; display: block; margin-top: 4px;">
-                                        How long to display in cycle mode
-                                    </small>
-                                </div>
-                            </div>
-                            <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                Shows upcoming party information from Party > Scheduling tab. Only displays when party date is set. <strong>On party day, this widget will display exclusively without cycling.</strong>
-                            </p>
-                        </div>
-
-                        <h4 style="margin-top: 20px; margin-bottom: 15px;">Shared Configuration</h4>
-                        
-                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 15px 0; border-radius: 3px;">
-                            <small style="color: #555;">
-                                ℹ️ <strong>Rain Forecast API:</strong> Configure your OpenWeatherMap API key and location in the <strong>APIs and Connections</strong> section above.
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetUnits">Temperature Units (for Rain Forecast)</label>
-                            <select id="smartWidgetUnits">
-                                <option value="imperial">Imperial (°F)</option>
-                                <option value="metric">Metric (°C)</option>
-                            </select>
-                        </div>
-
-                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Settings (for Media Sub-Widget)</h5>
-
-                        <div class="form-group">
-                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
-                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Full URL to your Home Assistant instance
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
-                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
-                            </small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
-                            <input type="text" id="smartWidgetEntityIds" placeholder="media_player.spotify,media_player.chromecast">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                One or more entity IDs, separated by commas
-                            </small>
                         </div>
 
                         <div class="form-group" style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px;">
                             <p style="margin: 0; color: #2e7d32; font-size: 0.95rem;">
-                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
+                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, high heat alert, significant temp change, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
                             </p>
                         </div>
                     </div>
@@ -5964,6 +6276,171 @@
                 </div>
                 
 
+            </div>
+        </div>
+
+        <!-- SFTP Backup Management - Settings Sub-tab -->
+        <div class="card admin-section settings-section settings-general-section">
+            <div class="card-header">
+                <h2>🌐 SFTP Backup Management</h2>
+            </div>
+            <div class="card-body">
+                <p>Configure SFTP connection to automatically upload and download backup files to/from remote storage (e.g., Synology NAS, remote server).</p>
+                
+                <!-- SFTP Configuration Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header expanded" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            ⚙️ SFTP Configuration
+                        </span>
+                    </div>
+                    <div class="collapsible-content expanded">
+                        <div class="info-box" style="margin-bottom: 1rem;">
+                            <strong>🔐 Security:</strong>
+                            <p style="margin: 0.5rem 0 0 0;">All credentials are encrypted using AES-256-GCM and stored securely. Credentials are never exposed to the frontend.</p>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label for="sftpHost">Host / IP Address *</label>
+                                <input type="text" id="sftpHost" placeholder="example.com or 192.168.1.100">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpPort">Port *</label>
+                                <input type="number" id="sftpPort" value="22" min="1" max="65535">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpUsername">Username *</label>
+                                <input type="text" id="sftpUsername" placeholder="username">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sftpRemotePath">Remote Path</label>
+                                <input type="text" id="sftpRemotePath" placeholder="/backups" value="/">
+                                <small style="color: #666;">Directory on server to store backups (must exist)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sftpAuthMethod">Authentication Method *</label>
+                            <select id="sftpAuthMethod" onchange="toggleSftpAuthFields()">
+                                <option value="password">Password</option>
+                                <option value="key">SSH Private Key</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Password Authentication -->
+                        <div id="sftpPasswordAuth" class="form-group">
+                            <label for="sftpPassword">Password *</label>
+                            <input type="password" id="sftpPassword" placeholder="Enter password">
+                            <small style="color: #666;">Leave blank to keep existing password</small>
+                        </div>
+                        
+                        <!-- Key-based Authentication -->
+                        <div id="sftpKeyAuth" class="form-group" style="display: none;">
+                            <label for="sftpPrivateKey">SSH Private Key (OpenSSH format) *</label>
+                            <textarea id="sftpPrivateKey" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family: monospace; font-size: 0.9em;"></textarea>
+                            <small style="color: #666;">Paste your private key in OpenSSH format. Leave blank to keep existing key.</small>
+                            
+                            <label for="sftpPassphrase" style="margin-top: 0.5rem;">Key Passphrase (if required)</label>
+                            <input type="password" id="sftpPassphrase" placeholder="Enter passphrase if key is encrypted">
+                            <small style="color: #666;">Only needed if your private key is encrypted with a passphrase</small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>
+                                <input type="checkbox" id="sftpEnabled" checked>
+                                Enable SFTP backup integration
+                            </label>
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <button onclick="saveSftpConfig()" class="btn btn-primary">💾 Save SFTP Configuration</button>
+                            <button onclick="testSftpConnection()" class="btn btn-secondary">🔍 Test Connection</button>
+                            <button onclick="deleteSftpConfig()" class="btn btn-danger">🗑️ Delete Configuration</button>
+                        </div>
+                        
+                        <div id="sftpConfigAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Connection Test Results -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            🔍 Connection Test & Diagnostics
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Test your SFTP connection to verify settings before uploading backups.</p>
+                        
+                        <div id="sftpTestResults" style="display: none;">
+                            <!-- Test results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Upload Backup Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📤 Upload Backup to SFTP
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Generate a new backup and upload it directly to your SFTP server.</p>
+                        
+                        <button onclick="uploadBackupToSftp()" class="btn btn-primary" id="sftpUploadBtn">
+                            ☁️ Upload New Backup to SFTP
+                        </button>
+                        
+                        <div id="sftpUploadProgress" style="display: none; margin-top: 1rem;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="sftpUploadProgressBar"></div>
+                            </div>
+                            <p id="sftpUploadStatus" style="margin-top: 0.5rem; text-align: center; color: #666;">Preparing backup...</p>
+                        </div>
+                        
+                        <div id="sftpUploadAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
+                <div class="section-divider"></div>
+                
+                <!-- Download Backup Section -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        <span class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            📥 Download Backup from SFTP
+                        </span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Browse and download backup files from your SFTP server.</p>
+                        
+                        <button onclick="loadSftpBackups()" class="btn btn-secondary" style="margin-bottom: 1rem;">
+                            🔄 Refresh Backup List
+                        </button>
+                        
+                        <div id="sftpBackupsList" style="margin-top: 1rem;">
+                            <div style="text-align: center; opacity: 0.7; padding: 2rem;">
+                                Click "Refresh Backup List" to load available backups
+                            </div>
+                        </div>
+                        
+                        <div id="sftpDownloadAlert" class="alert" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+                
             </div>
         </div>
 
@@ -6690,8 +7167,10 @@
                         <div id="flightsList" style="margin-bottom: 15px;">
                             <!-- Flight entries will be added here dynamically -->
                         </div>
+                        <div id="flightApiStatusBanner" style="margin-bottom: 10px; font-size: 0.85rem;"></div>
                         <div style="padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.85rem; color: #666;">
-                            <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking.
+                            <strong>ℹ️ Note:</strong> Add flight details here. Admin can validate flights before enabling tracking. Configure the AviationStack API key in Smart Mirror → APIs and Connections to enable real-time validation.
+                            Free Plan users will see <strong>⚠️ Format validated</strong> — the flight number format is checked but live data is not available. Upgrade your AviationStack plan for full real-time tracking.
                         </div>
                     </div>
                     
@@ -13249,6 +13728,8 @@
                     // Sub-widgets configuration
                     const subWidgets = smartWidget.subWidgets || [
                         { type: 'rainForecast', enabled: true, priority: 1, cycleTime: 10 },
+                        { type: 'highHeat', enabled: true, priority: 1, cycleTime: 10, threshold: 95 },
+                        { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
@@ -13258,6 +13739,18 @@
                     document.getElementById('smartWidgetRainEnabled').value = rainWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetRainPriority').value = rainWidget.priority || 1;
                     document.getElementById('smartWidgetRainCycleTime').value = rainWidget.cycleTime || 10;
+                    
+                    const highHeatWidget = subWidgets.find(sw => sw.type === 'highHeat') || { enabled: true, priority: 1, cycleTime: 10, threshold: 95 };
+                    document.getElementById('smartWidgetHighHeatEnabled').value = highHeatWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetHighHeatPriority').value = highHeatWidget.priority || 1;
+                    document.getElementById('smartWidgetHighHeatCycleTime').value = highHeatWidget.cycleTime || 10;
+                    document.getElementById('smartWidgetHighHeatThreshold').value = highHeatWidget.threshold || 95;
+                    
+                    const tempChangeWidget = subWidgets.find(sw => sw.type === 'tempChange') || { enabled: true, priority: 1, cycleTime: 10, threshold: 15 };
+                    document.getElementById('smartWidgetTempChangeEnabled').value = tempChangeWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetTempChangePriority').value = tempChangeWidget.priority || 1;
+                    document.getElementById('smartWidgetTempChangeCycleTime').value = tempChangeWidget.cycleTime || 10;
+                    document.getElementById('smartWidgetTempChangeThreshold').value = tempChangeWidget.threshold || 15;
                     
                     const vacationSubWidget = subWidgets.find(sw => sw.type === 'upcomingVacation') || { enabled: true, priority: 2, cycleTime: 10 };
                     document.getElementById('smartWidgetVacationEnabled').value = vacationSubWidget.enabled ? 'true' : 'false';
@@ -13683,6 +14176,20 @@
                                     cycleTime: parseInt(document.getElementById('smartWidgetRainCycleTime').value)
                                 },
                                 {
+                                    type: 'highHeat',
+                                    enabled: document.getElementById('smartWidgetHighHeatEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetHighHeatPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetHighHeatCycleTime').value),
+                                    threshold: parseInt(document.getElementById('smartWidgetHighHeatThreshold').value)
+                                },
+                                {
+                                    type: 'tempChange',
+                                    enabled: document.getElementById('smartWidgetTempChangeEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetTempChangePriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetTempChangeCycleTime').value),
+                                    threshold: parseInt(document.getElementById('smartWidgetTempChangeThreshold').value)
+                                },
+                                {
                                     type: 'upcomingVacation',
                                     enabled: document.getElementById('smartWidgetVacationEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetVacationPriority').value),
@@ -13940,6 +14447,9 @@
             if (result.loading) {
                 statusClass = 'loading';
                 icon = '<span class="spinner"></span>';
+            } else if (result.success && result.freePlan) {
+                statusClass = 'warning';
+                icon = '⚠️';
             } else if (result.success) {
                 statusClass = 'success';
                 icon = '✅';
@@ -13953,7 +14463,7 @@
             let html = `
                 <div class="test-result-header">
                     <span class="test-result-icon">${icon}</span>
-                    <span>${result.loading ? 'Testing connection...' : result.success ? 'Success' : result.error || 'Error'}</span>
+                    <span>${result.loading ? 'Testing connection...' : result.success && result.freePlan ? 'Free Plan Detected' : result.success ? 'Success' : result.error || 'Error'}</span>
                 </div>
             `;
             
@@ -14030,16 +14540,27 @@
         
         // Test central weather API connection
         async function testCentralWeatherConnection() {
-            const apiKey = document.getElementById('centralWeatherApiKey').value.trim();
+            const apiKeyInput = document.getElementById('centralWeatherApiKey');
+            const apiKey = apiKeyInput.value.trim();
+            const hasSavedKey = apiKeyInput.dataset.hasKey === 'true';
             const location = document.getElementById('centralWeatherLocation').value.trim();
             const units = document.getElementById('centralWeatherUnits').value;
             const containerId = 'centralWeatherTestResult';
-            
-            if (!apiKey || !location) {
+
+            // Require either a typed key or a saved key; location must be set too
+            if (!apiKey && !hasSavedKey) {
                 displayTestResult(containerId, {
                     success: false,
                     error: 'Missing Information',
-                    message: 'Please enter both an API key and location before testing.'
+                    message: 'Please enter an API key before testing.'
+                });
+                return;
+            }
+            if (!location) {
+                displayTestResult(containerId, {
+                    success: false,
+                    error: 'Missing Information',
+                    message: 'Please enter a location before testing.'
                 });
                 return;
             }
@@ -14056,7 +14577,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ apiKey, location, units })
+                    body: JSON.stringify({ apiKey: apiKey || '', location, units })
                 });
                 
                 const result = await response.json();
@@ -14072,10 +14593,12 @@
         
         // Test Flight API connection
         async function testFlightApiConnection() {
-            const apiKey = document.getElementById('flightApiKey').value.trim();
+            const apiKeyInput = document.getElementById('flightApiKey');
+            const apiKey = apiKeyInput.value.trim();
+            const hasSavedKey = apiKeyInput.dataset.hasKey === 'true';
             const containerId = 'flightApiTestResult';
-            
-            if (!apiKey) {
+
+            if (!apiKey && !hasSavedKey) {
                 displayTestResult(containerId, {
                     success: false,
                     error: 'Missing Information',
@@ -14096,18 +14619,22 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ apiKey })
+                    body: JSON.stringify({ apiKey: apiKey || '' })
                 });
                 
                 const result = await response.json();
                 displayTestResult(containerId, result);
                 
-                // If successful, show usage stats and refresh them
+                // If successful (including Free Plan), show usage stats and refresh them
                 if (result.success) {
                     document.getElementById('flightApiUsage').style.display = 'block';
                     await refreshFlightApiUsage();
                     // Also show diagnostics to help with troubleshooting
                     await showFlightApiDiagnostics();
+                    if (result.freePlan) {
+                        const freePlanBanner = document.getElementById('flightApiFreePlanBanner');
+                        if (freePlanBanner) freePlanBanner.style.display = 'block';
+                    }
                 }
             } catch (error) {
                 displayTestResult(containerId, {
@@ -14623,7 +15150,8 @@
         // Widget icons for the grid editor
         // To add a new widget to the grid editor, simply:
         // 1. Add it to this WIDGET_ICONS object with an appropriate emoji
-        // 2. Create form fields following the naming pattern: {widgetType}Enabled, {widgetType}GridX, etc.
+        // 2. Add a display name to WIDGET_NAMES
+        // 3. Create form fields following the naming pattern: {widgetType}Enabled, {widgetType}GridX, etc.
         // The grid editor will automatically discover and display the widget - no other changes needed!
         const WIDGET_ICONS = {
             clock: '🕐',
@@ -14635,6 +15163,28 @@
             vacation: '🏖️',
             smartWidget: '🧠'
         };
+        
+        // Human-readable display names for each widget type
+        const WIDGET_NAMES = {
+            clock: 'Clock',
+            calendar: 'Calendar',
+            weather: 'Weather',
+            forecast: 'Forecast',
+            news: 'News',
+            media: 'Media Player',
+            vacation: 'Vacation',
+            smartWidget: 'Smart Widget'
+        };
+        
+        // Sub-widgets that belong to the Smart Widget, shown nested in the palette
+        const SMART_SUB_WIDGETS = [
+            { id: 'smartWidgetRainEnabled',     icon: '🌧️', name: 'Rain Expected' },
+            { id: 'smartWidgetHighHeatEnabled', icon: '🔥', name: 'High Heat' },
+            { id: 'smartWidgetTempChangeEnabled', icon: '🌡️', name: 'Temp Change' },
+            { id: 'smartWidgetVacationEnabled', icon: '✈️', name: 'Vacation' },
+            { id: 'smartWidgetPartyEnabled',    icon: '🎉', name: 'Party' },
+            { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' }
+        ];
         
         // Switch between portrait and landscape editing
         function switchOrientation(orientation) {
@@ -14754,11 +15304,28 @@
                 // Add to palette
                 const paletteItem = document.createElement('div');
                 paletteItem.className = `palette-widget ${!enabled ? 'disabled' : ''}`;
+                paletteItem.dataset.type = type;
+                const displayName = WIDGET_NAMES[type] || (type.charAt(0).toUpperCase() + type.slice(1));
+                const statusBadge = `<span class="palette-widget-status-badge ${enabled ? 'active' : 'inactive'}">${enabled ? 'Active' : 'Inactive'}</span>`;
+                const statusDetail = enabled ? `Position: (${x},${y}) Size: ${width}×${height}` : '';
+                
+                // Build sub-widget section for Smart Widget
+                let subWidgetHtml = '';
+                if (type === 'smartWidget') {
+                    const subRows = SMART_SUB_WIDGETS.map(sw => {
+                        const swEnabled = document.getElementById(sw.id)?.value === 'true';
+                        const swBadge = `<span class="palette-widget-status-badge ${swEnabled ? 'active' : 'inactive'}">${swEnabled ? 'On' : 'Off'}</span>`;
+                        return `<div class="palette-sub-widget-item">${sw.icon} ${sw.name} ${swBadge}</div>`;
+                    }).join('');
+                    subWidgetHtml = `<div class="palette-sub-widgets">${subRows}</div>`;
+                }
+                
                 paletteItem.innerHTML = `
                     <div class="palette-widget-icon">${WIDGET_ICONS[type]}</div>
                     <div class="palette-widget-info">
-                        <div class="palette-widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-                        <div class="palette-widget-status">${enabled ? `Position: (${x},${y}) Size: ${width}×${height}` : 'Disabled'}</div>
+                        <div class="palette-widget-name">${displayName}</div>
+                        <div class="palette-widget-status">${statusBadge}${statusDetail}</div>
+                        ${subWidgetHtml}
                     </div>
                 `;
                 palette.appendChild(paletteItem);
@@ -14812,7 +15379,7 @@
                 
                 widgetEl.innerHTML = `
                     <div class="widget-icon">${WIDGET_ICONS[type]}</div>
-                    <div class="widget-name">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                    <div class="widget-name">${WIDGET_NAMES[type] || (type.charAt(0).toUpperCase() + type.slice(1))}</div>
                     <div class="widget-position">(${widget.x},${widget.y}) ${widget.width}×${widget.height}</div>
                 `;
                 
@@ -15081,17 +15648,15 @@
         function updatePaletteStatus(type) {
             const widget = gridState.widgets[type];
             const palette = document.getElementById('widgetPalette');
-            const items = palette.querySelectorAll('.palette-widget');
+            const item = palette.querySelector(`.palette-widget[data-type="${type}"]`);
+            if (!item) return;
             
-            items.forEach(item => {
-                const name = item.querySelector('.palette-widget-name').textContent.toLowerCase();
-                if (name === type) {
-                    const status = item.querySelector('.palette-widget-status');
-                    if (widget.enabled) {
-                        status.textContent = `Position: (${widget.x},${widget.y}) Size: ${widget.width}×${widget.height}`;
-                    }
-                }
-            });
+            const status = item.querySelector('.palette-widget-status');
+            if (!status) return;
+            
+            const badge = `<span class="palette-widget-status-badge ${widget.enabled ? 'active' : 'inactive'}">${widget.enabled ? 'Active' : 'Inactive'}</span>`;
+            const detail = widget.enabled ? `Position: (${widget.x},${widget.y}) Size: ${widget.width}×${widget.height}` : '';
+            status.innerHTML = badge + detail;
         }
         
         function resetGridLayout() {
@@ -19857,7 +20422,9 @@
             document.getElementById('vacationTimezone').value = '';
             document.getElementById('vacationClockOptions').style.display = 'none';
             document.getElementById('clockWidgetFeedback').innerHTML = '';
+            document.getElementById('flightApiStatusBanner').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
+            checkFlightApiStatus();
         }
         
         function editVacationDate(id) {
@@ -19882,7 +20449,9 @@
                 checkClockWidgetCapacity();
             }
             
+            document.getElementById('flightApiStatusBanner').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'flex';
+            checkFlightApiStatus();
         }
         
         function closeVacationDateModal() {
@@ -19937,6 +20506,27 @@
                 }
             } catch (err) {
                 console.error('Failed to check clock widget capacity:', err);
+            }
+        }
+        
+        async function checkFlightApiStatus() {
+            const banner = document.getElementById('flightApiStatusBanner');
+            if (!banner) return;
+            try {
+                const response = await fetch('/admin/api/flight-api/diagnostics');
+                if (!response.ok) return;
+                const result = await response.json();
+                if (!result.success) return;
+                const diag = result.diagnostics;
+                if (diag.apiKeyConfigured && diag.enabled) {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #d1fae5; border-radius: 5px; color: #065f46;">✅ AviationStack API is configured and enabled. Free Plan users: format validation only — upgrade for real-time tracking.</div>';
+                } else if (diag.apiKeyConfigured && !diag.enabled) {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #fef3c7; border-radius: 5px; color: #92400e;">⚠️ AviationStack API key is set but Flight API is disabled. Enable it in Smart Mirror → APIs and Connections to use real-time validation.</div>';
+                } else {
+                    banner.innerHTML = '<div style="padding: 8px 10px; background: #fef3c7; border-radius: 5px; color: #92400e;">⚠️ AviationStack API key not configured. Format-only validation will be used. Configure in Smart Mirror → APIs and Connections.</div>';
+                }
+            } catch (e) {
+                // Silently ignore — status banner is informational only
             }
         }
         
@@ -20021,7 +20611,17 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                    if (result.flightInfo && result.flightInfo.limitedValidation) {
+                        // Escape HTML in message to prevent XSS
+                        const escapeHtml = (str) => {
+                            const div = document.createElement('div');
+                            div.textContent = str;
+                            return div.innerHTML;
+                        };
+                        statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Format validated</span><br><small style="color: #6b7280;">${escapeHtml(result.message || 'Limited validation only')}</small>`;
+                    } else {
+                        statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                    }
                     flightDiv.dataset.validated = 'true';
                 } else {
                     // Escape HTML in error message to prevent XSS
@@ -20032,13 +20632,24 @@
                     };
                     const safeError = escapeHtml(result.error || 'Unknown error');
                     
+                    // Check if error indicates a plan restriction (Free Plan limitation)
+                    const errLower = result.error ? result.error.toLowerCase() : '';
+                    const isPlanRestriction = result.error && (
+                        errLower.includes('subscription') ||
+                        errLower.includes('does not support') ||
+                        (errLower.includes('plan') && errLower.includes('restrict'))
+                    );
                     // Check if error is related to missing API key
-                    if (result.error && result.error.includes('API key')) {
+                    if (isPlanRestriction) {
+                        statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Free Plan limitation</span><br><small style="color: #6b7280;">Your AviationStack Free Plan does not support flight-specific queries. Flight number format is valid. Upgrade for real-time tracking.</small>`;
+                        flightDiv.dataset.validated = 'true';
+                    } else if (result.error && result.error.includes('API key')) {
                         statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span><br><small style="color: #6b7280;">Configure API key in Smart Mirror settings and Save before validating.</small>`;
+                        flightDiv.dataset.validated = 'false';
                     } else {
                         statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${safeError}</span>`;
+                        flightDiv.dataset.validated = 'false';
                     }
-                    flightDiv.dataset.validated = 'false';
                 }
             } catch (err) {
                 // Escape HTML in error message to prevent XSS
@@ -21349,6 +21960,431 @@
             } catch (err) {
                 alert('Failed to delete connection: ' + err.message);
             }
+        }
+
+        // ========================================
+        // SFTP Backup Management Functions
+        // ========================================
+        
+        let currentSftpConfig = null;
+        
+        // Toggle between password and key authentication fields
+        function toggleSftpAuthFields() {
+            const authMethod = document.getElementById('sftpAuthMethod').value;
+            const passwordAuth = document.getElementById('sftpPasswordAuth');
+            const keyAuth = document.getElementById('sftpKeyAuth');
+            
+            if (authMethod === 'password') {
+                passwordAuth.style.display = 'block';
+                keyAuth.style.display = 'none';
+            } else {
+                passwordAuth.style.display = 'none';
+                keyAuth.style.display = 'block';
+            }
+        }
+        
+        // Load SFTP configuration on page load
+        async function loadSftpConfig() {
+            try {
+                const response = await fetch('/admin/api/sftp/config');
+                const result = await response.json();
+                
+                if (result.success && result.config) {
+                    currentSftpConfig = result.config;
+                    
+                    // Populate form fields
+                    document.getElementById('sftpHost').value = result.config.host || '';
+                    document.getElementById('sftpPort').value = result.config.port || 22;
+                    document.getElementById('sftpUsername').value = result.config.username || '';
+                    document.getElementById('sftpRemotePath').value = result.config.remotePath || '/';
+                    document.getElementById('sftpAuthMethod').value = result.config.authMethod || 'password';
+                    document.getElementById('sftpEnabled').checked = result.config.enabled !== false;
+                    
+                    // Show appropriate auth fields
+                    toggleSftpAuthFields();
+                    
+                    // Clear credential fields (don't show existing credentials)
+                    document.getElementById('sftpPassword').value = '';
+                    document.getElementById('sftpPrivateKey').value = '';
+                    document.getElementById('sftpPassphrase').value = '';
+                }
+            } catch (err) {
+                console.error('Failed to load SFTP config:', err);
+            }
+        }
+        
+        // Save SFTP configuration
+        async function saveSftpConfig() {
+            const alert = document.getElementById('sftpConfigAlert');
+            alert.style.display = 'none';
+            
+            const config = {
+                host: document.getElementById('sftpHost').value.trim(),
+                port: parseInt(document.getElementById('sftpPort').value),
+                username: document.getElementById('sftpUsername').value.trim(),
+                remotePath: document.getElementById('sftpRemotePath').value.trim(),
+                authMethod: document.getElementById('sftpAuthMethod').value,
+                enabled: document.getElementById('sftpEnabled').checked
+            };
+            
+            // Validation
+            if (!config.host) {
+                showAlert('❌ Host is required', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            if (!config.port || config.port < 1 || config.port > 65535) {
+                showAlert('❌ Valid port number is required (1-65535)', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            if (!config.username) {
+                showAlert('❌ Username is required', 'error', 'sftpConfigAlert');
+                return;
+            }
+            
+            // Add authentication credentials
+            if (config.authMethod === 'password') {
+                const password = document.getElementById('sftpPassword').value;
+                if (!password && !currentSftpConfig?.hasPassword) {
+                    showAlert('❌ Password is required', 'error', 'sftpConfigAlert');
+                    return;
+                }
+                if (password) {
+                    config.password = password;
+                }
+            } else if (config.authMethod === 'key') {
+                const privateKey = document.getElementById('sftpPrivateKey').value;
+                if (!privateKey && !currentSftpConfig?.hasPrivateKey) {
+                    showAlert('❌ Private key is required', 'error', 'sftpConfigAlert');
+                    return;
+                }
+                if (privateKey) {
+                    config.privateKey = privateKey;
+                }
+                const passphrase = document.getElementById('sftpPassphrase').value;
+                if (passphrase) {
+                    config.passphrase = passphrase;
+                }
+            }
+            
+            try {
+                showAlert('💾 Saving configuration...', 'info', 'sftpConfigAlert');
+                
+                const response = await fetch('/admin/api/sftp/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ SFTP configuration saved successfully!', 'success', 'sftpConfigAlert');
+                    await loadSftpConfig();
+                } else {
+                    showAlert(`❌ Failed to save: ${result.error}`, 'error', 'sftpConfigAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Test SFTP connection
+        async function testSftpConnection() {
+            const alert = document.getElementById('sftpConfigAlert');
+            const resultsDiv = document.getElementById('sftpTestResults');
+            
+            try {
+                showAlert('🔍 Testing SFTP connection...', 'info', 'sftpConfigAlert');
+                resultsDiv.style.display = 'none';
+                
+                const response = await fetch('/admin/api/sftp/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                // Display results
+                let resultsHtml = '';
+                
+                if (result.success) {
+                    resultsHtml = `
+                        <div style="background: #d4edda; color: #155724; padding: 1rem; border-radius: 5px; border: 1px solid #c3e6cb; margin-bottom: 1rem;">
+                            <h4 style="margin: 0 0 0.5rem 0;">✅ Connection Successful!</h4>
+                            <p style="margin: 0.5rem 0 0 0;">
+                                <strong>Host:</strong> ${result.details.host}:${result.details.port}<br>
+                                <strong>Username:</strong> ${result.details.username}<br>
+                                <strong>Remote Path:</strong> ${result.details.remotePath}<br>
+                                <strong>Connection Time:</strong> ${result.details.duration}ms
+                            </p>
+                        </div>
+                    `;
+                    showAlert('✅ Connection test successful!', 'success', 'sftpConfigAlert');
+                } else {
+                    resultsHtml = `
+                        <div style="background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 5px; border: 1px solid #f5c6cb; margin-bottom: 1rem;">
+                            <h4 style="margin: 0 0 0.5rem 0;">❌ Connection Failed</h4>
+                            <p style="margin: 0.5rem 0;"><strong>Error:</strong> ${result.error}</p>
+                    `;
+                    
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        resultsHtml += `
+                            <div style="margin-top: 1rem;">
+                                <strong>💡 Suggestions:</strong>
+                                <ul style="margin: 0.5rem 0 0 1.5rem;">
+                        `;
+                        result.suggestions.forEach(suggestion => {
+                            resultsHtml += `<li>${escapeHtml(suggestion)}</li>`;
+                        });
+                        resultsHtml += `
+                                </ul>
+                            </div>
+                        `;
+                    }
+                    
+                    resultsHtml += '</div>';
+                    showAlert('❌ Connection test failed. See diagnostics below.', 'error', 'sftpConfigAlert');
+                }
+                
+                resultsDiv.innerHTML = resultsHtml;
+                resultsDiv.style.display = 'block';
+                
+                // Expand test results section
+                const testSection = resultsDiv.closest('.collapsible-content');
+                if (testSection && !testSection.classList.contains('expanded')) {
+                    testSection.previousElementSibling.click();
+                }
+                
+            } catch (err) {
+                showAlert(`❌ Test error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Delete SFTP configuration
+        async function deleteSftpConfig() {
+            if (!confirm('Are you sure you want to delete the SFTP configuration? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/sftp/config', {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ SFTP configuration deleted', 'success', 'sftpConfigAlert');
+                    
+                    // Clear form
+                    document.getElementById('sftpHost').value = '';
+                    document.getElementById('sftpPort').value = 22;
+                    document.getElementById('sftpUsername').value = '';
+                    document.getElementById('sftpRemotePath').value = '/';
+                    document.getElementById('sftpPassword').value = '';
+                    document.getElementById('sftpPrivateKey').value = '';
+                    document.getElementById('sftpPassphrase').value = '';
+                    document.getElementById('sftpEnabled').checked = true;
+                    currentSftpConfig = null;
+                } else {
+                    showAlert(`❌ Failed to delete: ${result.error}`, 'error', 'sftpConfigAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpConfigAlert');
+            }
+        }
+        
+        // Upload backup to SFTP
+        async function uploadBackupToSftp() {
+            const alert = document.getElementById('sftpUploadAlert');
+            const progress = document.getElementById('sftpUploadProgress');
+            const status = document.getElementById('sftpUploadStatus');
+            const uploadBtn = document.getElementById('sftpUploadBtn');
+            
+            alert.style.display = 'none';
+            progress.style.display = 'none';
+            
+            try {
+                uploadBtn.disabled = true;
+                status.textContent = 'Preparing backup...';
+                progress.style.display = 'block';
+                
+                const response = await fetch('/admin/api/sftp/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                progress.style.display = 'none';
+                uploadBtn.disabled = false;
+                
+                if (result.success) {
+                    let message = `✅ Backup uploaded successfully!<br><strong>File:</strong> ${result.details.fileName}`;
+                    if (result.details.duration) {
+                        message += `<br><strong>Upload Time:</strong> ${result.details.duration}s`;
+                    }
+                    showAlert(message, 'success', 'sftpUploadAlert');
+                } else {
+                    let message = `❌ Upload failed: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br><strong>Suggestions:</strong><ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpUploadAlert');
+                }
+            } catch (err) {
+                progress.style.display = 'none';
+                uploadBtn.disabled = false;
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpUploadAlert');
+            }
+        }
+        
+        // Load list of backups from SFTP
+        async function loadSftpBackups() {
+            const listDiv = document.getElementById('sftpBackupsList');
+            const alert = document.getElementById('sftpDownloadAlert');
+            
+            alert.style.display = 'none';
+            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading backups...</div>';
+            
+            try {
+                const response = await fetch('/admin/api/sftp/backups');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    let message = `Failed to load backups: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br>Suggestions:<ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpDownloadAlert');
+                    listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">Failed to load backups</div>';
+                    return;
+                }
+                
+                if (!result.backups || result.backups.length === 0) {
+                    listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">No backup files found on SFTP server</div>';
+                    return;
+                }
+                
+                // Build backups list
+                let html = `
+                    <div style="margin-bottom: 0.5rem; color: #666;">
+                        <strong>Remote Path:</strong> ${escapeHtml(result.remotePath)} 
+                        (${result.backups.length} backup file${result.backups.length !== 1 ? 's' : ''})
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 0.75rem; text-align: left;">Filename</th>
+                                <th style="padding: 0.75rem; text-align: left;">Size</th>
+                                <th style="padding: 0.75rem; text-align: left;">Modified</th>
+                                <th style="padding: 0.75rem; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.backups.forEach(backup => {
+                    const modDate = new Date(backup.modifiedTime);
+                    html += `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.9em;">${escapeHtml(backup.name)}</td>
+                            <td style="padding: 0.75rem;">${escapeHtml(backup.sizeFormatted)}</td>
+                            <td style="padding: 0.75rem;">${modDate.toLocaleString()}</td>
+                            <td style="padding: 0.75rem; text-align: center;">
+                                <button onclick="downloadSftpBackup('${escapeHtml(backup.name)}')" class="btn btn-secondary btn-sm">
+                                    📥 Download & Import
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+                
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpDownloadAlert');
+                listDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 2rem;">Error loading backups</div>';
+            }
+        }
+        
+        // Download backup from SFTP and import
+        async function downloadSftpBackup(filename) {
+            const alert = document.getElementById('sftpDownloadAlert');
+            
+            if (!confirm(`Download and import backup: ${filename}?\n\nThis will overwrite existing configurations.`)) {
+                return;
+            }
+            
+            try {
+                showAlert(`📥 Downloading ${filename}...`, 'info', 'sftpDownloadAlert');
+                
+                const response = await fetch('/admin/api/sftp/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: filename })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    let message = `Failed to download: ${result.error}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        message += '<br><br>Suggestions:<ul style="margin: 0.5rem 0 0 1.5rem;">';
+                        result.suggestions.forEach(s => {
+                            message += `<li>${escapeHtml(s)}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showAlert(message, 'error', 'sftpDownloadAlert');
+                    return;
+                }
+                
+                // Now import the backup
+                showAlert('📦 Importing backup...', 'info', 'sftpDownloadAlert');
+                
+                const importResponse = await fetch('/admin/api/backup/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(result.backup)
+                });
+                
+                const importResult = await importResponse.json();
+                
+                if (importResult.success) {
+                    let message = `✅ Backup imported successfully!<br><strong>Imported:</strong> ${importResult.results.imported.join(', ')}`;
+                    if (importResult.warnings && importResult.warnings.length > 0) {
+                        message += `<br><strong>Warnings:</strong> ${importResult.warnings.join(', ')}`;
+                    }
+                    showAlert(message, 'success', 'sftpDownloadAlert');
+                    
+                    // Reload page after 2 seconds to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showAlert(`❌ Import failed: ${importResult.error}`, 'error', 'sftpDownloadAlert');
+                }
+            } catch (err) {
+                showAlert(`❌ Error: ${err.message}`, 'error', 'sftpDownloadAlert');
+            }
+        }
+        
+        // Load SFTP config on page load
+        if (typeof loadSftpConfig === 'function') {
+            window.addEventListener('DOMContentLoaded', loadSftpConfig);
         }
 
         // Diagnostic error handling - catches missing function errors

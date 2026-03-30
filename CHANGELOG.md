@@ -9,6 +9,139 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.7.11] - 2026-02-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #537 from spospordo/copilot/update-vacation-sub-widget-design
+  - Update vacation sub-widget: horizontal layout and full parity with main widget
+  - Initial plan
+
+
+## [2.7.10] - 2026-02-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #535 from spospordo/copilot/fix-aviationstack-api-endpoint
+  - Fix: Remove flight_date param (Free Plan restriction); add client-side date matching and string error code handling
+  - Co-authored-by: spospordo <15280983+spospordo@users.noreply.github.com>
+  - Fix: Use HTTP endpoint for AviationStack Free Plan API calls
+  - Initial plan
+
+
+## [2.7.9] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #533 from spospordo/copilot/fix-vacation-page-flight-tracking
+  - fix: improve Free Plan handling for vacation flight tracking
+  - Initial plan
+
+
+## [2.7.8] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #531 from spospordo/copilot/fix-aviationstack-free-plan-support
+  - Fix: Support AviationStack Free Plan for flight tracking
+  - Initial plan
+
+
+## [2.7.7] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #529 from spospordo/copilot/fix-vacation-page-api-validation
+  - Fix vacation page flight validation: handle AviationStack error responses and add API status indicator
+  - Initial plan
+
+
+## [2.7.6] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #527 from spospordo/copilot/update-smart-mirror-api-section
+  - Add collapsible API sections and fix Test button fallback to saved API keys
+  - Initial plan
+
+
+## [2.7.5] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #525 from spospordo/copilot/fix-smart-mirror-grid-display
+  - Fix grid editor: widget names, sub-widget display, status badges, updatePaletteStatus bug
+  - Initial plan
+
+
+## [2.7.4] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #523 from spospordo/copilot/restructure-admin-dashboard-navigation
+  - Restructure Smart Mirror admin navigation: nested collapsible sections for sub-widgets
+  - Initial plan
+
+
+## [2.7.3] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #521 from spospordo/copilot/enhance-weather-admin-panel
+  - implement Extreme Weather admin panel: Rain Expected, High Heat, Temp Change sub-widgets
+  - Initial plan
+
+
+## [2.7.2] - 2026-02-19
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #519 from spospordo/copilot/fix-sub-widget-tabs-layout
+  - fix: responsive sub-widget layout, no horizontal scroll, wrapping rain cards
+  - Initial plan
+
+
+## [2.7.1] - 2026-02-18
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #517 from spospordo/copilot/enhance-rain-sub-widget
+  - Add implementation summary for enhanced rain widget
+  - Final validation and quality checks complete
+  - Add comprehensive documentation for enhanced rain widget
+  - Add enhanced rain data and horizontal layout with animations
+  - Initial plan
+
+
+## [2.7.0] - 2026-02-18
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #515 from spospordo/copilot/implement-sftp-integration
+  - docs: Add security analysis summary for SFTP integration
+  - test: Verify SFTP module functionality with unit tests
+  - docs: Add comprehensive SFTP integration guide and update README
+  - feat: Add SFTP UI to admin dashboard with connection test and backup management
+  - feat: Add SFTP module and API endpoints for backup management
+  - Initial plan
+  - Merge pull request #511 from spospordo/copilot/fix-weather-display-vacation-widget
+  - Add comprehensive implementation summary
+  - Add visual guide for vacation weather display implementation
+  - ... and 76 more changes
+
+
 ## [2.6.30] - 2026-02-05
 
 ### Patch Update

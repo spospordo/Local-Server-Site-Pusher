@@ -16,6 +16,7 @@ const githubUpload = require('./modules/github-upload');
 const finance = require('./modules/finance');
 const OllamaIntegration = require('./modules/ollama');
 const backup = require('./modules/backup');
+const sftp = require('./modules/sftp');
 const smartMirror = require('./modules/smartmirror');
 const publicFilesRegenerator = require('./modules/public-files-regenerator');
 const webhooks = require('./modules/webhooks');
@@ -6311,6 +6312,198 @@ app.post('/admin/api/backup/import', requireAuth, (req, res) => {
   }
 });
 
+// SFTP Backup Management API Endpoints
+// Get SFTP configuration (safe, without credentials)
+app.get('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    const config = sftp.getConfigSafe();
+    res.json({ success: true, config: config });
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to get SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get SFTP configuration' });
+  }
+});
+
+// Save SFTP configuration
+app.post('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    const sftpConfig = req.body;
+    
+    logger.info(logger.categories.SYSTEM, `Admin configuring SFTP: ${sftpConfig.host}:${sftpConfig.port}`);
+    
+    const result = sftp.saveConfig(sftpConfig);
+    
+    if (result.success) {
+      logger.success(logger.categories.SYSTEM, 'SFTP configuration saved');
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to save SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to save SFTP configuration: ' + err.message });
+  }
+});
+
+// Delete SFTP configuration
+app.delete('/admin/api/sftp/config', requireAuth, (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin deleting SFTP configuration');
+    
+    const result = sftp.deleteConfig();
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to delete SFTP config: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to delete SFTP configuration: ' + err.message });
+  }
+});
+
+// Test SFTP connection
+app.post('/admin/api/sftp/test', requireAuth, async (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin testing SFTP connection');
+    
+    // Allow testing with provided config or saved config
+    const testConfig = req.body.config || null;
+    
+    const result = await sftp.testConnection(testConfig);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `SFTP test error: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test SFTP connection: ' + err.message 
+    });
+  }
+});
+
+// List backup files on SFTP server
+app.get('/admin/api/sftp/backups', requireAuth, async (req, res) => {
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin listing SFTP backups');
+    
+    const result = await sftp.listBackups();
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SYSTEM, `Failed to list SFTP backups: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to list backups: ' + err.message 
+    });
+  }
+});
+
+// Upload backup to SFTP server
+app.post('/admin/api/sftp/upload', requireAuth, async (req, res) => {
+  const tempFilePath = path.join(uploadsDir, 'temp-backup-upload.json');
+  
+  try {
+    logger.info(logger.categories.SYSTEM, 'Admin uploading backup to SFTP');
+    
+    // Generate backup
+    const backupResult = backup.exportAllData(config);
+    
+    if (!backupResult.success) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to generate backup: ' + backupResult.error 
+      });
+    }
+    
+    // Write backup to temp file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `site-backup-${timestamp}.json`;
+    
+    fs.writeFileSync(tempFilePath, JSON.stringify(backupResult.backup, null, 2));
+    
+    // Upload to SFTP
+    const uploadResult = await sftp.uploadBackup(tempFilePath, filename);
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    
+    if (uploadResult.success) {
+      logger.success(logger.categories.SYSTEM, `Backup uploaded to SFTP: ${filename}`);
+    }
+    
+    res.json(uploadResult);
+  } catch (err) {
+    // Clean up temp file on error
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    logger.error(logger.categories.SYSTEM, `Failed to upload backup to SFTP: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload backup: ' + err.message 
+    });
+  }
+});
+
+// Download backup from SFTP server
+app.post('/admin/api/sftp/download', requireAuth, async (req, res) => {
+  const tempFilePath = path.join(uploadsDir, 'temp-backup-download.json');
+  
+  try {
+    const { filename } = req.body;
+    
+    if (!filename) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Filename is required' 
+      });
+    }
+    
+    logger.info(logger.categories.SYSTEM, `Admin downloading backup from SFTP: ${filename}`);
+    
+    // Download from SFTP
+    const downloadResult = await sftp.downloadBackup(filename, tempFilePath);
+    
+    if (!downloadResult.success) {
+      return res.json(downloadResult);
+    }
+    
+    // Read the backup file
+    const backupData = JSON.parse(fs.readFileSync(tempFilePath, 'utf8'));
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    
+    logger.success(logger.categories.SYSTEM, `Backup downloaded from SFTP: ${filename}`);
+    
+    // Return the backup data
+    res.json({
+      success: true,
+      message: 'Backup downloaded successfully',
+      backup: backupData
+    });
+  } catch (err) {
+    // Clean up temp file on error
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    logger.error(logger.categories.SYSTEM, `Failed to download backup from SFTP: ${err.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to download backup: ' + err.message 
+    });
+  }
+});
+
 // Webhook Management API Endpoints
 // Get all webhooks
 app.get('/admin/api/webhooks', requireAuth, (req, res) => {
@@ -6745,19 +6938,29 @@ app.post('/admin/api/smart-mirror/test/weather', requireAuth, async (req, res) =
   
   try {
     const { apiKey, location, units } = req.body;
-    
-    if (!apiKey || !location) {
+
+    // Fall back to saved config values when not provided in the request
+    const config = smartMirror.loadConfig();
+    const effectiveApiKey = apiKey ||
+      config.widgets?.weather?.apiKey ||
+      config.widgets?.forecast?.apiKey ||
+      config.widgets?.smartWidget?.apiKey;
+    const effectiveLocation = location ||
+      config.widgets?.weather?.location ||
+      config.widgets?.smartWidget?.location;
+
+    if (!effectiveApiKey || !effectiveLocation) {
       return res.status(400).json({
         success: false,
         error: 'Missing Parameters',
-        message: 'API key and location are required.'
+        message: 'API key and location are required. Please configure them in the settings or enter them above.'
       });
     }
     
-    const result = await smartMirror.testWeatherConnection(apiKey, location, units || 'imperial');
+    const result = await smartMirror.testWeatherConnection(effectiveApiKey, effectiveLocation, units || 'imperial');
     
     if (result.success) {
-      logger.success(logger.categories.SMART_MIRROR, `Weather test successful for ${location}`);
+      logger.success(logger.categories.SMART_MIRROR, `Weather test successful for ${effectiveLocation}`);
     } else {
       logger.warning(logger.categories.SMART_MIRROR, `Weather test failed: ${result.error}`);
     }
@@ -6907,19 +7110,23 @@ app.post('/admin/api/flight-api/test-connection', requireAuth, async (req, res) 
   
   try {
     const { apiKey } = req.body;
-    
-    if (!apiKey) {
+
+    // Fall back to saved config value when not provided in the request
+    const config = smartMirror.loadConfig();
+    const effectiveApiKey = apiKey || config.flightApi?.apiKey;
+
+    if (!effectiveApiKey) {
       return res.status(400).json({
         success: false,
         error: 'API key is required'
       });
     }
     
-    const keyFingerprint = aviationstack.getApiKeyFingerprint(apiKey);
+    const keyFingerprint = aviationstack.getApiKeyFingerprint(effectiveApiKey);
     logger.info(logger.categories.SMART_MIRROR, `Testing connection with API key ${keyFingerprint}`);
     
     // Test the connection
-    const result = await aviationstack.testConnection(apiKey);
+    const result = await aviationstack.testConnection(effectiveApiKey);
     
     if (result.success) {
       logger.success(logger.categories.SMART_MIRROR, 'Flight API connection test successful');
@@ -7721,7 +7928,9 @@ function estimateContentSize(subWidgetData) {
   
   switch (type) {
     case 'rainForecast':
-      // Rain forecast is typically compact (icon + text)
+    case 'highHeat':
+    case 'tempChange':
+      // Weather alert widgets are typically compact (icon + text)
       return 'small';
       
     case 'upcomingVacation':
@@ -7831,11 +8040,39 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     logger.info(logger.categories.SMART_MIRROR, 
                       `Rain detected on ${day.date}: condition="${day.condition}", precipChance=${precipChance}%`);
                     
+                    // Determine rain intensity based on precipitation chance
+                    let intensity = 'Light';
+                    if (precipChance >= 70) {
+                      intensity = 'Heavy';
+                    } else if (precipChance >= 50) {
+                      intensity = 'Moderate';
+                    }
+                    
+                    // Calculate start time (assume morning for now, could be enhanced with hourly data)
+                    const startTime = daysFromNow === 0 ? 'Later today' : 
+                                     daysFromNow === 1 ? 'Tomorrow' : 
+                                     `${day.dayName || 'Day'} morning`;
+                    
+                    // Estimate duration based on condition type
+                    let duration = 'Several hours';
+                    if (condition.includes('showers')) {
+                      duration = 'Intermittent';
+                    } else if (condition.includes('thunderstorm')) {
+                      duration = '1-2 hours';
+                    } else if (precipChance >= 70) {
+                      duration = 'All day';
+                    }
+                    
                     rainDays.push({
                       daysFromNow: daysFromNow,
                       date: day.date,
+                      dayName: day.dayName || 'Unknown',
                       description: day.condition || 'Rain expected',
-                      precipitation: precipChance / 100 // Convert to 0-1 range for display
+                      precipitation: precipChance / 100, // Convert to 0-1 range for display
+                      precipChance: precipChance,
+                      intensity: intensity,
+                      startTime: startTime,
+                      duration: duration
                     });
                   }
                 });
@@ -7866,6 +8103,139 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             } else {
               logger.debug(logger.categories.SMART_MIRROR, 
                 'Rain Forecast sub-widget: API key or location not configured');
+            }
+            break;
+            
+          case 'highHeat':
+            // Check if any of the next 3 forecast days exceeds the high temperature threshold
+            if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
+              const heatThreshold = subWidget.threshold || 95;
+              const heatForecastResult = await smartMirror.fetchForecast(
+                smartWidgetConfig.apiKey,
+                smartWidgetConfig.location,
+                5,
+                smartWidgetConfig.units || 'imperial'
+              );
+              
+              if (heatForecastResult.success) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const hotDays = [];
+                const heatDays = heatForecastResult.days || [];
+                heatDays.forEach((day) => {
+                  const dayDate = new Date(day.date);
+                  const daysFromNow = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
+                  if (daysFromNow >= 0 && daysFromNow <= 2 && day.tempHigh >= heatThreshold) {
+                    hotDays.push({
+                      daysFromNow,
+                      date: day.date,
+                      dayName: day.dayName || 'Unknown',
+                      tempHigh: day.tempHigh,
+                      condition: day.condition || '',
+                      threshold: heatThreshold
+                    });
+                  }
+                });
+                
+                if (hotDays.length > 0) {
+                  logger.success(logger.categories.SMART_MIRROR,
+                    `High Heat sub-widget: ${hotDays.length} day(s) exceeding ${heatThreshold}°`);
+                  subWidgetData = {
+                    type: 'highHeat',
+                    priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
+                    hasContent: true,
+                    data: {
+                      hotDays,
+                      threshold: heatThreshold,
+                      units: smartWidgetConfig.units || 'imperial',
+                      location: smartWidgetConfig.location
+                    }
+                  };
+                } else {
+                  logger.debug(logger.categories.SMART_MIRROR,
+                    `High Heat sub-widget: No days exceed ${heatThreshold}° threshold`);
+                }
+              } else {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `High Heat sub-widget: Forecast fetch failed - ${heatForecastResult.error || 'unknown error'}`);
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'High Heat sub-widget: API key or location not configured');
+            }
+            break;
+            
+          case 'tempChange':
+            // Check if day-to-day high temp change exceeds the threshold over the next 3 days
+            if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
+              const changeThreshold = subWidget.threshold || 15;
+              const changeForecastResult = await smartMirror.fetchForecast(
+                smartWidgetConfig.apiKey,
+                smartWidgetConfig.location,
+                5,
+                smartWidgetConfig.units || 'imperial'
+              );
+              
+              if (changeForecastResult.success) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Collect the next 4 days (today + 3 more) to evaluate 3 day-to-day changes
+                const forecastDays = (changeForecastResult.days || [])
+                  .map(day => ({
+                    ...day,
+                    daysFromNow: Math.round((new Date(day.date) - today) / (1000 * 60 * 60 * 24))
+                  }))
+                  .filter(day => day.daysFromNow >= 0 && day.daysFromNow <= 3)
+                  .sort((a, b) => a.daysFromNow - b.daysFromNow);
+                
+                const changeDays = [];
+                for (let i = 1; i < forecastDays.length; i++) {
+                  const prevDay = forecastDays[i - 1];
+                  const currDay = forecastDays[i];
+                  const change = currDay.tempHigh - prevDay.tempHigh;
+                  if (Math.abs(change) >= changeThreshold) {
+                    changeDays.push({
+                      daysFromNow: currDay.daysFromNow,
+                      date: currDay.date,
+                      dayName: currDay.dayName || 'Unknown',
+                      tempHigh: currDay.tempHigh,
+                      prevTempHigh: prevDay.tempHigh,
+                      change: Math.round(change),
+                      direction: change > 0 ? 'up' : 'down',
+                      threshold: changeThreshold
+                    });
+                  }
+                }
+                
+                if (changeDays.length > 0) {
+                  logger.success(logger.categories.SMART_MIRROR,
+                    `Temp Change sub-widget: ${changeDays.length} significant temperature change(s) detected`);
+                  subWidgetData = {
+                    type: 'tempChange',
+                    priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
+                    hasContent: true,
+                    data: {
+                      changeDays,
+                      threshold: changeThreshold,
+                      units: smartWidgetConfig.units || 'imperial',
+                      location: smartWidgetConfig.location
+                    }
+                  };
+                } else {
+                  logger.debug(logger.categories.SMART_MIRROR,
+                    `Temp Change sub-widget: No day-to-day changes exceed ${changeThreshold}° threshold`);
+                }
+              } else {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `Temp Change sub-widget: Forecast fetch failed - ${changeForecastResult.error || 'unknown error'}`);
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Temp Change sub-widget: API key or location not configured');
             }
             break;
             
@@ -7901,10 +8271,13 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       destination: vacation.destination,
                       startDate: vacation.startDate,
                       endDate: vacation.endDate,
-                      daysUntil: daysUntil
+                      daysUntil: daysUntil,
+                      notes: vacation.notes || '',
+                      flightTrackingEnabled: vacation.flightTrackingEnabled || false,
+                      flights: (vacation.flights || []).filter(f => f.validated)
                     };
                     
-                    // Fetch weather data if API key is configured and destination is validated
+                    // Fetch weather data and timezone if API key is configured and destination is set
                     if (weatherApiKey && vacation.destination) {
                       try {
                         logger.debug(logger.categories.SMART_MIRROR, 
@@ -7959,13 +8332,24 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                               `Failed to fetch weather for vacation destination: ${vacation.destination} - ${weatherResult.error || currentWeatherResult.error}`);
                           }
                         }
+                        
+                        // Fetch timezone data for local time display
+                        try {
+                          const timezoneResult = await smartMirror.fetchLocationTimezone(weatherApiKey, vacation.destination);
+                          if (timezoneResult.success && timezoneResult.data) {
+                            vacationInfo.timezoneOffset = timezoneResult.data.timezoneOffset;
+                          }
+                        } catch (tzErr) {
+                          logger.warning(logger.categories.SMART_MIRROR, 
+                            `Error fetching timezone for vacation ${vacation.destination}: ${tzErr.message}`);
+                        }
                       } catch (err) {
                         logger.warning(logger.categories.SMART_MIRROR, 
                           `Error fetching weather for vacation ${vacation.destination}: ${err.message}`);
                       }
                     } else {
                       logger.debug(logger.categories.SMART_MIRROR, 
-                        'Vacation weather skipped: API key not configured or destination missing');
+                        'Vacation weather/timezone skipped: API key not configured or destination missing');
                     }
                     
                     return vacationInfo;
