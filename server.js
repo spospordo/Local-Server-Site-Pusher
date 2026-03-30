@@ -24,6 +24,7 @@ const house = require('./modules/house');
 const aviationstack = require('./modules/aviationstack');
 const flightScheduler = require('./modules/flight-scheduler');
 const remoteMgmt = require('./modules/remote-management');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -9195,7 +9196,7 @@ app.post('/admin/api/remote-devices/:id/command', requireAuth, (req, res) => {
  */
 app.get('/admin/api/remote-devices/:id/history', requireAuth, (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 50), 200);
     const history = remoteMgmt.getCommandHistory(req.params.id, limit);
     res.json({ commands: history });
   } catch (err) {
@@ -9215,6 +9216,22 @@ app.get('/admin/api/remote-devices/supported-commands', requireAuth, (req, res) 
 // =============================================================================
 // Remote Management API – device-side routes (authenticated with bearer token)
 // =============================================================================
+
+/**
+ * Rate limiter for device API endpoints.
+ * Limits each IP to 120 requests per minute before authentication is checked.
+ */
+const deviceApiRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests – please wait and retry' },
+  handler: (req, res, next, options) => {
+    logger.warning('REMOTE_MGMT', `Rate limit exceeded for IP ${req.ip}`);
+    res.status(options.statusCode).json(options.message);
+  },
+});
 
 /**
  * Middleware: authenticate a Pi device via "Authorization: Bearer <token>" header.
@@ -9240,7 +9257,7 @@ function requireDeviceAuth(req, res, next) {
  * The Pi daemon calls this periodically to report that it is alive.
  * Body: { platform?: string, version?: string }
  */
-app.post('/api/device/heartbeat', requireDeviceAuth, (req, res) => {
+app.post('/api/device/heartbeat', deviceApiRateLimit, requireDeviceAuth, (req, res) => {
   const { platform, version } = req.body || {};
   remoteMgmt.devicePoll(req.remoteDevice.id, { platform, version });
   res.json({ ok: true, serverTime: new Date().toISOString() });
@@ -9252,7 +9269,7 @@ app.post('/api/device/heartbeat', requireDeviceAuth, (req, res) => {
  * Returns pending commands and marks them as "delivered".
  * Query params: platform, version (optional metadata)
  */
-app.get('/api/device/poll', requireDeviceAuth, (req, res) => {
+app.get('/api/device/poll', deviceApiRateLimit, requireDeviceAuth, (req, res) => {
   const { platform, version } = req.query;
   const commands = remoteMgmt.devicePoll(req.remoteDevice.id, { platform, version });
   res.json({ commands, serverTime: new Date().toISOString() });
@@ -9263,7 +9280,7 @@ app.get('/api/device/poll', requireDeviceAuth, (req, res) => {
  * The Pi daemon calls this after executing a command to report its result.
  * Body: { commandId: string, success: boolean, output?: string, error?: string }
  */
-app.post('/api/device/result', requireDeviceAuth, (req, res) => {
+app.post('/api/device/result', deviceApiRateLimit, requireDeviceAuth, (req, res) => {
   const { commandId, success, output, error: errMsg } = req.body || {};
   if (!commandId) {
     return res.status(400).json({ error: 'commandId is required' });

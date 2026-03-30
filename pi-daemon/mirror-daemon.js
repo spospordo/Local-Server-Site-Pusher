@@ -204,7 +204,8 @@ function apiRequest(method, urlPath, body = null) {
         'Content-Type': 'application/json',
         'User-Agent': `MirrorDaemon/${DAEMON_VERSION}`,
       },
-      // Allow self-signed certs in development (controlled via config)
+      // Reject unauthorised TLS certificates unless explicitly disabled in config.
+      // Default: true (secure). Only set rejectUnauthorized: false for local dev.
       rejectUnauthorized: cfg.rejectUnauthorized !== false,
     };
 
@@ -370,9 +371,7 @@ async function executeCommand(command) {
           result = { success: false, error: 'config_update requires a non-empty payload' };
         } else {
           // Prevent overwriting the device token via remote command
-          const safePayload = Object.assign({}, payload);
-          delete safePayload.deviceToken;
-          delete safePayload.serverUrl;
+          const { deviceToken: _dt, serverUrl: _su, ...safePayload } = payload; // eslint-disable-line no-unused-vars
           if (Object.keys(safePayload).length === 0) {
             result = { success: false, error: 'config_update: only protected keys provided; nothing to update' };
           } else {
@@ -418,7 +417,6 @@ const MAX_BACKOFF_MS = 5 * 60 * 1000; // 5 minutes
 
 async function pollOnce() {
   try {
-    const { platform } = os;
     const resp = await apiRequest('GET', `/api/device/poll?platform=${encodeURIComponent(os.platform())}&version=${encodeURIComponent(DAEMON_VERSION)}`);
 
     if (resp.statusCode === 401) {

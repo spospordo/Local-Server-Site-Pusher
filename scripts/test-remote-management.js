@@ -19,40 +19,24 @@ const os = require('os');
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-mgmt-test-'));
 process.env.REMOTE_MGMT_KEY = 'test-key-for-unit-tests';
 
-// Monkey-patch the CONFIG_DIR inside the module by resolving via the temp dir.
-// We do this by temporarily overriding the module's config path via env.
-// Since the module uses __dirname/../config we copy the module and override.
-const originalModule = require('../modules/remote-management');
-
-// We need to make the module use tmpDir.  The easiest approach is to set an
-// env variable and re-require. But since require caches modules, we instead
-// test via the exported functions directly and just redirect the file path by
-// temporarily renaming config/ symlinks – too complex.  Instead, use a
-// tmp config dir by clearing require cache and patching path before require.
-
-delete require.cache[require.resolve('../modules/remote-management')];
-
-// Patch path resolution:  modules/remote-management reads CONFIG_DIR from
-// path.join(__dirname, '..', 'config').  We intercept fs.writeFileSync and
-// fs.readFileSync to redirect reads/writes to tmpDir.
-const _origReadFileSync = fs.readFileSync.bind(fs);
-const _origWriteFileSync = fs.writeFileSync.bind(fs);
-const _origExistsSync = fs.existsSync.bind(fs);
-const _origMkdirSync = fs.mkdirSync.bind(fs);
+// Redirect all reads/writes to a temporary directory so the tests never touch
+// config/remote-devices.json.enc in the real project directory.
 const DEVICES_FILE_REAL = path.join(__dirname, '..', 'config', 'remote-devices.json.enc');
 const DEVICES_FILE_TMP  = path.join(tmpDir, 'remote-devices.json.enc');
+const _origReadFileSync  = fs.readFileSync.bind(fs);
+const _origWriteFileSync = fs.writeFileSync.bind(fs);
+const _origExistsSync    = fs.existsSync.bind(fs);
+const _origMkdirSync     = fs.mkdirSync.bind(fs);
 
-fs.readFileSync = (p, ...args) =>
-  _origReadFileSync(p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p, ...args);
-fs.writeFileSync = (p, ...args) =>
-  _origWriteFileSync(p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p, ...args);
-fs.existsSync = (p) =>
-  _origExistsSync(p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p);
-fs.mkdirSync = (p, ...args) => {
-  if (p === path.join(__dirname, '..', 'config')) return; // dir already exists
+fs.readFileSync  = (p, ...args) => _origReadFileSync (p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p, ...args);
+fs.writeFileSync = (p, ...args) => _origWriteFileSync(p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p, ...args);
+fs.existsSync    = (p)          => _origExistsSync   (p === DEVICES_FILE_REAL ? DEVICES_FILE_TMP : p);
+fs.mkdirSync     = (p, ...args) => {
+  if (p === path.join(__dirname, '..', 'config')) return; // real config dir already exists
   _origMkdirSync(p, ...args);
 };
 
+// Require the module *after* patching so it picks up the redirected file paths.
 const remoteMgmt = require('../modules/remote-management');
 
 // ---------------------------------------------------------------------------

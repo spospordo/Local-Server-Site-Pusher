@@ -69,7 +69,7 @@ install_files() {
   # Copy daemon script
   cp "${SCRIPT_DIR}/mirror-daemon.js" "${INSTALL_DIR}/mirror-daemon.js"
   chown "${DAEMON_USER}:${DAEMON_USER}" "${INSTALL_DIR}/mirror-daemon.js"
-  chmod 644 "${INSTALL_DIR}/mirror-daemon.js"
+  chmod 755 "${INSTALL_DIR}/mirror-daemon.js"
 
   # Copy template (never overwrites existing config)
   cp "${SCRIPT_DIR}/daemon-config.template.json" "${INSTALL_DIR}/daemon-config.template.json"
@@ -103,7 +103,7 @@ configure_sudoers() {
     info "Configuring sudoers for display/reboot/shutdown commands…"
     cat > "${SUDOERS_FILE}" <<SUDOERS
 # Allow mirror-daemon to run display control, reboot, and shutdown without a password
-${DAEMON_USER} ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown, /usr/bin/vcgencmd display_power *
+${DAEMON_USER} ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown, /usr/bin/vcgencmd display_power 0, /usr/bin/vcgencmd display_power 1
 SUDOERS
     chmod 440 "${SUDOERS_FILE}"
     success "Sudoers entry created: ${SUDOERS_FILE}"
