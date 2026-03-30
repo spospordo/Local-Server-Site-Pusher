@@ -1,0 +1,27 @@
+[Unit]
+Description=Smart Mirror Remote Management Daemon
+Documentation=https://github.com/spospordo/Local-Server-Site-Pusher/tree/main/pi-daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/mirror-daemon
+ExecStart=/usr/bin/node /home/pi/mirror-daemon/mirror-daemon.js --config /home/pi/mirror-daemon/daemon-config.json
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mirror-daemon
+
+# Security hardening
+NoNewPrivileges=true
+ProtectHome=read-only
+PrivateTmp=true
+
+# Allow sudo for display/reboot/shutdown commands
+# (configured in /etc/sudoers.d/mirror-daemon)
+
+[Install]
+WantedBy=multi-user.target
