@@ -6120,6 +6120,111 @@
 
                 <div class="section-divider"></div>
 
+                <!-- Remote Display Management -->
+                <div id="remote-display-management" class="collapsible-section">
+                    <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
+                        <div class="collapsible-title">
+                            <span class="collapsible-icon">▶</span>
+                            <span>🖥️ Remote Display Management</span>
+                        </div>
+                    </div>
+                    <div class="collapsible-content collapsed">
+                        <p style="margin-bottom: 15px; color: #555;">
+                            Manage remote Smart Mirror / Raspberry Pi display devices. Register devices, monitor connection status, issue commands, and view command history.
+                        </p>
+
+                        <!-- Device List -->
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <h4 style="margin: 0;">Registered Devices</h4>
+                            <button onclick="loadRemoteDevices()" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85em;">🔄 Refresh</button>
+                        </div>
+
+                        <div id="remoteDevicesTableWrapper" style="overflow-x: auto; margin-bottom: 20px;">
+                            <table id="remoteDevicesTable" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                                <thead>
+                                    <tr style="background: #f0f4f8;">
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Name</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Status</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Last Seen</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Platform</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Version</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Select</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="remoteDevicesList">
+                                    <tr><td colspan="6" style="padding: 12px 10px; color: #888; text-align: center;"><em>Click Refresh to load devices</em></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Register New Device -->
+                        <h4 style="margin-bottom: 8px;">Register New Device</h4>
+                        <div style="display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                            <div class="form-group" style="margin: 0; flex: 1; min-width: 180px;">
+                                <label for="newRemoteDeviceName" style="font-size: 0.9em;">Device Name</label>
+                                <input type="text" id="newRemoteDeviceName" placeholder="e.g. Bedroom Mirror" style="width: 100%;">
+                            </div>
+                            <button onclick="registerRemoteDevice()" class="btn btn-primary" style="padding: 8px 16px;">➕ Register Device</button>
+                        </div>
+                        <div id="remoteDeviceRegisterResult" style="display: none; margin-bottom: 20px; padding: 10px; background: #f0f8e8; border: 1px solid #b2d8a8; border-radius: 4px; font-size: 0.9em;">
+                            <strong>Device registered!</strong> Copy the token below — it will not be shown again.<br>
+                            <code id="remoteDeviceNewToken" style="display: block; margin-top: 6px; word-break: break-all; background: #fff; padding: 6px; border-radius: 3px; border: 1px solid #c8e6c0;"></code>
+                        </div>
+
+                        <!-- Selected Device Controls -->
+                        <div id="remoteDeviceControls" style="display: none;">
+                            <div class="section-divider" style="margin: 10px 0;"></div>
+                            <h4 style="margin-bottom: 8px;">Actions for: <span id="remoteSelectedDeviceName" style="color: #2563eb;"></span></h4>
+
+                            <!-- Commands -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 0.85em; color: #555; display: block; margin-bottom: 6px;">Issue Command:</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="remoteCommandButtons">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Danger Zone: Rotate Token / Delete -->
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+                                <button onclick="rotateRemoteDeviceToken()" class="btn btn-secondary" style="font-size: 0.85em;">🔑 Rotate Token</button>
+                                <button onclick="deleteRemoteDevice()" class="btn" style="font-size: 0.85em; background: #dc3545; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer;">🗑️ Delete Device</button>
+                            </div>
+
+                            <!-- Rotate Token Result -->
+                            <div id="remoteRotateTokenResult" style="display: none; margin-bottom: 14px; padding: 10px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; font-size: 0.9em;">
+                                <strong>New token generated!</strong> Copy it now — it will not be shown again.<br>
+                                <code id="remoteRotatedToken" style="display: block; margin-top: 6px; word-break: break-all; background: #fff; padding: 6px; border-radius: 3px; border: 1px solid #ffd54f;"></code>
+                            </div>
+
+                            <!-- Command History -->
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                <h4 style="margin: 0;">Command History</h4>
+                                <button onclick="loadRemoteDeviceHistory()" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85em;">🔄 Refresh</button>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table id="remoteCommandHistoryTable" style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                                    <thead>
+                                        <tr style="background: #f0f4f8;">
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid #c8d6e5;">Command</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid #c8d6e5;">Status</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid #c8d6e5;">Queued</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid #c8d6e5;">Completed</th>
+                                            <th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid #c8d6e5;">Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="remoteCommandHistoryList">
+                                        <tr><td colspan="5" style="padding: 10px; color: #888; text-align: center;"><em>No history loaded</em></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="remoteDeviceAlert" class="alert" style="margin-top: 12px;"></div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <button onclick="saveSmartMirrorConfig()" class="btn btn-primary">Save Smart Mirror Configuration</button>
                 <button onclick="previewSmartMirrorPortrait()" class="btn btn-secondary" style="margin-left: 10px;">📱 Preview Portrait</button>
                 <button onclick="previewSmartMirrorLandscape()" class="btn btn-secondary" style="margin-left: 5px;">🖥️ Preview Landscape</button>
@@ -14437,6 +14542,224 @@
             }
         }
         
+        // Remote Display Management Functions
+
+        // State: currently selected remote device
+        window._selectedRemoteDevice = null;
+        window._remoteCommandList = [];
+
+        function showRemoteDeviceAlert(message, type) {
+            const alertDiv = document.getElementById('remoteDeviceAlert');
+            if (!alertDiv) return;
+            alertDiv.textContent = message;
+            alertDiv.className = 'alert alert-' + (type || 'info');
+            alertDiv.style.display = 'block';
+            setTimeout(() => { alertDiv.style.display = 'none'; }, 6000);
+        }
+
+        function formatRelativeTime(isoString) {
+            if (!isoString) return '—';
+            const diff = Date.now() - new Date(isoString).getTime();
+            if (diff < 60000) return 'just now';
+            if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+            return new Date(isoString).toLocaleDateString();
+        }
+
+        function statusBadge(status) {
+            const colors = { online: '#22c55e', offline: '#ef4444', unknown: '#94a3b8' };
+            const color = colors[status] || colors.unknown;
+            return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:${color};color:#fff;font-size:0.8em;font-weight:600;">${status || 'unknown'}</span>`;
+        }
+
+        async function loadRemoteDevices() {
+            const tbody = document.getElementById('remoteDevicesList');
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:12px 10px;color:#888;text-align:center;"><em>Loading…</em></td></tr>';
+            try {
+                const res = await fetch('/admin/api/remote-devices');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load devices');
+                // Also load supported commands
+                const cmdRes = await fetch('/admin/api/remote-devices/supported-commands');
+                const cmdData = await cmdRes.json();
+                window._remoteCommandList = cmdData.commands || [];
+
+                if (!data.devices || data.devices.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:12px 10px;color:#888;text-align:center;"><em>No devices registered yet.</em></td></tr>';
+                    // Store devices map for selection by ID
+                    window._remoteDevicesMap = {};
+                    return;
+                }
+                // Store devices map for selection by ID
+                window._remoteDevicesMap = {};
+                data.devices.forEach(d => { window._remoteDevicesMap[d.id] = d; });
+
+                tbody.innerHTML = data.devices.map(d => `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:8px 10px;">${escapeHtml(d.name)}</td>
+                        <td style="padding:8px 10px;">${statusBadge(d.status)}</td>
+                        <td style="padding:8px 10px;">${formatRelativeTime(d.lastSeen)}</td>
+                        <td style="padding:8px 10px;">${escapeHtml(d.platform || '—')}</td>
+                        <td style="padding:8px 10px;">${escapeHtml(d.version || '—')}</td>
+                        <td style="padding:8px 10px;">
+                            <button class="btn btn-secondary remote-select-btn" data-device-id="${escapeHtml(d.id)}" style="padding:3px 10px;font-size:0.82em;">Select</button>
+                        </td>
+                    </tr>
+                `).join('');
+                // Attach select listeners via event delegation
+                tbody.querySelectorAll('.remote-select-btn').forEach(btn => {
+                    btn.addEventListener('click', () => selectRemoteDeviceById(btn.dataset.deviceId));
+                });
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:12px 10px;color:#c00;text-align:center;">Error loading devices: ' + escapeHtml(err.message) + '</td></tr>';
+                showRemoteDeviceAlert('Error loading devices: ' + err.message, 'error');
+            }
+        }
+
+        function selectRemoteDeviceById(id) {
+            const device = (window._remoteDevicesMap || {})[id];
+            if (!device) { showRemoteDeviceAlert('Device not found. Try refreshing.', 'error'); return; }
+            selectRemoteDevice(device);
+        }
+
+        function selectRemoteDevice(device) {
+            window._selectedRemoteDevice = device;
+            document.getElementById('remoteSelectedDeviceName').textContent = device.name;
+            document.getElementById('remoteDeviceControls').style.display = 'block';
+            document.getElementById('remoteRotateTokenResult').style.display = 'none';
+            renderRemoteCommandButtons();
+            loadRemoteDeviceHistory();
+        }
+
+        function renderRemoteCommandButtons() {
+            const container = document.getElementById('remoteCommandButtons');
+            const commands = window._remoteCommandList;
+            if (!commands || commands.length === 0) {
+                container.innerHTML = '<em style="color:#888;font-size:0.9em;">No commands available</em>';
+                return;
+            }
+            const labels = {
+                display_on: '💡 Display On',
+                display_off: '🌑 Display Off',
+                browser_restart: '🔄 Restart Browser',
+                dashboard_restart: '🔄 Restart Dashboard',
+                pi_reboot: '🔃 Reboot Pi',
+                pi_shutdown: '⏻ Shutdown Pi',
+                config_update: '⚙️ Config Sync',
+                daemon_ping: '📡 Ping',
+            };
+            container.innerHTML = commands.map(cmd => `
+                <button class="btn btn-secondary remote-cmd-btn" data-cmd="${escapeHtml(cmd)}" style="padding:5px 12px;font-size:0.85em;">${labels[cmd] || escapeHtml(cmd)}</button>
+            `).join('');
+            container.querySelectorAll('.remote-cmd-btn').forEach(btn => {
+                btn.addEventListener('click', () => issueRemoteCommand(btn.dataset.cmd));
+            });
+        }
+
+        async function registerRemoteDevice() {
+            const nameInput = document.getElementById('newRemoteDeviceName');
+            const name = nameInput.value.trim();
+            if (!name) { showRemoteDeviceAlert('Please enter a device name.', 'error'); return; }
+            try {
+                const res = await fetch('/admin/api/remote-devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to register device');
+                nameInput.value = '';
+                document.getElementById('remoteDeviceNewToken').textContent = data.token;
+                document.getElementById('remoteDeviceRegisterResult').style.display = 'block';
+                showRemoteDeviceAlert('Device "' + data.device.name + '" registered successfully.', 'success');
+                loadRemoteDevices();
+            } catch (err) {
+                showRemoteDeviceAlert('Error registering device: ' + err.message, 'error');
+            }
+        }
+
+        async function issueRemoteCommand(type) {
+            if (!window._selectedRemoteDevice) return;
+            if (!confirm('Issue command "' + type + '" to device "' + window._selectedRemoteDevice.name + '"?')) return;
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to queue command');
+                showRemoteDeviceAlert('Command "' + type + '" queued successfully.', 'success');
+                loadRemoteDeviceHistory();
+            } catch (err) {
+                showRemoteDeviceAlert('Error issuing command: ' + err.message, 'error');
+            }
+        }
+
+        async function rotateRemoteDeviceToken() {
+            if (!window._selectedRemoteDevice) return;
+            if (!confirm('Rotate the token for "' + window._selectedRemoteDevice.name + '"? The device will need to be reconfigured with the new token.')) return;
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/rotate-token', {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to rotate token');
+                document.getElementById('remoteRotatedToken').textContent = data.token;
+                document.getElementById('remoteRotateTokenResult').style.display = 'block';
+                showRemoteDeviceAlert('Token rotated. Save the new token now.', 'success');
+            } catch (err) {
+                showRemoteDeviceAlert('Error rotating token: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteRemoteDevice() {
+            if (!window._selectedRemoteDevice) return;
+            if (!confirm('Delete device "' + window._selectedRemoteDevice.name + '"? This cannot be undone.')) return;
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to delete device');
+                window._selectedRemoteDevice = null;
+                document.getElementById('remoteDeviceControls').style.display = 'none';
+                showRemoteDeviceAlert('Device deleted.', 'success');
+                loadRemoteDevices();
+            } catch (err) {
+                showRemoteDeviceAlert('Error deleting device: ' + err.message, 'error');
+            }
+        }
+
+        async function loadRemoteDeviceHistory() {
+            if (!window._selectedRemoteDevice) return;
+            const tbody = document.getElementById('remoteCommandHistoryList');
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#888;text-align:center;"><em>Loading…</em></td></tr>';
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/history?limit=30');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load history');
+                if (!data.history || data.history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#888;text-align:center;"><em>No command history yet.</em></td></tr>';
+                    return;
+                }
+                const statusColors = { pending: '#f59e0b', delivered: '#3b82f6', completed: '#22c55e', failed: '#ef4444' };
+                tbody.innerHTML = data.history.map(c => {
+                    const color = statusColors[c.status] || '#94a3b8';
+                    const resultText = c.result ? (c.result.output || c.result.error || '') : '';
+                    return `<tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:6px 8px;">${escapeHtml(c.type)}</td>
+                        <td style="padding:6px 8px;"><span style="color:${color};font-weight:600;">${c.status}</span></td>
+                        <td style="padding:6px 8px;">${c.createdAt ? new Date(c.createdAt).toLocaleString() : '—'}</td>
+                        <td style="padding:6px 8px;">${c.completedAt ? new Date(c.completedAt).toLocaleString() : '—'}</td>
+                        <td style="padding:6px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(resultText)}">${escapeHtml(resultText) || '—'}</td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#c00;text-align:center;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+            }
+        }
+
         // Widget Connection Test Functions
         
         // Helper function to display test results
