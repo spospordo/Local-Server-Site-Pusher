@@ -417,6 +417,12 @@ function syncVacationTimezonesToClock(smartMirror) {
     
     const result = smartMirror.saveConfig(clockConfig);
     
+    // Check if saveConfig failed
+    if (!result.success) {
+      console.error(`❌ [House] Failed to save clock config: ${result.error}`);
+      return { success: false, error: result.error || 'Failed to save clock configuration' };
+    }
+    
     console.log(`🕐 [House] Synced vacation timezones: ${timezonesToAdd.length} active, ${additionalTimezones.length} total`);
     
     return {

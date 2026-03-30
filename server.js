@@ -8647,7 +8647,10 @@ app.post('/admin/api/house/vacation/dates', requireAuth, (req, res) => {
     const result = house.addVacationDate(req.body);
     if (result.success) {
       // Sync vacation timezones to clock widget
-      house.syncVacationTimezonesToClock(smartMirror);
+      const syncResult = house.syncVacationTimezonesToClock(smartMirror);
+      if (!syncResult.success) {
+        console.warn(`⚠️ [House] Vacation added but clock sync failed: ${syncResult.error}`);
+      }
       res.json({ success: true, message: 'Vacation date added successfully' });
     } else {
       res.status(500).json({ error: result.error });
@@ -8663,7 +8666,10 @@ app.put('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
     const result = house.updateVacationDate(req.params.id, req.body);
     if (result.success) {
       // Sync vacation timezones to clock widget
-      house.syncVacationTimezonesToClock(smartMirror);
+      const syncResult = house.syncVacationTimezonesToClock(smartMirror);
+      if (!syncResult.success) {
+        console.warn(`⚠️ [House] Vacation updated but clock sync failed: ${syncResult.error}`);
+      }
       res.json({ success: true, message: 'Vacation date updated successfully' });
     } else {
       res.status(404).json({ error: result.error });
@@ -8679,7 +8685,10 @@ app.delete('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
     const result = house.deleteVacationDate(req.params.id);
     if (result.success) {
       // Sync vacation timezones to clock widget
-      house.syncVacationTimezonesToClock(smartMirror);
+      const syncResult = house.syncVacationTimezonesToClock(smartMirror);
+      if (!syncResult.success) {
+        console.warn(`⚠️ [House] Vacation deleted but clock sync failed: ${syncResult.error}`);
+      }
       res.json({ success: true, message: 'Vacation date deleted successfully' });
     } else {
       res.status(500).json({ error: result.error });
@@ -9086,5 +9095,7 @@ app.listen(PORT, '0.0.0.0', () => {
   const initialSyncResult = house.syncVacationTimezonesToClock(smartMirror);
   if (initialSyncResult.success) {
     console.log(`✅ Initial sync complete: ${initialSyncResult.activeVacations} active vacation timezone(s)`);
+  } else {
+    console.error(`❌ Initial vacation timezone sync failed: ${initialSyncResult.error}`);
   }
 });
