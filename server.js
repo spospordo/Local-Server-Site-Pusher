@@ -8616,6 +8616,144 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
   }
 });
 
+// -----------------------------------------------------------------------
+// Vacation → Dashboard Clock Sync
+// -----------------------------------------------------------------------
+
+/**
+ * Synchronise the Smart Mirror clock widget's additionalTimezones with
+ * vacation dates that have "addToDashboardClock" enabled.
+ *
+ * Display window: 7 days before vacation start → 5 days after vacation end.
+ * Max 3 additional timezone slots in total (shared between user-defined and
+ * vacation-driven entries).  Vacation-driven entries that can no longer fit
+ * are skipped but their preference is preserved on the vacation record so
+ * they are re-evaluated on the next sync run.
+ *
+ * Returns a summary object: { added, removed, active, skipped, slotsUsed, slotsAvailable }
+ */
+function syncVacationClockTimezones() {
+  try {
+    const vacationData = house.getVacationData();
+    const smConfig = smartMirror.loadConfig();
+    const now = new Date();
+
+    const currentAdditionalTzs = Array.isArray(smConfig.widgets?.clock?.additionalTimezones)
+      ? smConfig.widgets.clock.additionalTimezones
+      : [];
+
+    // vacationClockEntries tracks which additionalTimezones slots were added by the
+    // vacation system so we can remove them when they expire.
+    const vacationEntries = Array.isArray(smConfig.vacationClockEntries)
+      ? smConfig.vacationClockEntries
+      : [];
+
+    const vacationTrackedTzSet = new Set(vacationEntries.map(e => e.timezone));
+
+    // User-defined timezones are those NOT tracked by the vacation system.
+    const userDefinedTzs = currentAdditionalTzs.filter(tz => !vacationTrackedTzSet.has(tz.timezone));
+
+    // Determine which vacation timezones should be active right now.
+    const activeVacationTzs = [];
+    for (const vacation of (vacationData.dates || [])) {
+      if (!vacation.addToDashboardClock || !vacation.clockTimezone || !vacation.clockCity) continue;
+
+      const startDate = new Date(vacation.startDate);
+      const endDate = new Date(vacation.endDate);
+
+      const windowStart = new Date(startDate);
+      windowStart.setDate(windowStart.getDate() - 7);   // 1 week before
+
+      const windowEnd = new Date(endDate);
+      windowEnd.setDate(windowEnd.getDate() + 5);        // 5 days after
+
+      if (now >= windowStart && now <= windowEnd) {
+        activeVacationTzs.push({
+          city: vacation.clockCity,
+          timezone: vacation.clockTimezone,
+          vacationId: vacation.id
+        });
+      }
+    }
+
+    // Deduplicate by timezone string (keep first occurrence).
+    const seenTzs = new Set(userDefinedTzs.map(t => t.timezone));
+    const uniqueActiveVacationTzs = [];
+    for (const tz of activeVacationTzs) {
+      if (!seenTzs.has(tz.timezone)) {
+        seenTzs.add(tz.timezone);
+        uniqueActiveVacationTzs.push(tz);
+      }
+    }
+
+    // Allocate remaining slots to vacation timezones.
+    const availableSlots = Math.max(0, 3 - userDefinedTzs.length);
+    const tzToAdd = uniqueActiveVacationTzs.slice(0, availableSlots);
+    const skipped = uniqueActiveVacationTzs.length - tzToAdd.length;
+
+    const newVacationEntries = tzToAdd.map(tz => ({
+      city: tz.city,
+      timezone: tz.timezone,
+      vacationId: tz.vacationId
+    }));
+
+    const finalAdditionalTzs = [
+      ...userDefinedTzs,
+      ...tzToAdd.map(tz => ({ city: tz.city, timezone: tz.timezone }))
+    ];
+
+    // Check whether anything actually changed before writing.
+    const oldJson = JSON.stringify(currentAdditionalTzs);
+    const newJson = JSON.stringify(finalAdditionalTzs);
+    const oldMetaJson = JSON.stringify(vacationEntries);
+    const newMetaJson = JSON.stringify(newVacationEntries);
+    const removed = vacationEntries.length - newVacationEntries.filter(e =>
+      vacationEntries.some(v => v.timezone === e.timezone)).length;
+
+    if (oldJson !== newJson || oldMetaJson !== newMetaJson) {
+      const updatedConfig = {
+        ...smConfig,
+        widgets: {
+          ...(smConfig.widgets || {}),
+          clock: {
+            ...(smConfig.widgets?.clock || {}),
+            additionalTimezones: finalAdditionalTzs
+          }
+        },
+        vacationClockEntries: newVacationEntries
+      };
+
+      smartMirror.saveConfig(updatedConfig);
+      logger.info(logger.categories.SMART_MIRROR,
+        `Vacation clock sync complete: ${tzToAdd.length} added, ${removed} removed, ${skipped} skipped (slots full)`);
+    }
+
+    return {
+      success: true,
+      added: tzToAdd.length,
+      removed,
+      active: uniqueActiveVacationTzs.length,
+      skipped,
+      slotsUsed: finalAdditionalTzs.length,
+      slotsAvailable: 3 - finalAdditionalTzs.length
+    };
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation clock sync failed: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+}
+
+// Manual sync endpoint — useful after saving a vacation date so the UI can
+// immediately show whether the timezone was added or if all slots are full.
+app.post('/admin/api/house/vacation/clock-sync', requireAuth, (req, res) => {
+  const result = syncVacationClockTimezones();
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
+});
+
 // House API Endpoints
 // Get vacation data
 app.get('/admin/api/house/vacation', requireAuth, (req, res) => {
@@ -8646,7 +8784,12 @@ app.post('/admin/api/house/vacation/dates', requireAuth, (req, res) => {
   try {
     const result = house.addVacationDate(req.body);
     if (result.success) {
-      res.json({ success: true, message: 'Vacation date added successfully' });
+      const syncResult = syncVacationClockTimezones();
+      res.json({
+        success: true,
+        message: 'Vacation date added successfully',
+        clockSync: syncResult
+      });
     } else {
       res.status(500).json({ error: result.error });
     }
@@ -8660,7 +8803,12 @@ app.put('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
   try {
     const result = house.updateVacationDate(req.params.id, req.body);
     if (result.success) {
-      res.json({ success: true, message: 'Vacation date updated successfully' });
+      const syncResult = syncVacationClockTimezones();
+      res.json({
+        success: true,
+        message: 'Vacation date updated successfully',
+        clockSync: syncResult
+      });
     } else {
       res.status(404).json({ error: result.error });
     }
@@ -8674,6 +8822,7 @@ app.delete('/admin/api/house/vacation/dates/:id', requireAuth, (req, res) => {
   try {
     const result = house.deleteVacationDate(req.params.id);
     if (result.success) {
+      syncVacationClockTimezones();
       res.json({ success: true, message: 'Vacation date deleted successfully' });
     } else {
       res.status(500).json({ error: result.error });
@@ -9050,4 +9199,16 @@ app.listen(PORT, '0.0.0.0', () => {
   
   console.log('📅 Annual expense increase job scheduled for January 1st at midnight');
   logger.info(logger.categories.FINANCE, 'Annual expense increase job scheduled for January 1st');
+
+  // Schedule hourly sync of vacation destinations → clock widget additional timezones
+  cron.schedule('0 * * * *', () => {
+    logger.info(logger.categories.SMART_MIRROR, 'Running scheduled vacation clock timezone sync');
+    syncVacationClockTimezones();
+  });
+
+  // Run an initial sync shortly after startup so the clock widget is up-to-date
+  setTimeout(() => {
+    syncVacationClockTimezones();
+    logger.info(logger.categories.SMART_MIRROR, 'Initial vacation clock timezone sync complete');
+  }, 5000);
 });

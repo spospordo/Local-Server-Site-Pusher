@@ -149,7 +149,10 @@ function addVacationDate(vacationDate) {
     destination: vacationDate.destination || "",
     notes: vacationDate.notes || "",
     flights: vacationDate.flights || [],
-    flightTrackingEnabled: vacationDate.flightTrackingEnabled || false
+    flightTrackingEnabled: vacationDate.flightTrackingEnabled || false,
+    addToDashboardClock: vacationDate.addToDashboardClock || false,
+    clockCity: vacationDate.clockCity || "",
+    clockTimezone: vacationDate.clockTimezone || ""
   });
   return saveVacationData(vacation);
 }
