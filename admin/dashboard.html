@@ -6145,6 +6145,7 @@
                                     <tr style="background: #f0f4f8;">
                                         <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Name</th>
                                         <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Status</th>
+                                        <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">SSH</th>
                                         <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Last Seen</th>
                                         <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Platform</th>
                                         <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #c8d6e5;">Version</th>
@@ -6152,7 +6153,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="remoteDevicesList">
-                                    <tr><td colspan="6" style="padding: 12px 10px; color: #888; text-align: center;"><em>Click Refresh to load devices</em></td></tr>
+                                    <tr><td colspan="7" style="padding: 12px 10px; color: #888; text-align: center;"><em>Click Refresh to load devices</em></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -6181,6 +6182,44 @@
                                 <label style="font-size: 0.85em; color: #555; display: block; margin-bottom: 6px;">Issue Command:</label>
                                 <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="remoteCommandButtons">
                                     <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- SSH Configuration -->
+                            <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                    <h5 style="margin: 0;">🔑 SSH Bridge Configuration</h5>
+                                    <span id="remoteSshStatusBadge" style="display:inline-block;padding:2px 8px;border-radius:9999px;background:#94a3b8;color:#fff;font-size:0.78em;font-weight:600;">not configured</span>
+                                </div>
+                                <p style="font-size: 0.83em; color: #555; margin: 0 0 10px;">
+                                    When SSH credentials are configured, commands are executed immediately on the device instead of being queued for HTTP polling.
+                                </p>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label for="sshBridgeHost" style="font-size: 0.85em;">Host / IP *</label>
+                                        <input type="text" id="sshBridgeHost" placeholder="192.168.1.100" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label for="sshBridgePort" style="font-size: 0.85em;">Port</label>
+                                        <input type="number" id="sshBridgePort" placeholder="22" value="22" min="1" max="65535" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label for="sshBridgeUsername" style="font-size: 0.85em;">Username *</label>
+                                        <input type="text" id="sshBridgeUsername" placeholder="pi" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label for="sshBridgeDaemonPath" style="font-size: 0.85em;">Daemon Config Path</label>
+                                        <input type="text" id="sshBridgeDaemonPath" placeholder="/home/pi/mirror-daemon/daemon-config.json" style="width: 100%;">
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 8px;">
+                                    <label for="sshBridgePrivateKey" style="font-size: 0.85em;">SSH Private Key (OpenSSH format) *</label>
+                                    <textarea id="sshBridgePrivateKey" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" style="width: 100%; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                                    <small style="color: #666; font-size: 0.8em;">Leave blank to keep the existing key when updating other fields.</small>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button onclick="saveRemoteSshConfig()" class="btn btn-primary" style="font-size: 0.85em; padding: 6px 14px;">💾 Save SSH Config</button>
+                                    <button onclick="clearRemoteSshConfig()" class="btn" style="font-size: 0.85em; padding: 6px 14px; background: #64748b; color: #fff; border: none; border-radius: 4px; cursor: pointer;">🗑️ Clear SSH Config</button>
                                 </div>
                             </div>
 
@@ -14598,6 +14637,7 @@
                     <tr style="border-bottom:1px solid #e2e8f0;">
                         <td style="padding:8px 10px;">${escapeHtml(d.name)}</td>
                         <td style="padding:8px 10px;">${statusBadge(d.status)}</td>
+                        <td style="padding:8px 10px;">${d.sshConfigured ? '<span style="color:#2563eb;font-weight:600;">🔑 SSH</span>' : '<span style="color:#94a3b8;font-size:0.85em;">poll</span>'}</td>
                         <td style="padding:8px 10px;">${formatRelativeTime(d.lastSeen)}</td>
                         <td style="padding:8px 10px;">${escapeHtml(d.platform || '—')}</td>
                         <td style="padding:8px 10px;">${escapeHtml(d.version || '—')}</td>
@@ -14627,8 +14667,11 @@
             document.getElementById('remoteSelectedDeviceName').textContent = device.name;
             document.getElementById('remoteDeviceControls').style.display = 'block';
             document.getElementById('remoteRotateTokenResult').style.display = 'none';
+            // Clear SSH form fields
+            document.getElementById('sshBridgePrivateKey').value = '';
             renderRemoteCommandButtons();
             loadRemoteDeviceHistory();
+            loadRemoteDeviceSshConfig();
         }
 
         function renderRemoteCommandButtons() {
@@ -14688,8 +14731,9 @@
                     body: JSON.stringify({ type })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to queue command');
-                showRemoteDeviceAlert('Command "' + type + '" queued successfully.', 'success');
+                if (!res.ok) throw new Error(data.error || 'Failed to issue command');
+                const via = data.executedVia === 'ssh' ? ' (executed via SSH)' : ' (queued for polling)';
+                showRemoteDeviceAlert('Command "' + type + '" issued successfully' + via, 'success');
                 loadRemoteDeviceHistory();
             } catch (err) {
                 showRemoteDeviceAlert('Error issuing command: ' + err.message, 'error');
@@ -14739,16 +14783,17 @@
                 const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/history?limit=30');
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Failed to load history');
-                if (!data.history || data.history.length === 0) {
+                if (!data.commands || data.commands.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#888;text-align:center;"><em>No command history yet.</em></td></tr>';
                     return;
                 }
                 const statusColors = { pending: '#f59e0b', delivered: '#3b82f6', completed: '#22c55e', failed: '#ef4444' };
-                tbody.innerHTML = data.history.map(c => {
+                tbody.innerHTML = data.commands.map(c => {
                     const color = statusColors[c.status] || '#94a3b8';
                     const resultText = c.result ? (c.result.output || c.result.error || '') : '';
+                    const viaLabel = c.executedVia === 'ssh' ? ' <span style="font-size:0.78em;color:#2563eb;">[SSH]</span>' : '';
                     return `<tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:6px 8px;">${escapeHtml(c.type)}</td>
+                        <td style="padding:6px 8px;">${escapeHtml(c.type)}${viaLabel}</td>
                         <td style="padding:6px 8px;"><span style="color:${color};font-weight:600;">${c.status}</span></td>
                         <td style="padding:6px 8px;">${c.createdAt ? new Date(c.createdAt).toLocaleString() : '—'}</td>
                         <td style="padding:6px 8px;">${c.completedAt ? new Date(c.completedAt).toLocaleString() : '—'}</td>
@@ -14757,6 +14802,93 @@
                 }).join('');
             } catch (err) {
                 tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#c00;text-align:center;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+            }
+        }
+
+        async function loadRemoteDeviceSshConfig() {
+            if (!window._selectedRemoteDevice) return;
+            const badge = document.getElementById('remoteSshStatusBadge');
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/ssh-config');
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    badge.textContent = 'not configured';
+                    badge.style.background = '#94a3b8';
+                    window._selectedRemoteDevice.sshConfigured = false;
+                    return;
+                }
+                window._selectedRemoteDevice.sshConfigured = data.configured;
+                if (data.configured) {
+                    badge.textContent = '✓ configured';
+                    badge.style.background = '#2563eb';
+                    document.getElementById('sshBridgeHost').value = data.host || '';
+                    document.getElementById('sshBridgePort').value = data.port || 22;
+                    document.getElementById('sshBridgeUsername').value = data.username || '';
+                    document.getElementById('sshBridgeDaemonPath').value = data.daemonConfigPath || '';
+                    // Key is never returned by the server — leave field empty so user knows to re-enter only when changing
+                } else {
+                    badge.textContent = 'not configured';
+                    badge.style.background = '#94a3b8';
+                    document.getElementById('sshBridgeHost').value = '';
+                    document.getElementById('sshBridgePort').value = 22;
+                    document.getElementById('sshBridgeUsername').value = '';
+                    document.getElementById('sshBridgeDaemonPath').value = '';
+                }
+            } catch (err) {
+                badge.textContent = 'error';
+                badge.style.background = '#ef4444';
+            }
+        }
+
+        async function saveRemoteSshConfig() {
+            if (!window._selectedRemoteDevice) return;
+            const host = document.getElementById('sshBridgeHost').value.trim();
+            const port = parseInt(document.getElementById('sshBridgePort').value, 10) || 22;
+            const username = document.getElementById('sshBridgeUsername').value.trim();
+            const privateKey = document.getElementById('sshBridgePrivateKey').value.trim();
+            const daemonConfigPath = document.getElementById('sshBridgeDaemonPath').value.trim();
+            if (!host) { showRemoteDeviceAlert('SSH host is required.', 'error'); return; }
+            if (!username) { showRemoteDeviceAlert('SSH username is required.', 'error'); return; }
+            // Private key is required only when no key is currently configured on the server
+            const alreadyConfigured = window._selectedRemoteDevice.sshConfigured;
+            if (!privateKey && !alreadyConfigured) {
+                showRemoteDeviceAlert('SSH private key is required (paste your OpenSSH key).', 'error');
+                return;
+            }
+            try {
+                const body = { host, port, username };
+                if (privateKey) body.privateKey = privateKey;
+                if (daemonConfigPath) body.daemonConfigPath = daemonConfigPath;
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/ssh-config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to save SSH config');
+                document.getElementById('sshBridgePrivateKey').value = '';
+                showRemoteDeviceAlert('SSH credentials saved. Commands will now execute via SSH.', 'success');
+                loadRemoteDeviceSshConfig();
+                loadRemoteDevices(); // Refresh table to update SSH column
+            } catch (err) {
+                showRemoteDeviceAlert('Error saving SSH config: ' + err.message, 'error');
+            }
+        }
+
+        async function clearRemoteSshConfig() {
+            if (!window._selectedRemoteDevice) return;
+            if (!confirm('Remove SSH credentials for "' + window._selectedRemoteDevice.name + '"? Commands will fall back to HTTP polling.')) return;
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/ssh-config', {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to clear SSH config');
+                showRemoteDeviceAlert('SSH credentials removed. Commands will use HTTP polling.', 'success');
+                loadRemoteDeviceSshConfig();
+                loadRemoteDevices();
+            } catch (err) {
+                showRemoteDeviceAlert('Error clearing SSH config: ' + err.message, 'error');
             }
         }
 

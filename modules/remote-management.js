@@ -7,6 +7,11 @@
  * daemon (pi-daemon/mirror-daemon.js) that polls this server for commands,
  * executes them locally and reports results back.
  *
+ * SSH Bridge: if a device has SSH credentials configured, commands issued via
+ * the admin GUI are executed immediately over SSH instead of being left in the
+ * HTTP polling queue.  The HTTP polling path remains fully operational for
+ * daemons that do not have SSH credentials set up.
+ *
  * Storage layout (encrypted with AES-256-CBC):
  *   config/remote-devices.json.enc
  *
@@ -14,14 +19,19 @@
  * {
  *   devices: [
  *     {
- *       id:          string   – UUID
- *       name:        string   – human-readable label
- *       tokenHash:   string   – PBKDF2 hash of the bearer token
- *       createdAt:   string   – ISO timestamp
- *       lastSeen:    string   – ISO timestamp (updated on every poll/heartbeat)
- *       status:      string   – "online" | "offline" | "unknown"
- *       platform:    string   – optional, e.g. "raspberrypi"
- *       version:     string   – optional, daemon version
+ *       id:               string   – UUID
+ *       name:             string   – human-readable label
+ *       tokenHash:        string   – PBKDF2 hash of the bearer token
+ *       createdAt:        string   – ISO timestamp
+ *       lastSeen:         string   – ISO timestamp (updated on every poll/heartbeat)
+ *       status:           string   – "online" | "offline" | "unknown"
+ *       platform:         string   – optional, e.g. "raspberrypi"
+ *       version:          string   – optional, daemon version
+ *       sshHost:          string   – optional, SSH host/IP
+ *       sshPort:          number   – optional, SSH port (default 22)
+ *       sshUsername:      string   – optional, SSH username
+ *       sshPrivateKey:    string   – optional, OpenSSH private key (PEM)
+ *       daemonConfigPath: string   – optional, path to daemon-config.json on device
  *     }
  *   ],
  *   commands: [
@@ -35,6 +45,7 @@
  *       deliveredAt: string   – when the device received it
  *       completedAt: string   – when the device finished
  *       result:      object   – { success, output, error }
+ *       executedVia: string   – "ssh" | "poll" – how the command was executed
  *     }
  *   ]
  * }
@@ -45,6 +56,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Client: SshClient } = require('ssh2');
 const logger = require('./logger');
 
 // ---------------------------------------------------------------------------
@@ -71,6 +83,47 @@ const DEVICE_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 // PBKDF2 parameters for token hashing
 const TOKEN_SALT_ROUNDS = 10000;
 const TOKEN_KEY_LENGTH = 64;
+
+// SSH connection timeout (ms)
+const SSH_CONNECT_TIMEOUT_MS = 15000;
+// Maximum time to wait for a single SSH command to complete (ms)
+const SSH_EXEC_TIMEOUT_MS = 30000;
+
+/**
+ * Shell commands executed on the Pi for each command type when the SSH bridge
+ * is used.  These mirror what pi-daemon/mirror-daemon.js does locally:
+ *   display_on / display_off  → vcgencmd (native RPi) with xrandr fallback
+ *   browser/dashboard restart → pkill chromium then relaunch in background
+ *   reboot / shutdown         → sudo commands
+ *   daemon_ping               → lightweight shell one-liner
+ *   config_update             → node inline script to merge JSON into daemon config
+ *
+ * A value of null means the command is intentionally left to the HTTP polling
+ * queue even when SSH is configured (never reached in practice – see issueCommand).
+ */
+const SSH_COMMAND_STRINGS = {
+  display_on:
+    'vcgencmd display_power 1 2>&1 || DISPLAY=:0 xrandr --output HDMI-1 --auto 2>&1',
+  display_off:
+    'vcgencmd display_power 0 2>&1 || DISPLAY=:0 xrandr --output HDMI-1 --off 2>&1',
+  browser_restart:
+    'pkill -f chromium-browser; sleep 2; DISPLAY=:0 nohup chromium-browser' +
+    ' --noerrdialogs --disable-infobars --kiosk http://localhost:8080' +
+    ' &>/dev/null & echo "browser relaunched"',
+  dashboard_restart:
+    'pkill -f chromium-browser; sleep 2; DISPLAY=:0 nohup chromium-browser' +
+    ' --noerrdialogs --disable-infobars --kiosk http://localhost:8080' +
+    ' &>/dev/null & echo "dashboard relaunched"',
+  pi_reboot:  'sudo reboot',
+  pi_shutdown: 'sudo shutdown -h now',
+  daemon_ping:
+    'node -e "const os=require(\'os\');' +
+    'console.log(JSON.stringify({pong:true,hostname:os.hostname(),' +
+    'platform:os.platform(),arch:os.arch(),uptime:os.uptime(),' +
+    'loadAvg:os.loadavg()}));"',
+  // config_update is handled separately (requires payload injection)
+  config_update: null,
+};
 
 // ---------------------------------------------------------------------------
 // Startup warnings
@@ -183,16 +236,20 @@ function saveData(data) {
 // ---------------------------------------------------------------------------
 
 /**
- * List all registered devices (tokens are never returned).
+ * List all registered devices (tokens and SSH private keys are never returned).
  */
 function listDevices() {
   const data = loadData();
   return data.devices.map(device => {
-    const { tokenHash, ...safe } = device; // eslint-disable-line no-unused-vars
+    const { tokenHash, sshPrivateKey, ...safe } = device; // eslint-disable-line no-unused-vars
     // Compute live online status
     const lastSeenMs = device.lastSeen ? new Date(device.lastSeen).getTime() : 0;
     const isOnline = lastSeenMs > 0 && (Date.now() - lastSeenMs) < DEVICE_OFFLINE_THRESHOLD_MS;
-    return { ...safe, status: isOnline ? 'online' : 'offline' };
+    return {
+      ...safe,
+      status: isOnline ? 'online' : 'offline',
+      sshConfigured: !!(device.sshHost && device.sshUsername && device.sshPrivateKey),
+    };
   });
 }
 
@@ -268,11 +325,242 @@ function rotateDeviceToken(id) {
 }
 
 // ---------------------------------------------------------------------------
+// Public API – SSH credential management
+// ---------------------------------------------------------------------------
+
+/**
+ * Store SSH credentials for a device.
+ * Credentials are persisted inside the existing encrypted device registry.
+ *
+ * @param {string} deviceId
+ * @param {object} opts
+ * @param {string}  opts.host           – hostname or IP of the Pi
+ * @param {number}  [opts.port=22]      – SSH port
+ * @param {string}  opts.username       – SSH login username
+ * @param {string}  opts.privateKey     – OpenSSH private key (PEM string)
+ * @param {string}  [opts.daemonConfigPath] – absolute path to daemon-config.json on the Pi
+ */
+function setDeviceSshConfig(deviceId, { host, port, username, privateKey, daemonConfigPath } = {}) {
+  if (!host || typeof host !== 'string' || !host.trim()) {
+    throw new Error('SSH host is required');
+  }
+  if (!username || typeof username !== 'string' || !username.trim()) {
+    throw new Error('SSH username is required');
+  }
+
+  const data = loadData();
+  const device = data.devices.find(d => d.id === deviceId);
+  if (!device) {
+    return { success: false, error: 'Device not found' };
+  }
+
+  // Private key: required when no key is currently stored; optional otherwise
+  // (allows updating host/username without re-entering the key).
+  const hasNewKey = privateKey && typeof privateKey === 'string' && privateKey.trim();
+  if (!hasNewKey && !device.sshPrivateKey) {
+    throw new Error('SSH private key is required');
+  }
+
+  device.sshHost = host.trim();
+  device.sshPort = (typeof port === 'number' && port > 0) ? port : 22;
+  device.sshUsername = username.trim();
+  if (hasNewKey) {
+    device.sshPrivateKey = privateKey.trim();
+  }
+  if (daemonConfigPath && typeof daemonConfigPath === 'string') {
+    device.daemonConfigPath = daemonConfigPath.trim();
+  } else {
+    // Clear any previous path when not provided
+    delete device.daemonConfigPath;
+  }
+
+  saveData(data);
+  logger.info('REMOTE_MGMT', `Saved SSH credentials for device: ${device.name} (${deviceId})`);
+  return { success: true };
+}
+
+/**
+ * Return the SSH configuration status for a device (credentials are never returned).
+ * @param {string} deviceId
+ * @returns {{ configured: boolean, host?: string, port?: number, username?: string, daemonConfigPath?: string }}
+ */
+function getDeviceSshConfigStatus(deviceId) {
+  const data = loadData();
+  const device = data.devices.find(d => d.id === deviceId);
+  if (!device) {
+    return { success: false, error: 'Device not found' };
+  }
+  const configured = !!(device.sshHost && device.sshUsername && device.sshPrivateKey);
+  return {
+    success: true,
+    configured,
+    host: device.sshHost || null,
+    port: device.sshPort || 22,
+    username: device.sshUsername || null,
+    daemonConfigPath: device.daemonConfigPath || null,
+  };
+}
+
+/**
+ * Remove SSH credentials from a device.
+ */
+function clearDeviceSshConfig(deviceId) {
+  const data = loadData();
+  const device = data.devices.find(d => d.id === deviceId);
+  if (!device) {
+    return { success: false, error: 'Device not found' };
+  }
+  delete device.sshHost;
+  delete device.sshPort;
+  delete device.sshUsername;
+  delete device.sshPrivateKey;
+  delete device.daemonConfigPath;
+  saveData(data);
+  logger.info('REMOTE_MGMT', `Cleared SSH credentials for device: ${device.name} (${deviceId})`);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// SSH execution helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the shell command string for the given command type and payload.
+ * Returns null if the command cannot be executed via SSH.
+ *
+ * @param {string} type    – command type
+ * @param {object} payload – command payload
+ * @param {string} [daemonConfigPath] – path to daemon-config.json on the device
+ * @returns {string|null}
+ */
+function buildSshShellCommand(type, payload, daemonConfigPath) {
+  if (type === 'config_update') {
+    if (!payload || typeof payload !== 'object' || Object.keys(payload).length === 0) {
+      return null;
+    }
+    // Protect device credentials from being overwritten remotely (mirrors daemon logic)
+    const { deviceToken: _deviceToken, serverUrl: _serverUrl, ...safePayload } = payload; // eslint-disable-line no-unused-vars
+    if (Object.keys(safePayload).length === 0) {
+      return null;
+    }
+    // Use node to merge the config on the remote device.
+    // NOTE: if daemonConfigPath is not specified the fallback glob searches two common
+    // installation paths.  For non-standard installations always set daemonConfigPath
+    // in the SSH bridge configuration to ensure the correct file is targeted.
+    const configPath = daemonConfigPath
+      ? daemonConfigPath.replace(/'/g, "'\\''")
+      : "$(ls ~/mirror-daemon/daemon-config.json ~/pi-daemon/daemon-config.json 2>/dev/null | head -1)";
+    const payloadJson = JSON.stringify(safePayload).replace(/'/g, "'\\''");
+    return (
+      `node -e "` +
+      `var fs=require('fs'),p='${configPath}',` +
+      `e=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):{},` +
+      `u=JSON.parse('${payloadJson}'),` +
+      `m=Object.assign({},e,u);` +
+      `fs.writeFileSync(p,JSON.stringify(m,null,2));` +
+      `console.log('Updated: '+Object.keys(u).join(', '));` +
+      `"`
+    );
+  }
+
+  return SSH_COMMAND_STRINGS[type] || null;
+}
+
+/**
+ * Execute a command on a remote device via SSH.
+ * Resolves with { success, output, error }.
+ *
+ * @param {object} device   – device record (must include sshHost, sshUsername, sshPrivateKey)
+ * @param {string} type     – command type
+ * @param {object} [payload]
+ * @returns {Promise<{success: boolean, output?: string, error?: string}>}
+ */
+function executeViaSSH(device, type, payload = {}) {
+  return new Promise((resolve) => {
+    const shellCmd = buildSshShellCommand(type, payload, device.daemonConfigPath);
+    if (!shellCmd) {
+      return resolve({
+        success: false,
+        error: `Command "${type}" cannot be executed via SSH bridge`,
+      });
+    }
+
+    const conn = new SshClient();
+    let settled = false;
+
+    const finish = (result) => {
+      if (!settled) {
+        settled = true;
+        conn.end();
+        resolve(result);
+      }
+    };
+
+    const connectTimeout = setTimeout(() => {
+      finish({ success: false, error: 'SSH connection timed out' });
+    }, SSH_CONNECT_TIMEOUT_MS);
+
+    conn.on('ready', () => {
+      clearTimeout(connectTimeout);
+      conn.exec(shellCmd, { pty: false }, (err, stream) => {
+        if (err) {
+          return finish({ success: false, error: `SSH exec error: ${err.message}` });
+        }
+
+        let stdout = '';
+        let stderr = '';
+        let execTimeout;
+
+        execTimeout = setTimeout(() => {
+          finish({ success: false, error: 'SSH command execution timed out' });
+        }, SSH_EXEC_TIMEOUT_MS);
+
+        stream.on('data', (chunk) => { stdout += chunk; });
+        stream.stderr.on('data', (chunk) => { stderr += chunk; });
+
+        stream.on('close', (code) => {
+          clearTimeout(execTimeout);
+          // Exit code null means the SSH channel was closed without an exit status,
+          // which is expected for reboot/shutdown commands where the remote end
+          // terminates the connection before sending the exit code.
+          const success = (code === 0 || code === null);
+          finish({
+            success,
+            output: stdout.trim() || undefined,
+            error: success ? undefined : (stderr.trim() || `Exit code ${code}`),
+          });
+        });
+      });
+    });
+
+    conn.on('error', (err) => {
+      clearTimeout(connectTimeout);
+      finish({ success: false, error: `SSH error: ${err.message}` });
+    });
+
+    try {
+      conn.connect({
+        host: device.sshHost,
+        port: device.sshPort || 22,
+        username: device.sshUsername,
+        privateKey: device.sshPrivateKey,
+        readyTimeout: SSH_CONNECT_TIMEOUT_MS,
+        // Disable strict host key checking for managed devices
+        algorithms: { serverHostKey: ['ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519'] },
+      });
+    } catch (connErr) {
+      clearTimeout(connectTimeout);
+      finish({ success: false, error: `SSH connect failed: ${connErr.message}` });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Public API – Command management
 // ---------------------------------------------------------------------------
 
 /**
- * Queue a command for a specific device.
+ * Queue a command for a specific device (HTTP polling path).
  * @param {string} deviceId
  * @param {string} type – one of SUPPORTED_COMMANDS
  * @param {object} [payload] – optional command parameters
@@ -318,6 +606,84 @@ function queueCommand(deviceId, type, payload = {}) {
   saveData(data);
   logger.info('REMOTE_MGMT', `Queued command "${type}" for device ${device.name} (${deviceId})`);
   return command;
+}
+
+/**
+ * Issue a command to a device:
+ *   1. Creates the command record (status "pending").
+ *   2. If the device has SSH credentials configured and the command type supports
+ *      SSH execution, runs the command immediately via SSH and updates the record.
+ *   3. Otherwise the command remains "pending" for the HTTP polling daemon to pick up.
+ *
+ * This is the preferred entry-point for admin-initiated commands.
+ *
+ * @param {string} deviceId
+ * @param {string} type     – one of SUPPORTED_COMMANDS
+ * @param {object} [payload]
+ * @returns {Promise<{ command: object, executedVia: string }>}
+ */
+async function issueCommand(deviceId, type, payload = {}) {
+  // Create the queued command record first
+  const command = queueCommand(deviceId, type, payload);
+
+  // Check whether the device has SSH credentials
+  const data = loadData();
+  const device = data.devices.find(d => d.id === deviceId);
+  const hasSsh = device && device.sshHost && device.sshUsername && device.sshPrivateKey;
+
+  // Check whether this command type can be executed via SSH
+  const sshShellCmd = buildSshShellCommand(type, payload, device && device.daemonConfigPath);
+  const sshSupported = hasSsh && sshShellCmd !== null;
+
+  if (!sshSupported) {
+    // Leave in queue for HTTP polling daemon
+    logger.info(
+      'REMOTE_MGMT',
+      `Command "${type}" for device ${device ? device.name : deviceId} queued for HTTP polling`
+    );
+    return { command, executedVia: 'poll' };
+  }
+
+  // Attempt immediate SSH execution
+  logger.info('REMOTE_MGMT', `Executing "${type}" via SSH on device ${device.name} (${deviceId})`);
+
+  let sshResult;
+  try {
+    sshResult = await executeViaSSH(device, type, payload);
+  } catch (err) {
+    sshResult = { success: false, error: err.message };
+  }
+
+  // Update the command record with the SSH execution result
+  const now = new Date().toISOString();
+  const freshData = loadData();
+  const cmdRecord = freshData.commands.find(c => c.id === command.id);
+  if (cmdRecord) {
+    cmdRecord.status = sshResult.success ? 'completed' : 'failed';
+    cmdRecord.deliveredAt = now;
+    cmdRecord.completedAt = now;
+    cmdRecord.executedVia = 'ssh';
+    cmdRecord.result = {
+      success: sshResult.success,
+      output: sshResult.output || null,
+      error: sshResult.error || null,
+    };
+    // Update device lastSeen
+    const deviceRecord = freshData.devices.find(d => d.id === deviceId);
+    if (deviceRecord) deviceRecord.lastSeen = now;
+    saveData(freshData);
+  }
+
+  const level = sshResult.success ? 'success' : 'warning';
+  logger[level](
+    'REMOTE_MGMT',
+    `SSH "${type}" ${sshResult.success ? 'succeeded' : 'failed'} on device ${device.name}: ` +
+    `${sshResult.output || sshResult.error || ''}`
+  );
+
+  // Return fresh record
+  const updated = Object.assign({}, command, cmdRecord || {});
+  return { command: updated, executedVia: 'ssh' };
 }
 
 /**
@@ -446,8 +812,15 @@ module.exports = {
   registerDevice,
   deleteDevice,
   rotateDeviceToken,
+  // SSH credential management
+  setDeviceSshConfig,
+  getDeviceSshConfigStatus,
+  clearDeviceSshConfig,
+  // Command management
   queueCommand,
+  issueCommand,
   getCommandHistory,
+  // Device-side
   authenticateDevice,
   devicePoll,
   recordCommandResult,

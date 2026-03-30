@@ -9169,22 +9169,22 @@ app.post('/admin/api/remote-devices/:id/rotate-token', requireAuth, (req, res) =
 
 /**
  * POST /admin/api/remote-devices/:id/command
- * Queue a command for a specific device.
+ * Queue (and optionally immediately execute via SSH) a command for a specific device.
  * Body: { type: string, payload?: object }
  * Supported types: display_on, display_off, browser_restart, dashboard_restart,
  *                  pi_reboot, pi_shutdown, config_update, daemon_ping
  */
-app.post('/admin/api/remote-devices/:id/command', requireAuth, (req, res) => {
+app.post('/admin/api/remote-devices/:id/command', requireAuth, async (req, res) => {
   try {
     const { type, payload } = req.body || {};
     if (!type) {
       return res.status(400).json({ error: 'command type is required' });
     }
-    const command = remoteMgmt.queueCommand(req.params.id, type, payload);
-    logger.info('REMOTE_MGMT', `Admin queued command "${type}" for device ${req.params.id}`);
-    res.status(201).json({ command });
+    const result = await remoteMgmt.issueCommand(req.params.id, type, payload);
+    logger.info('REMOTE_MGMT', `Admin issued command "${type}" for device ${req.params.id} via ${result.executedVia}`);
+    res.status(201).json(result);
   } catch (err) {
-    logger.error('REMOTE_MGMT', `Queue command error: ${err.message}`);
+    logger.error('REMOTE_MGMT', `Issue command error: ${err.message}`);
     res.status(400).json({ error: err.message });
   }
 });
@@ -9211,6 +9211,67 @@ app.get('/admin/api/remote-devices/:id/history', requireAuth, (req, res) => {
  */
 app.get('/admin/api/remote-devices/supported-commands', requireAuth, (req, res) => {
   res.json({ commands: remoteMgmt.SUPPORTED_COMMANDS });
+});
+
+/**
+ * GET /admin/api/remote-devices/:id/ssh-config
+ * Return SSH configuration status for a device (credentials are never returned).
+ */
+app.get('/admin/api/remote-devices/:id/ssh-config', requireAuth, (req, res) => {
+  try {
+    const result = remoteMgmt.getDeviceSshConfigStatus(req.params.id);
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    res.json(result);
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Get SSH config error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /admin/api/remote-devices/:id/ssh-config
+ * Store SSH credentials for a device.
+ * Body: { host, port?, username, privateKey, daemonConfigPath? }
+ */
+app.put('/admin/api/remote-devices/:id/ssh-config', requireAuth, (req, res) => {
+  try {
+    const { host, port, username, privateKey, daemonConfigPath } = req.body || {};
+    const result = remoteMgmt.setDeviceSshConfig(req.params.id, {
+      host,
+      port: port ? parseInt(port, 10) : undefined,
+      username,
+      privateKey,
+      daemonConfigPath,
+    });
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    logger.info('REMOTE_MGMT', `Admin saved SSH config for device ${req.params.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Save SSH config error: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /admin/api/remote-devices/:id/ssh-config
+ * Remove SSH credentials from a device.
+ */
+app.delete('/admin/api/remote-devices/:id/ssh-config', requireAuth, (req, res) => {
+  try {
+    const result = remoteMgmt.clearDeviceSshConfig(req.params.id);
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    logger.info('REMOTE_MGMT', `Admin cleared SSH config for device ${req.params.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Clear SSH config error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // =============================================================================
