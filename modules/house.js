@@ -401,13 +401,31 @@ function syncVacationTimezonesToClock(smartMirror) {
     // Remove old vacation timezones (keep permanent ones without vacationId)
     additionalTimezones = additionalTimezones.filter(tz => !tz.vacationId);
     
+    // Deduplicate active vacation timezones by timezone
+    // Keep only the first occurrence of each timezone
+    const seenTimezones = new Set();
+    const deduplicatedVacationTimezones = activeVacationTimezones.filter(tz => {
+      if (seenTimezones.has(tz.timezone)) {
+        return false;
+      }
+      seenTimezones.add(tz.timezone);
+      return true;
+    });
+    
+    // Further deduplicate against permanent timezones
+    // Don't add vacation timezones that already exist as permanent ones
+    const permanentTimezoneSet = new Set(additionalTimezones.map(tz => tz.timezone));
+    const uniqueVacationTimezones = deduplicatedVacationTimezones.filter(tz => 
+      !permanentTimezoneSet.has(tz.timezone)
+    );
+    
     // Add active vacation timezones (respecting the max 3 limit)
     const maxTimezones = 3;
     const permanentCount = additionalTimezones.length;
     const availableSlots = Math.max(0, maxTimezones - permanentCount);
     
     // Add as many vacation timezones as fit
-    const timezonesToAdd = activeVacationTimezones.slice(0, availableSlots);
+    const timezonesToAdd = uniqueVacationTimezones.slice(0, availableSlots);
     additionalTimezones.push(...timezonesToAdd);
     
     // Update clock config
@@ -429,7 +447,7 @@ function syncVacationTimezonesToClock(smartMirror) {
       success: true,
       activeVacations: timezonesToAdd.length,
       totalTimezones: additionalTimezones.length,
-      skipped: activeVacationTimezones.length - timezonesToAdd.length
+      skipped: uniqueVacationTimezones.length - timezonesToAdd.length
     };
   } catch (err) {
     console.error(`❌ [House] Error syncing vacation timezones: ${err.message}`);

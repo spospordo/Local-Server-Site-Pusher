@@ -3,8 +3,8 @@
     "dates": [
       {
         "id": "1770222790051",
-        "startDate": "2026-02-23",
-        "endDate": "2026-03-01",
+        "startDate": "2024-12-20",
+        "endDate": "2024-12-27",
         "destination": "Hawaii",
         "notes": "",
         "flights": [
@@ -15,9 +15,7 @@
             "validated": true
           }
         ],
-        "flightTrackingEnabled": true,
-        "addToClockWidget": true,
-        "timezone": "Pacific/Honolulu"
+        "flightTrackingEnabled": true
       }
     ],
     "travelInfo": "",
