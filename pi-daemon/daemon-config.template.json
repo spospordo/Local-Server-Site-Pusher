@@ -1,0 +1,21 @@
+{
+  "_comment": "Copy this file to daemon-config.json and fill in your values. Never commit daemon-config.json to source control.",
+
+  "serverUrl": "https://your-admin-server:3000",
+
+  "deviceToken": "PASTE_TOKEN_FROM_DEVICE_REGISTRATION_HERE",
+
+  "pollIntervalSeconds": 30,
+
+  "heartbeatIntervalSeconds": 60,
+
+  "displayEnv": ":0",
+
+  "browserCommand": "chromium-browser",
+
+  "browserUrl": "http://localhost",
+
+  "preservePirAutomation": true,
+
+  "rejectUnauthorized": true
+}

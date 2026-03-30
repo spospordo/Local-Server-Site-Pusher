@@ -42,3 +42,8 @@ uploads/espresso/templates/
 config/.gitconfig
 nfs-mounts/
 config/smart-mirror-config.json
+
+# Remote management – device credentials (never commit)
+pi-daemon/daemon-config.json
+pi-daemon/logs/
+config/remote-devices.json.enc

@@ -23,6 +23,7 @@ const webhooks = require('./modules/webhooks');
 const house = require('./modules/house');
 const aviationstack = require('./modules/aviationstack');
 const flightScheduler = require('./modules/flight-scheduler');
+const remoteMgmt = require('./modules/remote-management');
 
 const app = express();
 const configDir = path.join(__dirname, 'config');
@@ -9088,6 +9089,194 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete connection: ' + err.message });
   }
+});
+
+// =============================================================================
+// Remote Management API – admin routes (require admin session auth)
+// =============================================================================
+
+/**
+ * GET /admin/api/remote-devices
+ * List all registered Pi devices (no secrets returned).
+ */
+app.get('/admin/api/remote-devices', requireAuth, (req, res) => {
+  try {
+    const devices = remoteMgmt.listDevices();
+    res.json({ devices });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `List devices error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /admin/api/remote-devices
+ * Register a new Pi device.
+ * Body: { name: string }
+ * Returns the device record and the ONE-TIME plain bearer token.
+ */
+app.post('/admin/api/remote-devices', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+    const result = remoteMgmt.registerDevice({ name });
+    logger.info('REMOTE_MGMT', `Admin registered new device: ${name}`);
+    res.status(201).json(result);
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Register device error: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /admin/api/remote-devices/:id
+ * Remove a device and its command history.
+ */
+app.delete('/admin/api/remote-devices/:id', requireAuth, (req, res) => {
+  try {
+    const result = remoteMgmt.deleteDevice(req.params.id);
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Delete device error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /admin/api/remote-devices/:id/rotate-token
+ * Generate a new bearer token for a device (old one is invalidated immediately).
+ * Returns the new plain token – store it somewhere safe, it will not be shown again.
+ */
+app.post('/admin/api/remote-devices/:id/rotate-token', requireAuth, (req, res) => {
+  try {
+    const result = remoteMgmt.rotateDeviceToken(req.params.id);
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    logger.info('REMOTE_MGMT', `Admin rotated token for device ${req.params.id}`);
+    res.json(result);
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Rotate token error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /admin/api/remote-devices/:id/command
+ * Queue a command for a specific device.
+ * Body: { type: string, payload?: object }
+ * Supported types: display_on, display_off, browser_restart, dashboard_restart,
+ *                  pi_reboot, pi_shutdown, config_update, daemon_ping
+ */
+app.post('/admin/api/remote-devices/:id/command', requireAuth, (req, res) => {
+  try {
+    const { type, payload } = req.body || {};
+    if (!type) {
+      return res.status(400).json({ error: 'command type is required' });
+    }
+    const command = remoteMgmt.queueCommand(req.params.id, type, payload);
+    logger.info('REMOTE_MGMT', `Admin queued command "${type}" for device ${req.params.id}`);
+    res.status(201).json({ command });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Queue command error: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /admin/api/remote-devices/:id/history
+ * Get command history for a device.
+ * Query params: limit (default 50)
+ */
+app.get('/admin/api/remote-devices/:id/history', requireAuth, (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const history = remoteMgmt.getCommandHistory(req.params.id, limit);
+    res.json({ commands: history });
+  } catch (err) {
+    logger.error('REMOTE_MGMT', `Get history error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /admin/api/remote-devices/supported-commands
+ * Return the list of supported command types.
+ */
+app.get('/admin/api/remote-devices/supported-commands', requireAuth, (req, res) => {
+  res.json({ commands: remoteMgmt.SUPPORTED_COMMANDS });
+});
+
+// =============================================================================
+// Remote Management API – device-side routes (authenticated with bearer token)
+// =============================================================================
+
+/**
+ * Middleware: authenticate a Pi device via "Authorization: Bearer <token>" header.
+ * Attaches req.remoteDevice on success.
+ */
+function requireDeviceAuth(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  }
+  const device = remoteMgmt.authenticateDevice(match[1]);
+  if (!device) {
+    logger.warning('REMOTE_MGMT', `Failed device auth attempt from ${req.ip}`);
+    return res.status(401).json({ error: 'Invalid device token' });
+  }
+  req.remoteDevice = device;
+  next();
+}
+
+/**
+ * POST /api/device/heartbeat
+ * The Pi daemon calls this periodically to report that it is alive.
+ * Body: { platform?: string, version?: string }
+ */
+app.post('/api/device/heartbeat', requireDeviceAuth, (req, res) => {
+  const { platform, version } = req.body || {};
+  remoteMgmt.devicePoll(req.remoteDevice.id, { platform, version });
+  res.json({ ok: true, serverTime: new Date().toISOString() });
+});
+
+/**
+ * GET /api/device/poll
+ * The Pi daemon polls this endpoint to receive pending commands.
+ * Returns pending commands and marks them as "delivered".
+ * Query params: platform, version (optional metadata)
+ */
+app.get('/api/device/poll', requireDeviceAuth, (req, res) => {
+  const { platform, version } = req.query;
+  const commands = remoteMgmt.devicePoll(req.remoteDevice.id, { platform, version });
+  res.json({ commands, serverTime: new Date().toISOString() });
+});
+
+/**
+ * POST /api/device/result
+ * The Pi daemon calls this after executing a command to report its result.
+ * Body: { commandId: string, success: boolean, output?: string, error?: string }
+ */
+app.post('/api/device/result', requireDeviceAuth, (req, res) => {
+  const { commandId, success, output, error: errMsg } = req.body || {};
+  if (!commandId) {
+    return res.status(400).json({ error: 'commandId is required' });
+  }
+  const recorded = remoteMgmt.recordCommandResult(req.remoteDevice.id, commandId, {
+    success: !!success,
+    output,
+    error: errMsg,
+  });
+  if (!recorded) {
+    return res.status(404).json({ error: 'Command not found' });
+  }
+  res.json({ ok: true });
 });
 
 // Default route - serve public content
