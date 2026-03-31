@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.9.1] - 2026-03-31
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #548 from spospordo/copilot/fix-ssh-bridge-commands
+  - Fix SSH bridge to use mirror_cmd.py daemon command names
+  - Initial plan
+
+
 ## [2.9.0] - 2026-03-30
 
 ### Minor Update
