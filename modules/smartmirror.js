@@ -31,6 +31,14 @@ const calendarCache = {
   lastFetchAttempt: 0  // Last attempt timestamp (for backoff)
 };
 
+// Drive-time cache for TomTom API responses
+const driveTimeCache = {
+  geocode: {},  // normalizedAddress -> { lat, lon, timestamp }
+  routes: {}    // "lat,lon:lat,lon" -> { travelTimeSeconds, trafficDelaySeconds, timestamp }
+};
+const DRIVE_TIME_GEOCODE_TTL = 24 * 60 * 60 * 1000; // 24 hours for geocoded addresses
+const DRIVE_TIME_ROUTE_TTL = 30 * 60 * 1000;         // 30 minutes for route calculations
+
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
   headers: {
@@ -171,6 +179,7 @@ function getDefaultWidgets() {
         { type: 'highHeat', enabled: true, priority: 1, cycleTime: 10, threshold: 95 },
         { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
+        { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
       ],
@@ -186,7 +195,9 @@ function getDefaultWidgets() {
       units: 'imperial',
       homeAssistantUrl: '', // For media widget
       homeAssistantToken: '', // For media widget
-      entityIds: [] // Media player entity IDs
+      entityIds: [], // Media player entity IDs
+      tomtomApiKey: '', // For drive-time sub-widget (TomTom Routing & Search API)
+      homeAddress: ''   // Starting address for drive-time calculations
     }
   };
 }
@@ -759,6 +770,14 @@ function saveConfig(newConfig) {
       }
       
       logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
+    }
+    
+    // Preserve TomTom API key for drive-time sub-widget if not provided in new config
+    if (configToSave.widgets?.smartWidget && existingConfig.widgets?.smartWidget) {
+      if (!configToSave.widgets.smartWidget.tomtomApiKey && existingConfig.widgets.smartWidget.tomtomApiKey) {
+        logger.info(logger.categories.SMART_MIRROR, 'Preserving existing TomTom API key');
+        configToSave.widgets.smartWidget.tomtomApiKey = existingConfig.widgets.smartWidget.tomtomApiKey;
+      }
     }
     
     logger.debug(logger.categories.SMART_MIRROR, `Merged configuration with defaults`);
@@ -2322,6 +2341,201 @@ async function fetchLocationTimezone(apiKey, location) {
   }
 }
 
+// Geocode an address using TomTom Search API
+// Results are cached for 24 hours to minimise API usage
+async function geocodeAddressTomTom(address, apiKey) {
+  const normalizedKey = address.toLowerCase().trim();
+  const cached = driveTimeCache.geocode[normalizedKey];
+  if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_GEOCODE_TTL) {
+    logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached geocode for "${address}"`);
+    return cached;
+  }
+
+  const encodedAddress = encodeURIComponent(address);
+  const url = `https://api.tomtom.com/search/2/geocode/${encodedAddress}.json?key=${apiKey}&limit=1`;
+  logger.debug(logger.categories.SMART_MIRROR, `Drive-time: geocoding address "${address}"`);
+
+  const response = await axios.get(url, { timeout: 10000 });
+  const results = response.data?.results;
+  if (!results || results.length === 0) {
+    logger.debug(logger.categories.SMART_MIRROR, `Drive-time: no geocode results for "${address}"`);
+    return null;
+  }
+
+  const { lat, lon } = results[0].position;
+  const result = { lat, lon, timestamp: Date.now() };
+  driveTimeCache.geocode[normalizedKey] = result;
+  logger.debug(logger.categories.SMART_MIRROR, `Drive-time: geocoded "${address}" → ${lat}, ${lon}`);
+  return result;
+}
+
+// Get route information using TomTom Routing API with live traffic
+// Results are cached for 30 minutes to balance freshness and API usage
+async function getRouteTomTom(originLat, originLon, destLat, destLon, apiKey) {
+  const cacheKey = `${originLat.toFixed(5)},${originLon.toFixed(5)}:${destLat.toFixed(5)},${destLon.toFixed(5)}`;
+  const cached = driveTimeCache.routes[cacheKey];
+  if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_ROUTE_TTL) {
+    logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached route for ${cacheKey}`);
+    return cached;
+  }
+
+  const url = `https://api.tomtom.com/routing/1/calculateRoute/${originLat},${originLon}:${destLat},${destLon}/json?key=${apiKey}&traffic=true`;
+  logger.debug(logger.categories.SMART_MIRROR, `Drive-time: fetching route ${originLat},${originLon} → ${destLat},${destLon}`);
+
+  const response = await axios.get(url, { timeout: 15000 });
+  const routes = response.data?.routes;
+  if (!routes || routes.length === 0) {
+    logger.debug(logger.categories.SMART_MIRROR, 'Drive-time: no routes returned from TomTom API');
+    return null;
+  }
+
+  const summary = routes[0].summary;
+  const result = {
+    travelTimeSeconds: summary.travelTimeInSeconds,
+    trafficDelaySeconds: summary.trafficDelayInSeconds || 0,
+    timestamp: Date.now()
+  };
+  driveTimeCache.routes[cacheKey] = result;
+  logger.debug(logger.categories.SMART_MIRROR,
+    `Drive-time: route fetched: ${Math.round(result.travelTimeSeconds / 60)} min travel, ${Math.round(result.trafficDelaySeconds / 60)} min delay`);
+  return result;
+}
+
+// Fetch drive times for calendar events in the next two days using TomTom API
+async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
+  if (!tomtomApiKey || !homeAddress) {
+    const missing = !tomtomApiKey ? 'TomTom API key' : 'home address';
+    logger.warning(logger.categories.SMART_MIRROR, `Drive-time: ${missing} not configured`);
+    return { success: false, error: `${missing} not configured`, events: [] };
+  }
+
+  if (!calendarUrls || calendarUrls.length === 0) {
+    logger.debug(logger.categories.SMART_MIRROR, 'Drive-time: no calendar URLs configured');
+    return { success: true, events: [] };
+  }
+
+  // Fetch calendar events (uses existing cache)
+  const calendarResult = await fetchCalendarEvents(calendarUrls);
+  if (!calendarResult.success) {
+    logger.warning(logger.categories.SMART_MIRROR, `Drive-time: calendar fetch failed - ${calendarResult.error}`);
+    return { success: false, error: 'Could not fetch calendar events', events: [] };
+  }
+
+  // Filter to events in the next 2 days that have a location field
+  const now = new Date();
+  const twoDaysEnd = new Date(now);
+  twoDaysEnd.setDate(twoDaysEnd.getDate() + 2);
+  twoDaysEnd.setHours(23, 59, 59, 999);
+
+  const eventsWithLocation = (calendarResult.events || [])
+    .filter(event => {
+      const start = new Date(event.start);
+      return start >= now && start <= twoDaysEnd && event.location && event.location.trim();
+    })
+    .slice(0, 5); // Cap at 5 to limit API calls
+
+  if (eventsWithLocation.length === 0) {
+    logger.debug(logger.categories.SMART_MIRROR, 'Drive-time: no events with locations found in the next 2 days');
+    return { success: true, events: [] };
+  }
+
+  // Geocode the home address (cached for 24 hours)
+  let homeCoords;
+  try {
+    homeCoords = await geocodeAddressTomTom(homeAddress, tomtomApiKey);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Drive-time: failed to geocode home address: ${err.message}`);
+    return { success: false, error: `Could not geocode home address: ${err.message}`, events: [] };
+  }
+
+  if (!homeCoords) {
+    return { success: false, error: 'Home address location could not be found', events: [] };
+  }
+
+  const eventsWithDriveTimes = [];
+
+  for (const event of eventsWithLocation) {
+    try {
+      const destCoords = await geocodeAddressTomTom(event.location, tomtomApiKey);
+      if (!destCoords) {
+        logger.debug(logger.categories.SMART_MIRROR, `Drive-time: skipping "${event.title}" – location not geocodable`);
+        continue;
+      }
+
+      const routeInfo = await getRouteTomTom(
+        homeCoords.lat, homeCoords.lon,
+        destCoords.lat, destCoords.lon,
+        tomtomApiKey
+      );
+
+      if (routeInfo) {
+        const startDate = new Date(event.start);
+        const daysFromNow = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
+        const travelMinutes = Math.round(routeInfo.travelTimeSeconds / 60);
+        const delayMinutes = Math.round(routeInfo.trafficDelaySeconds / 60);
+
+        eventsWithDriveTimes.push({
+          title: event.title || 'Event',
+          location: event.location,
+          startTime: event.start,
+          daysFromNow,
+          travelTimeMinutes: travelMinutes,
+          trafficDelayMinutes: delayMinutes,
+          hasTrafficDelay: routeInfo.trafficDelaySeconds > 300 // > 5 min delay is notable
+        });
+
+        logger.debug(logger.categories.SMART_MIRROR,
+          `Drive-time: "${event.title}" → ${travelMinutes} min travel, ${delayMinutes} min delay`);
+      }
+    } catch (err) {
+      logger.warning(logger.categories.SMART_MIRROR,
+        `Drive-time: error calculating route for "${event.title}": ${err.message}`);
+    }
+  }
+
+  logger.success(logger.categories.SMART_MIRROR,
+    `Drive-time: calculated times for ${eventsWithDriveTimes.length} event(s)`);
+
+  return {
+    success: true,
+    events: eventsWithDriveTimes,
+    homeAddress
+  };
+}
+
+// Test TomTom API connectivity using a simple geocode request
+async function testTomTomConnection(apiKey) {
+  if (!apiKey) {
+    return { success: false, error: 'API key is required' };
+  }
+
+  try {
+    const testAddress = encodeURIComponent('New York, NY, USA');
+    const url = `https://api.tomtom.com/search/2/geocode/${testAddress}.json?key=${apiKey}&limit=1`;
+    logger.info(logger.categories.SMART_MIRROR, 'Testing TomTom API connection');
+
+    const response = await axios.get(url, { timeout: 10000 });
+
+    if (response.data?.results?.length > 0) {
+      const sample = response.data.results[0].address?.freeformAddress || 'OK';
+      logger.success(logger.categories.SMART_MIRROR, 'TomTom API connection successful');
+      return { success: true, message: 'TomTom API connection successful', sampleResult: sample };
+    }
+
+    return { success: false, error: 'No results returned – check API key validity' };
+  } catch (err) {
+    const status = err.response?.status;
+    let errorMessage = err.message;
+    if (status === 403) {
+      errorMessage = 'Invalid API key or access denied (403)';
+    } else if (status === 429) {
+      errorMessage = 'API quota exceeded (429)';
+    }
+    logger.error(logger.categories.SMART_MIRROR, `TomTom API test failed: ${errorMessage}`);
+    return { success: false, error: errorMessage };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
@@ -2340,10 +2554,12 @@ module.exports = {
   fetchAirQuality,
   fetchHomeAssistantMedia,
   fetchLocationTimezone,
+  fetchDriveTimes,
   testWeatherConnection,
   testCalendarFeed,
   testNewsFeed,
   testHomeAssistantMedia,
+  testTomTomConnection,
   // Export constants for use in other modules
   CACHE_MIN_INTERVAL_MS,
   DEFAULT_CALENDAR_CACHE_TTL,

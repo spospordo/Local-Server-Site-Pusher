@@ -7098,6 +7098,48 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   }
 });
 
+// Test TomTom API connection (used by drive-time sub-widget)
+app.post('/admin/api/smart-mirror/test/tomtom', requireAuth, async (req, res) => {
+  const requestContext = {
+    ip: req.ip || req.connection.remoteAddress,
+    user: req.session?.user || 'unknown',
+    timestamp: new Date().toISOString()
+  };
+
+  logger.info(logger.categories.SMART_MIRROR, `TomTom API connection test requested by ${requestContext.user} from ${requestContext.ip}`);
+
+  try {
+    const { apiKey } = req.body;
+    const smConfig = smartMirror.loadConfig();
+    const effectiveApiKey = (apiKey || '').trim() || smConfig.widgets?.smartWidget?.tomtomApiKey;
+
+    if (!effectiveApiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing API Key',
+        message: 'A TomTom API key is required to test the connection.'
+      });
+    }
+
+    const result = await smartMirror.testTomTomConnection(effectiveApiKey);
+
+    if (result.success) {
+      logger.success(logger.categories.SMART_MIRROR, 'TomTom API test successful');
+    } else {
+      logger.warning(logger.categories.SMART_MIRROR, `TomTom API test failed: ${result.error}`);
+    }
+
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `TomTom API test error: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Test Failed',
+      message: 'An unexpected error occurred while testing the TomTom API connection.'
+    });
+  }
+});
+
 // Admin API endpoints for Flight API (AviationStack) management
 
 // Test Flight API connection
@@ -7935,6 +7977,10 @@ function estimateContentSize(subWidgetData) {
       // Weather alert widgets are typically compact (icon + text)
       return 'small';
       
+    case 'driveTime':
+      // Drive-time widget is compact but grows with more events
+      return (data.events || []).length > 2 ? 'medium' : 'small';
+      
     case 'upcomingVacation':
       // Vacation depends on number of vacations and flight info
       const vacations = data.vacations || [];
@@ -8589,6 +8635,46 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               }
             }
             break;
+            
+          case 'driveTime': {
+            // Get drive times for calendar events with addresses in the next 2 days
+            const calendarUrls = smartMirrorConfig.widgets?.calendar?.calendarUrls || [];
+            const tomtomApiKey = smartWidgetConfig.tomtomApiKey;
+            const homeAddress = smartWidgetConfig.homeAddress;
+
+            if (tomtomApiKey && homeAddress) {
+              const driveTimeResult = await smartMirror.fetchDriveTimes(
+                calendarUrls,
+                tomtomApiKey,
+                homeAddress
+              );
+
+              if (driveTimeResult.success && driveTimeResult.events.length > 0) {
+                logger.success(logger.categories.SMART_MIRROR,
+                  `Drive-Time sub-widget: ${driveTimeResult.events.length} event(s) with drive times`);
+                subWidgetData = {
+                  type: 'driveTime',
+                  priority: subWidget.priority,
+                  cycleTime: subWidget.cycleTime || 15,
+                  hasContent: true,
+                  data: {
+                    events: driveTimeResult.events,
+                    homeAddress: driveTimeResult.homeAddress
+                  }
+                };
+              } else if (!driveTimeResult.success) {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `Drive-Time sub-widget: ${driveTimeResult.error}`);
+              } else {
+                logger.debug(logger.categories.SMART_MIRROR,
+                  'Drive-Time sub-widget: no events with addresses in the next 2 days');
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Drive-Time sub-widget: TomTom API key or home address not configured');
+            }
+            break;
+          }
         }
         
         if (subWidgetData) {

@@ -836,6 +836,27 @@
         .tempchange-day-card:nth-child(2) { animation-delay: 0.1s; }
         .tempchange-day-card:nth-child(3) { animation-delay: 0.2s; }
 
+        /* Drive-Time Widget Styles and Animations */
+        .smart-sub-widget-driveTime {
+            background: linear-gradient(135deg, rgba(0, 200, 150, 0.2) 0%, rgba(0, 200, 150, 0.1) 100%) !important;
+            border: 2px solid rgba(0, 200, 150, 0.5) !important;
+            box-shadow: 0 0 25px rgba(0, 200, 150, 0.3);
+        }
+
+        body.theme-light .smart-sub-widget-driveTime {
+            background: linear-gradient(135deg, rgba(0, 180, 130, 0.2) 0%, rgba(0, 180, 130, 0.1) 100%) !important;
+            border: 2px solid rgba(0, 180, 130, 0.6) !important;
+            box-shadow: 0 0 20px rgba(0, 180, 130, 0.3);
+        }
+
+        .drive-time-event-card {
+            animation: slide-in 0.5s ease-out;
+            min-width: 0;
+        }
+
+        .drive-time-event-card:nth-child(2) { animation-delay: 0.1s; }
+        .drive-time-event-card:nth-child(3) { animation-delay: 0.2s; }
+
         /* AQI color coding */
         .aqi-good {
             color: #4CAF50;
@@ -2972,6 +2993,9 @@
                 case 'party':
                     innerContent = renderParty(subWidget.data);
                     break;
+                case 'driveTime':
+                    innerContent = renderDriveTime(subWidget.data);
+                    break;
                 default:
                     return null;
             }
@@ -4188,6 +4212,135 @@
             return container;
         }
         
+        // Render drive-time sub-widget
+        function renderDriveTime(data) {
+            if (!data || !data.events || data.events.length === 0) {
+                return null;
+            }
+
+            const container = document.createElement('div');
+            container.className = 'drive-time-widget';
+
+            // Section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '🚗 Drive Times';
+            container.appendChild(sectionHeading);
+
+            // Horizontal layout wrapper
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+
+            // Left section: icon + title
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '10px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+
+            const iconDiv = document.createElement('div');
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🚗';
+            leftSection.appendChild(iconDiv);
+
+            const titleDiv = document.createElement('div');
+            titleDiv.style.fontSize = '1.1rem';
+            titleDiv.style.fontWeight = '700';
+            titleDiv.style.color = '#00C896';
+            titleDiv.style.wordBreak = 'normal';
+            titleDiv.style.overflowWrap = 'break-word';
+            titleDiv.textContent = 'Upcoming Events';
+            leftSection.appendChild(titleDiv);
+            horizontalWrapper.appendChild(leftSection);
+
+            // Right section: event cards
+            const cardsSection = document.createElement('div');
+            cardsSection.style.display = 'flex';
+            cardsSection.style.flexWrap = 'wrap';
+            cardsSection.style.gap = '10px';
+            cardsSection.style.flex = '1 1 auto';
+            cardsSection.style.overflowX = 'hidden';
+            cardsSection.style.minWidth = '0';
+
+            const eventsToShow = data.events.slice(0, 3);
+            eventsToShow.forEach((event, index) => {
+                const card = document.createElement('div');
+                card.className = 'drive-time-event-card';
+                card.style.background = 'rgba(0, 200, 150, 0.12)';
+                card.style.border = '2px solid rgba(0, 200, 150, 0.4)';
+                card.style.borderRadius = '8px';
+                card.style.padding = '10px 14px';
+                card.style.flex = '1 1 160px';
+                card.style.minWidth = '0';
+
+                // When label
+                const whenDiv = document.createElement('div');
+                whenDiv.style.fontSize = '0.9rem';
+                whenDiv.style.fontWeight = '600';
+                whenDiv.style.marginBottom = '6px';
+                whenDiv.style.color = '#00C896';
+                const startDate = new Date(event.startTime);
+                const daysText = event.daysFromNow === 0 ? 'Today' :
+                                 event.daysFromNow === 1 ? 'Tomorrow' :
+                                 startDate.toLocaleDateString('en-US', { weekday: 'short' });
+                const timeText = event.isAllDay ? '' : ` @ ${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+                whenDiv.textContent = daysText + timeText;
+                card.appendChild(whenDiv);
+
+                // Event title
+                const titleEl = document.createElement('div');
+                titleEl.style.fontSize = '0.95rem';
+                titleEl.style.fontWeight = '600';
+                titleEl.style.marginBottom = '6px';
+                titleEl.style.overflow = 'hidden';
+                titleEl.style.textOverflow = 'ellipsis';
+                titleEl.style.whiteSpace = 'nowrap';
+                titleEl.textContent = event.title;
+                titleEl.title = event.title;
+                card.appendChild(titleEl);
+
+                // Drive time row
+                const driveRow = document.createElement('div');
+                driveRow.style.display = 'flex';
+                driveRow.style.gap = '12px';
+                driveRow.style.fontSize = '0.85rem';
+
+                const driveDiv = document.createElement('div');
+                driveDiv.innerHTML = `<span style="opacity:0.7;">Drive</span> <strong>${event.travelTimeMinutes} min</strong>`;
+                driveRow.appendChild(driveDiv);
+
+                if (event.trafficDelayMinutes > 0) {
+                    const trafficColor = event.hasTrafficDelay ? '#FF6B6B' : '#FFC107';
+                    const trafficDiv = document.createElement('div');
+                    trafficDiv.style.color = trafficColor;
+                    trafficDiv.innerHTML = `<span style="opacity:0.8;">+${event.trafficDelayMinutes} min traffic</span>`;
+                    driveRow.appendChild(trafficDiv);
+                } else {
+                    const clearDiv = document.createElement('div');
+                    clearDiv.style.color = '#00C896';
+                    clearDiv.innerHTML = '<span style="opacity:0.8;">✓ Clear</span>';
+                    driveRow.appendChild(clearDiv);
+                }
+                card.appendChild(driveRow);
+
+                cardsSection.appendChild(card);
+            });
+
+            horizontalWrapper.appendChild(cardsSection);
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
+
         // Helper function to format date range
         function formatDateRange(startDate, endDate) {
             const options = { month: 'short', day: 'numeric' };

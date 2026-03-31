@@ -6075,6 +6075,77 @@
                                     </div>
                                 </div>
 
+                                <!-- Drive-Time (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🚗 Drive-Time
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetDriveTimeEnabled">Enabled</label>
+                                                <select id="smartWidgetDriveTimeEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetDriveTimePriority">Priority</label>
+                                                <input type="number" id="smartWidgetDriveTimePriority" min="1" max="10" value="2">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetDriveTimeCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetDriveTimeCycleTime" min="5" max="60" value="15">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Scans calendar events for the next 2 days, finds those with physical addresses, and shows estimated drive time and live traffic delays using the TomTom API.
+                                        </p>
+
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">TomTom API &amp; Home Address</h5>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetTomTomApiKey">TomTom API Key</label>
+                                            <input type="password" id="smartWidgetTomTomApiKey" placeholder="Enter your TomTom API key">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Obtain a free key at <a href="https://developer.tomtom.com/" target="_blank">developer.tomtom.com</a>. Requires <em>Routing API</em> and <em>Search API</em> access.
+                                            </small>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="smartWidgetHomeAddress">Home Address (Drive-Time Starting Point)</label>
+                                            <input type="text" id="smartWidgetHomeAddress" placeholder="e.g. 123 Main St, Springfield, IL 62701">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                Full street address used as the origin for all drive-time calculations.
+                                            </small>
+                                        </div>
+
+                                        <div style="margin-top: 10px;">
+                                            <button type="button" class="btn btn-secondary btn-sm"
+                                                onclick="testTomTomConnection()">
+                                                🔗 Test TomTom Connection
+                                            </button>
+                                            <span id="tomtomTestResult" style="margin-left: 10px; font-size: 0.9rem;"></span>
+                                        </div>
+
+                                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
+                                            <small style="color: #555;">
+                                                ℹ️ <strong>API Usage:</strong> Geocoding results are cached for 24 hours; route calculations are refreshed every 30 minutes to balance accuracy and API quota.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
@@ -13899,6 +13970,7 @@
                         { type: 'highHeat', enabled: true, priority: 1, cycleTime: 10, threshold: 95 },
                         { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
+                        { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
                     ];
@@ -13934,6 +14006,21 @@
                     document.getElementById('smartWidgetPartyEnabled').value = partySubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetPartyPriority').value = partySubWidget.priority || 4;
                     document.getElementById('smartWidgetPartyCycleTime').value = partySubWidget.cycleTime || 10;
+                    
+                    const driveTimeSubWidget = subWidgets.find(sw => sw.type === 'driveTime') || { enabled: true, priority: 2, cycleTime: 15 };
+                    document.getElementById('smartWidgetDriveTimeEnabled').value = driveTimeSubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetDriveTimePriority').value = driveTimeSubWidget.priority || 2;
+                    document.getElementById('smartWidgetDriveTimeCycleTime').value = driveTimeSubWidget.cycleTime || 15;
+                    
+                    document.getElementById('smartWidgetHomeAddress').value = smartWidget.homeAddress || '';
+                    const tomTomApiKeyInput = document.getElementById('smartWidgetTomTomApiKey');
+                    if (smartWidget.tomtomApiKey) {
+                        tomTomApiKeyInput.placeholder = '••••••••••••••••••••••••• (Key is set – leave blank to keep current)';
+                        tomTomApiKeyInput.dataset.hasKey = 'true';
+                    } else {
+                        tomTomApiKeyInput.placeholder = 'Enter your TomTom API key';
+                        tomTomApiKeyInput.dataset.hasKey = 'false';
+                    }
                     
                     // Shared configuration (units only - API key and location are now centralized)
                     document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
@@ -14374,6 +14461,12 @@
                                     enabled: document.getElementById('smartWidgetPartyEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetPartyPriority').value),
                                     cycleTime: parseInt(document.getElementById('smartWidgetPartyCycleTime').value)
+                                },
+                                {
+                                    type: 'driveTime',
+                                    enabled: document.getElementById('smartWidgetDriveTimeEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetDriveTimePriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetDriveTimeCycleTime').value)
                                 }
                             ],
                             apiKey: preserveApiKey(
@@ -14389,7 +14482,12 @@
                             ),
                             entityIds: document.getElementById('smartWidgetEntityIds').value.split(',')
                                 .map(id => id.trim())
-                                .filter(id => id.length > 0)
+                                .filter(id => id.length > 0),
+                            tomtomApiKey: preserveApiKey(
+                                document.getElementById('smartWidgetTomTomApiKey').value,
+                                currentConfig?.widgets?.smartWidget?.tomtomApiKey
+                            ),
+                            homeAddress: document.getElementById('smartWidgetHomeAddress').value.trim()
                         }
                     },
                     layouts: {
@@ -15657,6 +15755,36 @@
             }
         }
         
+        // Test TomTom API connection for Drive-Time sub-widget
+        async function testTomTomConnection() {
+            const apiKeyInput = document.getElementById('smartWidgetTomTomApiKey');
+            const resultSpan = document.getElementById('tomtomTestResult');
+            const apiKey = apiKeyInput.value.trim();
+
+            resultSpan.textContent = '⏳ Testing…';
+            resultSpan.style.color = '#666';
+
+            try {
+                const response = await fetch('/admin/api/smart-mirror/test/tomtom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: apiKey || undefined })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    resultSpan.textContent = `✅ Connected (${result.sampleResult || 'OK'})`;
+                    resultSpan.style.color = '#2e7d32';
+                } else {
+                    resultSpan.textContent = `❌ ${result.error || result.message || 'Connection failed'}`;
+                    resultSpan.style.color = '#c62828';
+                }
+            } catch (err) {
+                resultSpan.textContent = `❌ Request failed: ${err.message}`;
+                resultSpan.style.color = '#c62828';
+            }
+        }
+
         // Interactive Grid Editor Functions
         // Grid configuration - will be updated dynamically based on orientation
         let GRID_CONFIG = {
@@ -15730,7 +15858,8 @@
             { id: 'smartWidgetTempChangeEnabled', icon: '🌡️', name: 'Temp Change' },
             { id: 'smartWidgetVacationEnabled', icon: '✈️', name: 'Vacation' },
             { id: 'smartWidgetPartyEnabled',    icon: '🎉', name: 'Party' },
-            { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' }
+            { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' },
+            { id: 'smartWidgetDriveTimeEnabled', icon: '🚗', name: 'Drive-Time' }
         ];
         
         // Switch between portrait and landscape editing
