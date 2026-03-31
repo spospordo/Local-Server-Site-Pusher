@@ -90,39 +90,26 @@ const SSH_CONNECT_TIMEOUT_MS = 15000;
 const SSH_EXEC_TIMEOUT_MS = 30000;
 
 /**
- * Shell commands executed on the Pi for each command type when the SSH bridge
- * is used.  These mirror what pi-daemon/mirror-daemon.js does locally:
- *   display_on / display_off  → vcgencmd (native RPi) with xrandr fallback
- *   browser/dashboard restart → pkill chromium then relaunch in background
- *   reboot / shutdown         → sudo commands
- *   daemon_ping               → lightweight shell one-liner
- *   config_update             → node inline script to merge JSON into daemon config
- *
- * A value of null means the command is intentionally left to the HTTP polling
- * queue even when SSH is configured (never reached in practice – see issueCommand).
+ * Daemon command names sent to the Pi for each command type when the SSH bridge
+ * is used.  The Pi's authorized_keys uses a forced command that runs
+ * mirror_cmd.py, which receives these names via SSH_ORIGINAL_COMMAND and
+ * forwards them to mirror_daemon.py over a Unix socket.  All actual shell
+ * execution happens inside the daemon on the Pi side.
+ *   display_on / display_off  → mirror_cmd.py display_on / display_off
+ *   browser/dashboard restart → mirror_cmd.py restart_browser
+ *   reboot / shutdown         → mirror_cmd.py reboot / shutdown
+ *   daemon_ping               → mirror_cmd.py get_status
+ *   config_update             → mirror_cmd.py update_config key=value …
+ *                               (built dynamically in buildSshShellCommand)
  */
 const SSH_COMMAND_STRINGS = {
-  display_on:
-    'vcgencmd display_power 1 2>&1 || DISPLAY=:0 xrandr --output HDMI-1 --auto 2>&1',
-  display_off:
-    'vcgencmd display_power 0 2>&1 || DISPLAY=:0 xrandr --output HDMI-1 --off 2>&1',
-  browser_restart:
-    'pkill -f chromium-browser; sleep 2; DISPLAY=:0 nohup chromium-browser' +
-    ' --noerrdialogs --disable-infobars --kiosk http://localhost:8080' +
-    ' &>/dev/null & echo "browser relaunched"',
-  dashboard_restart:
-    'pkill -f chromium-browser; sleep 2; DISPLAY=:0 nohup chromium-browser' +
-    ' --noerrdialogs --disable-infobars --kiosk http://localhost:8080' +
-    ' &>/dev/null & echo "dashboard relaunched"',
-  pi_reboot:  'sudo reboot',
-  pi_shutdown: 'sudo shutdown -h now',
-  daemon_ping:
-    'node -e "const os=require(\'os\');' +
-    'console.log(JSON.stringify({pong:true,hostname:os.hostname(),' +
-    'platform:os.platform(),arch:os.arch(),uptime:os.uptime(),' +
-    'loadAvg:os.loadavg()}));"',
-  // config_update is handled separately (requires payload injection)
-  config_update: null,
+  display_on:        'display_on',
+  display_off:       'display_off',
+  browser_restart:   'restart_browser',
+  dashboard_restart: 'restart_browser',
+  pi_reboot:         'reboot',
+  pi_shutdown:       'shutdown',
+  daemon_ping:       'get_status',
 };
 
 // ---------------------------------------------------------------------------
@@ -425,15 +412,20 @@ function clearDeviceSshConfig(deviceId) {
 // ---------------------------------------------------------------------------
 
 /**
- * Build the shell command string for the given command type and payload.
+ * Build the command string for the given command type and payload.
  * Returns null if the command cannot be executed via SSH.
+ *
+ * Commands are sent to mirror_cmd.py via the SSH forced command mechanism.
+ * mirror_cmd.py receives the original command string through SSH_ORIGINAL_COMMAND
+ * and forwards it to mirror_daemon.py over a Unix socket.
  *
  * @param {string} type    – command type
  * @param {object} payload – command payload
- * @param {string} [daemonConfigPath] – path to daemon-config.json on the device
+ * @param {string} [daemonConfigPath] – kept for backwards compatibility; mirror_cmd.py
+ *                                      handles config file location internally
  * @returns {string|null}
  */
-function buildSshShellCommand(type, payload, daemonConfigPath) {
+function buildSshShellCommand(type, payload, daemonConfigPath) { // eslint-disable-line no-unused-vars
   if (type === 'config_update') {
     if (!payload || typeof payload !== 'object' || Object.keys(payload).length === 0) {
       return null;
@@ -443,24 +435,11 @@ function buildSshShellCommand(type, payload, daemonConfigPath) {
     if (Object.keys(safePayload).length === 0) {
       return null;
     }
-    // Use node to merge the config on the remote device.
-    // NOTE: if daemonConfigPath is not specified the fallback glob searches two common
-    // installation paths.  For non-standard installations always set daemonConfigPath
-    // in the SSH bridge configuration to ensure the correct file is targeted.
-    const configPath = daemonConfigPath
-      ? daemonConfigPath.replace(/'/g, "'\\''")
-      : "$(ls ~/mirror-daemon/daemon-config.json ~/pi-daemon/daemon-config.json 2>/dev/null | head -1)";
-    const payloadJson = JSON.stringify(safePayload).replace(/'/g, "'\\''");
-    return (
-      `node -e "` +
-      `var fs=require('fs'),p='${configPath}',` +
-      `e=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,'utf8')):{},` +
-      `u=JSON.parse('${payloadJson}'),` +
-      `m=Object.assign({},e,u);` +
-      `fs.writeFileSync(p,JSON.stringify(m,null,2));` +
-      `console.log('Updated: '+Object.keys(u).join(', '));` +
-      `"`
-    );
+    // Build "update_config key1=value1 key2=value2" format for mirror_cmd.py
+    const pairs = Object.entries(safePayload)
+      .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+      .join(' ');
+    return `update_config ${pairs}`;
   }
 
   return SSH_COMMAND_STRINGS[type] || null;
