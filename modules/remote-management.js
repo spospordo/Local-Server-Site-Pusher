@@ -70,6 +70,7 @@ const ENCRYPTION_KEY = process.env.REMOTE_MGMT_KEY || 'remote-mgmt-default-key-c
 const SUPPORTED_COMMANDS = [
   'display_on',
   'display_off',
+  'display_auto',
   'browser_restart',
   'dashboard_restart',
   'pi_reboot',
@@ -105,6 +106,7 @@ const SSH_EXEC_TIMEOUT_MS = 30000;
 const SSH_COMMAND_STRINGS = {
   display_on:        'display_on',
   display_off:       'display_off',
+  display_auto:      'display_auto',
   browser_restart:   'restart_browser',
   dashboard_restart: 'restart_browser',
   pi_reboot:         'reboot',

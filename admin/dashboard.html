@@ -6185,6 +6185,25 @@
                                 </div>
                             </div>
 
+                            <!-- Motion Sensor Controls -->
+                            <div style="margin-bottom: 16px; padding: 12px; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                    <h5 style="margin: 0;">👁️ Motion Sensor (PIR) Controls</h5>
+                                </div>
+                                <div id="pirStatusDisplay" style="font-size: 0.85em; color: #555; margin-bottom: 10px; padding: 6px 10px; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                    <em>Run "📡 Ping" to load current PIR status.</em>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+                                    <div>
+                                        <label style="font-size: 0.82em; color: #555; display: block; margin-bottom: 4px;">Motion Timeout (seconds)</label>
+                                        <input type="number" id="pirTimeoutInput" min="10" max="3600" step="10" value="120"
+                                            style="width: 120px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.9em;">
+                                        <small style="display: block; margin-top: 3px; color: #666; font-size: 0.78em;">Seconds of no motion before display turns off</small>
+                                    </div>
+                                    <button onclick="setMotionTimeout()" class="btn" style="background:#0d9488;color:#fff;border:none;padding:6px 14px;font-size:0.85em;border-radius:4px;cursor:pointer;height:32px;">⏱ Set Timeout</button>
+                                </div>
+                            </div>
+
                             <!-- SSH Configuration -->
                             <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
@@ -14684,6 +14703,7 @@
             const labels = {
                 display_on: '💡 Display On',
                 display_off: '🌑 Display Off',
+                display_auto: '👁️ Motion Mode',
                 browser_restart: '🔄 Restart Browser',
                 dashboard_restart: '🔄 Restart Dashboard',
                 pi_reboot: '🔃 Reboot Pi',
@@ -14691,8 +14711,13 @@
                 config_update: '⚙️ Config Sync',
                 daemon_ping: '📡 Ping',
             };
+            const btnStyles = {
+                display_on:  'background:#16a34a;color:#fff;border:none;',
+                display_off: 'background:#dc2626;color:#fff;border:none;',
+                display_auto: 'background:#0d9488;color:#fff;border:none;',
+            };
             container.innerHTML = commands.map(cmd => `
-                <button class="btn btn-secondary remote-cmd-btn" data-cmd="${escapeHtml(cmd)}" style="padding:5px 12px;font-size:0.85em;">${labels[cmd] || escapeHtml(cmd)}</button>
+                <button class="btn remote-cmd-btn" data-cmd="${escapeHtml(cmd)}" style="padding:5px 12px;font-size:0.85em;${btnStyles[cmd] || ''}">${labels[cmd] || escapeHtml(cmd)}</button>
             `).join('');
             container.querySelectorAll('.remote-cmd-btn').forEach(btn => {
                 btn.addEventListener('click', () => issueRemoteCommand(btn.dataset.cmd));
@@ -14734,9 +14759,71 @@
                 if (!res.ok) throw new Error(data.error || 'Failed to issue command');
                 const via = data.executedVia === 'ssh' ? ' (executed via SSH)' : ' (queued for polling)';
                 showRemoteDeviceAlert('Command "' + type + '" issued successfully' + via, 'success');
+                // Parse PIR status from daemon_ping SSH responses
+                if (type === 'daemon_ping' && data.executedVia === 'ssh' && data.result) {
+                    updatePirStatus(data.result.output || null);
+                }
+                if (type === 'display_auto') {
+                    updatePirStatus(null, 'none');
+                }
                 loadRemoteDeviceHistory();
             } catch (err) {
                 showRemoteDeviceAlert('Error issuing command: ' + err.message, 'error');
+            }
+        }
+
+        function updatePirStatus(rawOutput, knownLabel) {
+            const el = document.getElementById('pirStatusDisplay');
+            if (!el) return;
+            // If we already know the label (e.g. after display_auto)
+            if (knownLabel !== undefined) {
+                const labelMap = { none: 'Motion Mode (Auto)', forced_on: 'Forced ON', forced_off: 'Forced OFF' };
+                el.innerHTML = '<strong>PIR Override:</strong> ' + (labelMap[knownLabel] || knownLabel);
+                return;
+            }
+            if (!rawOutput) return;
+            try {
+                // The daemon returns a JSON string; try to parse it
+                const parsed = typeof rawOutput === 'string' ? JSON.parse(rawOutput) : rawOutput;
+                const d = parsed.data || parsed;
+                const labelMap = { none: 'Motion Mode (Auto)', forced_on: 'Forced ON', forced_off: 'Forced OFF' };
+                const pirLabel = d.pir_override_label || (d.pir_override === null ? 'none' : (d.pir_override ? 'forced_on' : 'forced_off'));
+                const timeoutVal = d.timeout !== undefined ? d.timeout : '—';
+                el.innerHTML =
+                    '<strong>PIR Override:</strong> ' + (labelMap[pirLabel] || pirLabel) +
+                    ' &nbsp;|&nbsp; <strong>Timeout:</strong> ' + timeoutVal + 's';
+                // Pre-fill timeout input with current value
+                if (d.timeout !== undefined) {
+                    const inp = document.getElementById('pirTimeoutInput');
+                    if (inp) inp.value = d.timeout;
+                }
+            } catch (_) {
+                // Non-JSON output – leave status as-is
+            }
+        }
+
+        async function setMotionTimeout() {
+            if (!window._selectedRemoteDevice) return;
+            const inp = document.getElementById('pirTimeoutInput');
+            const timeout = parseInt(inp ? inp.value : 120, 10);
+            if (isNaN(timeout) || timeout < 10 || timeout > 3600) {
+                showRemoteDeviceAlert('Timeout must be between 10 and 3600 seconds.', 'error');
+                return;
+            }
+            if (!confirm('Set motion timeout to ' + timeout + 's on device "' + window._selectedRemoteDevice.name + '"?')) return;
+            try {
+                const res = await fetch('/admin/api/remote-devices/' + window._selectedRemoteDevice.id + '/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'config_update', payload: { timeout } })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to set timeout');
+                const via = data.executedVia === 'ssh' ? ' (executed via SSH)' : ' (queued for polling)';
+                showRemoteDeviceAlert('Motion timeout set to ' + timeout + 's' + via, 'success');
+                loadRemoteDeviceHistory();
+            } catch (err) {
+                showRemoteDeviceAlert('Error setting timeout: ' + err.message, 'error');
             }
         }
 
