@@ -31,7 +31,8 @@ const calendarCache = {
   lastFetchAttempt: 0  // Last attempt timestamp (for backoff)
 };
 
-// Drive-time cache for TomTom API responses
+// Minimum traffic delay (in seconds) considered notable enough to highlight in the UI
+const NOTABLE_TRAFFIC_DELAY_SECONDS = 300; // 5 minutes
 const driveTimeCache = {
   geocode: {},  // normalizedAddress -> { lat, lon, timestamp }
   routes: {}    // "lat,lon:lat,lon" -> { travelTimeSeconds, trafficDelaySeconds, timestamp }
@@ -2481,7 +2482,7 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
           daysFromNow,
           travelTimeMinutes: travelMinutes,
           trafficDelayMinutes: delayMinutes,
-          hasTrafficDelay: routeInfo.trafficDelaySeconds > 300 // > 5 min delay is notable
+          hasTrafficDelay: routeInfo.trafficDelaySeconds > NOTABLE_TRAFFIC_DELAY_SECONDS
         });
 
         logger.debug(logger.categories.SMART_MIRROR,

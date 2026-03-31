@@ -4292,7 +4292,7 @@
                 const startDate = new Date(event.startTime);
                 const daysText = event.daysFromNow === 0 ? 'Today' :
                                  event.daysFromNow === 1 ? 'Tomorrow' :
-                                 startDate.toLocaleDateString('en-US', { weekday: 'short' });
+                                 startDate.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
                 const timeText = event.isAllDay ? '' : ` @ ${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
                 whenDiv.textContent = daysText + timeText;
                 card.appendChild(whenDiv);
