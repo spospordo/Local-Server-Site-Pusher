@@ -222,7 +222,7 @@ console.log('\nTest: deleteDevice');
 console.log('\nTest: SUPPORTED_COMMANDS list');
 {
   const required = [
-    'display_on', 'display_off', 'browser_restart', 'dashboard_restart',
+    'display_on', 'display_off', 'display_auto', 'browser_restart', 'dashboard_restart',
     'pi_reboot', 'pi_shutdown', 'config_update', 'daemon_ping',
   ];
   for (const cmd of required) {
