@@ -7581,14 +7581,14 @@ app.get('/api/smart-mirror/media', (() => {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      const smConfig = smartMirror.loadConfig();
+      const smConfig = smartMirror.loadConfig(); // smart mirror config
       const mediaConfig = smConfig.widgets?.media;
       
       if (!mediaConfig || !mediaConfig.enabled) {
         return res.json({ success: false, error: 'Media widget not enabled' });
       }
       
-      const haConfig = config.homeAssistant || {};
+      const haConfig = config.homeAssistant || {}; // global app config (module-level `config` variable)
       
       if (!haConfig.enabled || !haConfig.url || !haConfig.token) {
         return res.json({ success: false, error: 'Home Assistant URL and token must be configured in Settings' });
