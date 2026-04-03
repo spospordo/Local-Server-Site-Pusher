@@ -8533,7 +8533,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   type: 'homeAssistantBattery',
                   priority: subWidget.priority,
                   cycleTime: subWidget.cycleTime || 15,
-                  haRefreshInterval: batterySubWidget.haRefreshInterval || 60000,
+                  haRefreshInterval: subWidget.haRefreshInterval || 60000,
                   hasContent: true,
                   data: {
                     devices: batteryResult.visibleDevices

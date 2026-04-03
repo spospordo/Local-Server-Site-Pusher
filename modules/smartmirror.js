@@ -16,6 +16,7 @@ const APP_NAME = packageJson.name;
 const CACHE_MIN_INTERVAL_MS = 5000; // Minimum time between Home Assistant requests
 const DEFAULT_CALENDAR_CACHE_TTL = 600; // Default: 10 minutes in seconds
 const CALENDAR_CACHE_BACKOFF_MS = 30000; // 30 seconds backoff on errors
+const DEFAULT_HA_REFRESH_INTERVAL_MS = 60000; // Default HA data refresh: 1 minute
 
 let config = null;
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'smartmirror-config.json.enc');
@@ -180,7 +181,7 @@ function getDefaultWidgets() {
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
-        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
+        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: DEFAULT_HA_REFRESH_INTERVAL_MS },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
       ],
       // Display settings
@@ -561,7 +562,7 @@ function migrateConfig(oldConfig) {
             updatedSubWidgets[batteryIdx] = {
               ...battery,
               trackedDevices: changed ? updatedDevices : battery.trackedDevices,
-              haRefreshInterval: needsRefreshInterval ? 60000 : battery.haRefreshInterval
+              haRefreshInterval: needsRefreshInterval ? DEFAULT_HA_REFRESH_INTERVAL_MS : battery.haRefreshInterval
             };
             return {
               ...oldConfig,
@@ -2848,5 +2849,6 @@ module.exports = {
   // Export constants for use in other modules
   CACHE_MIN_INTERVAL_MS,
   DEFAULT_CALENDAR_CACHE_TTL,
-  CALENDAR_CACHE_BACKOFF_MS
+  CALENDAR_CACHE_BACKOFF_MS,
+  DEFAULT_HA_REFRESH_INTERVAL_MS
 };
