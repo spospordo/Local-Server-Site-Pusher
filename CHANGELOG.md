@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.11.2] - 2026-04-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #567 from spospordo/copilot/refactor-homeassistant-connection-usage
+  - Add clarifying comments for config variable scoping in media handler
+  - Remove per-widget HomeAssistant connection fields; standardize on global Settings page config
+  - Initial plan
+
+
 ## [2.11.1] - 2026-04-03
 
 ### Patch Update
