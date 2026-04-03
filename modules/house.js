@@ -33,6 +33,10 @@ function getDefaultHouseData() {
     mediaCenter: {
       devices: [],
       connections: []
+    },
+    lists: {
+      categories: [],
+      lists: []
     }
   };
 }
@@ -361,6 +365,121 @@ function deleteConnection(id) {
   return saveMediaCenterData(mediaCenter);
 }
 
+// ── Lists ─────────────────────────────────────────────────────────────────────
+
+// Get lists data
+function getListsData() {
+  const data = loadHouseData();
+  return data.lists || getDefaultHouseData().lists;
+}
+
+// Save lists data
+function saveListsData(listsData) {
+  const data = loadHouseData();
+  data.lists = listsData;
+  return saveHouseData(data);
+}
+
+// Get all categories
+function getCategories() {
+  return getListsData().categories || [];
+}
+
+// Add a category (if it doesn't already exist)
+function addCategory(name) {
+  const listsData = getListsData();
+  const trimmed = (name || '').trim();
+  if (!trimmed) {
+    return { success: false, error: 'Category name is required' };
+  }
+  if (listsData.categories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+    return { success: false, error: 'Category already exists' };
+  }
+  listsData.categories.push({ id: Date.now().toString(), name: trimmed });
+  return saveListsData(listsData);
+}
+
+// Delete a category
+function deleteCategory(id) {
+  const listsData = getListsData();
+  listsData.categories = listsData.categories.filter(c => c.id !== id);
+  return saveListsData(listsData);
+}
+
+// Add a list
+function addList(list) {
+  const listsData = getListsData();
+  listsData.lists.push({
+    id: Date.now().toString(),
+    name: list.name,
+    description: list.description || '',
+    category: list.category || '',
+    items: [],
+    createdDate: new Date().toISOString()
+  });
+  return saveListsData(listsData);
+}
+
+// Update a list
+function updateList(id, list) {
+  const listsData = getListsData();
+  const index = listsData.lists.findIndex(l => l.id === id);
+  if (index === -1) {
+    return { success: false, error: 'List not found' };
+  }
+  listsData.lists[index] = { ...listsData.lists[index], ...list, id };
+  return saveListsData(listsData);
+}
+
+// Delete a list
+function deleteList(id) {
+  const listsData = getListsData();
+  listsData.lists = listsData.lists.filter(l => l.id !== id);
+  return saveListsData(listsData);
+}
+
+// Add an item to a list
+function addListItem(listId, item) {
+  const listsData = getListsData();
+  const list = listsData.lists.find(l => l.id === listId);
+  if (!list) {
+    return { success: false, error: 'List not found' };
+  }
+  list.items.push({
+    id: Date.now().toString(),
+    name: item.name,
+    description: item.description || '',
+    createdDate: new Date().toISOString()
+  });
+  return saveListsData(listsData);
+}
+
+// Update an item in a list
+function updateListItem(listId, itemId, item) {
+  const listsData = getListsData();
+  const list = listsData.lists.find(l => l.id === listId);
+  if (!list) {
+    return { success: false, error: 'List not found' };
+  }
+  const index = list.items.findIndex(i => i.id === itemId);
+  if (index === -1) {
+    return { success: false, error: 'Item not found' };
+  }
+  list.items[index] = { ...list.items[index], ...item, id: itemId };
+  return saveListsData(listsData);
+}
+
+// Delete an item from a list
+function deleteListItem(listId, itemId) {
+  const listsData = getListsData();
+  const list = listsData.lists.find(l => l.id === listId);
+  if (!list) {
+    return { success: false, error: 'List not found' };
+  }
+  list.items = list.items.filter(i => i.id !== itemId);
+  return saveListsData(listsData);
+}
+
 module.exports = {
   init,
   getVacationData,
@@ -386,5 +505,16 @@ module.exports = {
   deleteDevice,
   addConnection,
   updateConnection,
-  deleteConnection
+  deleteConnection,
+  getListsData,
+  saveListsData,
+  getCategories,
+  addCategory,
+  deleteCategory,
+  addList,
+  updateList,
+  deleteList,
+  addListItem,
+  updateListItem,
+  deleteListItem
 };
