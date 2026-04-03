@@ -318,6 +318,62 @@ function testNoDuplicates() {
   assert(updatedConfig.widgets.clock.additionalTimezones.length === 1, 'clock has 1 entry');
 }
 
+function testUpdateVacationAddFlag() {
+  console.log('\n🧪 Test 8: Updating existing vacation to set addToDashboardClock=true adds timezone');
+  // Simulate: vacation previously saved without flag; admin enables the flag and re-syncs.
+  const vacations = [{
+    id: '8',
+    addToDashboardClock: true,
+    clockCity: 'Rome',
+    clockTimezone: 'Europe/Rome',
+    startDate: dateOffset(-2),
+    endDate: dateOffset(8)
+  }];
+
+  // smConfig has no prior vacation entries (flag was off before update)
+  const smConfig = { widgets: { clock: { additionalTimezones: [] } }, vacationClockEntries: [] };
+  const { updatedConfig, result } = runSync(vacations, smConfig);
+
+  assert(result.added === 1, 'timezone added after flag enabled');
+  assert(result.active === 1, 'one active vacation timezone');
+  assert(updatedConfig.widgets.clock.additionalTimezones.length === 1, 'clock has 1 additionalTimezone');
+  assert(updatedConfig.widgets.clock.additionalTimezones[0].timezone === 'Europe/Rome', 'correct timezone stored');
+}
+
+function testUpdateVacationChangeTimezone() {
+  console.log('\n🧪 Test 9: Updating vacation timezone replaces old entry with new one');
+  // Simulate: vacation was tracked with 'America/Chicago'; admin changes it to 'America/Denver'.
+  const vacations = [{
+    id: '9',
+    addToDashboardClock: true,
+    clockCity: 'Denver',
+    clockTimezone: 'America/Denver',
+    startDate: dateOffset(-1),
+    endDate: dateOffset(7)
+  }];
+
+  const smConfig = {
+    widgets: {
+      clock: {
+        additionalTimezones: [{ city: 'Chicago', timezone: 'America/Chicago' }]
+      }
+    },
+    // 'America/Chicago' was previously added by the vacation system
+    vacationClockEntries: [{ city: 'Chicago', timezone: 'America/Chicago', vacationId: '9' }]
+  };
+
+  const { updatedConfig, result } = runSync(vacations, smConfig);
+
+  assert(result.added === 1, 'new timezone added');
+  assert(result.removed === 1, 'old timezone removed');
+  assert(updatedConfig.widgets.clock.additionalTimezones.length === 1, 'still 1 additionalTimezone');
+  assert(updatedConfig.widgets.clock.additionalTimezones[0].timezone === 'America/Denver', 'timezone updated to new value');
+  assert(
+    !updatedConfig.widgets.clock.additionalTimezones.some(t => t.timezone === 'America/Chicago'),
+    'old timezone no longer present'
+  );
+}
+
 // ── Run all tests ──────────────────────────────────────────────────────────
 
 console.log('═══════════════════════════════════════════════════════════');
@@ -331,6 +387,8 @@ testMaxThreeSlots();
 testUserDefinedPreserved();
 testFlagOffNotAdded();
 testNoDuplicates();
+testUpdateVacationAddFlag();
+testUpdateVacationChangeTimezone();
 
 console.log('\n═══════════════════════════════════════════════════════════');
 console.log(`  Results: ${passed} passed, ${failed} failed out of ${passed + failed} tests`);
