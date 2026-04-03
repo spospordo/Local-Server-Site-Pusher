@@ -122,9 +122,9 @@ The **Extreme Weather** panel groups three weather-alert sub-widgets:
 - **OpenWeatherMap API Key**: Required for Extreme Weather (Rain Expected, High Heat, Temp Change)
 - **Location**: City name for weather lookups
 - **Temperature Units**: Imperial (°F) or Metric (°C) — applies to all Extreme Weather sub-widgets
-- **Home Assistant URL**: For media player integration
-- **Home Assistant Token**: Long-lived access token
-- **Entity IDs**: Media player entities to monitor
+- **Entity IDs**: Media player entities to monitor (comma-separated)
+
+> **Note:** Home Assistant connection details (URL and access token) are configured once on the main **Settings** page under **Home Assistant Integration**. All widgets and sub-widgets use those global settings.
 
 ## API Endpoints
 

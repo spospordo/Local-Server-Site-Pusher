@@ -7075,13 +7075,17 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   logger.info(logger.categories.SMART_MIRROR, `Media (Home Assistant) connection test requested by ${requestContext.user} from ${requestContext.ip}`);
   
   try {
-    const { url, token, entityIds } = req.body;
+    const { entityIds } = req.body;
+
+    const haConfig = config.homeAssistant || {};
+    const url = haConfig.url;
+    const token = haConfig.token;
     
     if (!url || !token) {
       return res.status(400).json({
         success: false,
-        error: 'Missing Parameters',
-        message: 'Home Assistant URL and access token are required.'
+        error: 'Missing Configuration',
+        message: 'Home Assistant URL and access token must be configured in the main Settings page.'
       });
     }
     
@@ -7577,15 +7581,17 @@ app.get('/api/smart-mirror/media', (() => {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      const config = smartMirror.loadConfig();
-      const mediaConfig = config.widgets?.media;
+      const smConfig = smartMirror.loadConfig(); // smart mirror config
+      const mediaConfig = smConfig.widgets?.media;
       
       if (!mediaConfig || !mediaConfig.enabled) {
         return res.json({ success: false, error: 'Media widget not enabled' });
       }
       
-      if (!mediaConfig.homeAssistantUrl || !mediaConfig.homeAssistantToken) {
-        return res.json({ success: false, error: 'Home Assistant URL and token must be configured' });
+      const haConfig = config.homeAssistant || {}; // global app config (module-level `config` variable)
+      
+      if (!haConfig.enabled || !haConfig.url || !haConfig.token) {
+        return res.json({ success: false, error: 'Home Assistant URL and token must be configured in Settings' });
       }
       
       if (!mediaConfig.entityIds || mediaConfig.entityIds.length === 0) {
@@ -7606,8 +7612,8 @@ app.get('/api/smart-mirror/media', (() => {
       cache.lastRequest = now;
       
       const result = await smartMirror.fetchHomeAssistantMedia(
-        mediaConfig.homeAssistantUrl,
-        mediaConfig.homeAssistantToken,
+        haConfig.url,
+        haConfig.token,
         mediaConfig.entityIds
       );
       
@@ -7673,15 +7679,13 @@ app.get('/admin/api/smart-mirror/ha-battery/search', requireAuth, async (req, re
   logger.info(logger.categories.SMART_MIRROR, 'HA battery device search requested');
 
   try {
-    const smConfig = smartMirror.loadConfig();
-    const smartWidgetConfig = smConfig.widgets?.smartWidget;
-    const haUrl = smartWidgetConfig?.homeAssistantUrl || '';
-    const haToken = smartWidgetConfig?.homeAssistantToken || '';
+    const haUrl = config.homeAssistant?.url || '';
+    const haToken = config.homeAssistant?.token || '';
 
     if (!haUrl || !haToken) {
       return res.status(400).json({
         success: false,
-        error: 'Home Assistant URL and token must be configured in the Smart Widget settings'
+        error: 'Home Assistant URL and token must be configured in the main Settings page'
       });
     }
 
@@ -8454,13 +8458,13 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'homeAssistantMedia':
-            // Get media player status
-            if (smartWidgetConfig.homeAssistantUrl && smartWidgetConfig.homeAssistantToken) {
+            // Get media player status using global HA settings
+            if (config.homeAssistant?.url && config.homeAssistant?.token) {
               const entityIds = smartWidgetConfig.entityIds || [];
               if (entityIds.length > 0) {
                 const mediaResult = await smartMirror.fetchMediaPlayers(
-                  smartWidgetConfig.homeAssistantUrl,
-                  smartWidgetConfig.homeAssistantToken,
+                  config.homeAssistant.url,
+                  config.homeAssistant.token,
                   entityIds
                 );
                 
@@ -8487,13 +8491,13 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             break;
             
           case 'homeAssistantBattery': {
-            // Fetch battery & charging state for all tracked devices
+            // Fetch battery & charging state for all tracked devices using global HA settings
             const batterySubWidget = subWidget;
             const batteryTrackedDevices = batterySubWidget.trackedDevices || [];
-            if (batteryTrackedDevices.length > 0 && smartWidgetConfig.homeAssistantUrl && smartWidgetConfig.homeAssistantToken) {
+            if (batteryTrackedDevices.length > 0 && config.homeAssistant?.url && config.homeAssistant?.token) {
               const batteryResult = await smartMirror.fetchHomeAssistantBatteryDevices(
-                smartWidgetConfig.homeAssistantUrl,
-                smartWidgetConfig.homeAssistantToken,
+                config.homeAssistant.url,
+                config.homeAssistant.token,
                 batteryTrackedDevices
               );
 

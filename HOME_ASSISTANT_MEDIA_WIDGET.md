@@ -50,13 +50,15 @@ The Home Assistant Media Player widget displays real-time information about medi
 ### Step 3: Configure the Widget in Admin Panel
 
 1. Access your admin panel at `http://your-server:3000/admin`
-2. Navigate to **Server** → **Smart Mirror**
-3. Scroll down to the **🎵 Media Widget (Home Assistant)** section
-4. Configure the following:
+2. Navigate to **Settings** → **Home Assistant Integration** and configure:
+   - **Home Assistant URL**: Enter your Home Assistant URL (e.g., `http://192.168.1.100:8123`)
+   - **Long-Lived Access Token**: Paste the token you created in Step 1
+   - Click **Save Settings**
+3. Navigate to **Server** → **Smart Mirror**
+4. Scroll down to the **🎵 Media Widget (Home Assistant)** section
+5. Configure the following:
 
    - **Enable**: Set to "Enabled"
-   - **Home Assistant Server URL**: Enter your Home Assistant URL (e.g., `http://192.168.1.100:8123` or `http://homeassistant.local:8123`)
-   - **Long-Lived Access Token**: Paste the token you created in Step 1
    - **Media Player Entity IDs**: Enter one entity ID per line:
      ```
      media_player.spotify
@@ -67,7 +69,7 @@ The Home Assistant Media Player widget displays real-time information about medi
      - Portrait mode uses a 4×6 grid
      - Landscape mode uses an 8×4 grid
 
-5. Click **Save Smart Mirror Configuration**
+6. Click **Save Smart Mirror Configuration**
 
 ### Step 4: View Your Smart Mirror
 
@@ -203,16 +205,16 @@ The widget will still display media information even without artwork.
 
 ## Example Configurations
 
+> **Note:** The Home Assistant URL and access token are configured once in the main **Settings** page. Only the entity IDs are configured per widget.
+
 ### Single Spotify Player
 ```
-Home Assistant URL: http://192.168.1.100:8123
 Entity IDs:
 media_player.spotify
 ```
 
 ### Multiple Room Audio
 ```
-Home Assistant URL: http://homeassistant.local:8123
 Entity IDs:
 media_player.living_room_sonos
 media_player.bedroom_chromecast
@@ -221,7 +223,6 @@ media_player.kitchen_speaker
 
 ### Mixed Platforms
 ```
-Home Assistant URL: http://192.168.1.50:8123
 Entity IDs:
 media_player.spotify
 media_player.plex_tv

@@ -21,18 +21,17 @@ This guide explains how to configure the Local Server Site Pusher to display med
 
 1. Navigate to your Local Server Site Pusher admin interface: `http://your-server:3000/admin`
 2. Login with your admin credentials (default: admin/admin123)
-3. Scroll down to the "Home Assistant Media Streaming" section
-4. Configure the following settings:
+3. Navigate to the main **Settings** page
+4. Configure the following settings under **Home Assistant Integration**:
    - **Home Assistant Integration**: Set to "Enabled"
-   - **Media Players**: Set to "Enabled"
    - **Home Assistant URL**: Enter your Home Assistant URL using its IP address (e.g., `http://192.168.1.100:8123`)
      - ⚠️ **Important**: Do not use `.local` hostnames (like `homeassistant.local`) as they may not resolve properly
      - Use your Home Assistant's network IP address instead
    - **Home Assistant Long-Lived Access Token**: Paste the token you created in Step 1
-   - **Refresh Interval**: Set how often to check for media updates (default: 5000ms)
 
 5. Click "Test Connection" to verify the connection works
-6. Click "Save Media Streaming Settings"
+6. Click "Save Settings"
+7. Navigate to the **Home Assistant Media Streaming** section to enable media players and configure the refresh interval
 
 ## Step 3: Verify It's Working
 

@@ -137,8 +137,6 @@ function getDefaultWidgets() {
       enabled: false,
       area: 'middle-center',
       size: 'large',
-      homeAssistantUrl: '', // e.g., http://homeassistant.local:8123
-      homeAssistantToken: '', // Long-lived access token
       entityIds: [], // Array of media player entity IDs (e.g., ['media_player.spotify', 'media_player.chromecast'])
       apiKey: '',
       location: '',
@@ -195,8 +193,6 @@ function getDefaultWidgets() {
       apiKey: '', // For weather API (rain forecast)
       location: '', // For weather location
       units: 'imperial',
-      homeAssistantUrl: '', // For media widget
-      homeAssistantToken: '', // For media widget
       entityIds: [], // Media player entity IDs
       homeAddress: ''   // Starting address for drive-time calculations
     }

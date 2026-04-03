@@ -70,9 +70,8 @@ Each sub-widget has:
 - ✅ OpenWeatherMap API key (for rain forecast)
 - ✅ Location setting (city name)
 - ✅ Temperature units (imperial/metric)
-- ✅ Home Assistant URL
-- ✅ Home Assistant access token
 - ✅ Media player entity IDs
+- ℹ️ Home Assistant URL and token are configured globally in **Settings → Home Assistant Integration**
 
 ### 4. Backend Implementation
 

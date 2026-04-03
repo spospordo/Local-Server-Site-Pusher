@@ -5570,18 +5570,9 @@
                                 <input type="number" id="mediaGridHeight" min="1" max="3" value="2">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="mediaHomeAssistantUrl">Home Assistant Server URL</label>
-                            <input type="text" id="mediaHomeAssistantUrl" placeholder="http://homeassistant.local:8123">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Enter the full URL of your Home Assistant server (e.g., http://192.168.1.100:8123 or http://homeassistant.local:8123)
-                            </small>
-                        </div>
-                        <div class="form-group">
-                            <label for="mediaHomeAssistantToken">Home Assistant Long-Lived Access Token</label>
-                            <input type="password" id="mediaHomeAssistantToken" placeholder="Enter your long-lived access token">
-                            <small style="color: #666; display: block; margin-top: 4px;">
-                                Create a long-lived access token in Home Assistant: Profile → Security → Long-Lived Access Tokens → Create Token
+                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 0 0 10px 0; border-radius: 3px;">
+                            <small style="color: #555;">
+                                ℹ️ Home Assistant connection (URL and token) is configured in the main <strong>Settings</strong> page under <strong>Home Assistant Integration</strong>.
                             </small>
                         </div>
                         <div class="form-group">
@@ -6120,26 +6111,8 @@
                                             </div>
                                         </div>
                                         <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                            Shows when media is playing through Home Assistant. Requires Home Assistant configuration below.
+                                            Shows when media is playing through Home Assistant. Requires Home Assistant configuration in the main <strong>Settings</strong> page.
                                         </p>
-
-                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Home Assistant Connection Settings</h5>
-
-                                        <div class="form-group">
-                                            <label for="smartWidgetHaUrl">Home Assistant URL</label>
-                                            <input type="text" id="smartWidgetHaUrl" placeholder="http://homeassistant.local:8123">
-                                            <small style="color: #666; display: block; margin-top: 4px;">
-                                                Full URL to your Home Assistant instance
-                                            </small>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="smartWidgetHaToken">Home Assistant Long-Lived Access Token</label>
-                                            <input type="password" id="smartWidgetHaToken" placeholder="Enter your token">
-                                            <small style="color: #666; display: block; margin-top: 4px;">
-                                                Create a token in Home Assistant: Profile → Long-Lived Access Tokens
-                                            </small>
-                                        </div>
 
                                         <div class="form-group">
                                             <label for="smartWidgetEntityIds">Media Player Entity IDs (comma-separated)</label>
@@ -6185,7 +6158,7 @@
                                         </div>
 
                                         <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                            Monitors battery and charging state of devices via Home Assistant. Uses the Home Assistant URL and token configured in the 🎵 Home Assistant Media section above.
+                                            Monitors battery and charging state of devices via Home Assistant. Uses the Home Assistant connection configured in the main <strong>Settings</strong> page.
                                         </p>
 
                                         <h5 style="margin-top: 20px; margin-bottom: 10px;">Device Search &amp; Discovery</h5>
@@ -14153,16 +14126,6 @@
                     document.getElementById('mediaGridY').value = mediaPortrait.y ?? 4;
                     document.getElementById('mediaGridWidth').value = mediaPortrait.width ?? 4;
                     document.getElementById('mediaGridHeight').value = mediaPortrait.height ?? 2;
-                    document.getElementById('mediaHomeAssistantUrl').value = media.homeAssistantUrl || '';
-                    // Don't load token for security, but show if one exists
-                    const mediaTokenInput = document.getElementById('mediaHomeAssistantToken');
-                    if (media.homeAssistantToken) {
-                        mediaTokenInput.placeholder = '••••••••••••••••••••••••• (Token is set - leave blank to keep current)';
-                        mediaTokenInput.dataset.hasToken = 'true';
-                    } else {
-                        mediaTokenInput.placeholder = 'Enter your long-lived access token';
-                        mediaTokenInput.dataset.hasToken = 'false';
-                    }
                     const mediaEntityIds = media.entityIds || [];
                     document.getElementById('mediaEntityIds').value = mediaEntityIds.join('\n');
                     
@@ -14265,15 +14228,6 @@
                     // Shared configuration (units only - API key and location are now centralized)
                     document.getElementById('smartWidgetUnits').value = smartWidget.units || 'imperial';
                     
-                    document.getElementById('smartWidgetHaUrl').value = smartWidget.homeAssistantUrl || '';
-                    const smartWidgetHaTokenInput = document.getElementById('smartWidgetHaToken');
-                    if (smartWidget.homeAssistantToken) {
-                        smartWidgetHaTokenInput.placeholder = '••••••••••••••••••••••••• (Token is set - leave blank to keep current)';
-                        smartWidgetHaTokenInput.dataset.hasToken = 'true';
-                    } else {
-                        smartWidgetHaTokenInput.placeholder = 'Enter your token';
-                        smartWidgetHaTokenInput.dataset.hasToken = 'false';
-                    }
                     const smartWidgetEntityIds = smartWidget.entityIds || [];
                     document.getElementById('smartWidgetEntityIds').value = smartWidgetEntityIds.join(',');
                     
@@ -14627,11 +14581,6 @@
                             enabled: document.getElementById('mediaEnabled').value === 'true',
                             size: document.getElementById('mediaSize').value,
                             area: 'middle-center',
-                            homeAssistantUrl: document.getElementById('mediaHomeAssistantUrl').value.trim(),
-                            homeAssistantToken: preserveApiKey(
-                                document.getElementById('mediaHomeAssistantToken').value,
-                                currentConfig?.widgets?.media?.homeAssistantToken
-                            ),
                             entityIds: mediaEntityIds
                         },
                         vacation: {
@@ -14722,11 +14671,6 @@
                             ),
                             location: document.getElementById('centralWeatherLocation').value.trim(),
                             units: document.getElementById('smartWidgetUnits').value || document.getElementById('centralWeatherUnits').value,
-                            homeAssistantUrl: document.getElementById('smartWidgetHaUrl').value.trim(),
-                            homeAssistantToken: preserveApiKey(
-                                document.getElementById('smartWidgetHaToken').value,
-                                currentConfig?.widgets?.smartWidget?.homeAssistantToken
-                            ),
                             entityIds: document.getElementById('smartWidgetEntityIds').value.split(',')
                                 .map(id => id.trim())
                                 .filter(id => id.length > 0),
@@ -16252,19 +16196,8 @@
         
         // Test media widget (Home Assistant) connection
         async function testMediaConnection() {
-            const url = document.getElementById('mediaHomeAssistantUrl').value.trim();
-            const token = document.getElementById('mediaHomeAssistantToken').value.trim();
             const entityIdsText = document.getElementById('mediaEntityIds').value.trim();
             const containerId = 'mediaTestResult';
-            
-            if (!url || !token) {
-                displayTestResult(containerId, {
-                    success: false,
-                    error: 'Missing Information',
-                    message: 'Please enter both the Home Assistant URL and access token before testing.'
-                });
-                return;
-            }
             
             const entityIds = entityIdsText ? entityIdsText.split('\n').map(id => id.trim()).filter(id => id) : [];
             
@@ -16280,7 +16213,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ url, token, entityIds })
+                    body: JSON.stringify({ entityIds })
                 });
                 
                 const result = await response.json();
