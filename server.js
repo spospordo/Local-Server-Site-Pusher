@@ -8348,6 +8348,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                                    smartMirrorConfig.widgets?.weather?.units || 
                                    smartMirrorConfig.widgets?.forecast?.units || 
                                    'imperial';
+                const VACATION_LIST_PREVIEW_DAYS = 4;
                 
                 // Return all upcoming vacations (up to 3) with their details and weather
                 const vacationsToShow = await Promise.all(
@@ -8364,6 +8365,30 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       flightTrackingEnabled: vacation.flightTrackingEnabled || false,
                       flights: (vacation.flights || []).filter(f => f.validated)
                     };
+                    
+                    // Include attached lists when vacation is within VACATION_LIST_PREVIEW_DAYS days
+                    if (daysUntil <= VACATION_LIST_PREVIEW_DAYS && vacation.listIds && vacation.listIds.length > 0) {
+                      try {
+                        const listsData = house.getListsData();
+                        const attachedLists = (listsData.lists || []).filter(l => vacation.listIds.includes(l.id));
+                        if (attachedLists.length > 0) {
+                          vacationInfo.lists = attachedLists.map(l => ({
+                            id: l.id,
+                            name: l.name,
+                            description: l.description || '',
+                            category: l.category || '',
+                            items: (l.items || []).map(item => ({
+                              id: item.id,
+                              name: item.name,
+                              description: item.description || ''
+                            }))
+                          }));
+                        }
+                      } catch (listErr) {
+                        logger.warning(logger.categories.SMART_MIRROR,
+                          `Error fetching lists for vacation ${vacation.destination}: ${listErr.message}`);
+                      }
+                    }
                     
                     // Fetch weather data and timezone if API key is configured and destination is set
                     if (weatherApiKey && vacation.destination) {

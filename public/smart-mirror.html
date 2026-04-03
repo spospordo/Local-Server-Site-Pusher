@@ -3664,6 +3664,72 @@
                     card.appendChild(notesDiv);
                 }
 
+                // Attached lists (shown when vacation is within 4 days)
+                if (vacation.lists && vacation.lists.length > 0) {
+                    const listsSection = document.createElement('div');
+                    listsSection.style.marginTop = '8px';
+                    listsSection.style.borderTop = '1px solid rgba(255,255,255,0.15)';
+                    listsSection.style.paddingTop = '8px';
+
+                    vacation.lists.forEach(list => {
+                        const listDiv = document.createElement('div');
+                        listDiv.style.marginBottom = '8px';
+
+                        const listHeader = document.createElement('div');
+                        listHeader.style.fontWeight = '600';
+                        listHeader.style.fontSize = '0.85rem';
+                        listHeader.style.display = 'flex';
+                        listHeader.style.alignItems = 'center';
+                        listHeader.style.gap = '5px';
+                        const listIcon = document.createElement('span');
+                        listIcon.textContent = '📋';
+                        listHeader.appendChild(listIcon);
+                        const listName = document.createElement('span');
+                        listName.textContent = list.name;
+                        listHeader.appendChild(listName);
+                        listDiv.appendChild(listHeader);
+
+                        if (list.description) {
+                            const listDesc = document.createElement('div');
+                            listDesc.style.fontSize = '0.75rem';
+                            listDesc.style.opacity = '0.7';
+                            listDesc.style.marginLeft = '20px';
+                            listDesc.style.marginBottom = '4px';
+                            listDesc.textContent = list.description;
+                            listDiv.appendChild(listDesc);
+                        }
+
+                        if (list.items && list.items.length > 0) {
+                            const itemsDiv = document.createElement('div');
+                            itemsDiv.style.marginLeft = '20px';
+                            list.items.forEach(item => {
+                                const itemRow = document.createElement('div');
+                                itemRow.style.fontSize = '0.78rem';
+                                itemRow.style.marginBottom = '2px';
+                                const bullet = document.createElement('span');
+                                bullet.style.opacity = '0.6';
+                                bullet.textContent = '• ';
+                                itemRow.appendChild(bullet);
+                                const itemName = document.createElement('span');
+                                itemName.textContent = item.name;
+                                itemRow.appendChild(itemName);
+                                if (item.description) {
+                                    const itemDesc = document.createElement('span');
+                                    itemDesc.style.opacity = '0.6';
+                                    itemDesc.textContent = ` — ${item.description}`;
+                                    itemRow.appendChild(itemDesc);
+                                }
+                                itemsDiv.appendChild(itemRow);
+                            });
+                            listDiv.appendChild(itemsDiv);
+                        }
+
+                        listsSection.appendChild(listDiv);
+                    });
+
+                    card.appendChild(listsSection);
+                }
+
                 detailsSection.appendChild(card);
             });
 
