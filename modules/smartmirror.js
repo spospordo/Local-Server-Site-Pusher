@@ -197,7 +197,6 @@ function getDefaultWidgets() {
       homeAssistantUrl: '', // For media widget
       homeAssistantToken: '', // For media widget
       entityIds: [], // Media player entity IDs
-      tomtomApiKey: '', // For drive-time sub-widget (TomTom Routing & Search API)
       homeAddress: ''   // Starting address for drive-time calculations
     }
   };
@@ -277,6 +276,7 @@ function getDefaultConfig() {
       enabled: false,
       monthlyLimit: 100
     },
+    tomtomApiKey: '', // For drive-time sub-widget (TomTom Routing & Search API)
     calendarEventFilters: {
       enabled: false,
       rules: []
@@ -521,6 +521,20 @@ function migrateConfig(oldConfig) {
       return {
         ...oldConfig,
         autoThemeSwitch: getDefaultConfig().autoThemeSwitch
+      };
+    }
+    
+    // Migrate TomTom API key from widgets.smartWidget to top-level if needed
+    if (!oldConfig.tomtomApiKey && oldConfig.widgets?.smartWidget?.tomtomApiKey) {
+      logger.info(logger.categories.SMART_MIRROR, 'Migrating TomTom API key to top-level configuration');
+      const { tomtomApiKey, ...smartWidgetWithoutKey } = oldConfig.widgets.smartWidget;
+      return {
+        ...oldConfig,
+        tomtomApiKey,
+        widgets: {
+          ...oldConfig.widgets,
+          smartWidget: smartWidgetWithoutKey
+        }
       };
     }
     
@@ -773,11 +787,15 @@ function saveConfig(newConfig) {
       logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
     }
     
-    // Preserve TomTom API key for drive-time sub-widget if not provided in new config
-    if (configToSave.widgets?.smartWidget && existingConfig.widgets?.smartWidget) {
-      if (!configToSave.widgets.smartWidget.tomtomApiKey && existingConfig.widgets.smartWidget.tomtomApiKey) {
+    // Preserve top-level TomTom API key if not provided in new config (empty string or undefined)
+    // Also migrate from the legacy widgets.smartWidget.tomtomApiKey location on first save
+    if (!configToSave.tomtomApiKey) {
+      if (existingConfig.tomtomApiKey) {
         logger.info(logger.categories.SMART_MIRROR, 'Preserving existing TomTom API key');
-        configToSave.widgets.smartWidget.tomtomApiKey = existingConfig.widgets.smartWidget.tomtomApiKey;
+        configToSave.tomtomApiKey = existingConfig.tomtomApiKey;
+      } else if (existingConfig.widgets?.smartWidget?.tomtomApiKey) {
+        logger.info(logger.categories.SMART_MIRROR, 'Migrating TomTom API key from smartWidget to top-level');
+        configToSave.tomtomApiKey = existingConfig.widgets.smartWidget.tomtomApiKey;
       }
     }
     
