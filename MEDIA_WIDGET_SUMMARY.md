@@ -83,20 +83,16 @@ updateMediaWidget(content, widgetConfig)
 ```
 🎵 Media Widget (Home Assistant)
 ├── Enable/Disable toggle
-├── Home Assistant Server URL input
-│   └── Placeholder: http://homeassistant.local:8123
-├── Long-Lived Access Token input (password field)
-│   └── Secure input with token preservation
+├── Note: Home Assistant connection configured in main Settings page
 ├── Media Player Entity IDs textarea
 │   └── One entity per line (e.g., media_player.spotify)
 └── Grid Position controls (X, Y, Width, Height)
 ```
 
 #### Save/Load Logic:
-- Token preservation (only updates if new value entered)
 - Multi-line entity ID parsing
 - Integration with grid editor
-- Validation and error handling
+- Home Assistant connection uses global settings (URL and token from Settings page)
 
 ### 5. Testing (scripts/test-media-widget.js)
 

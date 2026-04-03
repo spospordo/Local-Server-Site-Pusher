@@ -134,7 +134,7 @@ async function runTests() {
   if (test('Smart Mirror module includes media widget definition', () => {
     const smartMirrorPath = path.join(__dirname, '..', 'modules', 'smartmirror.js');
     const smartMirror = fs.readFileSync(smartMirrorPath, 'utf8');
-    return smartMirror.includes('media: {') && smartMirror.includes('homeAssistantUrl');
+    return smartMirror.includes('media: {') && smartMirror.includes('entityIds');
   })) passCount++;
   
   // Test 7: Check Smart Mirror default layouts include media

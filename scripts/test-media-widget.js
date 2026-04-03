@@ -179,7 +179,7 @@ async function testAdminHtmlIncludes() {
   const html = response.body;
   
   // Check for media widget config elements
-  if (!html.includes('mediaEnabled') || !html.includes('mediaHomeAssistantUrl')) {
+  if (!html.includes('mediaEnabled') || !html.includes('mediaEntityIds')) {
     console.error('❌ Media widget config elements not found in admin HTML');
     return false;
   }
