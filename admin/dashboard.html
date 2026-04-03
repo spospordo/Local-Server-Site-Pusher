@@ -21261,7 +21261,8 @@
                         if (result.flightInfo && result.flightInfo.arrival && result.flightInfo.arrival.timezone) {
                             const arrivalCity = result.flightInfo.arrival.airport || result.flightInfo.arrival.iata || '';
                             autoSetTimezoneFromIana(result.flightInfo.arrival.timezone, arrivalCity);
-                            statusDiv.innerHTML += `<br><small style="color: #667eea;">🕐 Timezone auto-set from arrival airport: ${result.flightInfo.arrival.timezone}. You can override it below.</small>`;
+                            const escapeHtmlTz = (str) => { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; };
+                            statusDiv.innerHTML += `<br><small style="color: #667eea;">🕐 Timezone auto-set from arrival airport: ${escapeHtmlTz(result.flightInfo.arrival.timezone)}. You can override it below.</small>`;
                         }
                     }
                     flightDiv.dataset.validated = 'true';
@@ -21510,9 +21511,10 @@
                     // Auto-suggest timezone from destination offset when available
                     let timezoneHint = '';
                     if (typeof result.data?.timezoneOffset === 'number') {
+                        const escapeHtmlTz = (str) => { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; };
                         const matched = autoSetTimezoneFromOffset(result.data.timezoneOffset, locName);
                         if (matched) {
-                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${matched}. You can override it below.</small>`;
+                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${escapeHtmlTz(matched)}. You can override it below.</small>`;
                         }
                     }
 
