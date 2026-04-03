@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.9.4] - 2026-04-03
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #551 from spospordo/copilot/fix-air-quality-widget-display
+  - fix: add airQuality to WIDGET_ICONS and WIDGET_NAMES for grid editor discovery
+  - Initial plan
+
+
 ## [2.9.3] - 2026-04-03
 
 ### Patch Update
