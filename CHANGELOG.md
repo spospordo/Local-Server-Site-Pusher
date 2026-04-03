@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.10.0] - 2026-04-03
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #557 from spospordo/copilot/accurately-track-flight-tracker-api-hits
+  - feat: persist flight API usage counter and add live admin UI polling
+  - Initial plan
+
+
 ## [2.9.6] - 2026-04-03
 
 ### Patch Update
