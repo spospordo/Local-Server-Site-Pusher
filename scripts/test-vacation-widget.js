@@ -243,6 +243,56 @@ async function testVacationWidget() {
                 allEndpointsFound = false;
             }
         }
+
+        // Step 10: Verify auto-timezone features in admin dashboard
+        logStep('10', 'Verifying auto-timezone helper functions in admin dashboard');
+
+        if (dashboardContent.includes('autoSetTimezoneFromOffset')) {
+            logSuccess('autoSetTimezoneFromOffset function found in admin dashboard');
+        } else {
+            logError('autoSetTimezoneFromOffset function NOT found in admin dashboard');
+        }
+
+        if (dashboardContent.includes('autoSetTimezoneFromIana')) {
+            logSuccess('autoSetTimezoneFromIana function found in admin dashboard');
+        } else {
+            logError('autoSetTimezoneFromIana function NOT found in admin dashboard');
+        }
+
+        if (dashboardContent.includes('getTimezoneOffsetSeconds')) {
+            logSuccess('getTimezoneOffsetSeconds helper found in admin dashboard');
+        } else {
+            logError('getTimezoneOffsetSeconds helper NOT found in admin dashboard');
+        }
+
+        if (dashboardContent.includes('timezoneOffset') && dashboardContent.includes('autoSetTimezoneFromOffset')) {
+            logSuccess('testVacationLocation auto-fills timezone on success');
+        } else {
+            logError('testVacationLocation does NOT auto-fill timezone');
+        }
+
+        if (dashboardContent.includes('arrival.timezone') && dashboardContent.includes('autoSetTimezoneFromIana')) {
+            logSuccess('validateFlight auto-sets timezone from arrival airport');
+        } else {
+            logError('validateFlight does NOT auto-set timezone from arrival airport');
+        }
+
+        // Step 11: Verify smartmirror.js testWeatherConnection returns timezone data
+        logStep('11', 'Verifying smartmirror.js testWeatherConnection returns timezone data');
+        const smartMirrorPath = path.join(__dirname, '..', 'modules', 'smartmirror.js');
+        const smartMirrorContent = fs.readFileSync(smartMirrorPath, 'utf8');
+
+        if (smartMirrorContent.includes('timezoneOffset: response.data.timezone')) {
+            logSuccess('testWeatherConnection returns timezoneOffset in response');
+        } else {
+            logError('testWeatherConnection does NOT return timezoneOffset');
+        }
+
+        if (smartMirrorContent.includes("lat: response.data.coord?.lat") && smartMirrorContent.includes("lon: response.data.coord?.lon")) {
+            logSuccess('testWeatherConnection returns lat/lon in response');
+        } else {
+            logError('testWeatherConnection does NOT return lat/lon');
+        }
         
         // Summary
         log('\n=== Test Summary ===\n', 'blue');

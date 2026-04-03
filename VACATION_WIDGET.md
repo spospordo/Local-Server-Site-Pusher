@@ -127,6 +127,19 @@ vacation: { x: 6, y: 3, width: 2, height: 1 }
 - Loading state while testing
 - Clear, actionable feedback
 
+**Auto-Timezone from Destination:**
+- When destination test succeeds, `timezoneOffset`, `lat`, `lon`, and `country` are included in the response
+- `autoSetTimezoneFromOffset()` matches the UTC offset to the best available IANA timezone in the dropdown
+- The clock city display name is pre-filled with the resolved location name
+- The "Add local time to Dashboard Clock" checkbox and section are enabled automatically
+- Admin can freely override both the city name and timezone after auto-suggestion
+
+**Auto-Timezone from Flight Info (takes priority):**
+- When a flight is validated with a full AviationStack response, `arrival.timezone` (an IANA string) is used
+- `autoSetTimezoneFromIana()` sets the timezone field; if the value is not in the dropdown it is added dynamically
+- The arrival airport name pre-fills the city field
+- Flight arrival timezone always takes priority over the destination-based suggestion
+
 **Validation Function:**
 ```javascript
 async function testVacationLocation()
@@ -134,7 +147,15 @@ async function testVacationLocation()
 - Tests if destination returns weather data
 - Provides detailed success/error messages
 - Shows current weather conditions on success
+- Auto-suggests timezone when offset data is available
 - Guides user to fix invalid locations
+
+**Helper Functions:**
+```javascript
+getTimezoneOffsetSeconds(tz)        // Returns current UTC offset in seconds for an IANA timezone
+autoSetTimezoneFromOffset(offsetSeconds, cityName)  // Matches offset → dropdown option
+autoSetTimezoneFromIana(ianaTimezone, cityName)     // Sets exact IANA timezone (adds option if needed)
+```
 
 ### 5. Timezone Handling
 
