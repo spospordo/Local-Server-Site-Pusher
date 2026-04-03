@@ -6155,10 +6155,17 @@
                                                     How long to display in cycle mode
                                                 </small>
                                             </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetBatteryHaRefreshInterval">Refresh Interval (seconds)</label>
+                                                <input type="number" id="smartWidgetBatteryHaRefreshInterval" min="10" max="300" value="60">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How often to fetch updated data from Home Assistant (min 10 s)
+                                                </small>
+                                            </div>
                                         </div>
 
                                         <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
-                                            Monitors battery and charging state of devices via Home Assistant. Uses the Home Assistant connection configured in the main <strong>Settings</strong> page.
+                                            Monitors battery and charging state of devices via Home Assistant. Uses the Home Assistant connection configured in the main <strong>Settings</strong> page. Device names are automatically kept in sync with Home Assistant — use the <em>Override Name</em> field on each device to set a custom display name.
                                         </p>
 
                                         <h5 style="margin-top: 20px; margin-bottom: 10px;">Device Search &amp; Discovery</h5>
@@ -6181,7 +6188,7 @@
                                         <div id="batterySearchResults" style="display:none; margin-bottom: 12px; border: 1px solid #dee2e6; border-radius: 6px; max-height: 240px; overflow-y: auto; background: #fff;">
                                         </div>
 
-                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Tracked Devices</h5>
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Tracked Device Groups</h5>
 
                                         <div id="batteryTrackedDevicesList" style="margin-bottom: 10px;">
                                             <p id="batteryNoDevicesMsg" style="color: #999; font-size: 0.9rem;">No devices tracked yet. Use the search above to find and add devices.</p>
@@ -6189,7 +6196,7 @@
 
                                         <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
                                             <small style="color: #555;">
-                                                ℹ️ The widget only displays when a tracked device matches an active scenario (charging, fully charged, or low battery).
+                                                ℹ️ Each entry is a <strong>device group</strong>: it combines a battery-level entity with an optional charging-state sensor under one display name. The widget only shows when a device matches an active scenario (charging, fully charged, or low battery). Device names are automatically synced from Home Assistant unless an Override Name is set.
                                             </small>
                                         </div>
 
@@ -14183,7 +14190,7 @@
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
                         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
-                        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] },
+                        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
                     ];
                     
@@ -14224,10 +14231,11 @@
                     document.getElementById('smartWidgetDriveTimePriority').value = driveTimeSubWidget.priority || 2;
                     document.getElementById('smartWidgetDriveTimeCycleTime').value = driveTimeSubWidget.cycleTime || 15;
 
-                    const batterySubWidget = subWidgets.find(sw => sw.type === 'homeAssistantBattery') || { enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] };
+                    const batterySubWidget = subWidgets.find(sw => sw.type === 'homeAssistantBattery') || { enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 };
                     document.getElementById('smartWidgetBatteryEnabled').value = batterySubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetBatteryPriority').value = batterySubWidget.priority || 3;
                     document.getElementById('smartWidgetBatteryCycleTime').value = batterySubWidget.cycleTime || 15;
+                    document.getElementById('smartWidgetBatteryHaRefreshInterval').value = Math.round((batterySubWidget.haRefreshInterval || 60000) / 1000);
                     const batteryTrackedDevices = batterySubWidget.trackedDevices || [];
                     document.getElementById('smartWidgetBatteryTrackedDevices').value = JSON.stringify(batteryTrackedDevices);
                     renderBatteryTrackedDevicesList(batteryTrackedDevices);
@@ -14659,6 +14667,7 @@
                                     enabled: document.getElementById('smartWidgetBatteryEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetBatteryPriority').value),
                                     cycleTime: parseInt(document.getElementById('smartWidgetBatteryCycleTime').value),
+                                    haRefreshInterval: Math.max(10000, parseInt(document.getElementById('smartWidgetBatteryHaRefreshInterval').value || '60') * 1000),
                                     trackedDevices: (() => { try { return JSON.parse(document.getElementById('smartWidgetBatteryTrackedDevices').value || '[]'); } catch(e) { return []; } })()
                                 },
                                 {
@@ -14889,6 +14898,7 @@
             if (devices.find(d => d.entityId === entityId)) return;
             devices.push({
                 entityId,
+                groupName: '',
                 friendlyName,
                 lowBatteryThreshold: 25,
                 showWhenCharging: true,
@@ -14948,7 +14958,7 @@
 
                 const nameLabel = document.createElement('div');
                 nameLabel.style.cssText = 'flex:1;font-weight:600;';
-                nameLabel.textContent = '🔋 ' + (device.friendlyName || device.entityId);
+                nameLabel.textContent = '🔋 ' + (device.groupName || device.friendlyName || device.entityId);
                 headerRow.appendChild(nameLabel);
 
                 const entityIdLabel = document.createElement('div');
@@ -14970,16 +14980,21 @@
                 const grid = document.createElement('div');
                 grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;';
 
-                // Display Name input
+                // Override Name input (maps to groupName)
                 const nameDiv = document.createElement('div');
                 const nameFieldLabel = document.createElement('label');
                 nameFieldLabel.style.cssText = 'font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;';
-                nameFieldLabel.textContent = 'Display Name';
+                nameFieldLabel.textContent = 'Override Name';
+                const nameFieldOptional = document.createElement('span');
+                nameFieldOptional.style.cssText = 'font-weight:400;color:#888;margin-left:4px;';
+                nameFieldOptional.textContent = '(optional — leave blank to auto-use HA name)';
+                nameFieldLabel.appendChild(nameFieldOptional);
                 const nameInput = document.createElement('input');
                 nameInput.type = 'text';
-                nameInput.value = device.friendlyName || '';
+                nameInput.value = device.groupName || '';
+                nameInput.placeholder = 'e.g. My Phone';
                 nameInput.style.cssText = 'width:100%;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;box-sizing:border-box;';
-                nameInput.addEventListener('change', () => updateBatteryDevice(device.entityId, 'friendlyName', nameInput.value));
+                nameInput.addEventListener('change', () => updateBatteryDevice(device.entityId, 'groupName', nameInput.value));
                 nameDiv.appendChild(nameFieldLabel);
                 nameDiv.appendChild(nameInput);
                 grid.appendChild(nameDiv);

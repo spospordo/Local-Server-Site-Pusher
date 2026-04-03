@@ -8533,6 +8533,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   type: 'homeAssistantBattery',
                   priority: subWidget.priority,
                   cycleTime: subWidget.cycleTime || 15,
+                  haRefreshInterval: batterySubWidget.haRefreshInterval || 60000,
                   hasContent: true,
                   data: {
                     devices: batteryResult.visibleDevices
@@ -8794,13 +8795,21 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
     
     // Sort by priority
     activeSubWidgets.sort((a, b) => a.priority - b.priority);
-    
+
+    // Derive the minimum HA refresh interval from any battery/HA sub-widgets so the
+    // frontend can set up an independent refresh timer.
+    const haSubWidgets = activeSubWidgets.filter(sw => sw.haRefreshInterval);
+    const haRefreshInterval = haSubWidgets.length > 0
+      ? Math.min(...haSubWidgets.map(sw => sw.haRefreshInterval))
+      : null;
+
     res.json({
       success: true,
       displayMode: smartWidgetConfig.displayMode || 'cycle',
       cycleSpeed: smartWidgetConfig.cycleSpeed || 10,
       simultaneousMax: smartWidgetConfig.simultaneousMax || 2,
       adaptiveStackThreshold: smartWidgetConfig.adaptiveStackThreshold || 'medium',
+      haRefreshInterval,
       subWidgets: activeSubWidgets
     });
   } catch (err) {

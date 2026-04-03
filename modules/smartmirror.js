@@ -180,7 +180,7 @@ function getDefaultWidgets() {
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
-        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] },
+        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
       ],
       // Display settings
@@ -534,7 +534,50 @@ function migrateConfig(oldConfig) {
         }
       };
     }
-    
+
+    // Migrate homeAssistantBattery sub-widget: preserve existing friendlyName as groupName override
+    // and add missing haRefreshInterval
+    {
+      const subWidgets = oldConfig.widgets?.smartWidget?.subWidgets;
+      if (Array.isArray(subWidgets)) {
+        const batteryIdx = subWidgets.findIndex(sw => sw.type === 'homeAssistantBattery');
+        if (batteryIdx !== -1) {
+          const battery = subWidgets[batteryIdx];
+          let changed = false;
+          const updatedDevices = (battery.trackedDevices || []).map(device => {
+            // Migrate non-empty friendlyName to groupName if groupName not yet set,
+            // so existing custom names are preserved as explicit overrides.
+            if (device.friendlyName && !device.groupName) {
+              changed = true;
+              return { ...device, groupName: device.friendlyName, friendlyName: '' };
+            }
+            return device;
+          });
+          const needsRefreshInterval = battery.haRefreshInterval === undefined || battery.haRefreshInterval === null;
+          if (changed || needsRefreshInterval) {
+            logger.info(logger.categories.SMART_MIRROR,
+              'Migrating homeAssistantBattery sub-widget (groupName/haRefreshInterval)');
+            const updatedSubWidgets = [...subWidgets];
+            updatedSubWidgets[batteryIdx] = {
+              ...battery,
+              trackedDevices: changed ? updatedDevices : battery.trackedDevices,
+              haRefreshInterval: needsRefreshInterval ? 60000 : battery.haRefreshInterval
+            };
+            return {
+              ...oldConfig,
+              widgets: {
+                ...oldConfig.widgets,
+                smartWidget: {
+                  ...oldConfig.widgets.smartWidget,
+                  subWidgets: updatedSubWidgets
+                }
+              }
+            };
+          }
+        }
+      }
+    }
+
     // Already in new format
     return oldConfig;
   }
@@ -2634,7 +2677,10 @@ async function searchHomeAssistantBatteryEntities(haUrl, haToken, keyword) {
 }
 
 // Fetch battery & charging state for all tracked devices in the battery sub-widget
-// trackedDevices: array of { entityId, friendlyName, lowBatteryThreshold, showWhenCharging, showWhenFull, showWhenLow, chargingEntityId }
+// trackedDevices: array of { entityId, groupName, friendlyName, lowBatteryThreshold, showWhenCharging, showWhenFull, showWhenLow, chargingEntityId }
+// groupName: explicit admin-set device group name (highest priority for display)
+// friendlyName: legacy fallback (used only when HA entity name is unavailable)
+// When the HA entity is reachable its attrs.friendly_name is auto-used unless groupName overrides it.
 async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) {
   if (!haUrl || !haToken || !trackedDevices || trackedDevices.length === 0) {
     return { success: false, error: 'Home Assistant URL, token, and tracked devices are required' };
@@ -2672,7 +2718,7 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
       if (!entityState) {
         return {
           entityId: device.entityId,
-          friendlyName: device.friendlyName || device.entityId,
+          friendlyName: device.groupName || device.friendlyName || device.entityId,
           available: false,
           batteryLevel: null,
           isCharging: false,
@@ -2733,7 +2779,10 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
 
       return {
         entityId: device.entityId,
-        friendlyName: device.friendlyName || attrs.friendly_name || device.entityId,
+        // groupName (admin override) takes highest priority; otherwise auto-use the HA
+        // friendly_name so that name changes in Home Assistant are reflected immediately.
+        // Fall back to the legacy stored friendlyName, then the raw entity ID.
+        friendlyName: device.groupName || attrs.friendly_name || device.friendlyName || device.entityId,
         available: true,
         batteryLevel,
         isCharging,
