@@ -2374,18 +2374,23 @@ async function geocodeAddressTomTom(address, apiKey) {
   return result;
 }
 
-// Get route information using TomTom Routing API with live traffic
-// Results are cached for 30 minutes to balance freshness and API usage
-async function getRouteTomTom(originLat, originLon, destLat, destLon, apiKey) {
-  const cacheKey = `${originLat.toFixed(5)},${originLon.toFixed(5)}:${destLat.toFixed(5)},${destLon.toFixed(5)}`;
+// Get route information using TomTom Routing API with live or forecasted traffic.
+// Pass an ISO 8601 local datetime string (YYYY-MM-DDThh:mm:ss) as departAt to request
+// forecasted traffic conditions; omit it (or pass null) for live traffic.
+// Results are cached for 30 minutes to balance freshness and API usage.
+async function getRouteTomTom(originLat, originLon, destLat, destLon, apiKey, departAt = null) {
+  const cacheKey = `${originLat.toFixed(5)},${originLon.toFixed(5)}:${destLat.toFixed(5)},${destLon.toFixed(5)}${departAt ? `:${departAt}` : ''}`;
   const cached = driveTimeCache.routes[cacheKey];
   if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_ROUTE_TTL) {
     logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached route for ${cacheKey}`);
     return cached;
   }
 
-  const url = `https://api.tomtom.com/routing/1/calculateRoute/${originLat},${originLon}:${destLat},${destLon}/json?key=${apiKey}&traffic=true`;
-  logger.debug(logger.categories.SMART_MIRROR, `Drive-time: fetching route ${originLat},${originLon} → ${destLat},${destLon}`);
+  let url = `https://api.tomtom.com/routing/1/calculateRoute/${originLat},${originLon}:${destLat},${destLon}/json?key=${apiKey}&traffic=true`;
+  if (departAt) {
+    url += `&departAt=${encodeURIComponent(departAt)}`;
+  }
+  logger.debug(logger.categories.SMART_MIRROR, `Drive-time: fetching route ${originLat},${originLon} → ${destLat},${destLon}${departAt ? ` (departAt ${departAt})` : ''}`);
 
   const response = await axios.get(url, { timeout: 15000 });
   const routes = response.data?.routes;
@@ -2467,15 +2472,30 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
         continue;
       }
 
+      const startDate = new Date(event.start);
+      // For future events, request forecasted traffic at departure time; fall back to
+      // live traffic if the event time has already passed.
+      // TomTom's departAt parameter expects a timezone-naive ISO 8601 string
+      // (YYYY-MM-DDThh:mm:ss). We use the UTC representation of the event time,
+      // which is adequate for routing forecasts when exact local timezone is
+      // unavailable from the calendar data.
+      const departAt = startDate > now ? startDate.toISOString().substring(0, 19) : null;
+
       const routeInfo = await getRouteTomTom(
         homeCoords.lat, homeCoords.lon,
         destCoords.lat, destCoords.lon,
-        tomtomApiKey
+        tomtomApiKey,
+        departAt
       );
 
       if (routeInfo) {
-        const startDate = new Date(event.start);
-        const daysFromNow = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
+        // Calculate daysFromNow using calendar day boundaries (midnight-to-midnight)
+        // so "Today" covers the whole current day and "Tomorrow" covers the next full day.
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfEventDay = new Date(startDate);
+        startOfEventDay.setHours(0, 0, 0, 0);
+        const daysFromNow = Math.round((startOfEventDay - startOfToday) / (1000 * 60 * 60 * 24));
         const travelMinutes = Math.round(routeInfo.travelTimeSeconds / 60);
         const delayMinutes = Math.round(routeInfo.trafficDelaySeconds / 60);
 
