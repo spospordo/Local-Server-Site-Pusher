@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.13.0] - 2026-04-03
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #571 from spospordo/copilot/enhance-dashboard-entity-auto-update
+  - fix: use DEFAULT_HA_REFRESH_INTERVAL_MS constant and fix variable name consistency in server.js
+  - feat: HA battery auto-update names, device groups, and 60s refresh
+  - Initial plan
+
+
 ## [2.12.0] - 2026-04-03
 
 ### Minor Update
