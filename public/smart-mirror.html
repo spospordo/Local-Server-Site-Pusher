@@ -3009,6 +3009,9 @@
                 case 'homeAssistantMedia':
                     innerContent = renderHomeAssistantMedia(subWidget.data);
                     break;
+                case 'homeAssistantBattery':
+                    innerContent = renderHomeAssistantBattery(subWidget.data);
+                    break;
                 case 'party':
                     innerContent = renderParty(subWidget.data);
                     break;
@@ -3747,7 +3750,102 @@
             
             return container;
         }
-        
+
+        // Render Home Assistant Battery & Charging sub-widget
+        function renderHomeAssistantBattery(data) {
+            if (!data || !data.devices || data.devices.length === 0) {
+                return null;
+            }
+
+            const container = document.createElement('div');
+            container.className = 'battery-widget';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '8px';
+
+            // Section heading
+            const heading = document.createElement('div');
+            heading.style.cssText = 'font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.6;margin-bottom:4px;';
+            heading.textContent = '🔋 Battery & Charging';
+            container.appendChild(heading);
+
+            data.devices.forEach(device => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
+
+                // Icon based on state
+                const iconSpan = document.createElement('span');
+                iconSpan.style.fontSize = '1.4rem';
+                iconSpan.style.minWidth = '1.8rem';
+                iconSpan.style.textAlign = 'center';
+                if (device.state === 'charging') {
+                    iconSpan.textContent = '⚡';
+                } else if (device.state === 'full') {
+                    iconSpan.textContent = '🔋';
+                } else if (device.state === 'low') {
+                    iconSpan.textContent = '🪫';
+                } else {
+                    iconSpan.textContent = '🔋';
+                }
+                row.appendChild(iconSpan);
+
+                // Device info
+                const infoDiv = document.createElement('div');
+                infoDiv.style.flex = '1';
+                infoDiv.style.minWidth = '0';
+
+                const nameDiv = document.createElement('div');
+                nameDiv.style.cssText = 'font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                nameDiv.textContent = device.friendlyName || device.entityId;
+                infoDiv.appendChild(nameDiv);
+
+                const statusDiv = document.createElement('div');
+                statusDiv.style.cssText = 'font-size:0.8rem;opacity:0.7;margin-top:2px;';
+                if (device.state === 'charging') {
+                    statusDiv.textContent = device.batteryLevel !== null ? `Charging · ${device.batteryLevel}%` : 'Charging';
+                } else if (device.state === 'full') {
+                    statusDiv.textContent = 'Fully Charged';
+                } else if (device.state === 'low') {
+                    statusDiv.textContent = device.batteryLevel !== null ? `Low Battery · ${device.batteryLevel}%` : 'Low Battery';
+                } else {
+                    statusDiv.textContent = device.batteryLevel !== null ? `${device.batteryLevel}%` : 'Unknown';
+                }
+                infoDiv.appendChild(statusDiv);
+                row.appendChild(infoDiv);
+
+                // Battery level bar (if level is available)
+                if (device.batteryLevel !== null && device.batteryLevel !== undefined) {
+                    const barWrap = document.createElement('div');
+                    barWrap.style.cssText = 'width:48px;flex-shrink:0;';
+
+                    const barOuter = document.createElement('div');
+                    barOuter.style.cssText = 'width:100%;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;';
+
+                    const barInner = document.createElement('div');
+                    const pct = Math.min(100, Math.max(0, device.batteryLevel));
+                    let barColor = '#4caf50';
+                    if (device.state === 'charging') barColor = '#2196f3';
+                    else if (device.state === 'low') barColor = '#f44336';
+                    else if (pct >= 60) barColor = '#4caf50';
+                    else if (pct >= 30) barColor = '#ff9800';
+                    barInner.style.cssText = `width:${pct}%;height:100%;background:${barColor};border-radius:4px;transition:width 0.3s;`;
+                    barOuter.appendChild(barInner);
+                    barWrap.appendChild(barOuter);
+
+                    const pctLabel = document.createElement('div');
+                    pctLabel.style.cssText = 'font-size:0.7rem;text-align:right;opacity:0.7;margin-top:2px;';
+                    pctLabel.textContent = `${pct}%`;
+                    barWrap.appendChild(pctLabel);
+
+                    row.appendChild(barWrap);
+                }
+
+                container.appendChild(row);
+            });
+
+            return container;
+        }
+
         // Render party sub-widget
         function renderParty(data) {
             // Validate required data exists
