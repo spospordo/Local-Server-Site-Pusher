@@ -7117,7 +7117,7 @@ app.post('/admin/api/smart-mirror/test/tomtom', requireAuth, async (req, res) =>
   try {
     const { apiKey } = req.body;
     const smConfig = smartMirror.loadConfig();
-    const effectiveApiKey = (apiKey || '').trim() || smConfig.widgets?.smartWidget?.tomtomApiKey;
+    const effectiveApiKey = (apiKey || '').trim() || smConfig.tomtomApiKey || smConfig.widgets?.smartWidget?.tomtomApiKey;
 
     if (!effectiveApiKey) {
       return res.status(400).json({
@@ -8645,7 +8645,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
           case 'driveTime': {
             // Get drive times for calendar events with addresses in the next 2 days
             const calendarUrls = smartMirrorConfig.widgets?.calendar?.calendarUrls || [];
-            const tomtomApiKey = smartWidgetConfig.tomtomApiKey;
+            const tomtomApiKey = smartMirrorConfig.tomtomApiKey || smartWidgetConfig.tomtomApiKey;
             const homeAddress = smartWidgetConfig.homeAddress;
 
             if (tomtomApiKey && homeAddress) {
