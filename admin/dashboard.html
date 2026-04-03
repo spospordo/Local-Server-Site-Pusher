@@ -2509,6 +2509,7 @@
                 <button class="sub-tab active" onclick="showSubTab('house-vacation')">Vacation</button>
                 <button class="sub-tab" onclick="showSubTab('house-documentation')">Documentation</button>
                 <button class="sub-tab" onclick="showSubTab('house-mediacenter')">Media Center</button>
+                <button class="sub-tab" onclick="showSubTab('house-lists')">Lists</button>
             </div>
             
             <!-- Sub-tabs for Party -->
@@ -4080,6 +4081,40 @@
                 </div>
                 
                 <div id="mediaCenterAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Lists Section -->
+        <div class="card admin-section house-section house-lists-section hidden">
+            <div class="card-header">
+                <h2>📋 Lists</h2>
+            </div>
+            <div class="card-body">
+                <p>Create and manage custom lists for anything around the house. Assign categories to keep things organized.</p>
+
+                <!-- Category Management -->
+                <h3>Categories</h3>
+                <div id="listCategoriesContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading categories...</div>
+                </div>
+                <button class="btn btn-secondary" onclick="showAddCategoryModal()">🏷️ Add Category</button>
+
+                <div class="section-divider"></div>
+
+                <!-- Lists -->
+                <h3>My Lists</h3>
+                <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <label for="listCategoryFilter" style="margin: 0;">Filter by category:</label>
+                    <select id="listCategoryFilter" onchange="renderLists()" style="flex: 1; min-width: 150px; max-width: 260px;">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div id="listsContainer">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading lists...</div>
+                </div>
+                <button class="btn" onclick="showAddListModal()">➕ Create New List</button>
+
+                <div id="listsAlert" class="alert"></div>
             </div>
         </div>
 
@@ -7638,6 +7673,92 @@
                     </div>
                     <div class="modal-actions">
                         <button type="button" onclick="closeInstructionModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="addCategoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Category</h3>
+                <span class="close" onclick="closeAddCategoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm" onsubmit="saveCategory(event)">
+                    <div class="form-group">
+                        <label for="categoryName">Category Name *</label>
+                        <input type="text" id="categoryName" required placeholder="e.g., Shopping, Household, Garden">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeAddCategoryModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit List Modal -->
+    <div id="listModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="listModalTitle">Create New List</h3>
+                <span class="close" onclick="closeListModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="listForm" onsubmit="saveList(event)">
+                    <input type="hidden" id="listId">
+                    <div class="form-group">
+                        <label for="listName">List Name *</label>
+                        <input type="text" id="listName" required placeholder="e.g., Weekly Grocery List">
+                    </div>
+                    <div class="form-group">
+                        <label for="listDescription">Description</label>
+                        <textarea id="listDescription" rows="3" placeholder="Brief description of this list"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="listCategory">Category</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="listCategory" style="flex: 1;">
+                                <option value="">-- No Category --</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary" onclick="openQuickAddCategory()" title="Add new category">+ New</button>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeListModal()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit List Item Modal -->
+    <div id="listItemModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="listItemModalTitle">Add Item</h3>
+                <span class="close" onclick="closeListItemModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="listItemForm" onsubmit="saveListItem(event)">
+                    <input type="hidden" id="listItemListId">
+                    <input type="hidden" id="listItemId">
+                    <div class="form-group">
+                        <label for="listItemName">Item Name *</label>
+                        <input type="text" id="listItemName" required placeholder="e.g., Milk">
+                    </div>
+                    <div class="form-group">
+                        <label for="listItemDescription">Description</label>
+                        <textarea id="listItemDescription" rows="3" placeholder="Optional notes about this item"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeListItemModal()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn">Save</button>
                     </div>
                 </form>
@@ -11814,6 +11935,7 @@
                 if (subTabName === 'house-vacation') targetTabText = 'Vacation';
                 else if (subTabName === 'house-documentation') targetTabText = 'Documentation';
                 else if (subTabName === 'house-mediacenter') targetTabText = 'Media Center';
+                else if (subTabName === 'house-lists') targetTabText = 'Lists';
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
                 else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
@@ -11873,6 +11995,13 @@
                 
                 if (shouldLoadData) {
                     loadMediaCenterData();
+                }
+            } else if (subTabName === 'house-lists') {
+                const listsSections = document.querySelectorAll('.house-lists-section');
+                listsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadHouseListsData();
                 }
             } else if (subTabName === 'party-links') {
                 const linksSections = document.querySelectorAll('.party-links-section');
@@ -22403,6 +22532,349 @@
                 alert('Failed to delete instruction: ' + err.message);
             }
         }
+
+        // ── House Lists Functions ────────────────────────────────────────────────
+
+        let houseListsData = { categories: [], lists: [] };
+
+        async function loadHouseListsData() {
+            try {
+                const response = await fetch('/admin/api/house/lists');
+                houseListsData = await response.json();
+                renderCategories();
+                renderLists();
+                populateListCategoryFilter();
+            } catch (err) {
+                console.error('Failed to load lists data:', err);
+                showAlert('Failed to load lists data', 'error', 'listsAlert');
+            }
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('listCategoriesContainer');
+            const categories = houseListsData.categories || [];
+
+            if (categories.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 0.5rem;">No categories yet.</div>';
+                return;
+            }
+
+            container.innerHTML = '<div style="display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0;">' +
+                categories.map(cat => `
+                    <span style="background: #667eea; color: #fff; padding: 0.3rem 0.7rem; border-radius: 12px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+                        ${escapeHtml(cat.name)}
+                        <button onclick="deleteCategoryConfirm('${cat.id}')" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0;" title="Delete category">&times;</button>
+                    </span>
+                `).join('') +
+                '</div>';
+        }
+
+        function populateListCategoryFilter() {
+            const filter = document.getElementById('listCategoryFilter');
+            const categories = houseListsData.categories || [];
+            const current = filter.value;
+            filter.innerHTML = '<option value="">All Categories</option>' +
+                categories.map(cat => `<option value="${escapeHtml(cat.name)}"${cat.name === current ? ' selected' : ''}>${escapeHtml(cat.name)}</option>`).join('');
+        }
+
+        function renderLists() {
+            const container = document.getElementById('listsContainer');
+            const filterVal = (document.getElementById('listCategoryFilter')?.value || '').toLowerCase();
+            let lists = houseListsData.lists || [];
+
+            if (filterVal) {
+                lists = lists.filter(l => (l.category || '').toLowerCase() === filterVal);
+            }
+
+            if (lists.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No lists yet. Create one below!</div>';
+                return;
+            }
+
+            container.innerHTML = lists.map(list => `
+                <div style="background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #667eea; overflow: hidden;">
+                    <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <strong style="font-size: 1.05rem;">${escapeHtml(list.name)}</strong>
+                            ${list.category ? `<span style="background: #667eea; color: #fff; padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.78rem; margin-left: 0.5rem;">${escapeHtml(list.category)}</span>` : ''}
+                            ${list.description ? `<div style="color: #555; margin-top: 0.3rem; font-size: 0.9rem;">${escapeHtml(list.description)}</div>` : ''}
+                            <div style="color: #888; font-size: 0.8rem; margin-top: 0.25rem;">${(list.items || []).length} item(s)</div>
+                        </div>
+                        <div style="display: flex; gap: 0.4rem; flex-shrink: 0; margin-left: 0.5rem;">
+                            <button class="btn" style="padding: 0.4rem 0.6rem;" onclick="showAddListItemModal('${list.id}')">➕</button>
+                            <button class="btn" style="padding: 0.4rem 0.6rem;" onclick="editList('${list.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.4rem 0.6rem;" onclick="deleteListConfirm('${list.id}')">🗑️</button>
+                        </div>
+                    </div>
+                    ${renderListItems(list)}
+                </div>
+            `).join('');
+        }
+
+        function renderListItems(list) {
+            const items = list.items || [];
+            if (items.length === 0) {
+                return '<div style="padding: 0.5rem 1rem 0.75rem; color: #aaa; font-size: 0.88rem;">No items yet.</div>';
+            }
+            return '<div style="padding: 0 1rem 0.75rem;">' +
+                items.map(item => `
+                    <div style="display: flex; justify-content: space-between; align-items: start; padding: 0.4rem 0; border-top: 1px solid #e9ecef;">
+                        <div style="flex: 1;">
+                            <span>${escapeHtml(item.name)}</span>
+                            ${item.description ? `<div style="color: #777; font-size: 0.82rem;">${escapeHtml(item.description)}</div>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 0.3rem; margin-left: 0.5rem; flex-shrink: 0;">
+                            <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="editListItem('${list.id}', '${item.id}')">✏️</button>
+                            <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="deleteListItemConfirm('${list.id}', '${item.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `).join('') +
+                '</div>';
+        }
+
+        // Category functions
+        function showAddCategoryModal() {
+            document.getElementById('categoryName').value = '';
+            document.getElementById('addCategoryModal').style.display = 'flex';
+            document.getElementById('categoryName').focus();
+        }
+
+        function closeAddCategoryModal() {
+            document.getElementById('addCategoryModal').style.display = 'none';
+        }
+
+        async function saveCategory(event) {
+            event.preventDefault();
+            const name = document.getElementById('categoryName').value.trim();
+            if (!name) return;
+
+            try {
+                const response = await fetch('/admin/api/house/lists/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeAddCategoryModal();
+                    await loadHouseListsData();
+                    showAlert('✅ Category added!', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to add category: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to add category: ' + err.message);
+            }
+        }
+
+        async function deleteCategoryConfirm(id) {
+            if (!confirm('Delete this category? It will be removed from the category list but lists assigned to it will keep the category name.')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/lists/categories/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    await loadHouseListsData();
+                    showAlert('✅ Category deleted.', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to delete category: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete category: ' + err.message);
+            }
+        }
+
+        // List modal functions
+        function populateListCategoryDropdown(selectedValue) {
+            const select = document.getElementById('listCategory');
+            const categories = houseListsData.categories || [];
+            select.innerHTML = '<option value="">-- No Category --</option>' +
+                categories.map(cat => `<option value="${escapeHtml(cat.name)}"${cat.name === selectedValue ? ' selected' : ''}>${escapeHtml(cat.name)}</option>`).join('');
+        }
+
+        function showAddListModal() {
+            document.getElementById('listModalTitle').textContent = 'Create New List';
+            document.getElementById('listId').value = '';
+            document.getElementById('listName').value = '';
+            document.getElementById('listDescription').value = '';
+            populateListCategoryDropdown('');
+            document.getElementById('listModal').style.display = 'flex';
+        }
+
+        function editList(id) {
+            const list = (houseListsData.lists || []).find(l => l.id === id);
+            if (!list) return;
+
+            document.getElementById('listModalTitle').textContent = 'Edit List';
+            document.getElementById('listId').value = list.id;
+            document.getElementById('listName').value = list.name;
+            document.getElementById('listDescription').value = list.description || '';
+            populateListCategoryDropdown(list.category || '');
+            document.getElementById('listModal').style.display = 'flex';
+        }
+
+        function closeListModal() {
+            document.getElementById('listModal').style.display = 'none';
+        }
+
+        async function saveList(event) {
+            event.preventDefault();
+            const id = document.getElementById('listId').value;
+            const listData = {
+                name: document.getElementById('listName').value,
+                description: document.getElementById('listDescription').value,
+                category: document.getElementById('listCategory').value
+            };
+
+            try {
+                let response;
+                if (id) {
+                    response = await fetch(`/admin/api/house/lists/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(listData)
+                    });
+                } else {
+                    response = await fetch('/admin/api/house/lists', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(listData)
+                    });
+                }
+                const result = await response.json();
+                if (result.success) {
+                    closeListModal();
+                    await loadHouseListsData();
+                    showAlert('✅ List saved!', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to save list: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save list: ' + err.message);
+            }
+        }
+
+        async function deleteListConfirm(id) {
+            if (!confirm('Delete this list and all its items?')) return;
+            try {
+                const response = await fetch(`/admin/api/house/lists/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    await loadHouseListsData();
+                    showAlert('✅ List deleted.', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to delete list: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete list: ' + err.message);
+            }
+        }
+
+        // Quick-add category from inside the list modal
+        async function openQuickAddCategory() {
+            const name = prompt('Enter new category name:');
+            if (!name || !name.trim()) return;
+            try {
+                const response = await fetch('/admin/api/house/lists/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadHouseListsData();
+                    populateListCategoryDropdown(name.trim());
+                    document.getElementById('listCategory').value = name.trim();
+                } else {
+                    alert('Could not add category: ' + result.error);
+                }
+            } catch (err) {
+                alert('Could not add category: ' + err.message);
+            }
+        }
+
+        // List item modal functions
+        function showAddListItemModal(listId) {
+            document.getElementById('listItemModalTitle').textContent = 'Add Item';
+            document.getElementById('listItemListId').value = listId;
+            document.getElementById('listItemId').value = '';
+            document.getElementById('listItemName').value = '';
+            document.getElementById('listItemDescription').value = '';
+            document.getElementById('listItemModal').style.display = 'flex';
+        }
+
+        function editListItem(listId, itemId) {
+            const list = (houseListsData.lists || []).find(l => l.id === listId);
+            if (!list) return;
+            const item = (list.items || []).find(i => i.id === itemId);
+            if (!item) return;
+
+            document.getElementById('listItemModalTitle').textContent = 'Edit Item';
+            document.getElementById('listItemListId').value = listId;
+            document.getElementById('listItemId').value = itemId;
+            document.getElementById('listItemName').value = item.name;
+            document.getElementById('listItemDescription').value = item.description || '';
+            document.getElementById('listItemModal').style.display = 'flex';
+        }
+
+        function closeListItemModal() {
+            document.getElementById('listItemModal').style.display = 'none';
+        }
+
+        async function saveListItem(event) {
+            event.preventDefault();
+            const listId = document.getElementById('listItemListId').value;
+            const itemId = document.getElementById('listItemId').value;
+            const itemData = {
+                name: document.getElementById('listItemName').value,
+                description: document.getElementById('listItemDescription').value
+            };
+
+            try {
+                let response;
+                if (itemId) {
+                    response = await fetch(`/admin/api/house/lists/${listId}/items/${itemId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemData)
+                    });
+                } else {
+                    response = await fetch(`/admin/api/house/lists/${listId}/items`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemData)
+                    });
+                }
+                const result = await response.json();
+                if (result.success) {
+                    closeListItemModal();
+                    await loadHouseListsData();
+                    showAlert('✅ Item saved!', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to save item: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to save item: ' + err.message);
+            }
+        }
+
+        async function deleteListItemConfirm(listId, itemId) {
+            if (!confirm('Remove this item from the list?')) return;
+            try {
+                const response = await fetch(`/admin/api/house/lists/${listId}/items/${itemId}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    await loadHouseListsData();
+                    showAlert('✅ Item removed.', 'success', 'listsAlert');
+                } else {
+                    alert('Failed to remove item: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to remove item: ' + err.message);
+            }
+        }
+
+        // ── End House Lists Functions ──────────────────────────────────────────
 
         // Media Center Functions
         let mediaCenterData = { devices: [], connections: [] };

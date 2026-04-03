@@ -9255,6 +9255,142 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
 });
 
 // =============================================================================
+// House Lists API
+// =============================================================================
+
+// Get all lists (and categories)
+app.get('/admin/api/house/lists', requireAuth, (req, res) => {
+  try {
+    const data = house.getListsData();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load lists: ' + err.message });
+  }
+});
+
+// Get categories
+app.get('/admin/api/house/lists/categories', requireAuth, (req, res) => {
+  try {
+    const categories = house.getCategories();
+    res.json({ categories });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load categories: ' + err.message });
+  }
+});
+
+// Add a category
+app.post('/admin/api/house/lists/categories', requireAuth, (req, res) => {
+  try {
+    const result = house.addCategory(req.body.name);
+    if (result.success) {
+      res.json({ success: true, message: 'Category added successfully' });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add category: ' + err.message });
+  }
+});
+
+// Delete a category
+app.delete('/admin/api/house/lists/categories/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteCategory(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Category deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete category: ' + err.message });
+  }
+});
+
+// Create a list
+app.post('/admin/api/house/lists', requireAuth, (req, res) => {
+  try {
+    const result = house.addList(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'List created successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create list: ' + err.message });
+  }
+});
+
+// Update a list
+app.put('/admin/api/house/lists/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateList(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'List updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update list: ' + err.message });
+  }
+});
+
+// Delete a list
+app.delete('/admin/api/house/lists/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteList(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'List deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete list: ' + err.message });
+  }
+});
+
+// Add item to a list
+app.post('/admin/api/house/lists/:id/items', requireAuth, (req, res) => {
+  try {
+    const result = house.addListItem(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Item added successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add item: ' + err.message });
+  }
+});
+
+// Update item in a list
+app.put('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) => {
+  try {
+    const result = house.updateListItem(req.params.id, req.params.itemId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Item updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update item: ' + err.message });
+  }
+});
+
+// Delete item from a list
+app.delete('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteListItem(req.params.id, req.params.itemId);
+    if (result.success) {
+      res.json({ success: true, message: 'Item deleted successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete item: ' + err.message });
+  }
+});
+
+// =============================================================================
 // Remote Management API – admin routes (require admin session auth)
 // =============================================================================
 
