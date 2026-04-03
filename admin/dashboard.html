@@ -7436,20 +7436,48 @@
                         <input type="date" id="vacationEndDate" required>
                     </div>
                     <div class="form-group">
-                        <label for="vacationDestination">Destination</label>
-                        <input type="text" id="vacationDestination" placeholder="e.g., Hawaii">
-                        <div style="margin-top: 8px;">
-                            <button type="button" onclick="testVacationLocation()" class="btn btn-secondary" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
-                                🔍 Test Location for Weather
-                            </button>
-                            <div id="locationTestResult" style="margin-top: 8px; font-size: 0.85rem;"></div>
-                        </div>
+                        <label>Destinations</label>
+                        <div id="destinationsList" style="margin-bottom: 10px;"></div>
+                        <button type="button" onclick="addDestination()" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.3rem 0.6rem;">
+                            ➕ Add Destination
+                        </button>
                     </div>
                     <div class="form-group">
                         <label for="vacationNotes">Notes</label>
                         <textarea id="vacationNotes" rows="3" placeholder="Additional information..."></textarea>
                     </div>
                     
+                    <!-- House-Sitting Section -->
+                    <div class="form-group" style="border-top: 2px solid #eee; padding-top: 16px; margin-top: 16px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
+                            <input type="checkbox" id="vacationHouseSitting" style="width: 16px; height: 16px; cursor: pointer;">
+                            🏠 Someone will be house-sitting during this vacation
+                        </label>
+                    </div>
+
+                    <!-- Dog Watching Section -->
+                    <div class="form-group" style="border-top: 2px solid #eee; padding-top: 16px; margin-top: 16px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">🐕 Dog Watching</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="vacationDogWatching" value="" id="dogWatchingNone" style="cursor: pointer;" onchange="toggleDogWatchingLocation()">
+                                Not applicable / not specified
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="vacationDogWatching" value="home" id="dogWatchingHome" style="cursor: pointer;" onchange="toggleDogWatchingLocation()">
+                                Dog watched at home
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="vacationDogWatching" value="other" id="dogWatchingOther" style="cursor: pointer;" onchange="toggleDogWatchingLocation()">
+                                Dog watched at another location
+                            </label>
+                        </div>
+                        <div id="dogWatchingLocationGroup" style="display: none; margin-top: 8px;">
+                            <label for="dogWatchingLocationInput" style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Location Details</label>
+                            <input type="text" id="dogWatchingLocationInput" placeholder="e.g., Uncle Bob's house, 123 Main St" style="width: 100%;">
+                        </div>
+                    </div>
+
                     <!-- Dashboard Clock Widget Section -->
                     <div class="form-group" style="border-top: 2px solid #eee; padding-top: 16px; margin-top: 16px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
@@ -21478,6 +21506,22 @@
                 const hasFlights = flights.length > 0;
                 const trackingEnabled = date.flightTrackingEnabled === true;
                 
+                // Normalize destinations for display
+                const effectiveDestinations = (date.destinations && date.destinations.length > 0)
+                    ? date.destinations
+                    : (date.destination ? [{ name: date.destination }] : []);
+                
+                let destinationsHtml = '';
+                if (effectiveDestinations.length > 0) {
+                    destinationsHtml = effectiveDestinations.map(d => {
+                        const flags = [];
+                        if (d.showWeather !== false) flags.push('🌤 Weather');
+                        if (d.showTimezone !== false) flags.push('🕐 Timezone');
+                        const flagsStr = flags.length > 0 ? `<small style="color:#888; margin-left:6px;">(${flags.join(', ')})</small>` : '';
+                        return `<span style="color: #666;">📍 ${escapeHtml(d.name)}${flagsStr}</span>`;
+                    }).join('<br>');
+                }
+                
                 let flightsHtml = '';
                 if (hasFlights) {
                     flightsHtml = `
@@ -21489,7 +21533,7 @@
                                     '<span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; margin-left: 6px;">⏳ Pending</span>';
                                 return `
                                     <div style="font-size: 0.9rem; color: #666; margin-left: 10px;">
-                                        ${flight.airline} ${flight.flightNumber} on ${flight.date}${validatedBadge}
+                                        ${escapeHtml(flight.airline)} ${escapeHtml(flight.flightNumber)} on ${escapeHtml(flight.date)}${validatedBadge}
                                     </div>
                                 `;
                             }).join('')}
@@ -21507,14 +21551,29 @@
                     `;
                 }
                 
+                // House-sitting and dog-watching badges
+                let extraInfoHtml = '';
+                if (date.houseSitting) {
+                    extraInfoHtml += `<br><span style="color: #2563eb; font-size: 0.85rem;">🏠 House-sitter arranged</span>`;
+                }
+                const dw = date.dogWatching;
+                if (dw && dw.enabled && dw.location) {
+                    if (dw.location === 'home') {
+                        extraInfoHtml += `<br><span style="color: #16a34a; font-size: 0.85rem;">🐕 Dog watched at home</span>`;
+                    } else if (dw.location === 'other') {
+                        const locDetail = dw.locationDetails ? `: ${escapeHtml(dw.locationDetails)}` : '';
+                        extraInfoHtml += `<br><span style="color: #16a34a; font-size: 0.85rem;">🐕 Dog watched at another location${locDetail}</span>`;
+                    }
+                }
+                
                 return `
                     <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem; border-left: 4px solid #667eea;">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div style="flex: 1;">
-                                <strong>${date.startDate} to ${date.endDate}</strong>
-                                ${date.destination ? `<br><span style="color: #666;">📍 ${date.destination}</span>` : ''}
-                                ${date.notes ? `<br><span style="color: #666;">${date.notes}</span>` : ''}
-                                ${date.addToDashboardClock && date.clockCity && date.clockTimezone ? `<br><span style="color: #667eea; font-size: 0.85rem;">🕐 Clock: ${date.clockCity} (${date.clockTimezone})</span>` : ''}
+                                <strong>${escapeHtml(date.startDate)} to ${escapeHtml(date.endDate)}</strong>
+                                ${destinationsHtml ? `<br>${destinationsHtml}` : ''}
+                                ${date.notes ? `<br><span style="color: #666;">${escapeHtml(date.notes)}</span>` : ''}
+                                ${date.addToDashboardClock && date.clockCity && date.clockTimezone ? `<br><span style="color: #667eea; font-size: 0.85rem;">🕐 Clock: ${escapeHtml(date.clockCity)} (${escapeHtml(date.clockTimezone)})</span>` : ''}
                                 ${(date.listIds && date.listIds.length > 0) ? (() => {
                                     const names = date.listIds.map(lid => {
                                         const l = currentHouseLists.find(x => x.id === lid);
@@ -21522,6 +21581,7 @@
                                     }).filter(Boolean);
                                     return names.length > 0 ? `<br><span style="color: #555; font-size: 0.85rem;">📋 Lists: ${names.join(', ')}</span>` : '';
                                 })() : ''}
+                                ${extraInfoHtml}
                                 ${flightsHtml}
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
@@ -21604,9 +21664,7 @@
             document.getElementById('vacationDateId').value = '';
             document.getElementById('vacationStartDate').value = '';
             document.getElementById('vacationEndDate').value = '';
-            document.getElementById('vacationDestination').value = '';
             document.getElementById('vacationNotes').value = '';
-            document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('flightsList').innerHTML = '';
             document.getElementById('flightApiStatusBanner').innerHTML = '';
             document.getElementById('vacationAddLocalTime').checked = false;
@@ -21614,6 +21672,11 @@
             document.getElementById('vacationClockTimezone').value = '';
             document.getElementById('vacationClockSection').style.display = 'none';
             document.getElementById('vacationClockSlotStatus').innerHTML = '';
+            document.getElementById('vacationHouseSitting').checked = false;
+            document.getElementById('dogWatchingNone').checked = true;
+            document.getElementById('dogWatchingLocationInput').value = '';
+            document.getElementById('dogWatchingLocationGroup').style.display = 'none';
+            loadDestinationsIntoModal([]);
             loadVacationListsIntoModal([]);
             document.getElementById('vacationDateModal').style.display = 'flex';
             checkFlightApiStatus();
@@ -21627,11 +21690,15 @@
             document.getElementById('vacationDateId').value = date.id;
             document.getElementById('vacationStartDate').value = date.startDate;
             document.getElementById('vacationEndDate').value = date.endDate;
-            document.getElementById('vacationDestination').value = date.destination || '';
             document.getElementById('vacationNotes').value = date.notes || '';
-            document.getElementById('locationTestResult').innerHTML = '';
             loadFlightsIntoModal(date.flights || []);
             document.getElementById('flightApiStatusBanner').innerHTML = '';
+            
+            // Restore destinations: prefer destinations array, fall back to single destination
+            const destinations = (date.destinations && date.destinations.length > 0)
+                ? date.destinations
+                : (date.destination ? [{ name: date.destination, showWeather: true, showTimezone: true }] : []);
+            loadDestinationsIntoModal(destinations);
             
             // Restore clock widget preferences
             const addClock = date.addToDashboardClock === true;
@@ -21641,6 +21708,18 @@
             document.getElementById('vacationClockSection').style.display = addClock ? 'block' : 'none';
             document.getElementById('vacationClockSlotStatus').innerHTML = '';
             
+            // Restore house-sitting
+            document.getElementById('vacationHouseSitting').checked = date.houseSitting === true;
+            
+            // Restore dog watching
+            const dw = date.dogWatching || {};
+            const dwLocation = dw.location || '';
+            const dwRadio = document.querySelector(`input[name="vacationDogWatching"][value="${dwLocation}"]`);
+            if (dwRadio) dwRadio.checked = true;
+            else document.getElementById('dogWatchingNone').checked = true;
+            document.getElementById('dogWatchingLocationInput').value = dw.locationDetails || '';
+            document.getElementById('dogWatchingLocationGroup').style.display = dwLocation === 'other' ? 'block' : 'none';
+            
             loadVacationListsIntoModal(date.listIds || []);
             
             document.getElementById('vacationDateModal').style.display = 'flex';
@@ -21648,7 +21727,6 @@
         }
         
         function closeVacationDateModal() {
-            document.getElementById('locationTestResult').innerHTML = '';
             document.getElementById('vacationDateModal').style.display = 'none';
         }
         
@@ -21657,6 +21735,159 @@
             if (!checked) {
                 document.getElementById('vacationClockSlotStatus').innerHTML = '';
             }
+        }
+        
+        function toggleDogWatchingLocation() {
+            const selected = document.querySelector('input[name="vacationDogWatching"]:checked');
+            const group = document.getElementById('dogWatchingLocationGroup');
+            group.style.display = (selected && selected.value === 'other') ? 'block' : 'none';
+        }
+        
+        // Destinations management
+        function generateDestinationId() {
+            return 'dest-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+        }
+        
+        function addDestination(name, showWeather, showTimezone) {
+            const destId = generateDestinationId();
+            const destDiv = document.createElement('div');
+            destDiv.id = destId;
+            destDiv.style.cssText = 'background: white; padding: 12px; border-radius: 5px; margin-bottom: 8px; border: 1px solid #ddd;';
+            const escName = (name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const wChecked = showWeather !== false ? 'checked' : '';
+            const tzChecked = showTimezone !== false ? 'checked' : '';
+            destDiv.innerHTML = `
+                <div style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 160px;">
+                        <label style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Destination Name</label>
+                        <input type="text" class="dest-name" value="${escName}" placeholder="e.g., Hawaii"
+                               style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; flex-shrink: 0;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
+                            <input type="checkbox" class="dest-show-weather" ${wChecked} style="cursor: pointer;">
+                            Show weather
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
+                            <input type="checkbox" class="dest-show-timezone" ${tzChecked} style="cursor: pointer;">
+                            Show timezone
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 6px; padding-top: 20px; flex-shrink: 0;">
+                        <button type="button" onclick="testDestinationLocation('${destId}')" class="btn btn-secondary"
+                                style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
+                            🔍 Test
+                        </button>
+                        <button type="button" onclick="removeDestination('${destId}')" class="btn btn-danger"
+                                style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+                <div class="dest-test-result" style="font-size: 0.85rem; margin-top: 6px;"></div>
+            `;
+            document.getElementById('destinationsList').appendChild(destDiv);
+        }
+        
+        function removeDestination(destId) {
+            const destDiv = document.getElementById(destId);
+            if (destDiv) destDiv.remove();
+        }
+        
+        async function testDestinationLocation(destId) {
+            const destDiv = document.getElementById(destId);
+            if (!destDiv) return;
+            const nameInput = destDiv.querySelector('.dest-name');
+            const resultDiv = destDiv.querySelector('.dest-test-result');
+            const destination = nameInput ? nameInput.value.trim() : '';
+            
+            if (!destination) {
+                resultDiv.innerHTML = '<div style="color: #ef4444;">⚠️ Please enter a destination name first</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div style="color: #6b7280;">🔄 Testing location...</div>';
+            
+            try {
+                const response = await fetch('/admin/api/smart-mirror/test-location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ location: destination })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const escHtml = (str) => { const d = document.createElement('div'); d.textContent = String(str); return d.innerHTML; };
+                    const locName = result.data?.location || destination;
+                    const country = result.data?.country ? ', ' + result.data.country : '';
+                    
+                    let timezoneHint = '';
+                    if (typeof result.data?.timezoneOffset === 'number') {
+                        const matched = autoSetTimezoneFromOffset(result.data.timezoneOffset, locName);
+                        if (matched) {
+                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${escHtml(matched)}. You can override it below.</small>`;
+                        }
+                    }
+                    
+                    resultDiv.innerHTML = `
+                        <div style="color: #10b981; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">
+                            ✅ ${escHtml(result.message || '')}<br>
+                            <small style="opacity: 0.8;">
+                                Location: ${escHtml(locName)}${escHtml(country)}<br>
+                                Current: ${escHtml(result.data?.temp ?? 'N/A')}° - ${escHtml(result.data?.condition || 'N/A')}
+                            </small>${timezoneHint}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
+                            ❌ Location test failed<br>
+                            <small style="opacity: 0.8;">Please try a different location name or check spelling.</small>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
+                        ❌ Error testing location
+                    </div>
+                `;
+            }
+        }
+        
+        function collectDestinations() {
+            const destsList = document.getElementById('destinationsList');
+            const destDivs = destsList.querySelectorAll('[id^="dest-"]');
+            const destinations = [];
+            destDivs.forEach(destDiv => {
+                const name = (destDiv.querySelector('.dest-name')?.value || '').trim();
+                if (name) {
+                    destinations.push({
+                        name: name,
+                        showWeather: destDiv.querySelector('.dest-show-weather')?.checked !== false,
+                        showTimezone: destDiv.querySelector('.dest-show-timezone')?.checked !== false
+                    });
+                }
+            });
+            return destinations;
+        }
+        
+        function loadDestinationsIntoModal(destinations) {
+            document.getElementById('destinationsList').innerHTML = '';
+            (destinations || []).forEach(dest => {
+                addDestination(dest.name, dest.showWeather !== false, dest.showTimezone !== false);
+            });
+        }
+        
+        function collectDogWatching() {
+            const selected = document.querySelector('input[name="vacationDogWatching"]:checked');
+            const location = selected ? selected.value : '';
+            return {
+                enabled: location !== '',
+                location: location,
+                locationDetails: location === 'other' ? (document.getElementById('dogWatchingLocationInput').value.trim()) : ''
+            };
         }
         
         async function loadVacationListsIntoModal(selectedIds) {
@@ -22028,69 +22259,6 @@
             document.getElementById('vacationClockSection').style.display = 'block';
         }
 
-        // Test vacation location for weather availability
-        async function testVacationLocation() {
-            const destination = document.getElementById('vacationDestination').value.trim();
-            const resultDiv = document.getElementById('locationTestResult');
-            
-            if (!destination) {
-                resultDiv.innerHTML = '<div style="color: #ef4444;">⚠️ Please enter a destination first</div>';
-                return;
-            }
-            
-            // Show loading state
-            resultDiv.innerHTML = '<div style="color: #6b7280;">🔄 Testing location...</div>';
-            
-            try {
-                const response = await fetch('/admin/api/smart-mirror/test-location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ location: destination })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    const locName = result.data?.location || destination;
-                    const country = result.data?.country ? ', ' + result.data.country : '';
-
-                    // Auto-suggest timezone from destination offset when available
-                    let timezoneHint = '';
-                    if (typeof result.data?.timezoneOffset === 'number') {
-                        const escapeHtmlTz = (str) => { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; };
-                        const matched = autoSetTimezoneFromOffset(result.data.timezoneOffset, locName);
-                        if (matched) {
-                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${escapeHtmlTz(matched)}. You can override it below.</small>`;
-                        }
-                    }
-
-                    resultDiv.innerHTML = `
-                        <div style="color: #10b981; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">
-                            ✅ ${result.message}<br>
-                            <small style="opacity: 0.8;">
-                                Location: ${locName}${country}<br>
-                                Current: ${result.data?.temp || 'N/A'}° - ${result.data?.condition || 'N/A'}
-                            </small>${timezoneHint}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
-                            ❌ ${result.message || 'Location test failed'}<br>
-                            <small style="opacity: 0.8;">Please try a different location name or check spelling.</small>
-                        </div>
-                    `;
-                }
-            } catch (err) {
-                resultDiv.innerHTML = `
-                    <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
-                        ❌ Error testing location: ${err.message}<br>
-                        <small style="opacity: 0.8;">Please try again or check your connection.</small>
-                    </div>
-                `;
-            }
-        }
-        
         async function saveVacationDate(event) {
             event.preventDefault();
             
@@ -22106,16 +22274,23 @@
                 return;
             }
             
+            const destinations = collectDestinations();
+            const dogWatching = collectDogWatching();
+            
             const dateData = {
                 startDate: document.getElementById('vacationStartDate').value,
                 endDate: document.getElementById('vacationEndDate').value,
-                destination: document.getElementById('vacationDestination').value,
+                // Set destination to first destination name for backward compatibility
+                destination: destinations.length > 0 ? destinations[0].name : '',
+                destinations: destinations,
                 notes: document.getElementById('vacationNotes').value,
                 flights: collectFlightData(),
                 addToDashboardClock,
                 clockCity: addToDashboardClock ? clockCity : '',
                 clockTimezone: addToDashboardClock ? clockTimezone : '',
-                listIds: collectVacationListIds()
+                listIds: collectVacationListIds(),
+                houseSitting: document.getElementById('vacationHouseSitting').checked,
+                dogWatching: dogWatching
             };
             
             try {

@@ -2239,23 +2239,41 @@
                     vacationDiv.style.paddingBottom = '15px';
                     vacationDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
                     
+                    // Normalize destinations (backward compat: fall back to single destination)
+                    const effectiveDests = (vacation.destinations && vacation.destinations.length > 0)
+                        ? vacation.destinations
+                        : (vacation.destination ? [{ name: vacation.destination, showWeather: true, showTimezone: true }] : []);
+                    
                     // Destination header
                     const headerDiv = document.createElement('div');
                     headerDiv.style.display = 'flex';
-                    headerDiv.style.alignItems = 'center';
+                    headerDiv.style.alignItems = 'flex-start';
                     headerDiv.style.marginBottom = '8px';
                     
                     const iconSpan = document.createElement('span');
                     iconSpan.style.fontSize = '1.2rem';
                     iconSpan.style.marginRight = '8px';
+                    iconSpan.style.flexShrink = '0';
                     iconSpan.textContent = '📍';
                     headerDiv.appendChild(iconSpan);
                     
-                    const destDiv = document.createElement('div');
-                    destDiv.style.fontSize = '1.1rem';
-                    destDiv.style.fontWeight = 'bold';
-                    destDiv.textContent = vacation.destination || 'Vacation';
-                    headerDiv.appendChild(destDiv);
+                    if (effectiveDests.length <= 1) {
+                        const destDiv = document.createElement('div');
+                        destDiv.style.fontSize = '1.1rem';
+                        destDiv.style.fontWeight = 'bold';
+                        destDiv.textContent = (effectiveDests[0] && effectiveDests[0].name) || vacation.destination || 'Vacation';
+                        headerDiv.appendChild(destDiv);
+                    } else {
+                        const destListDiv = document.createElement('div');
+                        effectiveDests.forEach(dest => {
+                            const d = document.createElement('div');
+                            d.style.fontSize = '1rem';
+                            d.style.fontWeight = 'bold';
+                            d.textContent = dest.name;
+                            destListDiv.appendChild(d);
+                        });
+                        headerDiv.appendChild(destListDiv);
+                    }
                     
                     vacationDiv.appendChild(headerDiv);
                     
@@ -2289,132 +2307,141 @@
                         vacationDiv.appendChild(countdownDiv);
                     }
                     
-                    // Fetch weather and timezone if destination is provided
-                    if (vacation.destination && vacation.destination.trim()) {
+                    // Fetch weather and timezone per destination
+                    for (const dest of effectiveDests) {
+                        if (!dest.name || !dest.name.trim()) continue;
+                        if (dest.showWeather === false && dest.showTimezone === false) continue;
                         try {
-                            // Fetch timezone info
-                            const timezoneResponse = await fetch(`/api/smart-mirror/vacation-timezone?location=${encodeURIComponent(vacation.destination)}`);
-                            const timezoneData = await timezoneResponse.json();
+                            const destLabelNeeded = effectiveDests.length > 1;
                             
-                            // Display local time if timezone differs from browser timezone
-                            if (timezoneData.success && timezoneData.data) {
-                                const localOffset = new Date().getTimezoneOffset() * -SECONDS_PER_MINUTE; // Browser offset in seconds
-                                const destOffset = timezoneData.data.timezoneOffset;
-                                const offsetDiff = (destOffset - localOffset) / SECONDS_PER_HOUR; // Difference in hours
+                            if (dest.showTimezone !== false) {
+                                const timezoneResponse = await fetch(`/api/smart-mirror/vacation-timezone?location=${encodeURIComponent(dest.name)}`);
+                                const timezoneData = await timezoneResponse.json();
                                 
-                                if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
-                                    // Calculate destination time
-                                    const now = new Date();
-                                    const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
+                                if (timezoneData.success && timezoneData.data) {
+                                    const localOffset = new Date().getTimezoneOffset() * -SECONDS_PER_MINUTE;
+                                    const destOffset = timezoneData.data.timezoneOffset;
+                                    const offsetDiff = (destOffset - localOffset) / SECONDS_PER_HOUR;
                                     
-                                    const timeDiv = document.createElement('div');
-                                    timeDiv.style.fontSize = '0.85rem';
-                                    timeDiv.style.marginBottom = '8px';
-                                    timeDiv.style.display = 'flex';
-                                    timeDiv.style.alignItems = 'center';
-                                    
-                                    const clockIcon = document.createElement('span');
-                                    clockIcon.textContent = '🕐 ';
-                                    clockIcon.style.marginRight = '4px';
-                                    timeDiv.appendChild(clockIcon);
-                                    
-                                    const timeText = document.createElement('span');
-                                    timeText.textContent = `Local: ${destTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} `;
-                                    timeDiv.appendChild(timeText);
-                                    
-                                    const offsetText = document.createElement('span');
-                                    offsetText.style.opacity = '0.7';
-                                    offsetText.textContent = `(${offsetDiff >= 0 ? '+' : ''}${offsetDiff.toFixed(0)}h)`;
-                                    timeDiv.appendChild(offsetText);
-                                    
-                                    vacationDiv.appendChild(timeDiv);
+                                    if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
+                                        const now = new Date();
+                                        const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
+                                        
+                                        const timeDiv = document.createElement('div');
+                                        timeDiv.style.fontSize = '0.85rem';
+                                        timeDiv.style.marginBottom = '8px';
+                                        timeDiv.style.display = 'flex';
+                                        timeDiv.style.alignItems = 'center';
+                                        
+                                        const clockIcon = document.createElement('span');
+                                        clockIcon.textContent = '🕐 ';
+                                        clockIcon.style.marginRight = '4px';
+                                        timeDiv.appendChild(clockIcon);
+                                        
+                                        const timeText = document.createElement('span');
+                                        timeText.textContent = `${destLabelNeeded ? dest.name + ': ' : ''}Local: ${destTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} `;
+                                        timeDiv.appendChild(timeText);
+                                        
+                                        const offsetText = document.createElement('span');
+                                        offsetText.style.opacity = '0.7';
+                                        offsetText.textContent = `(${offsetDiff >= 0 ? '+' : ''}${offsetDiff.toFixed(0)}h)`;
+                                        timeDiv.appendChild(offsetText);
+                                        
+                                        vacationDiv.appendChild(timeDiv);
+                                    }
                                 }
                             }
                             
-                            // Fetch weather forecast
-                            const weatherResponse = await fetch(`/api/smart-mirror/vacation-weather?location=${encodeURIComponent(vacation.destination)}`);
-                            const weatherData = await weatherResponse.json();
-                            
-                            if (weatherData.success && weatherData.days && weatherData.days.length > 0) {
-                                const weatherDiv = document.createElement('div');
-                                weatherDiv.style.fontSize = '0.85rem';
-                                weatherDiv.style.marginTop = '8px';
+                            if (dest.showWeather !== false) {
+                                const weatherResponse = await fetch(`/api/smart-mirror/vacation-weather?location=${encodeURIComponent(dest.name)}`);
+                                const weatherData = await weatherResponse.json();
                                 
-                                // Find weather for vacation dates
-                                const vacationDays = weatherData.days.filter(day => {
-                                    const dayDate = new Date(day.date);
-                                    return dayDate >= startDate && dayDate <= endDate;
-                                });
-                                
-                                if (vacationDays.length > 0) {
-                                    // Show average or first day weather
-                                    const firstDay = vacationDays[0];
-                                    const weatherIcon = getWeatherIcon(firstDay.icon);
+                                if (weatherData.success && weatherData.days && weatherData.days.length > 0) {
+                                    const weatherDiv = document.createElement('div');
+                                    weatherDiv.style.fontSize = '0.85rem';
+                                    weatherDiv.style.marginTop = '8px';
                                     
-                                    const weatherContent = document.createElement('div');
-                                    weatherContent.style.display = 'flex';
-                                    weatherContent.style.alignItems = 'center';
-                                    weatherContent.style.gap = '8px';
+                                    if (destLabelNeeded) {
+                                        const destLabel = document.createElement('div');
+                                        destLabel.style.fontSize = '0.78rem';
+                                        destLabel.style.opacity = '0.7';
+                                        destLabel.style.marginBottom = '2px';
+                                        destLabel.textContent = dest.name;
+                                        weatherDiv.appendChild(destLabel);
+                                    }
                                     
-                                    const iconSpan = document.createElement('span');
-                                    iconSpan.style.fontSize = '1.3rem';
-                                    iconSpan.textContent = weatherIcon;
-                                    weatherContent.appendChild(iconSpan);
+                                    const vacationDays = weatherData.days.filter(day => {
+                                        const dayDate = new Date(day.date);
+                                        return dayDate >= startDate && dayDate <= endDate;
+                                    });
                                     
-                                    const tempSpan = document.createElement('span');
-                                    tempSpan.textContent = `${firstDay.tempHigh}° / ${firstDay.tempLow}°`;
-                                    weatherContent.appendChild(tempSpan);
+                                    if (vacationDays.length > 0) {
+                                        const firstDay = vacationDays[0];
+                                        const weatherIcon = getWeatherIcon(firstDay.icon);
+                                        
+                                        const weatherContent = document.createElement('div');
+                                        weatherContent.style.display = 'flex';
+                                        weatherContent.style.alignItems = 'center';
+                                        weatherContent.style.gap = '8px';
+                                        
+                                        const weatherIconSpan = document.createElement('span');
+                                        weatherIconSpan.style.fontSize = '1.3rem';
+                                        weatherIconSpan.textContent = weatherIcon;
+                                        weatherContent.appendChild(weatherIconSpan);
+                                        
+                                        const tempSpan = document.createElement('span');
+                                        tempSpan.textContent = `${firstDay.tempHigh}° / ${firstDay.tempLow}°`;
+                                        weatherContent.appendChild(tempSpan);
+                                        
+                                        const condSpan = document.createElement('span');
+                                        condSpan.style.opacity = '0.8';
+                                        condSpan.textContent = firstDay.condition || firstDay.description;
+                                        weatherContent.appendChild(condSpan);
+                                        
+                                        weatherDiv.appendChild(weatherContent);
+                                    } else if (weatherData.isFallback && weatherData.days && weatherData.days.length > 0) {
+                                        const day = weatherData.days[0];
+                                        const weatherIcon = getWeatherIcon(day.icon);
+                                        
+                                        const weatherContent = document.createElement('div');
+                                        weatherContent.style.display = 'flex';
+                                        weatherContent.style.alignItems = 'center';
+                                        weatherContent.style.gap = '8px';
+                                        
+                                        const weatherIconSpan = document.createElement('span');
+                                        weatherIconSpan.style.fontSize = '1.3rem';
+                                        weatherIconSpan.textContent = weatherIcon;
+                                        weatherContent.appendChild(weatherIconSpan);
+                                        
+                                        const tempSpan = document.createElement('span');
+                                        tempSpan.textContent = `${day.tempHigh}°`;
+                                        weatherContent.appendChild(tempSpan);
+                                        
+                                        const condSpan = document.createElement('span');
+                                        condSpan.style.opacity = '0.8';
+                                        condSpan.textContent = day.condition || day.description;
+                                        weatherContent.appendChild(condSpan);
+                                        
+                                        weatherDiv.appendChild(weatherContent);
+                                        
+                                        const fallbackNote = document.createElement('div');
+                                        fallbackNote.style.fontSize = '0.75rem';
+                                        fallbackNote.style.opacity = '0.6';
+                                        fallbackNote.style.marginTop = '4px';
+                                        fallbackNote.textContent = '(Current weather - forecast unavailable)';
+                                        weatherDiv.appendChild(fallbackNote);
+                                    } else {
+                                        const noWeatherSpan = document.createElement('span');
+                                        noWeatherSpan.style.opacity = '0.6';
+                                        noWeatherSpan.textContent = '⛅ Weather forecast not available for dates';
+                                        weatherDiv.appendChild(noWeatherSpan);
+                                    }
                                     
-                                    const condSpan = document.createElement('span');
-                                    condSpan.style.opacity = '0.8';
-                                    condSpan.textContent = firstDay.condition || firstDay.description;
-                                    weatherContent.appendChild(condSpan);
-                                    
-                                    weatherDiv.appendChild(weatherContent);
-                                } else if (weatherData.isFallback && weatherData.days && weatherData.days.length > 0) {
-                                    // Show current weather as fallback
-                                    const day = weatherData.days[0];
-                                    const weatherIcon = getWeatherIcon(day.icon);
-                                    
-                                    const weatherContent = document.createElement('div');
-                                    weatherContent.style.display = 'flex';
-                                    weatherContent.style.alignItems = 'center';
-                                    weatherContent.style.gap = '8px';
-                                    
-                                    const iconSpan = document.createElement('span');
-                                    iconSpan.style.fontSize = '1.3rem';
-                                    iconSpan.textContent = weatherIcon;
-                                    weatherContent.appendChild(iconSpan);
-                                    
-                                    const tempSpan = document.createElement('span');
-                                    tempSpan.textContent = `${day.tempHigh}°`;
-                                    weatherContent.appendChild(tempSpan);
-                                    
-                                    const condSpan = document.createElement('span');
-                                    condSpan.style.opacity = '0.8';
-                                    condSpan.textContent = day.condition || day.description;
-                                    weatherContent.appendChild(condSpan);
-                                    
-                                    weatherDiv.appendChild(weatherContent);
-                                    
-                                    const fallbackNote = document.createElement('div');
-                                    fallbackNote.style.fontSize = '0.75rem';
-                                    fallbackNote.style.opacity = '0.6';
-                                    fallbackNote.style.marginTop = '4px';
-                                    fallbackNote.textContent = '(Current weather - forecast unavailable)';
-                                    weatherDiv.appendChild(fallbackNote);
-                                } else {
-                                    const noWeatherSpan = document.createElement('span');
-                                    noWeatherSpan.style.opacity = '0.6';
-                                    noWeatherSpan.textContent = '⛅ Weather forecast not available for dates';
-                                    weatherDiv.appendChild(noWeatherSpan);
+                                    vacationDiv.appendChild(weatherDiv);
                                 }
-                                
-                                vacationDiv.appendChild(weatherDiv);
                             }
                         } catch (weatherError) {
                             console.error('Error fetching vacation weather/timezone:', weatherError);
-                            // Silently fail for weather - don't show error to user
                         }
                     }
                     
@@ -2449,20 +2476,20 @@
                                         const flightStatus = statusData.data;
                                         
                                         // Flight header
-                                        const headerDiv = document.createElement('div');
-                                        headerDiv.style.display = 'flex';
-                                        headerDiv.style.alignItems = 'center';
-                                        headerDiv.style.gap = '6px';
-                                        headerDiv.style.marginBottom = '4px';
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.marginBottom = '4px';
                                         
-                                        const iconSpan = document.createElement('span');
-                                        iconSpan.textContent = '✈️';
-                                        headerDiv.appendChild(iconSpan);
+                                        const flightIconSpan = document.createElement('span');
+                                        flightIconSpan.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(flightIconSpan);
                                         
                                         const flightNumSpan = document.createElement('span');
                                         flightNumSpan.style.fontWeight = 'bold';
                                         flightNumSpan.textContent = flightStatus.flightNumber;
-                                        headerDiv.appendChild(flightNumSpan);
+                                        flightHeaderDiv.appendChild(flightNumSpan);
                                         
                                         // Status badge — show Free Plan indicator when tracking is limited
                                         const statusSpan = document.createElement('span');
@@ -2492,9 +2519,9 @@
                                             statusSpan.style.color = '#fff';
                                             statusSpan.textContent = flightStatus.status;
                                         }
-                                        headerDiv.appendChild(statusSpan);
+                                        flightHeaderDiv.appendChild(statusSpan);
                                         
-                                        flightItemDiv.appendChild(headerDiv);
+                                        flightItemDiv.appendChild(flightHeaderDiv);
                                         
                                         // Show Free Plan limitation note or flight details
                                         if (flightStatus.limited) {
@@ -2519,40 +2546,40 @@
                                         }
                                     } else {
                                         // Show basic flight info without status
-                                        const headerDiv = document.createElement('div');
-                                        headerDiv.style.display = 'flex';
-                                        headerDiv.style.alignItems = 'center';
-                                        headerDiv.style.gap = '6px';
-                                        headerDiv.style.opacity = '0.7';
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.opacity = '0.7';
                                         
-                                        const iconSpan = document.createElement('span');
-                                        iconSpan.textContent = '✈️';
-                                        headerDiv.appendChild(iconSpan);
+                                        const flightIconSpan = document.createElement('span');
+                                        flightIconSpan.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(flightIconSpan);
                                         
                                         const flightNumSpan = document.createElement('span');
                                         flightNumSpan.textContent = `${flight.flightNumber} - Status unavailable`;
-                                        headerDiv.appendChild(flightNumSpan);
+                                        flightHeaderDiv.appendChild(flightNumSpan);
                                         
-                                        flightItemDiv.appendChild(headerDiv);
+                                        flightItemDiv.appendChild(flightHeaderDiv);
                                     }
                                 } catch (flightError) {
                                     console.error(`Error fetching flight status for ${flight.flightNumber}:`, flightError);
                                     // Show basic flight info on error
-                                    const headerDiv = document.createElement('div');
-                                    headerDiv.style.display = 'flex';
-                                    headerDiv.style.alignItems = 'center';
-                                    headerDiv.style.gap = '6px';
-                                    headerDiv.style.opacity = '0.7';
+                                    const flightHeaderDiv = document.createElement('div');
+                                    flightHeaderDiv.style.display = 'flex';
+                                    flightHeaderDiv.style.alignItems = 'center';
+                                    flightHeaderDiv.style.gap = '6px';
+                                    flightHeaderDiv.style.opacity = '0.7';
                                     
-                                    const iconSpan = document.createElement('span');
-                                    iconSpan.textContent = '✈️';
-                                    headerDiv.appendChild(iconSpan);
+                                    const flightIconSpan = document.createElement('span');
+                                    flightIconSpan.textContent = '✈️';
+                                    flightHeaderDiv.appendChild(flightIconSpan);
                                     
                                     const flightNumSpan = document.createElement('span');
                                     flightNumSpan.textContent = `${flight.flightNumber} - Error loading status`;
-                                    headerDiv.appendChild(flightNumSpan);
+                                    flightHeaderDiv.appendChild(flightNumSpan);
                                     
-                                    flightItemDiv.appendChild(headerDiv);
+                                    flightItemDiv.appendChild(flightHeaderDiv);
                                 }
                                 
                                 flightDiv.appendChild(flightItemDiv);
@@ -2561,7 +2588,6 @@
                             vacationDiv.appendChild(flightDiv);
                         } catch (error) {
                             console.error('Error displaying flight information:', error);
-                            // Silently fail - don't show error to user
                         }
                     }
                     
@@ -2574,6 +2600,33 @@
                         notesDiv.style.fontStyle = 'italic';
                         notesDiv.textContent = vacation.notes;
                         vacationDiv.appendChild(notesDiv);
+                    }
+                    
+                    // House-sitting indicator
+                    if (vacation.houseSitting) {
+                        const hsDiv = document.createElement('div');
+                        hsDiv.style.fontSize = '0.8rem';
+                        hsDiv.style.opacity = '0.85';
+                        hsDiv.style.marginTop = '6px';
+                        hsDiv.textContent = '🏠 House-sitter arranged';
+                        vacationDiv.appendChild(hsDiv);
+                    }
+                    
+                    // Dog-watching indicator
+                    const dwData = vacation.dogWatching;
+                    if (dwData && dwData.enabled && dwData.location) {
+                        const dwDiv = document.createElement('div');
+                        dwDiv.style.fontSize = '0.8rem';
+                        dwDiv.style.opacity = '0.85';
+                        dwDiv.style.marginTop = '4px';
+                        if (dwData.location === 'home') {
+                            dwDiv.textContent = '🐕 Dog watched at home';
+                        } else if (dwData.location === 'other') {
+                            dwDiv.textContent = dwData.locationDetails
+                                ? `🐕 Dog at: ${dwData.locationDetails}`
+                                : '🐕 Dog watched elsewhere';
+                        }
+                        vacationDiv.appendChild(dwDiv);
                     }
                     
                     content.appendChild(vacationDiv);
@@ -3520,17 +3573,39 @@
                 card.style.minWidth = '0';
                 card.style.fontSize = '0.85rem';
 
-                // Destination
-                const destDiv = document.createElement('div');
-                destDiv.style.fontSize = '1.05rem';
-                destDiv.style.fontWeight = '700';
-                destDiv.style.color = VACATION_COLOR;
-                destDiv.style.marginBottom = '6px';
-                destDiv.style.whiteSpace = 'nowrap';
-                destDiv.style.overflow = 'hidden';
-                destDiv.style.textOverflow = 'ellipsis';
-                destDiv.textContent = vacation.destination || 'Vacation';
-                card.appendChild(destDiv);
+                // Normalize destinations (backward compat: fall back to single destination)
+                const effectiveDestinations = (vacation.destinations && vacation.destinations.length > 0)
+                    ? vacation.destinations
+                    : (vacation.destination ? [{ name: vacation.destination, weather: vacation.weather, timezoneOffset: vacation.timezoneOffset }] : [{ name: 'Vacation' }]);
+
+                // Destination(s) header
+                if (effectiveDestinations.length === 1) {
+                    const destDiv = document.createElement('div');
+                    destDiv.style.fontSize = '1.05rem';
+                    destDiv.style.fontWeight = '700';
+                    destDiv.style.color = VACATION_COLOR;
+                    destDiv.style.marginBottom = '6px';
+                    destDiv.style.whiteSpace = 'nowrap';
+                    destDiv.style.overflow = 'hidden';
+                    destDiv.style.textOverflow = 'ellipsis';
+                    destDiv.textContent = effectiveDestinations[0].name || 'Vacation';
+                    card.appendChild(destDiv);
+                } else {
+                    const destContainer = document.createElement('div');
+                    destContainer.style.marginBottom = '6px';
+                    effectiveDestinations.forEach(dest => {
+                        const destItem = document.createElement('div');
+                        destItem.style.fontSize = '0.95rem';
+                        destItem.style.fontWeight = '700';
+                        destItem.style.color = VACATION_COLOR;
+                        destItem.style.whiteSpace = 'nowrap';
+                        destItem.style.overflow = 'hidden';
+                        destItem.style.textOverflow = 'ellipsis';
+                        destItem.textContent = `📍 ${dest.name}`;
+                        destContainer.appendChild(destItem);
+                    });
+                    card.appendChild(destContainer);
+                }
 
                 // Date range
                 const startDate = new Date(vacation.startDate);
@@ -3555,15 +3630,16 @@
                 }
                 card.appendChild(countdownDiv);
 
-                // Local time (if timezone offset available and differs by >= 1 hour from browser)
-                if (vacation.timezoneOffset !== undefined && vacation.timezoneOffset !== null) {
-                    const localOffset = new Date().getTimezoneOffset() * -60; // browser offset in seconds
-                    const offsetDiff = (vacation.timezoneOffset - localOffset) / SECONDS_PER_HOUR;
+                // Helper: render timezone for a destination offset
+                function renderTimezoneInfo(timezoneOffset, container) {
+                    if (timezoneOffset === undefined || timezoneOffset === null) return;
+                    const localOffset = new Date().getTimezoneOffset() * -60;
+                    const offsetDiff = (timezoneOffset - localOffset) / SECONDS_PER_HOUR;
                     if (Math.abs(offsetDiff) >= MIN_TIMEZONE_DIFF_HOURS) {
                         const now = new Date();
                         const destTime = new Date(now.getTime() + offsetDiff * MILLISECONDS_PER_HOUR);
                         const timeDiv = document.createElement('div');
-                        timeDiv.style.marginBottom = '6px';
+                        timeDiv.style.marginBottom = '4px';
                         timeDiv.style.display = 'flex';
                         timeDiv.style.alignItems = 'center';
                         timeDiv.style.gap = '4px';
@@ -3574,20 +3650,19 @@
                         offsetText.style.opacity = '0.7';
                         offsetText.textContent = ` (${offsetDiff >= 0 ? '+' : ''}${offsetDiff.toFixed(0)}h)`;
                         timeDiv.appendChild(offsetText);
-                        card.appendChild(timeDiv);
+                        container.appendChild(timeDiv);
                     }
                 }
 
-                // Weather
-                if (vacation.weather && vacation.weather.days && vacation.weather.days.length > 0) {
-                    const startDateStr = vacation.startDate ? vacation.startDate.split('T')[0] : null;
-                    const endDateStr = vacation.endDate ? vacation.endDate.split('T')[0] : null;
-                    const vacationDays = vacation.weather.days.filter(day => {
+                // Helper: render weather for a destination's weather data
+                function renderWeatherInfo(weather, startDateStr, endDateStr, container) {
+                    if (!weather || !weather.days || weather.days.length === 0) return;
+                    const vacationDays = weather.days.filter(day => {
                         if (!startDateStr || !endDateStr) return false;
                         return day.date >= startDateStr && day.date <= endDateStr;
                     });
-                    const weatherDay = vacationDays.length > 0 ? vacationDays[0] : vacation.weather.days[0];
-                    const tempUnit = vacation.weather.units === 'metric' ? 'C' : 'F';
+                    const weatherDay = vacationDays.length > 0 ? vacationDays[0] : weather.days[0];
+                    const tempUnit = weather.units === 'metric' ? 'C' : 'F';
                     const tempHigh = Math.round(weatherDay.tempHigh);
                     const tempLow = weatherDay.tempLow !== undefined && weatherDay.tempLow !== null ? Math.round(weatherDay.tempLow) : null;
 
@@ -3618,22 +3693,49 @@
                     condSpan.textContent = weatherDay.condition || weatherDay.description || '';
                     weatherDiv.appendChild(condSpan);
 
-                    card.appendChild(weatherDiv);
+                    container.appendChild(weatherDiv);
 
-                    if (vacation.weather.isFallback) {
+                    if (weather.isFallback) {
                         const fallbackNote = document.createElement('div');
                         fallbackNote.style.fontSize = '0.75rem';
                         fallbackNote.style.opacity = '0.6';
                         fallbackNote.style.fontStyle = 'italic';
                         fallbackNote.textContent = '(Current weather — forecast unavailable)';
-                        card.appendChild(fallbackNote);
+                        container.appendChild(fallbackNote);
                     } else if (vacationDays.length === 0) {
                         const noForecastNote = document.createElement('div');
                         noForecastNote.style.fontSize = '0.75rem';
                         noForecastNote.style.opacity = '0.6';
                         noForecastNote.textContent = '⛅ Forecast unavailable for dates';
-                        card.appendChild(noForecastNote);
+                        container.appendChild(noForecastNote);
                     }
+                }
+
+                const startDateStr = vacation.startDate ? vacation.startDate.split('T')[0] : null;
+                const endDateStr = vacation.endDate ? vacation.endDate.split('T')[0] : null;
+
+                if (effectiveDestinations.length === 1) {
+                    // Single destination: show timezone and weather inline
+                    renderTimezoneInfo(effectiveDestinations[0].timezoneOffset, card);
+                    renderWeatherInfo(effectiveDestinations[0].weather, startDateStr, endDateStr, card);
+                } else {
+                    // Multiple destinations: show timezone and weather per destination
+                    effectiveDestinations.forEach(dest => {
+                        if (dest.timezoneOffset === undefined && !dest.weather) return;
+                        const destInfoDiv = document.createElement('div');
+                        destInfoDiv.style.marginTop = '6px';
+                        destInfoDiv.style.paddingTop = '4px';
+                        destInfoDiv.style.borderTop = '1px solid rgba(245,158,11,0.2)';
+                        const destLabel = document.createElement('div');
+                        destLabel.style.fontSize = '0.78rem';
+                        destLabel.style.opacity = '0.7';
+                        destLabel.style.marginBottom = '2px';
+                        destLabel.textContent = dest.name;
+                        destInfoDiv.appendChild(destLabel);
+                        renderTimezoneInfo(dest.timezoneOffset, destInfoDiv);
+                        renderWeatherInfo(dest.weather, startDateStr, endDateStr, destInfoDiv);
+                        card.appendChild(destInfoDiv);
+                    });
                 }
 
                 // Flights
@@ -3694,6 +3796,33 @@
                     notesDiv.style.fontStyle = 'italic';
                     notesDiv.textContent = vacation.notes;
                     card.appendChild(notesDiv);
+                }
+
+                // House-sitting indicator
+                if (vacation.houseSitting) {
+                    const hsDiv = document.createElement('div');
+                    hsDiv.style.marginTop = '6px';
+                    hsDiv.style.fontSize = '0.8rem';
+                    hsDiv.style.opacity = '0.85';
+                    hsDiv.textContent = '🏠 House-sitter arranged';
+                    card.appendChild(hsDiv);
+                }
+
+                // Dog-watching indicator
+                const dw = vacation.dogWatching;
+                if (dw && dw.enabled && dw.location) {
+                    const dwDiv = document.createElement('div');
+                    dwDiv.style.marginTop = '4px';
+                    dwDiv.style.fontSize = '0.8rem';
+                    dwDiv.style.opacity = '0.85';
+                    if (dw.location === 'home') {
+                        dwDiv.textContent = '🐕 Dog watched at home';
+                    } else if (dw.location === 'other') {
+                        dwDiv.textContent = dw.locationDetails
+                            ? `🐕 Dog at: ${dw.locationDetails}`
+                            : '🐕 Dog watched elsewhere';
+                    }
+                    card.appendChild(dwDiv);
                 }
 
                 // Attached lists (shown when vacation is within 4 days)
@@ -3764,6 +3893,7 @@
 
                 detailsSection.appendChild(card);
             });
+
 
             horizontalWrapper.appendChild(detailsSection);
             container.appendChild(horizontalWrapper);

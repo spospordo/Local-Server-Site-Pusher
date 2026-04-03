@@ -151,13 +151,16 @@ function addVacationDate(vacationDate) {
     startDate: vacationDate.startDate,
     endDate: vacationDate.endDate,
     destination: vacationDate.destination || "",
+    destinations: vacationDate.destinations || [],
     notes: vacationDate.notes || "",
     flights: vacationDate.flights || [],
     flightTrackingEnabled: vacationDate.flightTrackingEnabled || false,
     addToDashboardClock: vacationDate.addToDashboardClock || false,
     clockCity: vacationDate.clockCity || "",
     clockTimezone: vacationDate.clockTimezone || "",
-    listIds: vacationDate.listIds || []
+    listIds: vacationDate.listIds || [],
+    houseSitting: vacationDate.houseSitting || false,
+    dogWatching: vacationDate.dogWatching || { enabled: false, location: "", locationDetails: "" }
   });
   return saveVacationData(vacation);
 }

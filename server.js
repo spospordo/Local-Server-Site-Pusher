@@ -8356,14 +8356,22 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     const startDate = new Date(vacation.startDate);
                     const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
                     
+                    // Normalize destinations: use destinations array if available, fall back to single destination
+                    const effectiveDestinations = (vacation.destinations && vacation.destinations.length > 0)
+                      ? vacation.destinations
+                      : (vacation.destination ? [{ name: vacation.destination, showWeather: true, showTimezone: true }] : []);
+                    
                     const vacationInfo = {
                       destination: vacation.destination,
+                      destinations: effectiveDestinations,
                       startDate: vacation.startDate,
                       endDate: vacation.endDate,
                       daysUntil: daysUntil,
                       notes: vacation.notes || '',
                       flightTrackingEnabled: vacation.flightTrackingEnabled || false,
-                      flights: (vacation.flights || []).filter(f => f.validated)
+                      flights: (vacation.flights || []).filter(f => f.validated),
+                      houseSitting: vacation.houseSitting || false,
+                      dogWatching: vacation.dogWatching || null
                     };
                     
                     // Include attached lists when vacation is within VACATION_LIST_PREVIEW_DAYS days
@@ -8390,79 +8398,98 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       }
                     }
                     
-                    // Fetch weather data and timezone if API key is configured and destination is set
-                    if (weatherApiKey && vacation.destination) {
-                      try {
-                        logger.debug(logger.categories.SMART_MIRROR, 
-                          `Fetching weather for vacation destination: ${vacation.destination}`);
-                        
-                        // Try to fetch forecast first, fallback to current weather
-                        let weatherResult = await smartMirror.fetchForecast(
-                          weatherApiKey, 
-                          vacation.destination, 
-                          5, 
-                          weatherUnits
-                        );
-                        
-                        if (weatherResult.success) {
-                          vacationInfo.weather = {
-                            days: weatherResult.days,
-                            location: weatherResult.location,
-                            country: weatherResult.country,
-                            units: weatherResult.units
-                          };
-                          logger.debug(logger.categories.SMART_MIRROR, 
-                            `Weather forecast fetched successfully for ${vacation.destination}`);
-                        } else {
-                          // Fallback to current weather
-                          logger.debug(logger.categories.SMART_MIRROR, 
-                            `Forecast unavailable for ${vacation.destination}, trying current weather`);
-                          const currentWeatherResult = await smartMirror.fetchWeather(
-                            weatherApiKey, 
-                            vacation.destination, 
-                            weatherUnits
-                          );
-                          
-                          if (currentWeatherResult.success) {
-                            const weatherData = currentWeatherResult.data;
-                            vacationInfo.weather = {
-                              days: [{
-                                date: new Date().toISOString().split('T')[0],
-                                tempHigh: weatherData.temp,
-                                tempLow: weatherData.tempMin,
-                                condition: weatherData.condition,
-                                icon: weatherData.icon,
-                                description: weatherData.description
-                              }],
-                              location: vacation.destination,
-                              isFallback: true,
-                              units: weatherUnits
-                            };
-                            logger.debug(logger.categories.SMART_MIRROR, 
-                              `Current weather fetched as fallback for ${vacation.destination}`);
-                          } else {
-                            logger.warning(logger.categories.SMART_MIRROR, 
-                              `Failed to fetch weather for vacation destination: ${vacation.destination} - ${weatherResult.error || currentWeatherResult.error}`);
+                    // Fetch weather data and timezone per destination if API key is configured
+                    if (weatherApiKey && effectiveDestinations.length > 0) {
+                      const enrichedDestinations = await Promise.all(effectiveDestinations.map(async dest => {
+                        const destInfo = {
+                          name: dest.name,
+                          showWeather: dest.showWeather !== false,
+                          showTimezone: dest.showTimezone !== false
+                        };
+
+                        if (destInfo.showWeather) {
+                          try {
+                            logger.debug(logger.categories.SMART_MIRROR,
+                              `Fetching weather for vacation destination: ${dest.name}`);
+
+                            let weatherResult = await smartMirror.fetchForecast(
+                              weatherApiKey,
+                              dest.name,
+                              5,
+                              weatherUnits
+                            );
+
+                            if (weatherResult.success) {
+                              destInfo.weather = {
+                                days: weatherResult.days,
+                                location: weatherResult.location,
+                                country: weatherResult.country,
+                                units: weatherResult.units
+                              };
+                              logger.debug(logger.categories.SMART_MIRROR,
+                                `Weather forecast fetched successfully for ${dest.name}`);
+                            } else {
+                              logger.debug(logger.categories.SMART_MIRROR,
+                                `Forecast unavailable for ${dest.name}, trying current weather`);
+                              const currentWeatherResult = await smartMirror.fetchWeather(
+                                weatherApiKey,
+                                dest.name,
+                                weatherUnits
+                              );
+
+                              if (currentWeatherResult.success) {
+                                const weatherData = currentWeatherResult.data;
+                                destInfo.weather = {
+                                  days: [{
+                                    date: new Date().toISOString().split('T')[0],
+                                    tempHigh: weatherData.temp,
+                                    tempLow: weatherData.tempMin,
+                                    condition: weatherData.condition,
+                                    icon: weatherData.icon,
+                                    description: weatherData.description
+                                  }],
+                                  location: dest.name,
+                                  isFallback: true,
+                                  units: weatherUnits
+                                };
+                                logger.debug(logger.categories.SMART_MIRROR,
+                                  `Current weather fetched as fallback for ${dest.name}`);
+                              } else {
+                                logger.warning(logger.categories.SMART_MIRROR,
+                                  `Failed to fetch weather for vacation destination: ${dest.name} - ${weatherResult.error || currentWeatherResult.error}`);
+                              }
+                            }
+                          } catch (err) {
+                            logger.warning(logger.categories.SMART_MIRROR,
+                              `Error fetching weather for vacation destination ${dest.name}: ${err.message}`);
                           }
                         }
-                        
-                        // Fetch timezone data for local time display
-                        try {
-                          const timezoneResult = await smartMirror.fetchLocationTimezone(weatherApiKey, vacation.destination);
-                          if (timezoneResult.success && timezoneResult.data) {
-                            vacationInfo.timezoneOffset = timezoneResult.data.timezoneOffset;
+
+                        if (destInfo.showTimezone) {
+                          try {
+                            const timezoneResult = await smartMirror.fetchLocationTimezone(weatherApiKey, dest.name);
+                            if (timezoneResult.success && timezoneResult.data) {
+                              destInfo.timezoneOffset = timezoneResult.data.timezoneOffset;
+                            }
+                          } catch (tzErr) {
+                            logger.warning(logger.categories.SMART_MIRROR,
+                              `Error fetching timezone for vacation destination ${dest.name}: ${tzErr.message}`);
                           }
-                        } catch (tzErr) {
-                          logger.warning(logger.categories.SMART_MIRROR, 
-                            `Error fetching timezone for vacation ${vacation.destination}: ${tzErr.message}`);
                         }
-                      } catch (err) {
-                        logger.warning(logger.categories.SMART_MIRROR, 
-                          `Error fetching weather for vacation ${vacation.destination}: ${err.message}`);
+
+                        return destInfo;
+                      }));
+
+                      vacationInfo.destinations = enrichedDestinations;
+                      // For backward compatibility, also set top-level weather/timezoneOffset from first destination
+                      const firstDest = enrichedDestinations[0];
+                      if (firstDest) {
+                        if (firstDest.weather) vacationInfo.weather = firstDest.weather;
+                        if (firstDest.timezoneOffset !== undefined) vacationInfo.timezoneOffset = firstDest.timezoneOffset;
                       }
                     } else {
-                      logger.debug(logger.categories.SMART_MIRROR, 
-                        'Vacation weather/timezone skipped: API key not configured or destination missing');
+                      logger.debug(logger.categories.SMART_MIRROR,
+                        'Vacation weather/timezone skipped: API key not configured or no destinations');
                     }
                     
                     return vacationInfo;
