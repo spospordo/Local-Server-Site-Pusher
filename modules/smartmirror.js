@@ -1818,7 +1818,11 @@ async function testWeatherConnection(apiKey, location, units = 'imperial') {
         data: {
           location: response.data.name,
           temp: Math.round(response.data.main.temp),
-          condition: response.data.weather[0]?.main || 'Unknown'
+          condition: response.data.weather[0]?.main || 'Unknown',
+          country: response.data.sys?.country || '',
+          timezoneOffset: response.data.timezone,
+          lat: response.data.coord?.lat,
+          lon: response.data.coord?.lon
         }
       };
     }

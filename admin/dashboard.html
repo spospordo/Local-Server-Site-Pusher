@@ -21257,6 +21257,12 @@
                         statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Format validated</span><br><small style="color: #6b7280;">${escapeHtml(result.message || 'Limited validation only')}</small>`;
                     } else {
                         statusDiv.innerHTML = '<span style="color: #10b981;">✅ Validated</span>';
+                        // Auto-set timezone from arrival airport (takes priority over destination suggestion)
+                        if (result.flightInfo && result.flightInfo.arrival && result.flightInfo.arrival.timezone) {
+                            const arrivalCity = result.flightInfo.arrival.airport || result.flightInfo.arrival.iata || '';
+                            autoSetTimezoneFromIana(result.flightInfo.arrival.timezone, arrivalCity);
+                            statusDiv.innerHTML += `<br><small style="color: #667eea;">🕐 Timezone auto-set from arrival airport: ${result.flightInfo.arrival.timezone}. You can override it below.</small>`;
+                        }
                     }
                     flightDiv.dataset.validated = 'true';
                 } else {
@@ -21404,6 +21410,77 @@
             }
         }
         
+        // Returns the current UTC offset in seconds for an IANA timezone string (e.g. "Europe/Paris" → 7200 during CEST).
+        function getTimezoneOffsetSeconds(tz) {
+            try {
+                const parts = new Intl.DateTimeFormat('en', {
+                    timeZone: tz,
+                    timeZoneName: 'shortOffset'
+                }).formatToParts(new Date());
+                const offsetStr = (parts.find(p => p.type === 'timeZoneName') || {}).value || 'GMT';
+                const match = offsetStr.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+                if (!match) return 0;
+                const sign = match[1] === '+' ? 1 : -1;
+                const hours = parseInt(match[2], 10);
+                const mins = parseInt(match[3] || '0', 10);
+                return sign * (hours * 3600 + mins * 60);
+            } catch (e) {
+                return NaN;
+            }
+        }
+
+        // Auto-fill the timezone + city fields from a UTC offset (seconds).
+        // Searches the timezone dropdown for the first option whose current offset matches.
+        // Enables the clock section and checks its checkbox if a match is found.
+        // Returns the matched IANA timezone string, or null if no match.
+        function autoSetTimezoneFromOffset(offsetSeconds, cityName) {
+            const select = document.getElementById('vacationClockTimezone');
+            const cityField = document.getElementById('vacationClockCity');
+
+            let bestMatch = null;
+            for (const opt of select.options) {
+                if (!opt.value) continue;
+                if (getTimezoneOffsetSeconds(opt.value) === offsetSeconds) {
+                    bestMatch = opt.value;
+                    break;
+                }
+            }
+
+            if (bestMatch) {
+                select.value = bestMatch;
+                if (!cityField.value && cityName) {
+                    cityField.value = cityName;
+                }
+                document.getElementById('vacationAddLocalTime').checked = true;
+                document.getElementById('vacationClockSection').style.display = 'block';
+            }
+            return bestMatch;
+        }
+
+        // Auto-fill the timezone + city fields from a known IANA timezone string (e.g. from flight data).
+        // If the timezone is not already in the dropdown it is added dynamically so it can be saved.
+        // Enables the clock section and checks its checkbox.
+        function autoSetTimezoneFromIana(ianaTimezone, cityName) {
+            if (!ianaTimezone) return;
+            const select = document.getElementById('vacationClockTimezone');
+            const cityField = document.getElementById('vacationClockCity');
+
+            const exists = Array.from(select.options).some(opt => opt.value === ianaTimezone);
+            if (!exists) {
+                const opt = document.createElement('option');
+                opt.value = ianaTimezone;
+                opt.textContent = ianaTimezone;
+                select.appendChild(opt);
+            }
+
+            select.value = ianaTimezone;
+            if (cityName) {
+                cityField.value = cityName;
+            }
+            document.getElementById('vacationAddLocalTime').checked = true;
+            document.getElementById('vacationClockSection').style.display = 'block';
+        }
+
         // Test vacation location for weather availability
         async function testVacationLocation() {
             const destination = document.getElementById('vacationDestination').value.trim();
@@ -21427,13 +21504,25 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    const locName = result.data?.location || destination;
+                    const country = result.data?.country ? ', ' + result.data.country : '';
+
+                    // Auto-suggest timezone from destination offset when available
+                    let timezoneHint = '';
+                    if (typeof result.data?.timezoneOffset === 'number') {
+                        const matched = autoSetTimezoneFromOffset(result.data.timezoneOffset, locName);
+                        if (matched) {
+                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${matched}. You can override it below.</small>`;
+                        }
+                    }
+
                     resultDiv.innerHTML = `
                         <div style="color: #10b981; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">
                             ✅ ${result.message}<br>
                             <small style="opacity: 0.8;">
-                                Location: ${result.data?.location || destination}${result.data?.country ? ', ' + result.data.country : ''}<br>
-                                Current: ${result.data?.temperature || 'N/A'}° - ${result.data?.condition || 'N/A'}
-                            </small>
+                                Location: ${locName}${country}<br>
+                                Current: ${result.data?.temp || 'N/A'}° - ${result.data?.condition || 'N/A'}
+                            </small>${timezoneHint}
                         </div>
                     `;
                 } else {
@@ -21512,7 +21601,9 @@
                             alertMsg += ` ⚠️ Clock widget slots are full (${sync.slotsUsed}/3 used) — "${clockCity}" will not be shown until a slot is available.`;
                         } else if (sync.added > 0) {
                             alertMsg += ` 🕐 "${clockCity}" time added to the Dashboard Clock Widget.`;
-                        } else if (sync.active === 0) {
+                        } else if (sync.active > 0) {
+                            alertMsg += ` 🕐 Dashboard Clock Widget already shows "${clockCity}" time.`;
+                        } else {
                             alertMsg += ` ℹ️ Clock time for "${clockCity}" will be shown during the vacation window (1 week before through 5 days after).`;
                         }
                     }
