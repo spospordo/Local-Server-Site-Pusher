@@ -527,9 +527,14 @@ function migrateConfig(oldConfig) {
     // Migrate TomTom API key from widgets.smartWidget to top-level if needed
     if (!oldConfig.tomtomApiKey && oldConfig.widgets?.smartWidget?.tomtomApiKey) {
       logger.info(logger.categories.SMART_MIRROR, 'Migrating TomTom API key to top-level configuration');
+      const { tomtomApiKey, ...smartWidgetWithoutKey } = oldConfig.widgets.smartWidget;
       return {
         ...oldConfig,
-        tomtomApiKey: oldConfig.widgets.smartWidget.tomtomApiKey
+        tomtomApiKey,
+        widgets: {
+          ...oldConfig.widgets,
+          smartWidget: smartWidgetWithoutKey
+        }
       };
     }
     
@@ -782,8 +787,8 @@ function saveConfig(newConfig) {
       logger.debug(logger.categories.SMART_MIRROR, 'Merged flight API configuration with existing settings');
     }
     
-    // Preserve top-level TomTom API key if not provided in new config
-    // Also migrate from the legacy widgets.smartWidget.tomtomApiKey location
+    // Preserve top-level TomTom API key if not provided in new config (empty string or undefined)
+    // Also migrate from the legacy widgets.smartWidget.tomtomApiKey location on first save
     if (!configToSave.tomtomApiKey) {
       if (existingConfig.tomtomApiKey) {
         logger.info(logger.categories.SMART_MIRROR, 'Preserving existing TomTom API key');
