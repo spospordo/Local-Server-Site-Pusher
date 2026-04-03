@@ -1125,6 +1125,7 @@
         let config = null;
         let refreshInterval = null;
         let smartWidgetCycleInterval = null; // Timer for Smart Widget cycling (setTimeout, not setInterval)
+        let haRefreshTimer = null; // Independent timer for HA battery/smart-widget refresh
         let currentOrientation = 'portrait'; // Track current orientation
         let configLastFetched = 0; // Timestamp of last successful config fetch
         const CONFIG_STALE_THRESHOLD_MS = 30000; // Re-fetch config if older than 30 s
@@ -1322,10 +1323,41 @@
                     // Render dashboard
                     renderDashboard();
                     
+                    // Clear any previous timers before setting up new ones
+                    if (refreshInterval) {
+                        clearInterval(refreshInterval);
+                        refreshInterval = null;
+                    }
+                    if (haRefreshTimer) {
+                        clearInterval(haRefreshTimer);
+                        haRefreshTimer = null;
+                    }
+
                     // Set up refresh interval
                     if (config.refreshInterval && config.refreshInterval > 0) {
                         console.log(`[Smart Mirror] Setting refresh interval: ${config.refreshInterval}ms`);
                         refreshInterval = setInterval(updateWidgets, config.refreshInterval);
+                    }
+
+                    // Set up an independent HA/smart-widget refresh timer so that
+                    // battery & charging data is always refreshed at least every 60 s
+                    // regardless of the global refreshInterval setting.
+                    if (config.widgets?.smartWidget?.enabled) {
+                        const haInterval = 60000; // refresh HA data at least every 60 s
+                        // Only create the independent timer if it would fire more
+                        // frequently than the global refresh (avoid double work).
+                        const globalMs = (config.refreshInterval && config.refreshInterval > 0)
+                            ? config.refreshInterval
+                            : Infinity;
+                        if (haInterval < globalMs) {
+                            console.log(`[Smart Mirror] Setting independent HA refresh timer: ${haInterval}ms`);
+                            haRefreshTimer = setInterval(() => {
+                                const smartEl = document.getElementById('widget-smartWidget');
+                                if (smartEl && config.widgets?.smartWidget?.enabled) {
+                                    updateSmartWidget(smartEl, config.widgets.smartWidget);
+                                }
+                            }, haInterval);
+                        }
                     }
                 } else {
                     console.error('❌ [Smart Mirror] Config load failed:', data);
@@ -3855,7 +3887,7 @@
                 }
                 row.appendChild(iconSpan);
 
-                // Device info
+                // Device info (group name + status)
                 const infoDiv = document.createElement('div');
                 infoDiv.style.flex = '1';
                 infoDiv.style.minWidth = '0';
@@ -3870,7 +3902,7 @@
                 if (device.state === 'charging') {
                     statusDiv.textContent = device.batteryLevel !== null ? `Charging · ${device.batteryLevel}%` : 'Charging';
                 } else if (device.state === 'full') {
-                    statusDiv.textContent = 'Fully Charged';
+                    statusDiv.textContent = device.batteryLevel !== null ? `Fully Charged · ${device.batteryLevel}%` : 'Fully Charged';
                 } else if (device.state === 'low') {
                     statusDiv.textContent = device.batteryLevel !== null ? `Low Battery · ${device.batteryLevel}%` : 'Low Battery';
                 } else {
@@ -4595,6 +4627,9 @@
         window.addEventListener('beforeunload', () => {
             if (refreshInterval) {
                 clearInterval(refreshInterval);
+            }
+            if (haRefreshTimer) {
+                clearInterval(haRefreshTimer);
             }
             if (clockInterval) {
                 clearInterval(clockInterval);
