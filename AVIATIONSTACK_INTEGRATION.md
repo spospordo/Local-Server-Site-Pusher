@@ -20,7 +20,9 @@ This document describes the integration of AviationStack API as the official fli
 
 ### 📊 Rate Limiting & Usage Tracking
 - **Monthly call tracking** - Monitor API usage against free tier limit (100 calls/month)
-- **Visual usage indicators** - Progress bar and percentage display
+- **Persistent counter** - Usage count is stored in `config/flight-api-usage.json` and survives server restarts and redeployments
+- **Complete coverage** - Every API call path (test-connection, flight validation, flight status, scheduled updates) increments the counter
+- **Visual usage indicators** - Progress bar and percentage display with live 30-second auto-refresh
 - **Warning system** - Alerts when approaching monthly limit
 - **Smart limit enforcement** - Admin actions bypass limits but still count toward usage
 - **Automatic limit enforcement** - Scheduled updates respect configured monthly limit
@@ -354,8 +356,9 @@ The system implements several strategies to stay within the 100 calls/month limi
 **Solution**:
 - Counter resets automatically at start of new month
 - Check server timezone is configured correctly
-- Manual updates increment counter
-- Each validation attempt counts as one API call
+- **All** API call paths increment the counter: test connection, flight validation, flight status fetches (from vacation modal, dashboard display, or smart mirror), and scheduled background updates
+- The counter is persisted in `config/flight-api-usage.json` – it will not reset on server restart or redeployment
+- Each API call attempt counts as one call against the monthly quota
 
 ## API Reference
 
@@ -442,6 +445,13 @@ For vacations with many flights:
 - Usage counter automatically resets at month start
 - Counter uses server timezone (default: America/New_York)
 - No action required from administrators
+
+### Usage Data Persistence
+
+- API call count is stored in `config/flight-api-usage.json`
+- The file is updated after every API call and every monthly reset
+- Safe to delete if you want to reset the counter manually (will regenerate on next API call)
+- Monthly limit (`monthlyLimit`) is also stored in the file and synced from admin settings on every save
 
 ### Cache Cleanup
 
