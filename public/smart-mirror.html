@@ -2384,10 +2384,10 @@
                                         weatherContent.style.alignItems = 'center';
                                         weatherContent.style.gap = '8px';
                                         
-                                        const iconSpan2 = document.createElement('span');
-                                        iconSpan2.style.fontSize = '1.3rem';
-                                        iconSpan2.textContent = weatherIcon;
-                                        weatherContent.appendChild(iconSpan2);
+                                        const weatherIconSpan = document.createElement('span');
+                                        weatherIconSpan.style.fontSize = '1.3rem';
+                                        weatherIconSpan.textContent = weatherIcon;
+                                        weatherContent.appendChild(weatherIconSpan);
                                         
                                         const tempSpan = document.createElement('span');
                                         tempSpan.textContent = `${firstDay.tempHigh}° / ${firstDay.tempLow}°`;
@@ -2408,10 +2408,10 @@
                                         weatherContent.style.alignItems = 'center';
                                         weatherContent.style.gap = '8px';
                                         
-                                        const iconSpan2 = document.createElement('span');
-                                        iconSpan2.style.fontSize = '1.3rem';
-                                        iconSpan2.textContent = weatherIcon;
-                                        weatherContent.appendChild(iconSpan2);
+                                        const weatherIconSpan = document.createElement('span');
+                                        weatherIconSpan.style.fontSize = '1.3rem';
+                                        weatherIconSpan.textContent = weatherIcon;
+                                        weatherContent.appendChild(weatherIconSpan);
                                         
                                         const tempSpan = document.createElement('span');
                                         tempSpan.textContent = `${day.tempHigh}°`;
@@ -2476,20 +2476,20 @@
                                         const flightStatus = statusData.data;
                                         
                                         // Flight header
-                                        const fHeaderDiv = document.createElement('div');
-                                        fHeaderDiv.style.display = 'flex';
-                                        fHeaderDiv.style.alignItems = 'center';
-                                        fHeaderDiv.style.gap = '6px';
-                                        fHeaderDiv.style.marginBottom = '4px';
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.marginBottom = '4px';
                                         
-                                        const fIconSpan = document.createElement('span');
-                                        fIconSpan.textContent = '✈️';
-                                        fHeaderDiv.appendChild(fIconSpan);
+                                        const flightIconSpan = document.createElement('span');
+                                        flightIconSpan.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(flightIconSpan);
                                         
                                         const flightNumSpan = document.createElement('span');
                                         flightNumSpan.style.fontWeight = 'bold';
                                         flightNumSpan.textContent = flightStatus.flightNumber;
-                                        fHeaderDiv.appendChild(flightNumSpan);
+                                        flightHeaderDiv.appendChild(flightNumSpan);
                                         
                                         // Status badge — show Free Plan indicator when tracking is limited
                                         const statusSpan = document.createElement('span');
@@ -2519,9 +2519,9 @@
                                             statusSpan.style.color = '#fff';
                                             statusSpan.textContent = flightStatus.status;
                                         }
-                                        fHeaderDiv.appendChild(statusSpan);
+                                        flightHeaderDiv.appendChild(statusSpan);
                                         
-                                        flightItemDiv.appendChild(fHeaderDiv);
+                                        flightItemDiv.appendChild(flightHeaderDiv);
                                         
                                         // Show Free Plan limitation note or flight details
                                         if (flightStatus.limited) {
@@ -2546,40 +2546,40 @@
                                         }
                                     } else {
                                         // Show basic flight info without status
-                                        const fHeaderDiv = document.createElement('div');
-                                        fHeaderDiv.style.display = 'flex';
-                                        fHeaderDiv.style.alignItems = 'center';
-                                        fHeaderDiv.style.gap = '6px';
-                                        fHeaderDiv.style.opacity = '0.7';
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.opacity = '0.7';
                                         
-                                        const fIconSpan = document.createElement('span');
-                                        fIconSpan.textContent = '✈️';
-                                        fHeaderDiv.appendChild(fIconSpan);
+                                        const flightIconSpan = document.createElement('span');
+                                        flightIconSpan.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(flightIconSpan);
                                         
                                         const flightNumSpan = document.createElement('span');
                                         flightNumSpan.textContent = `${flight.flightNumber} - Status unavailable`;
-                                        fHeaderDiv.appendChild(flightNumSpan);
+                                        flightHeaderDiv.appendChild(flightNumSpan);
                                         
-                                        flightItemDiv.appendChild(fHeaderDiv);
+                                        flightItemDiv.appendChild(flightHeaderDiv);
                                     }
                                 } catch (flightError) {
                                     console.error(`Error fetching flight status for ${flight.flightNumber}:`, flightError);
                                     // Show basic flight info on error
-                                    const fHeaderDiv = document.createElement('div');
-                                    fHeaderDiv.style.display = 'flex';
-                                    fHeaderDiv.style.alignItems = 'center';
-                                    fHeaderDiv.style.gap = '6px';
-                                    fHeaderDiv.style.opacity = '0.7';
+                                    const flightHeaderDiv = document.createElement('div');
+                                    flightHeaderDiv.style.display = 'flex';
+                                    flightHeaderDiv.style.alignItems = 'center';
+                                    flightHeaderDiv.style.gap = '6px';
+                                    flightHeaderDiv.style.opacity = '0.7';
                                     
-                                    const fIconSpan = document.createElement('span');
-                                    fIconSpan.textContent = '✈️';
-                                    fHeaderDiv.appendChild(fIconSpan);
+                                    const flightIconSpan = document.createElement('span');
+                                    flightIconSpan.textContent = '✈️';
+                                    flightHeaderDiv.appendChild(flightIconSpan);
                                     
                                     const flightNumSpan = document.createElement('span');
                                     flightNumSpan.textContent = `${flight.flightNumber} - Error loading status`;
-                                    fHeaderDiv.appendChild(flightNumSpan);
+                                    flightHeaderDiv.appendChild(flightNumSpan);
                                     
-                                    flightItemDiv.appendChild(fHeaderDiv);
+                                    flightItemDiv.appendChild(flightHeaderDiv);
                                 }
                                 
                                 flightDiv.appendChild(flightItemDiv);

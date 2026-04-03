@@ -8356,9 +8356,14 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     const startDate = new Date(vacation.startDate);
                     const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
                     
+                    // Normalize destinations: use destinations array if available, fall back to single destination
+                    const effectiveDestinations = (vacation.destinations && vacation.destinations.length > 0)
+                      ? vacation.destinations
+                      : (vacation.destination ? [{ name: vacation.destination, showWeather: true, showTimezone: true }] : []);
+                    
                     const vacationInfo = {
                       destination: vacation.destination,
-                      destinations: [],
+                      destinations: effectiveDestinations,
                       startDate: vacation.startDate,
                       endDate: vacation.endDate,
                       daysUntil: daysUntil,
@@ -8368,11 +8373,6 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       houseSitting: vacation.houseSitting || false,
                       dogWatching: vacation.dogWatching || null
                     };
-                    
-                    // Normalize destinations: use destinations array if available, fall back to single destination
-                    const effectiveDestinations = (vacation.destinations && vacation.destinations.length > 0)
-                      ? vacation.destinations
-                      : (vacation.destination ? [{ name: vacation.destination, showWeather: true, showTimezone: true }] : []);
                     
                     // Include attached lists when vacation is within VACATION_LIST_PREVIEW_DAYS days
                     if (daysUntil <= VACATION_LIST_PREVIEW_DAYS && vacation.listIds && vacation.listIds.length > 0) {

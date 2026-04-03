@@ -21818,6 +21818,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    const escHtml = (str) => { const d = document.createElement('div'); d.textContent = String(str); return d.innerHTML; };
                     const locName = result.data?.location || destination;
                     const country = result.data?.country ? ', ' + result.data.country : '';
                     
@@ -21825,24 +21826,23 @@
                     if (typeof result.data?.timezoneOffset === 'number') {
                         const matched = autoSetTimezoneFromOffset(result.data.timezoneOffset, locName);
                         if (matched) {
-                            const escapeHtmlTz = (str) => { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; };
-                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${escapeHtmlTz(matched)}. You can override it below.</small>`;
+                            timezoneHint = `<br><small style="color: #667eea;">🕐 Timezone auto-suggested: ${escHtml(matched)}. You can override it below.</small>`;
                         }
                     }
                     
                     resultDiv.innerHTML = `
                         <div style="color: #10b981; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">
-                            ✅ ${result.message}<br>
+                            ✅ ${escHtml(result.message || '')}<br>
                             <small style="opacity: 0.8;">
-                                Location: ${locName}${country}<br>
-                                Current: ${result.data?.temp || 'N/A'}° - ${result.data?.condition || 'N/A'}
+                                Location: ${escHtml(locName)}${escHtml(country)}<br>
+                                Current: ${escHtml(result.data?.temp ?? 'N/A')}° - ${escHtml(result.data?.condition || 'N/A')}
                             </small>${timezoneHint}
                         </div>
                     `;
                 } else {
                     resultDiv.innerHTML = `
                         <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
-                            ❌ ${result.message || 'Location test failed'}<br>
+                            ❌ Location test failed<br>
                             <small style="opacity: 0.8;">Please try a different location name or check spelling.</small>
                         </div>
                     `;
@@ -21850,7 +21850,7 @@
             } catch (err) {
                 resultDiv.innerHTML = `
                     <div style="color: #ef4444; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
-                        ❌ Error testing location: ${err.message}
+                        ❌ Error testing location
                     </div>
                 `;
             }
