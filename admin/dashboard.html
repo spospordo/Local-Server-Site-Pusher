@@ -6116,6 +6116,80 @@
                                     </div>
                                 </div>
 
+                                <!-- Battery & Charging (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🔋 Battery &amp; Charging
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetBatteryEnabled">Enabled</label>
+                                                <select id="smartWidgetBatteryEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetBatteryPriority">Priority</label>
+                                                <input type="number" id="smartWidgetBatteryPriority" min="1" max="10" value="3">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetBatteryCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetBatteryCycleTime" min="5" max="60" value="15">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Monitors battery and charging state of devices via Home Assistant. Uses the Home Assistant URL and token configured in the 🎵 Home Assistant Media section above.
+                                        </p>
+
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Device Search &amp; Discovery</h5>
+
+                                        <div class="form-row" style="align-items: flex-end;">
+                                            <div class="form-group" style="flex: 1;">
+                                                <label for="batteryDeviceSearch">Search Home Assistant Devices</label>
+                                                <input type="text" id="batteryDeviceSearch" placeholder="e.g. phone, ipad, watch" oninput="clearBatterySearchResults()">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Keyword to filter battery-related entities
+                                                </small>
+                                            </div>
+                                            <div class="form-group" style="flex: 0 0 auto;">
+                                                <button type="button" class="btn btn-secondary" onclick="searchBatteryDevices()" style="margin-top: 22px;">
+                                                    🔍 Search
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div id="batterySearchResults" style="display:none; margin-bottom: 12px; border: 1px solid #dee2e6; border-radius: 6px; max-height: 240px; overflow-y: auto; background: #fff;">
+                                        </div>
+
+                                        <h5 style="margin-top: 20px; margin-bottom: 10px;">Tracked Devices</h5>
+
+                                        <div id="batteryTrackedDevicesList" style="margin-bottom: 10px;">
+                                            <p id="batteryNoDevicesMsg" style="color: #999; font-size: 0.9rem;">No devices tracked yet. Use the search above to find and add devices.</p>
+                                        </div>
+
+                                        <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
+                                            <small style="color: #555;">
+                                                ℹ️ The widget only displays when a tracked device matches an active scenario (charging, fully charged, or low battery).
+                                            </small>
+                                        </div>
+
+                                        <!-- Hidden input to store serialized tracked devices -->
+                                        <input type="hidden" id="smartWidgetBatteryTrackedDevices" value="[]">
+                                    </div>
+                                </div>
+
                                 <!-- Drive-Time (nested level 2, collapsed by default) -->
                                 <div class="collapsible-section collapsible-nested-l2">
                                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -6176,7 +6250,7 @@
 
                         <div class="form-group" style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 20px;">
                             <p style="margin: 0; color: #2e7d32; font-size: 0.95rem;">
-                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, high heat alert, significant temp change, upcoming vacation, media playing). Configure priority to control which sub-widgets appear first.
+                                <strong>ℹ️ About Smart Widget:</strong> The Smart Widget intelligently displays sub-widgets based on their content and relevance. It only shows sub-widgets when they have active content (e.g., rain in forecast, high heat alert, significant temp change, upcoming vacation, media playing, battery/charging alerts). Configure priority to control which sub-widgets appear first.
                             </p>
                         </div>
                     </div>
@@ -14008,6 +14082,7 @@
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
                         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+                        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
                     ];
                     
@@ -14047,6 +14122,14 @@
                     document.getElementById('smartWidgetDriveTimeEnabled').value = driveTimeSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetDriveTimePriority').value = driveTimeSubWidget.priority || 2;
                     document.getElementById('smartWidgetDriveTimeCycleTime').value = driveTimeSubWidget.cycleTime || 15;
+
+                    const batterySubWidget = subWidgets.find(sw => sw.type === 'homeAssistantBattery') || { enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] };
+                    document.getElementById('smartWidgetBatteryEnabled').value = batterySubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetBatteryPriority').value = batterySubWidget.priority || 3;
+                    document.getElementById('smartWidgetBatteryCycleTime').value = batterySubWidget.cycleTime || 15;
+                    const batteryTrackedDevices = batterySubWidget.trackedDevices || [];
+                    document.getElementById('smartWidgetBatteryTrackedDevices').value = JSON.stringify(batteryTrackedDevices);
+                    renderBatteryTrackedDevicesList(batteryTrackedDevices);
                     
                     document.getElementById('smartWidgetHomeAddress').value = smartWidget.homeAddress || '';
                     
@@ -14485,6 +14568,13 @@
                                     cycleTime: parseInt(document.getElementById('smartWidgetMediaCycleTime').value)
                                 },
                                 {
+                                    type: 'homeAssistantBattery',
+                                    enabled: document.getElementById('smartWidgetBatteryEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetBatteryPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetBatteryCycleTime').value),
+                                    trackedDevices: (() => { try { return JSON.parse(document.getElementById('smartWidgetBatteryTrackedDevices').value || '[]'); } catch(e) { return []; } })()
+                                },
+                                {
                                     type: 'party',
                                     enabled: document.getElementById('smartWidgetPartyEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetPartyPriority').value),
@@ -14608,6 +14698,283 @@
             }
         }
         
+        // Smart Mirror Battery Widget Functions
+        function getBatteryTrackedDevices() {
+            try {
+                return JSON.parse(document.getElementById('smartWidgetBatteryTrackedDevices').value || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function setBatteryTrackedDevices(devices) {
+            document.getElementById('smartWidgetBatteryTrackedDevices').value = JSON.stringify(devices);
+            renderBatteryTrackedDevicesList(devices);
+        }
+
+        function clearBatterySearchResults() {
+            const resultsEl = document.getElementById('batterySearchResults');
+            if (resultsEl) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; }
+        }
+
+        async function searchBatteryDevices() {
+            const keyword = document.getElementById('batteryDeviceSearch').value.trim();
+            const resultsEl = document.getElementById('batterySearchResults');
+            resultsEl.style.display = 'block';
+            resultsEl.innerHTML = '<div style="padding:10px;color:#666;">🔍 Searching...</div>';
+
+            try {
+                const url = '/admin/api/smart-mirror/ha-battery/search' + (keyword ? `?keyword=${encodeURIComponent(keyword)}` : '');
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.success) {
+                    resultsEl.innerHTML = `<div style="padding:10px;color:#c00;">❌ ${escapeHtml(data.error || 'Search failed')}</div>`;
+                    return;
+                }
+
+                const entities = data.entities || [];
+                if (entities.length === 0) {
+                    resultsEl.innerHTML = '<div style="padding:10px;color:#666;">No battery-related devices found. Try a different keyword or leave blank to show all.</div>';
+                    return;
+                }
+
+                const currentDevices = getBatteryTrackedDevices();
+                const trackedIds = new Set(currentDevices.map(d => d.entityId));
+
+                resultsEl.innerHTML = '';
+                entities.forEach(entity => {
+                    const alreadyTracked = trackedIds.has(entity.entityId);
+
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #f0f0f0;gap:8px;';
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.style.cssText = 'flex:1;min-width:0;';
+
+                    const nameLine = document.createElement('div');
+                    nameLine.style.cssText = 'font-weight:600;font-size:0.9rem;';
+                    nameLine.textContent = entity.friendlyName;
+                    if (entity.deviceClass) {
+                        const badge = document.createElement('span');
+                        badge.style.cssText = 'font-size:0.75rem;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:10px;margin-left:6px;';
+                        badge.textContent = entity.deviceClass;
+                        nameLine.appendChild(badge);
+                    }
+                    if (entity.unitOfMeasurement) {
+                        const unit = document.createElement('span');
+                        unit.style.cssText = 'font-size:0.75rem;color:#888;margin-left:4px;';
+                        unit.textContent = '(' + entity.unitOfMeasurement + ')';
+                        nameLine.appendChild(unit);
+                    }
+                    infoDiv.appendChild(nameLine);
+
+                    const entityLine = document.createElement('div');
+                    entityLine.style.cssText = 'font-size:0.8rem;color:#888;margin-top:2px;';
+                    entityLine.textContent = entity.entityId;
+                    if (entity.state !== null && entity.state !== undefined) {
+                        const stateSpan = document.createElement('span');
+                        stateSpan.style.cssText = 'font-size:0.8rem;color:#555;margin-left:6px;';
+                        stateSpan.textContent = 'State: ' + String(entity.state);
+                        entityLine.appendChild(stateSpan);
+                    }
+                    infoDiv.appendChild(entityLine);
+                    row.appendChild(infoDiv);
+
+                    const addBtn = document.createElement('button');
+                    addBtn.type = 'button';
+                    addBtn.style.cssText = 'white-space:nowrap;';
+                    if (alreadyTracked) {
+                        addBtn.className = 'btn btn-sm btn-secondary';
+                        addBtn.disabled = true;
+                        addBtn.title = 'Already tracked';
+                        addBtn.textContent = '✓ Added';
+                    } else {
+                        addBtn.className = 'btn btn-sm btn-primary';
+                        addBtn.textContent = '+ Add';
+                        addBtn.addEventListener('click', () => addBatteryDevice(entity.entityId, entity.friendlyName));
+                    }
+                    row.appendChild(addBtn);
+                    resultsEl.appendChild(row);
+                });
+            } catch (err) {
+                resultsEl.innerHTML = `<div style="padding:10px;color:#c00;">❌ Error: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function addBatteryDevice(entityId, friendlyName) {
+            const devices = getBatteryTrackedDevices();
+            if (devices.find(d => d.entityId === entityId)) return;
+            devices.push({
+                entityId,
+                friendlyName,
+                lowBatteryThreshold: 25,
+                showWhenCharging: true,
+                showWhenFull: true,
+                showWhenLow: true,
+                chargingEntityId: ''
+            });
+            setBatteryTrackedDevices(devices);
+            // Refresh search results to update button states
+            const keyword = document.getElementById('batteryDeviceSearch').value.trim();
+            if (document.getElementById('batterySearchResults').style.display !== 'none') {
+                searchBatteryDevices();
+            }
+        }
+
+        function removeBatteryDevice(entityId) {
+            const devices = getBatteryTrackedDevices().filter(d => d.entityId !== entityId);
+            setBatteryTrackedDevices(devices);
+        }
+
+        function updateBatteryDevice(entityId, field, value) {
+            const devices = getBatteryTrackedDevices();
+            const device = devices.find(d => d.entityId === entityId);
+            if (!device) return;
+            if (field === 'lowBatteryThreshold') {
+                device[field] = parseInt(value, 10) || 25;
+            } else if (['showWhenCharging', 'showWhenFull', 'showWhenLow'].includes(field)) {
+                device[field] = value === true || value === 'true';
+            } else {
+                device[field] = value;
+            }
+            document.getElementById('smartWidgetBatteryTrackedDevices').value = JSON.stringify(devices);
+        }
+
+        function renderBatteryTrackedDevicesList(devices) {
+            const container = document.getElementById('batteryTrackedDevicesList');
+            const noMsg = document.getElementById('batteryNoDevicesMsg');
+
+            // Remove all device cards (keep the no-devices message element)
+            Array.from(container.children).forEach(child => {
+                if (child.id !== 'batteryNoDevicesMsg') child.remove();
+            });
+
+            if (!devices || devices.length === 0) {
+                if (noMsg) noMsg.style.display = '';
+                return;
+            }
+            if (noMsg) noMsg.style.display = 'none';
+
+            devices.forEach((device) => {
+                const card = document.createElement('div');
+                card.style.cssText = 'border:1px solid #dee2e6;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafafa;';
+
+                // --- Header row ---
+                const headerRow = document.createElement('div');
+                headerRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+
+                const nameLabel = document.createElement('div');
+                nameLabel.style.cssText = 'flex:1;font-weight:600;';
+                nameLabel.textContent = '🔋 ' + (device.friendlyName || device.entityId);
+                headerRow.appendChild(nameLabel);
+
+                const entityIdLabel = document.createElement('div');
+                entityIdLabel.style.cssText = 'font-size:0.8rem;color:#888;';
+                entityIdLabel.textContent = device.entityId;
+                headerRow.appendChild(entityIdLabel);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-sm btn-danger';
+                removeBtn.title = 'Remove device';
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', () => removeBatteryDevice(device.entityId));
+                headerRow.appendChild(removeBtn);
+
+                card.appendChild(headerRow);
+
+                // --- Fields grid ---
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;';
+
+                // Display Name input
+                const nameDiv = document.createElement('div');
+                const nameFieldLabel = document.createElement('label');
+                nameFieldLabel.style.cssText = 'font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;';
+                nameFieldLabel.textContent = 'Display Name';
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = device.friendlyName || '';
+                nameInput.style.cssText = 'width:100%;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;box-sizing:border-box;';
+                nameInput.addEventListener('change', () => updateBatteryDevice(device.entityId, 'friendlyName', nameInput.value));
+                nameDiv.appendChild(nameFieldLabel);
+                nameDiv.appendChild(nameInput);
+                grid.appendChild(nameDiv);
+
+                // Low Battery Threshold input
+                const threshDiv = document.createElement('div');
+                const threshLabel = document.createElement('label');
+                threshLabel.style.cssText = 'font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;';
+                threshLabel.textContent = 'Low Battery Threshold (%)';
+                const threshInput = document.createElement('input');
+                threshInput.type = 'number';
+                threshInput.min = '1';
+                threshInput.max = '99';
+                threshInput.value = String(device.lowBatteryThreshold ?? 25);
+                threshInput.style.cssText = 'width:100%;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;box-sizing:border-box;';
+                threshInput.addEventListener('change', () => updateBatteryDevice(device.entityId, 'lowBatteryThreshold', threshInput.value));
+                threshDiv.appendChild(threshLabel);
+                threshDiv.appendChild(threshInput);
+                grid.appendChild(threshDiv);
+
+                // Charging Sensor Entity ID input
+                const chargingDiv = document.createElement('div');
+                const chargingLabel = document.createElement('label');
+                chargingLabel.style.cssText = 'font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;';
+                chargingLabel.textContent = 'Charging Sensor Entity ID ';
+                const chargingOptional = document.createElement('span');
+                chargingOptional.style.cssText = 'font-weight:400;color:#888;';
+                chargingOptional.textContent = '(optional)';
+                chargingLabel.appendChild(chargingOptional);
+                const chargingInput = document.createElement('input');
+                chargingInput.type = 'text';
+                chargingInput.value = device.chargingEntityId || '';
+                chargingInput.placeholder = 'e.g. binary_sensor.phone_charging';
+                chargingInput.style.cssText = 'width:100%;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;box-sizing:border-box;';
+                chargingInput.addEventListener('change', () => updateBatteryDevice(device.entityId, 'chargingEntityId', chargingInput.value));
+                chargingDiv.appendChild(chargingLabel);
+                chargingDiv.appendChild(chargingInput);
+                grid.appendChild(chargingDiv);
+
+                grid.appendChild(document.createElement('div')); // spacer
+                card.appendChild(grid);
+
+                // --- Scenario checkboxes ---
+                const scenarioSection = document.createElement('div');
+                scenarioSection.style.marginTop = '10px';
+
+                const scenarioTitle = document.createElement('div');
+                scenarioTitle.style.cssText = 'font-size:0.85rem;font-weight:600;margin-bottom:6px;';
+                scenarioTitle.textContent = 'Show on Dashboard When:';
+                scenarioSection.appendChild(scenarioTitle);
+
+                const checkRow = document.createElement('div');
+                checkRow.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;';
+
+                const scenarios = [
+                    { field: 'showWhenCharging', label: '⚡ Charging', defaultVal: true },
+                    { field: 'showWhenFull', label: '🔋 Done Charging (100%)', defaultVal: true },
+                    { field: 'showWhenLow', label: '🪫 Low Battery', defaultVal: true }
+                ];
+                scenarios.forEach(s => {
+                    const lbl = document.createElement('label');
+                    lbl.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9rem;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = device[s.field] !== false;
+                    cb.addEventListener('change', () => updateBatteryDevice(device.entityId, s.field, cb.checked));
+                    lbl.appendChild(cb);
+                    lbl.appendChild(document.createTextNode(s.label));
+                    checkRow.appendChild(lbl);
+                });
+                scenarioSection.appendChild(checkRow);
+                card.appendChild(scenarioSection);
+
+                container.appendChild(card);
+            });
+        }
+
         // Smart Mirror Diagnostics Functions
         async function loadSmartMirrorDiagnostics() {
             try {

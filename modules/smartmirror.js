@@ -182,6 +182,7 @@ function getDefaultWidgets() {
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+        { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [] },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
       ],
       // Display settings
@@ -2579,6 +2580,200 @@ async function testTomTomConnection(apiKey) {
   }
 }
 
+// Search Home Assistant entities that look like battery sensors
+// Returns a list of candidate entities matching the keyword
+async function searchHomeAssistantBatteryEntities(haUrl, haToken, keyword) {
+  if (!haUrl || !haToken) {
+    return { success: false, error: 'Home Assistant URL and token are required' };
+  }
+
+  try {
+    const baseUrl = haUrl.replace(/\/$/, '');
+    const response = await axios.get(`${baseUrl}/api/states`, {
+      ...HOME_ASSISTANT_AXIOS_CONFIG,
+      headers: {
+        ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
+        'Authorization': `Bearer ${haToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
+
+    const allStates = response.data || [];
+    const kw = (keyword || '').toLowerCase().trim();
+
+    // Filter entities that are battery-related:
+    // - device_class === 'battery' (numeric level)
+    // - device_class === 'battery_charging' (binary_sensor)
+    // - entity_id or friendly_name contains "battery"
+    const batteryEntities = allStates.filter(entity => {
+      const attrs = entity.attributes || {};
+      const deviceClass = (attrs.device_class || '').toLowerCase();
+      const entityId = (entity.entity_id || '').toLowerCase();
+      const friendlyName = (attrs.friendly_name || '').toLowerCase();
+
+      const isBattery = deviceClass === 'battery' ||
+                        deviceClass === 'battery_charging' ||
+                        entityId.includes('battery') ||
+                        friendlyName.includes('battery') ||
+                        entityId.includes('charging');
+
+      if (!isBattery) return false;
+      if (!kw) return true;
+      return entityId.includes(kw) || friendlyName.includes(kw);
+    }).map(entity => ({
+      entityId: entity.entity_id,
+      friendlyName: entity.attributes?.friendly_name || entity.entity_id,
+      state: entity.state,
+      deviceClass: entity.attributes?.device_class || null,
+      unitOfMeasurement: entity.attributes?.unit_of_measurement || null
+    }));
+
+    return { success: true, entities: batteryEntities };
+  } catch (err) {
+    const errorMsg = `Failed to search Home Assistant entities: ${err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
+// Fetch battery & charging state for all tracked devices in the battery sub-widget
+// trackedDevices: array of { entityId, friendlyName, lowBatteryThreshold, showWhenCharging, showWhenFull, showWhenLow, chargingEntityId }
+async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) {
+  if (!haUrl || !haToken || !trackedDevices || trackedDevices.length === 0) {
+    return { success: false, error: 'Home Assistant URL, token, and tracked devices are required' };
+  }
+
+  try {
+    const baseUrl = haUrl.replace(/\/$/, '');
+
+    // Collect all entity IDs we need to fetch (battery + optional charging sensors)
+    const entityIdsNeeded = new Set();
+    trackedDevices.forEach(device => {
+      if (device.entityId) entityIdsNeeded.add(device.entityId);
+      if (device.chargingEntityId) entityIdsNeeded.add(device.chargingEntityId);
+    });
+
+    // Fetch all states at once for efficiency
+    const response = await axios.get(`${baseUrl}/api/states`, {
+      ...HOME_ASSISTANT_AXIOS_CONFIG,
+      headers: {
+        ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
+        'Authorization': `Bearer ${haToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
+
+    const allStates = response.data || [];
+    const stateMap = {};
+    allStates.forEach(entity => {
+      stateMap[entity.entity_id] = entity;
+    });
+
+    const devices = trackedDevices.map(device => {
+      const entityState = stateMap[device.entityId];
+      if (!entityState) {
+        return {
+          entityId: device.entityId,
+          friendlyName: device.friendlyName || device.entityId,
+          available: false,
+          batteryLevel: null,
+          isCharging: false,
+          isFull: false,
+          isLow: false,
+          state: 'unavailable',
+          lowBatteryThreshold: device.lowBatteryThreshold || 25,
+          showWhenCharging: device.showWhenCharging !== false,
+          showWhenFull: device.showWhenFull !== false,
+          showWhenLow: device.showWhenLow !== false
+        };
+      }
+
+      const attrs = entityState.attributes || {};
+      const rawState = entityState.state;
+      const deviceClass = (attrs.device_class || '').toLowerCase();
+
+      // Determine battery level
+      let batteryLevel = null;
+      if (deviceClass === 'battery' || attrs.unit_of_measurement === '%') {
+        const parsed = parseFloat(rawState);
+        if (!isNaN(parsed)) batteryLevel = Math.round(parsed);
+      } else if (deviceClass !== 'battery_charging') {
+        // Try numeric parse as a fallback
+        const parsed = parseFloat(rawState);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) batteryLevel = Math.round(parsed);
+      }
+
+      // Determine charging state
+      let isCharging = false;
+      if (device.chargingEntityId && stateMap[device.chargingEntityId]) {
+        const chargingState = stateMap[device.chargingEntityId].state;
+        isCharging = chargingState === 'on' || chargingState === 'true' || chargingState === 'charging';
+      } else if (deviceClass === 'battery_charging') {
+        isCharging = rawState === 'on' || rawState === 'true';
+        batteryLevel = null; // This entity is a charging indicator, not a level
+      } else if (typeof attrs.battery_charging === 'boolean') {
+        isCharging = attrs.battery_charging;
+      } else if (attrs.charging === true || attrs.battery_state === 'Charging') {
+        isCharging = true;
+      }
+
+      const lowBatteryThreshold = device.lowBatteryThreshold ?? 25;
+      const isFull = batteryLevel !== null && batteryLevel >= 100 && !isCharging;
+      const isLow = batteryLevel !== null && batteryLevel <= lowBatteryThreshold && !isCharging;
+
+      // Determine display state
+      let displayState = 'normal';
+      if (isCharging && batteryLevel !== null && batteryLevel >= 100) {
+        displayState = 'full';
+      } else if (isCharging) {
+        displayState = 'charging';
+      } else if (isFull) {
+        displayState = 'full';
+      } else if (isLow) {
+        displayState = 'low';
+      }
+
+      return {
+        entityId: device.entityId,
+        friendlyName: device.friendlyName || attrs.friendly_name || device.entityId,
+        available: true,
+        batteryLevel,
+        isCharging,
+        isFull: displayState === 'full',
+        isLow,
+        state: displayState,
+        lowBatteryThreshold,
+        showWhenCharging: device.showWhenCharging !== false,
+        showWhenFull: device.showWhenFull !== false,
+        showWhenLow: device.showWhenLow !== false
+      };
+    });
+
+    // Only include devices that are available and match at least one display scenario
+    const visibleDevices = devices.filter(d => {
+      if (!d.available) return false;
+      if (d.state === 'charging' && d.showWhenCharging) return true;
+      if (d.state === 'full' && d.showWhenFull) return true;
+      if (d.state === 'low' && d.showWhenLow) return true;
+      return false;
+    });
+
+    logger.info(logger.categories.SMART_MIRROR, `Battery sub-widget: ${visibleDevices.length} of ${trackedDevices.length} devices visible`);
+
+    return {
+      success: true,
+      devices,
+      visibleDevices
+    };
+  } catch (err) {
+    const errorMsg = `Failed to fetch Home Assistant battery devices: ${err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 module.exports = {
   init,
   loadConfig,
@@ -2596,6 +2791,8 @@ module.exports = {
   fetchWeatherForDate,
   fetchAirQuality,
   fetchHomeAssistantMedia,
+  searchHomeAssistantBatteryEntities,
+  fetchHomeAssistantBatteryDevices,
   fetchLocationTimezone,
   fetchDriveTimes,
   testWeatherConnection,

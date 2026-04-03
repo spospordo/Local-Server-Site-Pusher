@@ -7668,6 +7668,32 @@ app.get('/api/smart-mirror/vacation', async (req, res) => {
   }
 });
 
+// Search Home Assistant entities for battery/charging devices (admin endpoint)
+app.get('/admin/api/smart-mirror/ha-battery/search', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'HA battery device search requested');
+
+  try {
+    const smConfig = smartMirror.loadConfig();
+    const smartWidgetConfig = smConfig.widgets?.smartWidget;
+    const haUrl = smartWidgetConfig?.homeAssistantUrl || '';
+    const haToken = smartWidgetConfig?.homeAssistantToken || '';
+
+    if (!haUrl || !haToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Home Assistant URL and token must be configured in the Smart Widget settings'
+      });
+    }
+
+    const keyword = (req.query.keyword || '').trim();
+    const result = await smartMirror.searchHomeAssistantBatteryEntities(haUrl, haToken, keyword);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `HA battery search error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to search Home Assistant entities' });
+  }
+});
+
 // Test location for weather availability (for admin validation)
 app.post('/admin/api/smart-mirror/test-location', requireAuth, async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Testing location for weather availability');
@@ -8000,6 +8026,10 @@ function estimateContentSize(subWidgetData) {
     case 'homeAssistantMedia':
       // Media widget is usually compact (artwork + metadata)
       return 'small';
+      
+    case 'homeAssistantBattery':
+      // Battery widget size depends on number of visible devices
+      return (data.devices || []).length > 3 ? 'medium' : 'small';
       
     case 'party':
       // Party widget has extensive content (weather, tasks, invitees, menu, events)
@@ -8456,6 +8486,46 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             }
             break;
             
+          case 'homeAssistantBattery': {
+            // Fetch battery & charging state for all tracked devices
+            const batterySubWidget = subWidget;
+            const batteryTrackedDevices = batterySubWidget.trackedDevices || [];
+            if (batteryTrackedDevices.length > 0 && smartWidgetConfig.homeAssistantUrl && smartWidgetConfig.homeAssistantToken) {
+              const batteryResult = await smartMirror.fetchHomeAssistantBatteryDevices(
+                smartWidgetConfig.homeAssistantUrl,
+                smartWidgetConfig.homeAssistantToken,
+                batteryTrackedDevices
+              );
+
+              if (batteryResult.success && batteryResult.visibleDevices && batteryResult.visibleDevices.length > 0) {
+                logger.success(logger.categories.SMART_MIRROR,
+                  `Battery sub-widget: ${batteryResult.visibleDevices.length} device(s) to display`);
+                subWidgetData = {
+                  type: 'homeAssistantBattery',
+                  priority: subWidget.priority,
+                  cycleTime: subWidget.cycleTime || 15,
+                  hasContent: true,
+                  data: {
+                    devices: batteryResult.visibleDevices
+                  }
+                };
+              } else if (!batteryResult.success) {
+                logger.warning(logger.categories.SMART_MIRROR,
+                  `Battery sub-widget: fetch failed - ${batteryResult.error}`);
+              } else {
+                logger.debug(logger.categories.SMART_MIRROR,
+                  'Battery sub-widget: no devices meet display criteria');
+              }
+            } else if (batteryTrackedDevices.length === 0) {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Battery sub-widget: no tracked devices configured');
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Battery sub-widget: Home Assistant URL or token not configured');
+            }
+            break;
+          }
+
           case 'party':
             // Get next active party from parties array
             migrateToMultiParty(); // Ensure migration has run
