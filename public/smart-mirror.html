@@ -1126,6 +1126,8 @@
         let refreshInterval = null;
         let smartWidgetCycleInterval = null; // Timer for Smart Widget cycling (setTimeout, not setInterval)
         let currentOrientation = 'portrait'; // Track current orientation
+        let configLastFetched = 0; // Timestamp of last successful config fetch
+        const CONFIG_STALE_THRESHOLD_MS = 30000; // Re-fetch config if older than 30 s
 
         // Detect current orientation from URL or screen
         function detectOrientation() {
@@ -1273,6 +1275,7 @@
                 
                 if (data.success && data.config) {
                     config = data.config;
+                    configLastFetched = Date.now();
                     console.log('✅ [Smart Mirror] Config loaded successfully:', config);
                     console.log('[Smart Mirror] Enabled widgets:', 
                         Object.keys(config.widgets || {}).filter(k => config.widgets[k]?.enabled)
@@ -1454,8 +1457,24 @@
         }
 
         // Update all dynamic widgets
-        function updateWidgets() {
+        async function updateWidgets() {
             if (!config || !config.widgets) return;
+
+            // Re-fetch config when stale (>30 s since last fetch) so that server-side
+            // changes — such as vacation clock timezone sync updating additionalTimezones —
+            // are reflected without requiring a full page reload.
+            if (Date.now() - configLastFetched > CONFIG_STALE_THRESHOLD_MS) {
+                try {
+                    const response = await fetch(`/api/smart-mirror/config?orientation=${currentOrientation}`);
+                    const data = await response.json();
+                    if (data.success && data.config) {
+                        config = data.config;
+                        configLastFetched = Date.now();
+                    }
+                } catch (error) {
+                    console.warn('[Smart Mirror] Failed to refresh config, using cached version:', error);
+                }
+            }
 
             Object.keys(config.widgets).forEach(widgetKey => {
                 const widgetConfig = config.widgets[widgetKey];
