@@ -741,6 +741,10 @@ house.init(config);
 // Initialize flight scheduler
 flightScheduler.initScheduler();
 
+// Sync the AviationStack monthly API call limit from the saved configuration so that
+// the in-memory counter reflects whatever the admin has configured
+aviationstack.setMonthlyLimit(config.flightApi?.monthlyLimit || 100);
+
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
 
@@ -6757,6 +6761,8 @@ app.post('/admin/api/smart-mirror/config', requireAuth, (req, res) => {
     const result = smartMirror.saveConfig(newConfig);
     
     if (result.success) {
+      // Sync the AviationStack monthly limit whenever settings are saved
+      aviationstack.setMonthlyLimit(newConfig.flightApi?.monthlyLimit || 100);
       console.log('✅ [Smart Mirror] Configuration saved successfully');
       logger.success(logger.categories.SMART_MIRROR, `Configuration saved successfully by ${requestContext.user}`);
       res.json({ success: true, message: 'Configuration saved successfully', config: result.config });

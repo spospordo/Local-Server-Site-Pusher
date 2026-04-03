@@ -15323,6 +15323,21 @@
                 console.error('Failed to refresh Flight API usage:', error);
             }
         }
+
+        // Auto-poll flight API usage every 30 seconds so the displayed count stays
+        // current regardless of which page or action triggered the API call
+        let _flightApiUsagePollInterval = null;
+        function startFlightApiUsagePolling() {
+            if (_flightApiUsagePollInterval) return; // already running
+            _flightApiUsagePollInterval = setInterval(() => {
+                const usageSection = document.getElementById('flightApiUsage');
+                if (usageSection && usageSection.style.display !== 'none') {
+                    refreshFlightApiUsage();
+                }
+            }, 30000);
+        }
+        // Begin polling as soon as the page is ready
+        startFlightApiUsagePolling();
         
         // Show Flight API diagnostics (key fingerprint, config status)
         async function showFlightApiDiagnostics() {

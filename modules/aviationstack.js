@@ -1,4 +1,6 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 const logger = require('./logger');
 
 /**
@@ -16,14 +18,48 @@ const logger = require('./logger');
 // paid AviationStack plan which supports HTTPS.
 const AVIATIONSTACK_BASE_URL = 'http://api.aviationstack.com/v1';
 
-// API usage tracking
-let apiUsage = {
+// Persistent storage file for API usage counter
+const USAGE_FILE = path.join(__dirname, '..', 'config', 'flight-api-usage.json');
+
+/**
+ * Load usage data from persistent file
+ * @returns {Object|null} Saved usage data or null if file not found/invalid
+ */
+function loadUsageFromFile() {
+  try {
+    if (fs.existsSync(USAGE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf8'));
+      return data;
+    }
+  } catch (err) {
+    // Use console.error here since logger may not be initialised yet.
+    // The module continues with in-memory defaults if the file cannot be read.
+    console.error(`[AviationStack] Failed to load usage from file: ${err.message}. Using default values instead.`);
+  }
+  return null;
+}
+
+/**
+ * Save current usage data to persistent file
+ */
+function saveUsageToFile() {
+  try {
+    fs.writeFileSync(USAGE_FILE, JSON.stringify(apiUsage, null, 2));
+  } catch (err) {
+    logger.warning(logger.categories.SMART_MIRROR, `Failed to save flight API usage to file: ${err.message}`);
+  }
+}
+
+// API usage tracking – initialised from persistent file so counts survive redeployments
+const _usageDefaults = {
   monthlyLimit: 100,
   currentMonth: new Date().getMonth(),
   currentYear: new Date().getFullYear(),
   callsThisMonth: 0,
   lastReset: new Date().toISOString()
 };
+
+let apiUsage = { ..._usageDefaults, ...(loadUsageFromFile() || {}) };
 
 /**
  * Get API key fingerprint for logging (last 4 characters only)
@@ -42,7 +78,7 @@ function getApiKeyFingerprint(apiKey) {
 }
 
 /**
- * Reset API usage counter if new month
+ * Reset API usage counter if new month and persist the reset
  */
 function resetUsageIfNewMonth() {
   const now = new Date();
@@ -52,16 +88,31 @@ function resetUsageIfNewMonth() {
     apiUsage.currentYear = now.getFullYear();
     apiUsage.callsThisMonth = 0;
     apiUsage.lastReset = now.toISOString();
+    saveUsageToFile();
   }
 }
 
 /**
- * Increment API usage counter
+ * Increment API usage counter and persist the updated count
  */
 function incrementUsage() {
   resetUsageIfNewMonth();
   apiUsage.callsThisMonth++;
   logger.debug(logger.categories.SMART_MIRROR, `AviationStack API calls this month: ${apiUsage.callsThisMonth}/${apiUsage.monthlyLimit}`);
+  saveUsageToFile();
+}
+
+/**
+ * Update the configured monthly API call limit and persist it.
+ * Call this whenever the admin changes the limit in settings so that the
+ * in-memory counter stays in sync with the saved configuration.
+ * @param {number} limit - New monthly call limit
+ */
+function setMonthlyLimit(limit) {
+  if (typeof limit === 'number' && limit > 0) {
+    apiUsage.monthlyLimit = limit;
+    saveUsageToFile();
+  }
 }
 
 /**
@@ -574,5 +625,6 @@ module.exports = {
   getFlightStatus,
   getUsageStats,
   isLimitReached,
-  getApiKeyFingerprint
+  getApiKeyFingerprint,
+  setMonthlyLimit
 };
