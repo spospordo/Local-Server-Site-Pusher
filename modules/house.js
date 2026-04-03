@@ -156,7 +156,8 @@ function addVacationDate(vacationDate) {
     flightTrackingEnabled: vacationDate.flightTrackingEnabled || false,
     addToDashboardClock: vacationDate.addToDashboardClock || false,
     clockCity: vacationDate.clockCity || "",
-    clockTimezone: vacationDate.clockTimezone || ""
+    clockTimezone: vacationDate.clockTimezone || "",
+    listIds: vacationDate.listIds || []
   });
   return saveVacationData(vacation);
 }

@@ -7520,6 +7520,15 @@
                         </div>
                     </div>
                     
+                    <!-- Lists Section -->
+                    <div class="form-group" style="border-top: 2px solid #eee; padding-top: 20px; margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">📋 Attach Lists</h4>
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Select lists from the House page to associate with this vacation. They will appear on the smart widget starting 4 days before the vacation begins.</p>
+                        <div id="vacationListsContainer" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 8px; background: #fafafa;">
+                            <div style="color: #999; font-size: 0.85rem;">Loading lists...</div>
+                        </div>
+                    </div>
+
                     <div class="modal-actions">
                         <button type="button" onclick="closeVacationDateModal()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn">Save</button>
@@ -21405,12 +21414,18 @@
         
         let currentVacationData = null;
         let currentDocumentationData = null;
+        let currentHouseLists = [];
         
         // Load vacation data
         async function loadHouseVacationData() {
             try {
-                const response = await fetch('/admin/api/house/vacation');
-                currentVacationData = await response.json();
+                const [vacationResponse, listsResponse] = await Promise.all([
+                    fetch('/admin/api/house/vacation'),
+                    fetch('/admin/api/house/lists')
+                ]);
+                currentVacationData = await vacationResponse.json();
+                const listsResult = await listsResponse.json();
+                currentHouseLists = listsResult.lists || [];
                 
                 // Load vacation dates
                 renderVacationDates();
@@ -21485,6 +21500,13 @@
                                 ${date.destination ? `<br><span style="color: #666;">📍 ${date.destination}</span>` : ''}
                                 ${date.notes ? `<br><span style="color: #666;">${date.notes}</span>` : ''}
                                 ${date.addToDashboardClock && date.clockCity && date.clockTimezone ? `<br><span style="color: #667eea; font-size: 0.85rem;">🕐 Clock: ${date.clockCity} (${date.clockTimezone})</span>` : ''}
+                                ${(date.listIds && date.listIds.length > 0) ? (() => {
+                                    const names = date.listIds.map(lid => {
+                                        const l = currentHouseLists.find(x => x.id === lid);
+                                        return l ? escapeHtml(l.name) : null;
+                                    }).filter(Boolean);
+                                    return names.length > 0 ? `<br><span style="color: #555; font-size: 0.85rem;">📋 Lists: ${names.join(', ')}</span>` : '';
+                                })() : ''}
                                 ${flightsHtml}
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
@@ -21577,6 +21599,7 @@
             document.getElementById('vacationClockTimezone').value = '';
             document.getElementById('vacationClockSection').style.display = 'none';
             document.getElementById('vacationClockSlotStatus').innerHTML = '';
+            loadVacationListsIntoModal([]);
             document.getElementById('vacationDateModal').style.display = 'flex';
             checkFlightApiStatus();
         }
@@ -21603,6 +21626,8 @@
             document.getElementById('vacationClockSection').style.display = addClock ? 'block' : 'none';
             document.getElementById('vacationClockSlotStatus').innerHTML = '';
             
+            loadVacationListsIntoModal(date.listIds || []);
+            
             document.getElementById('vacationDateModal').style.display = 'flex';
             checkFlightApiStatus();
         }
@@ -21617,6 +21642,38 @@
             if (!checked) {
                 document.getElementById('vacationClockSlotStatus').innerHTML = '';
             }
+        }
+        
+        async function loadVacationListsIntoModal(selectedIds) {
+            const container = document.getElementById('vacationListsContainer');
+            try {
+                const response = await fetch('/admin/api/house/lists');
+                const result = await response.json();
+                const lists = result.lists || [];
+                if (lists.length === 0) {
+                    container.innerHTML = '<div style="color: #999; font-size: 0.85rem;">No lists available. Create lists in the House → Lists section.</div>';
+                    return;
+                }
+                container.innerHTML = lists.map(list => {
+                    const checked = selectedIds.includes(list.id) ? 'checked' : '';
+                    const categoryLabel = list.category ? `<span style="font-size: 0.75rem; color: #888; margin-left: 6px;">[${escapeHtml(list.category)}]</span>` : '';
+                    const descLabel = list.description ? `<div style="font-size: 0.8rem; color: #666; margin-left: 24px;">${escapeHtml(list.description)}</div>` : '';
+                    return `
+                        <label style="display: flex; flex-wrap: wrap; align-items: center; cursor: pointer; padding: 5px 4px; border-radius: 4px; margin-bottom: 2px; hover: background:#f0f0f0;">
+                            <input type="checkbox" class="vacation-list-checkbox" value="${escapeHtml(list.id)}" ${checked} style="margin-right: 8px; flex-shrink: 0;">
+                            <span style="font-weight: 500;">${escapeHtml(list.name)}</span>${categoryLabel}
+                            ${descLabel}
+                        </label>
+                    `;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = '<div style="color: #dc3545; font-size: 0.85rem;">Failed to load lists.</div>';
+            }
+        }
+        
+        function collectVacationListIds() {
+            const checkboxes = document.querySelectorAll('#vacationListsContainer .vacation-list-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
         }
         
         async function checkFlightApiStatus() {
@@ -22042,7 +22099,8 @@
                 flights: collectFlightData(),
                 addToDashboardClock,
                 clockCity: addToDashboardClock ? clockCity : '',
-                clockTimezone: addToDashboardClock ? clockTimezone : ''
+                clockTimezone: addToDashboardClock ? clockTimezone : '',
+                listIds: collectVacationListIds()
             };
             
             try {
