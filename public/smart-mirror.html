@@ -655,6 +655,23 @@
             }
         }
 
+        /* Smart sub-widget base: ensure proper containment in all layout modes */
+        .smart-sub-widget {
+            min-width: 0;
+            min-height: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Smart widget simultaneous / adaptive containers: fill available space */
+        .smart-widget-simultaneous,
+        .smart-widget-adaptive-stack,
+        .smart-widget-adaptive-cycle {
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+        }
+
         /* Rain Forecast Widget Styles and Animations */
         .rain-forecast-enhanced {
             animation: rain-pulse 3s ease-in-out infinite;
@@ -2889,14 +2906,32 @@
                     // Show multiple sub-widgets at once
                     const container = document.createElement('div');
                     container.className = 'smart-widget-simultaneous';
-                    container.style.display = 'grid';
-                    container.style.gridTemplateColumns = `repeat(${Math.min(simultaneousMax, subWidgets.length)}, 1fr)`;
-                    container.style.gap = '15px';
+                    container.style.width = '100%';
+                    container.style.overflow = 'hidden';
+                    container.style.minWidth = '0';
                     container.style.height = '100%';
+                    container.style.gap = '15px';
+
+                    if (currentOrientation === 'portrait') {
+                        // In portrait mode stack sub-widgets vertically so each can use full width
+                        container.style.display = 'flex';
+                        container.style.flexDirection = 'column';
+                    } else {
+                        // In landscape mode show sub-widgets side by side
+                        container.style.display = 'grid';
+                        container.style.gridTemplateColumns = `repeat(${Math.min(simultaneousMax, subWidgets.length)}, 1fr)`;
+                    }
                     
                     subWidgets.slice(0, simultaneousMax).forEach(subWidget => {
                         const subDiv = renderSubWidget(subWidget);
-                        if (subDiv) container.appendChild(subDiv);
+                        if (subDiv) {
+                            if (currentOrientation === 'portrait') {
+                                // In portrait flex-column layout each sub-widget should grow equally
+                                subDiv.style.flex = '1';
+                                subDiv.style.minHeight = '0';
+                            }
+                            container.appendChild(subDiv);
+                        }
                     });
                     
                     content.appendChild(container);
@@ -2949,6 +2984,8 @@
                     stackContainer.style.gap = '15px';
                     stackContainer.style.overflowY = 'auto';
                     stackContainer.style.maxHeight = '100%';
+                    stackContainer.style.width = '100%';
+                    stackContainer.style.minWidth = '0';
                     
                     // Render all stackable widgets as horizontally long tabs
                     stackableWidgets.forEach(subWidget => {
@@ -2996,7 +3033,10 @@
                             cycleContainer.className = 'smart-widget-adaptive-cycle';
                             cycleContainer.style.marginTop = '15px';
                             cycleContainer.style.flex = '1';
-                            cycleContainer.style.minHeight = '200px';
+                            cycleContainer.style.minHeight = '0';
+                            cycleContainer.style.width = '100%';
+                            cycleContainer.style.minWidth = '0';
+                            cycleContainer.style.overflow = 'hidden';
                             content.appendChild(cycleContainer);
                             
                             // Initialize and start cycling in the cycle container
@@ -3075,6 +3115,8 @@
             container.style.background = 'rgba(255, 255, 255, 0.05)';
             container.style.overflow = 'hidden';
             container.style.width = '100%';
+            container.style.minWidth = '0';
+            container.style.minHeight = '0';
             container.style.boxSizing = 'border-box';
             
             let innerContent = null;
@@ -4751,6 +4793,44 @@
             } else {
                 console.log('[Smart Mirror] Using portrait URL - orientation locked to portrait');
             }
+        });
+
+        // Handle viewport resize events (important for Raspberry Pi initialization where
+        // Chromium may resize the window after the initial page render completes).
+        let resizeDebounceTimer = null;
+        let lastKnownWidth = window.innerWidth;
+        let lastKnownHeight = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeDebounceTimer);
+            resizeDebounceTimer = setTimeout(() => {
+                const newWidth = window.innerWidth;
+                const newHeight = window.innerHeight;
+
+                // Only act when the viewport size actually changed
+                if (newWidth === lastKnownWidth && newHeight === lastKnownHeight) return;
+
+                lastKnownWidth = newWidth;
+                lastKnownHeight = newHeight;
+
+                console.log(`[Smart Mirror] Viewport resized to ${newWidth}x${newHeight}`);
+
+                if (!config) return;
+
+                const newOrientation = detectOrientation();
+
+                if (newOrientation !== currentOrientation) {
+                    // Orientation flipped – reload config and re-render with correct layout
+                    console.log(`[Smart Mirror] Resize triggered orientation change: ${currentOrientation} -> ${newOrientation}`);
+                    currentOrientation = newOrientation;
+                    loadConfig();
+                } else {
+                    // Same orientation but viewport size changed – re-apply grid CSS so
+                    // the dynamic positioning rules reflect the current grid configuration.
+                    const gridSize = config.gridSize?.[currentOrientation] || config.gridSize || { columns: 4, rows: 3 };
+                    applyGridCSS(gridSize);
+                }
+            }, 250); // 250 ms debounce keeps config reloads/grid updates from firing on every pixel change
         });
 
         // Clean up on page unload

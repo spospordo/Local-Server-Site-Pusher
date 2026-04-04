@@ -128,6 +128,47 @@ test(
   html.match(/\.widget\[data-grid-width="1"\]\s*\.weather-temp/s)
 );
 
+// Test 15: Smart sub-widget base CSS enforces containment
+test(
+  'smart-sub-widget CSS class has min-width: 0',
+  html.match(/\.smart-sub-widget\s*\{[^}]*min-width:\s*0/s)
+);
+
+test(
+  'smart-sub-widget CSS class has min-height: 0',
+  html.match(/\.smart-sub-widget\s*\{[^}]*min-height:\s*0/s)
+);
+
+// Test 16: Simultaneous / adaptive container CSS fills available space
+test(
+  'smart-widget-simultaneous has width: 100% via CSS',
+  html.match(/\.smart-widget-simultaneous[^{]*\{[^}]*width:\s*100%/s)
+);
+
+// Test 17: Simultaneous mode uses portrait-aware layout (flex column in portrait)
+test(
+  'Simultaneous mode detects portrait orientation for vertical stacking',
+  html.includes("currentOrientation === 'portrait'") &&
+  html.includes("flexDirection = 'column'")
+);
+
+test(
+  'Simultaneous mode gives flex:1 to portrait sub-widgets',
+  html.includes("subDiv.style.flex = '1'")
+);
+
+// Test 18: window.resize handler exists for Raspberry Pi support
+test(
+  'window.resize handler exists for Raspberry Pi initialization support',
+  html.includes("window.addEventListener('resize'") &&
+  html.includes('resizeDebounceTimer')
+);
+
+test(
+  'Resize handler debounces events',
+  html.match(/clearTimeout\(resizeDebounceTimer\)/)
+);
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
