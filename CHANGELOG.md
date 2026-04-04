@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.13.2] - 2026-04-04
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #575 from spospordo/copilot/fix-unreliable-updates-entity-handling
+  - Address code review: simplify connectionError messages, rename checkedAt to statusCheckedAt
+  - Fix HA battery dashboard: add lastUpdated, connectionError, unavailable/unknown state handling, admin status endpoint and panel
+  - Initial plan
+
+
 ## [2.13.1] - 2026-04-03
 
 ### Patch Update
