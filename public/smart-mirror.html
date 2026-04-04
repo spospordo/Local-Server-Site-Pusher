@@ -2014,52 +2014,103 @@
         // Update news widget
         async function updateNewsWidget(content, widgetConfig) {
             try {
-                const response = await fetch('/api/smart-mirror/news');
-                const data = await response.json();
-                
-                if (data.success && data.items && data.items.length > 0) {
-                    content.innerHTML = '';
-                    const newsContainer = document.createElement('div');
-                    newsContainer.className = 'news-items';
-                    
-                    data.items.slice(0, 5).forEach(item => {
-                        const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
+                content.innerHTML = '';
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex';
+                wrapper.style.flexDirection = 'column';
+                wrapper.style.gap = '10px';
+                wrapper.style.height = '100%';
+                wrapper.style.overflowY = 'auto';
+
+                // Helper: render a single list of news items under an optional header
+                function renderNewsSection(label, icon, items) {
+                    if (!items || items.length === 0) return;
+                    const section = document.createElement('div');
+                    if (label) {
+                        const header = document.createElement('div');
+                        header.style.fontSize = '0.75rem';
+                        header.style.fontWeight = '700';
+                        header.style.opacity = '0.7';
+                        header.style.marginBottom = '4px';
+                        header.style.textTransform = 'uppercase';
+                        header.style.letterSpacing = '0.05em';
+                        header.textContent = (icon ? icon + ' ' : '') + label;
+                        section.appendChild(header);
+                    }
+                    const list = document.createElement('div');
+                    list.className = 'news-items';
+                    items.forEach(item => {
+                        const date = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
                         }) : '';
-                        
                         const newsItem = document.createElement('div');
                         newsItem.className = 'news-item';
-                        
                         const title = document.createElement('div');
                         title.className = 'news-title';
                         title.textContent = item.title || 'Untitled';
                         newsItem.appendChild(title);
-                        
                         const source = document.createElement('div');
                         source.className = 'news-source';
                         source.textContent = item.source + (date ? ' • ' + date : '');
                         newsItem.appendChild(source);
-                        
-                        newsContainer.appendChild(newsItem);
+                        list.appendChild(newsItem);
                     });
-                    
-                    content.appendChild(newsContainer);
-                } else if (data.error) {
-                    const errorDiv = document.createElement('div');
-                    errorDiv.style.opacity = '0.6';
-                    errorDiv.style.textAlign = 'center';
-                    errorDiv.textContent = '⚠️ ' + data.error;
-                    content.innerHTML = '';
-                    content.appendChild(errorDiv);
-                } else {
+                    section.appendChild(list);
+                    wrapper.appendChild(section);
+                }
+
+                // Fetch general news
+                const newsResponse = await fetch('/api/smart-mirror/news');
+                const newsData = await newsResponse.json();
+                if (newsData.success && newsData.items && newsData.items.length > 0) {
+                    renderNewsSection(null, null, newsData.items.slice(0, 5));
+                } else if (newsData.error && newsData.error !== 'News widget not enabled') {
+                    const errDiv = document.createElement('div');
+                    errDiv.style.opacity = '0.6';
+                    errDiv.textContent = '⚠️ ' + newsData.error;
+                    wrapper.appendChild(errDiv);
+                }
+
+                // Fetch vacation region news
+                try {
+                    const vacResponse = await fetch('/api/smart-mirror/news/vacation');
+                    const vacData = await vacResponse.json();
+                    if (vacData.success && vacData.regions && vacData.regions.length > 0) {
+                        for (const region of vacData.regions) {
+                            if (region.items && region.items.length > 0) {
+                                renderNewsSection(region.region, '✈️', region.items);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.debug('Vacation region news unavailable:', e.message);
+                }
+
+                // Fetch calendar region news
+                try {
+                    const calResponse = await fetch('/api/smart-mirror/news/calendar');
+                    const calData = await calResponse.json();
+                    if (calData.success && calData.regions && calData.regions.length > 0) {
+                        for (const region of calData.regions) {
+                            if (region.items && region.items.length > 0) {
+                                renderNewsSection(region.region, '📅', region.items);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.debug('Calendar region news unavailable:', e.message);
+                }
+
+                if (wrapper.childElementCount === 0) {
                     const msgDiv = document.createElement('div');
                     msgDiv.style.opacity = '0.6';
                     msgDiv.style.textAlign = 'center';
                     msgDiv.textContent = 'No news items available';
-                    content.innerHTML = '';
-                    content.appendChild(msgDiv);
+                    wrapper.appendChild(msgDiv);
                 }
+
+                content.appendChild(wrapper);
             } catch (error) {
                 console.error('Error fetching news:', error);
                 const errorDiv = document.createElement('div');
