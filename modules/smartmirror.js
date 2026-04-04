@@ -1391,6 +1391,17 @@ async function fetchRegionNews(region, count = 2) {
  * @param {object} newsConfig    - News widget configuration
  * @returns {Promise<{success: boolean, regions: Array}>}
  */
+/**
+ * Return an array of destination name strings from a vacation date object.
+ * Supports both the new `destinations[]` array format and the legacy `destination` string.
+ */
+function _getVacationDestinationNames(vacation) {
+  if (vacation.destinations && vacation.destinations.length > 0) {
+    return vacation.destinations.map(d => d.name).filter(Boolean);
+  }
+  return vacation.destination ? [vacation.destination] : [];
+}
+
 async function fetchVacationRegionNews(vacationDates, newsConfig) {
   const daysInAdvance = newsConfig.vacationNewsDaysInAdvance ?? 7;
   const headlinesCount = newsConfig.vacationNewsHeadlinesCount ?? 2;
@@ -1402,10 +1413,7 @@ async function fetchVacationRegionNews(vacationDates, newsConfig) {
   for (const vacation of (vacationDates || [])) {
     const startDate = new Date(vacation.startDate);
     if (startDate >= now && startDate <= cutoff) {
-      const dests = vacation.destinations && vacation.destinations.length > 0
-        ? vacation.destinations.map(d => d.name).filter(Boolean)
-        : (vacation.destination ? [vacation.destination] : []);
-      for (const d of dests) destinations.add(d);
+      for (const d of _getVacationDestinationNames(vacation)) destinations.add(d);
     }
   }
 

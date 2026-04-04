@@ -2065,11 +2065,15 @@
                 const newsData = await newsResponse.json();
                 if (newsData.success && newsData.items && newsData.items.length > 0) {
                     renderNewsSection(null, null, newsData.items.slice(0, 5));
-                } else if (newsData.error && newsData.error !== 'News widget not enabled') {
-                    const errDiv = document.createElement('div');
-                    errDiv.style.opacity = '0.6';
-                    errDiv.textContent = '⚠️ ' + newsData.error;
-                    wrapper.appendChild(errDiv);
+                } else if (newsData.error && newsData.items !== undefined) {
+                    // Only show an error message when the widget is enabled but fetching failed
+                    // (not when the widget is simply disabled)
+                    if (newsData.items.length === 0 && !newsData.error.toLowerCase().includes('not enabled')) {
+                        const errDiv = document.createElement('div');
+                        errDiv.style.opacity = '0.6';
+                        errDiv.textContent = '⚠️ ' + newsData.error;
+                        wrapper.appendChild(errDiv);
+                    }
                 }
 
                 // Fetch vacation region news
