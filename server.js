@@ -7698,6 +7698,44 @@ app.get('/admin/api/smart-mirror/ha-battery/search', requireAuth, async (req, re
   }
 });
 
+// Get current battery/charging status for all tracked devices (admin endpoint)
+app.get('/admin/api/smart-mirror/ha-battery/status', requireAuth, async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'HA battery status check requested');
+
+  try {
+    const haUrl = config.homeAssistant?.url || '';
+    const haToken = config.homeAssistant?.token || '';
+
+    if (!haUrl || !haToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Home Assistant URL and token must be configured in the main Settings page'
+      });
+    }
+
+    const smConfig = smartMirror.loadConfig();
+    const batterySubWidget = (smConfig.widgets?.smartWidget?.subWidgets || [])
+      .find(sw => sw.type === 'homeAssistantBattery');
+    const trackedDevices = batterySubWidget?.trackedDevices || [];
+
+    if (trackedDevices.length === 0) {
+      return res.json({ success: true, devices: [], message: 'No tracked devices configured' });
+    }
+
+    const result = await smartMirror.fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices);
+
+    if (!result.success) {
+      return res.json({ success: false, error: result.error, devices: [] });
+    }
+
+    // Return all devices so the admin can see unavailable/error states too
+    res.json({ success: true, devices: result.devices, checkedAt: new Date().toISOString() });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `HA battery status error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch battery status' });
+  }
+});
+
 // Test location for weather availability (for admin validation)
 app.post('/admin/api/smart-mirror/test-location', requireAuth, async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Testing location for weather availability');

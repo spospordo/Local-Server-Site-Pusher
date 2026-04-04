@@ -6194,6 +6194,20 @@
                                             <p id="batteryNoDevicesMsg" style="color: #999; font-size: 0.9rem;">No devices tracked yet. Use the search above to find and add devices.</p>
                                         </div>
 
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                            <button type="button" class="btn btn-secondary btn-sm" onclick="checkBatteryStatus()">
+                                                🔄 Check Current Status
+                                            </button>
+                                            <span id="batteryStatusCheckedAt" style="font-size:0.8rem;color:#888;"></span>
+                                        </div>
+
+                                        <div id="batteryStatusPanel" style="display:none;margin-bottom:12px;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;background:#fff;">
+                                            <div style="padding:8px 12px;background:#f8f9fa;border-bottom:1px solid #dee2e6;font-weight:600;font-size:0.9rem;">
+                                                📊 Live Status from Home Assistant
+                                            </div>
+                                            <div id="batteryStatusList"></div>
+                                        </div>
+
                                         <div style="background: #f0f7ff; border-left: 3px solid #667eea; padding: 10px; margin: 10px 0 5px 0; border-radius: 3px;">
                                             <small style="color: #555;">
                                                 ℹ️ Each entry is a <strong>device group</strong>: it combines a battery-level entity with an optional charging-state sensor under one display name. The widget only shows when a device matches an active scenario (charging, fully charged, or low battery). Device names are automatically synced from Home Assistant unless an Override Name is set.
@@ -14945,6 +14959,109 @@
         function removeBatteryDevice(entityId) {
             const devices = getBatteryTrackedDevices().filter(d => d.entityId !== entityId);
             setBatteryTrackedDevices(devices);
+        }
+
+        async function checkBatteryStatus() {
+            const panel = document.getElementById('batteryStatusPanel');
+            const list = document.getElementById('batteryStatusList');
+            const checkedAtEl = document.getElementById('batteryStatusCheckedAt');
+
+            panel.style.display = 'block';
+            list.innerHTML = '<div style="padding:12px;color:#666;">🔄 Checking status with Home Assistant…</div>';
+            checkedAtEl.textContent = '';
+
+            try {
+                const response = await fetch('/admin/api/smart-mirror/ha-battery/status');
+                const data = await response.json();
+
+                if (!data.success) {
+                    list.innerHTML = `<div style="padding:12px;color:#c00;">❌ ${escapeHtml(data.error || 'Failed to fetch status')}</div>`;
+                    return;
+                }
+
+                const devices = data.devices || [];
+                if (data.checkedAt) {
+                    checkedAtEl.textContent = 'Checked at ' + new Date(data.checkedAt).toLocaleTimeString();
+                }
+
+                if (devices.length === 0) {
+                    list.innerHTML = '<div style="padding:12px;color:#999;">No tracked devices configured.</div>';
+                    return;
+                }
+
+                list.innerHTML = '';
+                devices.forEach(device => {
+                    const row = document.createElement('div');
+                    const hasError = !!device.connectionError;
+                    row.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-bottom:1px solid #f0f0f0;' + (hasError ? 'background:#fff8f8;' : '');
+
+                    // Status icon
+                    const iconEl = document.createElement('span');
+                    iconEl.style.cssText = 'font-size:1.3rem;flex-shrink:0;margin-top:2px;';
+                    if (hasError) {
+                        iconEl.textContent = '⚠️';
+                    } else if (device.state === 'charging') {
+                        iconEl.textContent = '⚡';
+                    } else if (device.state === 'full') {
+                        iconEl.textContent = '🔋';
+                    } else if (device.state === 'low') {
+                        iconEl.textContent = '🪫';
+                    } else {
+                        iconEl.textContent = '🔋';
+                    }
+                    row.appendChild(iconEl);
+
+                    // Info block
+                    const info = document.createElement('div');
+                    info.style.flex = '1';
+
+                    const nameLine = document.createElement('div');
+                    nameLine.style.cssText = 'font-weight:600;font-size:0.9rem;';
+                    nameLine.textContent = device.friendlyName || device.entityId;
+                    info.appendChild(nameLine);
+
+                    const entityLine = document.createElement('div');
+                    entityLine.style.cssText = 'font-size:0.78rem;color:#888;margin-top:1px;';
+                    entityLine.textContent = device.entityId;
+                    info.appendChild(entityLine);
+
+                    if (hasError) {
+                        const errLine = document.createElement('div');
+                        errLine.style.cssText = 'font-size:0.82rem;color:#c00;margin-top:4px;';
+                        errLine.textContent = '⚠️ ' + device.connectionError;
+                        info.appendChild(errLine);
+                    } else {
+                        const valueLine = document.createElement('div');
+                        valueLine.style.cssText = 'font-size:0.82rem;color:#333;margin-top:3px;';
+                        let valueText = '';
+                        if (device.state === 'charging') {
+                            valueText = device.batteryLevel !== null ? `Charging · ${device.batteryLevel}%` : 'Charging';
+                        } else if (device.state === 'full') {
+                            valueText = device.batteryLevel !== null ? `Fully Charged · ${device.batteryLevel}%` : 'Fully Charged';
+                        } else if (device.state === 'low') {
+                            valueText = device.batteryLevel !== null ? `Low Battery · ${device.batteryLevel}%` : 'Low Battery';
+                        } else if (device.batteryLevel !== null) {
+                            valueText = `${device.batteryLevel}% (normal)`;
+                        } else {
+                            valueText = 'State: ' + (device.state || 'unknown');
+                        }
+                        valueLine.textContent = valueText;
+                        info.appendChild(valueLine);
+                    }
+
+                    if (device.lastUpdated) {
+                        const timeLine = document.createElement('div');
+                        timeLine.style.cssText = 'font-size:0.78rem;color:#888;margin-top:2px;';
+                        timeLine.textContent = '🕐 Last updated: ' + new Date(device.lastUpdated).toLocaleString();
+                        info.appendChild(timeLine);
+                    }
+
+                    row.appendChild(info);
+                    list.appendChild(row);
+                });
+            } catch (err) {
+                list.innerHTML = `<div style="padding:12px;color:#c00;">❌ Error: ${escapeHtml(err.message)}</div>`;
+            }
         }
 
         function updateBatteryDevice(entityId, field, value) {
