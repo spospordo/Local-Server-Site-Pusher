@@ -7729,7 +7729,7 @@ app.get('/admin/api/smart-mirror/ha-battery/status', requireAuth, async (req, re
     }
 
     // Return all devices so the admin can see unavailable/error states too
-    res.json({ success: true, devices: result.devices, checkedAt: new Date().toISOString() });
+    res.json({ success: true, devices: result.devices, statusCheckedAt: new Date().toISOString() });
   } catch (err) {
     logger.error(logger.categories.SMART_MIRROR, `HA battery status error: ${err.message}`);
     res.status(500).json({ success: false, error: 'Failed to fetch battery status' });

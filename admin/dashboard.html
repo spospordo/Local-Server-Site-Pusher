@@ -14980,8 +14980,8 @@
                 }
 
                 const devices = data.devices || [];
-                if (data.checkedAt) {
-                    checkedAtEl.textContent = 'Checked at ' + new Date(data.checkedAt).toLocaleTimeString();
+                if (data.statusCheckedAt) {
+                    checkedAtEl.textContent = 'Checked at ' + new Date(data.statusCheckedAt).toLocaleTimeString();
                 }
 
                 if (devices.length === 0) {
