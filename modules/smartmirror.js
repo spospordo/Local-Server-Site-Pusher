@@ -2726,6 +2726,8 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
           isFull: false,
           isLow: false,
           state: 'unavailable',
+          lastUpdated: null,
+          connectionError: 'Entity not found in Home Assistant',
           lowBatteryThreshold: device.lowBatteryThreshold || 25,
           showWhenCharging: device.showWhenCharging !== false,
           showWhenFull: device.showWhenFull !== false,
@@ -2735,7 +2737,28 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
 
       const attrs = entityState.attributes || {};
       const rawState = entityState.state;
+      const lastUpdated = entityState.last_updated || null;
       const deviceClass = (attrs.device_class || '').toLowerCase();
+
+      // Treat HA 'unavailable' or 'unknown' states as connection errors
+      if (rawState === 'unavailable' || rawState === 'unknown') {
+        return {
+          entityId: device.entityId,
+          friendlyName: device.groupName || attrs.friendly_name || device.friendlyName || device.entityId,
+          available: false,
+          batteryLevel: null,
+          isCharging: false,
+          isFull: false,
+          isLow: false,
+          state: rawState,
+          lastUpdated,
+          connectionError: 'Device may be offline or unreachable',
+          lowBatteryThreshold: device.lowBatteryThreshold || 25,
+          showWhenCharging: device.showWhenCharging !== false,
+          showWhenFull: device.showWhenFull !== false,
+          showWhenLow: device.showWhenLow !== false
+        };
+      }
 
       // Determine battery level
       let batteryLevel = null;
@@ -2790,6 +2813,8 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
         isFull: displayState === 'full',
         isLow,
         state: displayState,
+        lastUpdated,
+        connectionError: null,
         lowBatteryThreshold,
         showWhenCharging: device.showWhenCharging !== false,
         showWhenFull: device.showWhenFull !== false,
@@ -2807,6 +2832,14 @@ async function fetchHomeAssistantBatteryDevices(haUrl, haToken, trackedDevices) 
     });
 
     logger.info(logger.categories.SMART_MIRROR, `Battery sub-widget: ${visibleDevices.length} of ${trackedDevices.length} devices visible`);
+
+    // Log a warning for any devices with connection errors so they are discoverable
+    const errorDevices = devices.filter(d => d.connectionError);
+    if (errorDevices.length > 0) {
+      errorDevices.forEach(d => {
+        logger.warning(logger.categories.SMART_MIRROR, `Battery sub-widget connection issue — ${d.connectionError}`);
+      });
+    }
 
     return {
       success: true,
