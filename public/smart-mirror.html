@@ -4775,6 +4775,59 @@
                 }
                 card.appendChild(driveRow);
 
+                // Destination weather row (if available)
+                if (event.weather) {
+                    const w = event.weather;
+                    const tempUnit = w.units === 'imperial' ? '°F' : '°C';
+                    const weatherRow = document.createElement('div');
+                    weatherRow.style.display = 'flex';
+                    weatherRow.style.alignItems = 'center';
+                    weatherRow.style.gap = '8px';
+                    weatherRow.style.marginTop = '6px';
+                    weatherRow.style.fontSize = '0.82rem';
+
+                    // Weather icon (emoji)
+                    const wIconDiv = document.createElement('div');
+                    wIconDiv.style.fontSize = '1.1rem';
+                    wIconDiv.textContent = getWeatherIcon(w.icon);
+                    weatherRow.appendChild(wIconDiv);
+
+                    // Temperature
+                    const wTempDiv = document.createElement('div');
+                    wTempDiv.style.fontWeight = '600';
+                    wTempDiv.textContent = `${w.temp}${tempUnit}`;
+                    weatherRow.appendChild(wTempDiv);
+
+                    // UV index (if available)
+                    if (w.uvIndex !== null && w.uvIndex !== undefined) {
+                        const uvDiv = document.createElement('div');
+                        uvDiv.style.opacity = '0.8';
+                        uvDiv.textContent = `UV ${w.uvIndex}`;
+                        weatherRow.appendChild(uvDiv);
+                    }
+
+                    // Rain badge (if rain forecasted)
+                    if (w.hasRain) {
+                        const rainBadge = document.createElement('div');
+                        rainBadge.style.marginLeft = 'auto';
+                        rainBadge.style.background = 'rgba(30, 120, 220, 0.25)';
+                        rainBadge.style.border = '1px solid rgba(80, 160, 255, 0.6)';
+                        rainBadge.style.borderRadius = '4px';
+                        rainBadge.style.padding = '1px 5px';
+                        rainBadge.style.color = '#7ec8ff';
+                        rainBadge.style.fontWeight = '700';
+                        rainBadge.style.fontSize = '0.78rem';
+                        rainBadge.textContent = w.precipChance > 0 ? `🌧 ${w.precipChance}%` : '🌧';
+                        rainBadge.title = 'Rain forecasted at destination';
+                        weatherRow.appendChild(rainBadge);
+
+                        // Tint the card border to signal rain
+                        card.style.borderColor = 'rgba(80, 160, 255, 0.5)';
+                    }
+
+                    card.appendChild(weatherRow);
+                }
+
                 cardsSection.appendChild(card);
             });
 
