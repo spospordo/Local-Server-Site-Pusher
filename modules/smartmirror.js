@@ -42,6 +42,10 @@ const driveTimeCache = {
 const DRIVE_TIME_GEOCODE_TTL = 24 * 60 * 60 * 1000; // 24 hours for geocoded addresses
 const DRIVE_TIME_ROUTE_TTL = 30 * 60 * 1000;         // 30 minutes for route calculations
 const DRIVE_TIME_WEATHER_TTL = 30 * 60 * 1000;       // 30 minutes for destination weather
+// Maximum number of 3-hour forecast slots to request (40 ≈ 5 days of data)
+const FORECAST_ITEM_COUNT = 40;
+// Precipitation probability (0-1) at or above which we consider rain "forecast" for the destination
+const RAIN_PROBABILITY_THRESHOLD = 0.4;
 
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
@@ -2580,6 +2584,7 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
       const uviUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${weatherApiKey}`;
       const uviResponse = await axios.get(uviUrl, { timeout: 8000 });
       if (typeof uviResponse.data?.value === 'number') {
+        // Round to one decimal place (e.g. 3.7)
         result.uvIndex = Math.round(uviResponse.data.value * 10) / 10;
       }
     } catch (uviErr) {
@@ -2590,7 +2595,7 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
     // Check forecast for rain on the event date (or today if no date given)
     try {
       const targetDate = eventDateStr || new Date().toISOString().split('T')[0];
-      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}&cnt=40`;
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}&cnt=${FORECAST_ITEM_COUNT}`;
       const forecastResponse = await axios.get(forecastUrl, { timeout: 10000 });
       const forecastItems = forecastResponse.data?.list || [];
 
@@ -2604,7 +2609,7 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
         result.precipChance = Math.round(maxPop * 100);
         const rainConditions = ['Rain', 'Drizzle', 'Thunderstorm'];
         result.hasRain = dayItems.some(item =>
-          rainConditions.includes(item.weather[0]?.main) || (item.pop || 0) >= 0.4
+          rainConditions.includes(item.weather[0]?.main) || (item.pop || 0) >= RAIN_PROBABILITY_THRESHOLD
         );
         // Also update icon/condition using a midday slot for the event day
         const middayItem = dayItems[Math.floor(dayItems.length / 2)] || dayItems[0];
