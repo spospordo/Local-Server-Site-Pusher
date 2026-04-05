@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.14.2] - 2026-04-05
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #583 from spospordo/copilot/highlight-region-specific-stories
+  - Highlight region-specific stories and region source in news widget
+  - Initial plan
+
+
 ## [2.14.1] - 2026-04-05
 
 ### Patch Update
