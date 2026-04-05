@@ -169,6 +169,48 @@ test(
   html.match(/clearTimeout\(resizeDebounceTimer\)/)
 );
 
+// Test 19: Region-specific news highlight CSS exists
+test(
+  'news-item-region has a left border for visual highlight',
+  html.match(/\.news-item-region\s*\{[^}]*border-left:/s)
+);
+
+test(
+  'news-item-region has a background for visual highlight',
+  html.match(/\.news-item-region\s*\{[^}]*background:/s)
+);
+
+test(
+  'news-region-badge style is defined',
+  html.match(/\.news-region-badge\s*\{/)
+);
+
+test(
+  'news-no-region style is defined',
+  html.match(/\.news-no-region\s*\{/)
+);
+
+// Test 20: renderRegionNewsSection helper exists in updateNewsWidget
+test(
+  'renderRegionNewsSection helper renders news-item-region class',
+  html.includes('news-item-region') &&
+  html.includes('renderRegionNewsSection')
+);
+
+// Test 21: Region badge is appended to region-specific news items
+test(
+  'Region badge (news-region-badge) is appended inside renderRegionNewsSection',
+  html.includes('news-region-badge') &&
+  html.match(/badge\.className\s*=\s*['"]news-region-badge['"]/)
+);
+
+// Test 22: Empty-region "no news" notice is rendered when regions return no items
+test(
+  'Empty region notice uses news-no-region class',
+  html.includes('news-no-region') &&
+  html.includes('no news from')
+);
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
