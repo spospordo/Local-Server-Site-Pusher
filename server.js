@@ -7385,6 +7385,65 @@ app.get('/api/smart-mirror/news', async (req, res) => {
   }
 });
 
+// Fetch region-based news headlines for upcoming vacation destinations
+app.get('/api/smart-mirror/news/vacation', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Vacation region news requested');
+
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const config = smartMirror.loadConfig();
+    const newsConfig = config.widgets?.news;
+
+    if (!newsConfig || !newsConfig.enabled) {
+      return res.json({ success: false, error: 'News widget not enabled', regions: [] });
+    }
+
+    if (!newsConfig.vacationNewsEnabled) {
+      return res.json({ success: false, error: 'Vacation news not enabled', regions: [] });
+    }
+
+    const vacationData = house.getVacationData();
+    const result = await smartMirror.fetchVacationRegionNews(vacationData.dates || [], newsConfig);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Vacation region news API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch vacation region news', regions: [] });
+  }
+});
+
+// Fetch region-based news headlines for upcoming calendar events
+app.get('/api/smart-mirror/news/calendar', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'Calendar region news requested');
+
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const config = smartMirror.loadConfig();
+    const newsConfig = config.widgets?.news;
+
+    if (!newsConfig || !newsConfig.enabled) {
+      return res.json({ success: false, error: 'News widget not enabled', regions: [] });
+    }
+
+    if (!newsConfig.calendarNewsEnabled) {
+      return res.json({ success: false, error: 'Calendar news not enabled', regions: [] });
+    }
+
+    const calendarConfig = config.widgets?.calendar;
+    const calendarUrls = calendarConfig?.calendarUrls || [];
+    const result = await smartMirror.fetchCalendarRegionNews(calendarUrls, newsConfig);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Calendar region news API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch calendar region news', regions: [] });
+  }
+});
+
 // Fetch current weather
 app.get('/api/smart-mirror/weather', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Weather data requested');

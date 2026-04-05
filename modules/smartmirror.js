@@ -132,7 +132,15 @@ function getDefaultWidgets() {
       location: '',
       units: 'imperial',
       calendarUrls: [],
-      days: 5
+      days: 5,
+      // Vacation region-based news
+      vacationNewsEnabled: false,
+      vacationNewsDaysInAdvance: 7,
+      vacationNewsHeadlinesCount: 2,
+      // Calendar event region-based news
+      calendarNewsEnabled: false,
+      calendarNewsDaysInAdvance: 2,
+      calendarNewsHeadlinesCount: 2
     },
     media: {
       enabled: false,
@@ -1330,6 +1338,136 @@ async function fetchNews(feedUrls) {
     items: limitedItems,
     errors: errors.length > 0 ? errors : null
   };
+}
+
+/**
+ * Build a Google News RSS URL for a specific region/query.
+ * Falls back to a plain query search if region is not granular enough.
+ */
+function _buildGoogleNewsUrl(region) {
+  const encoded = encodeURIComponent(region);
+  return `https://news.google.com/rss/search?q=${encoded}&hl=en&gl=US&ceid=US:en`;
+}
+
+/**
+ * Fetch region-specific news headlines using Google News RSS.
+ * @param {string} region - Location/region name (e.g., "Paris, France")
+ * @param {number} count  - Maximum number of headlines to return
+ * @returns {Promise<{region: string, items: Array, error?: string}>}
+ */
+async function fetchRegionNews(region, count = 2) {
+  if (!region || region.trim() === '') {
+    return { region, items: [], error: 'No region specified' };
+  }
+  const trimmedRegion = region.trim();
+  const url = _buildGoogleNewsUrl(trimmedRegion);
+  const parser = new Parser({
+    timeout: 10000,
+    customFields: { item: ['media:content', 'media:thumbnail'] }
+  });
+  try {
+    logger.info(logger.categories.SMART_MIRROR, `Fetching region news for "${trimmedRegion}" from Google News RSS`);
+    const feed = await parser.parseURL(url);
+    const items = feed.items.slice(0, count).map(item => ({
+      title: item.title || 'Untitled',
+      link: item.link || '',
+      pubDate: item.pubDate || item.isoDate || '',
+      source: item.creator || feed.title || 'Google News',
+      description: item.contentSnippet || item.content || '',
+      image: item['media:thumbnail']?.[0]?.$ || item['media:content']?.[0]?.$ || null
+    }));
+    logger.success(logger.categories.SMART_MIRROR, `Fetched ${items.length} region news items for "${trimmedRegion}"`);
+    return { region: trimmedRegion, items };
+  } catch (err) {
+    logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch region news for "${trimmedRegion}": ${err.message}`);
+    return { region: trimmedRegion, items: [], error: err.message };
+  }
+}
+
+/**
+ * Fetch region-based news for upcoming vacation destinations.
+ * Uses vacation dates that start within the configured days-in-advance window.
+ * @param {Array}  vacationDates - Array of vacation date objects from house data
+ * @param {object} newsConfig    - News widget configuration
+ * @returns {Promise<{success: boolean, regions: Array}>}
+ */
+/**
+ * Return an array of destination name strings from a vacation date object.
+ * Supports both the new `destinations[]` array format and the legacy `destination` string.
+ */
+function _getVacationDestinationNames(vacation) {
+  if (vacation.destinations && vacation.destinations.length > 0) {
+    return vacation.destinations.map(d => d.name).filter(Boolean);
+  }
+  return vacation.destination ? [vacation.destination] : [];
+}
+
+async function fetchVacationRegionNews(vacationDates, newsConfig) {
+  const daysInAdvance = newsConfig.vacationNewsDaysInAdvance ?? 7;
+  const headlinesCount = newsConfig.vacationNewsHeadlinesCount ?? 2;
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + daysInAdvance * 24 * 60 * 60 * 1000);
+
+  // Collect all distinct destination names within the window
+  const destinations = new Set();
+  for (const vacation of (vacationDates || [])) {
+    const startDate = new Date(vacation.startDate);
+    if (startDate >= now && startDate <= cutoff) {
+      for (const d of _getVacationDestinationNames(vacation)) destinations.add(d);
+    }
+  }
+
+  if (destinations.size === 0) {
+    return { success: true, regions: [] };
+  }
+
+  const regions = [];
+  for (const destination of destinations) {
+    const result = await fetchRegionNews(destination, headlinesCount);
+    regions.push(result);
+  }
+
+  return { success: true, regions };
+}
+
+/**
+ * Fetch region-based news for upcoming calendar events that have a location.
+ * Uses events that start within the configured days-in-advance window.
+ * @param {Array}  calendarUrls - Array of ICS calendar URLs
+ * @param {object} newsConfig   - News widget configuration
+ * @returns {Promise<{success: boolean, regions: Array}>}
+ */
+async function fetchCalendarRegionNews(calendarUrls, newsConfig) {
+  const daysInAdvance = newsConfig.calendarNewsDaysInAdvance ?? 2;
+  const headlinesCount = newsConfig.calendarNewsHeadlinesCount ?? 2;
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + daysInAdvance * 24 * 60 * 60 * 1000);
+
+  // Fetch calendar events
+  const calendarResult = await fetchCalendarEvents(calendarUrls || []);
+  const events = calendarResult.events || [];
+
+  // Collect distinct locations for events in the window
+  const locations = new Set();
+  for (const event of events) {
+    if (!event.location || !event.location.trim()) continue;
+    const start = new Date(event.start);
+    if (start >= now && start <= cutoff) {
+      locations.add(event.location.trim());
+    }
+  }
+
+  if (locations.size === 0) {
+    return { success: true, regions: [] };
+  }
+
+  const regions = [];
+  for (const location of locations) {
+    const result = await fetchRegionNews(location, headlinesCount);
+    regions.push(result);
+  }
+
+  return { success: true, regions };
 }
 
 // Get calendar cache status (for admin UI)
@@ -2865,6 +3003,9 @@ module.exports = {
   getCalendarCacheStatus,
   refreshCalendarCache,
   fetchNews,
+  fetchRegionNews,
+  fetchVacationRegionNews,
+  fetchCalendarRegionNews,
   fetchWeather,
   fetchForecast,
   fetchWeatherForDate,

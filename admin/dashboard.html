@@ -5521,6 +5521,52 @@
                                 <div class="test-result-content"></div>
                             </div>
                         </div>
+
+                        <hr style="margin: 16px 0; border-color: #333;">
+                        <div style="font-weight: 600; margin-bottom: 10px;">📍 Vacation Destination Headlines</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsVacationEnabled">Show Vacation News</label>
+                                <select id="newsVacationEnabled">
+                                    <option value="false">Disabled</option>
+                                    <option value="true">Enabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newsVacationDaysInAdvance">Days in Advance</label>
+                                <input type="number" id="newsVacationDaysInAdvance" min="1" max="30" value="7">
+                                <small style="color: #666; display: block; margin-top: 2px;">Show headlines this many days before a vacation starts.</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsVacationHeadlinesCount">Headlines per Destination</label>
+                                <input type="number" id="newsVacationHeadlinesCount" min="1" max="10" value="2">
+                            </div>
+                        </div>
+
+                        <hr style="margin: 16px 0; border-color: #333;">
+                        <div style="font-weight: 600; margin-bottom: 10px;">📅 Calendar Event Headlines</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsCalendarEnabled">Show Calendar News</label>
+                                <select id="newsCalendarEnabled">
+                                    <option value="false">Disabled</option>
+                                    <option value="true">Enabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newsCalendarDaysInAdvance">Days in Advance</label>
+                                <input type="number" id="newsCalendarDaysInAdvance" min="1" max="30" value="2">
+                                <small style="color: #666; display: block; margin-top: 2px;">Show headlines this many days before a calendar event with a location.</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newsCalendarHeadlinesCount">Headlines per Event Location</label>
+                                <input type="number" id="newsCalendarHeadlinesCount" min="1" max="10" value="2">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -14174,6 +14220,12 @@
                     // Handle both old single URL and new multiple URLs
                     const feedUrls = news.feedUrls || (news.feedUrl ? [news.feedUrl] : []);
                     document.getElementById('newsFeedUrl').value = feedUrls.join('\n');
+                    document.getElementById('newsVacationEnabled').value = news.vacationNewsEnabled === true ? 'true' : 'false';
+                    document.getElementById('newsVacationDaysInAdvance').value = news.vacationNewsDaysInAdvance ?? 7;
+                    document.getElementById('newsVacationHeadlinesCount').value = news.vacationNewsHeadlinesCount ?? 2;
+                    document.getElementById('newsCalendarEnabled').value = news.calendarNewsEnabled === true ? 'true' : 'false';
+                    document.getElementById('newsCalendarDaysInAdvance').value = news.calendarNewsDaysInAdvance ?? 2;
+                    document.getElementById('newsCalendarHeadlinesCount').value = news.calendarNewsHeadlinesCount ?? 2;
                     
                     // Load media widget config
                     const media = config.widgets?.media || {};
@@ -14634,7 +14686,13 @@
                             enabled: document.getElementById('newsEnabled').value === 'true',
                             size: document.getElementById('newsSize').value,
                             area: 'bottom-right',
-                            feedUrls: feedUrls
+                            feedUrls: feedUrls,
+                            vacationNewsEnabled: document.getElementById('newsVacationEnabled').value === 'true',
+                            vacationNewsDaysInAdvance: parseInt(document.getElementById('newsVacationDaysInAdvance').value) || 7,
+                            vacationNewsHeadlinesCount: parseInt(document.getElementById('newsVacationHeadlinesCount').value) || 2,
+                            calendarNewsEnabled: document.getElementById('newsCalendarEnabled').value === 'true',
+                            calendarNewsDaysInAdvance: parseInt(document.getElementById('newsCalendarDaysInAdvance').value) || 2,
+                            calendarNewsHeadlinesCount: parseInt(document.getElementById('newsCalendarHeadlinesCount').value) || 2
                         },
                         media: {
                             enabled: document.getElementById('mediaEnabled').value === 'true',
