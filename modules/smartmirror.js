@@ -36,10 +36,12 @@ const calendarCache = {
 const NOTABLE_TRAFFIC_DELAY_SECONDS = 300; // 5 minutes
 const driveTimeCache = {
   geocode: {},  // normalizedAddress -> { lat, lon, timestamp }
-  routes: {}    // "lat,lon:lat,lon" -> { travelTimeSeconds, trafficDelaySeconds, timestamp }
+  routes: {},   // "lat,lon:lat,lon" -> { travelTimeSeconds, trafficDelaySeconds, timestamp }
+  weather: {}   // "lat,lon:dateStr" -> { temp, icon, uvIndex, hasRain, precipChance, condition, units, timestamp }
 };
 const DRIVE_TIME_GEOCODE_TTL = 24 * 60 * 60 * 1000; // 24 hours for geocoded addresses
 const DRIVE_TIME_ROUTE_TTL = 30 * 60 * 1000;         // 30 minutes for route calculations
+const DRIVE_TIME_WEATHER_TTL = 30 * 60 * 1000;       // 30 minutes for destination weather
 
 // Shared axios configuration for Home Assistant requests
 const HOME_ASSISTANT_AXIOS_CONFIG = {
@@ -2543,6 +2545,86 @@ async function fetchLocationTimezone(apiKey, location) {
   }
 }
 
+// Fetch destination weather by coordinates for drive-time events.
+// Returns temp, weather icon code, UV index (if available), rain flag, and precip chance.
+// Results are cached for 30 minutes.
+async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 'imperial', eventDateStr = null) {
+  if (!weatherApiKey) return null;
+
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${eventDateStr || 'today'}`;
+  const cached = driveTimeCache.weather[cacheKey];
+  if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_WEATHER_TTL) {
+    logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached destination weather for ${cacheKey}`);
+    return cached;
+  }
+
+  try {
+    // Fetch current weather by coordinates
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}`;
+    const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
+    const wd = weatherResponse.data;
+
+    const result = {
+      temp: Math.round(wd.main.temp),
+      icon: wd.weather[0]?.icon || '',
+      condition: wd.weather[0]?.main || '',
+      uvIndex: null,
+      hasRain: false,
+      precipChance: 0,
+      units,
+      timestamp: Date.now()
+    };
+
+    // Fetch UV index (OWM 2.5 UV endpoint, free tier)
+    try {
+      const uviUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${weatherApiKey}`;
+      const uviResponse = await axios.get(uviUrl, { timeout: 8000 });
+      if (typeof uviResponse.data?.value === 'number') {
+        result.uvIndex = Math.round(uviResponse.data.value * 10) / 10;
+      }
+    } catch (uviErr) {
+      // UV index is best-effort; log at debug level and continue without it
+      logger.debug(logger.categories.SMART_MIRROR, `Drive-time: UV index unavailable for ${lat},${lon}: ${uviErr.message}`);
+    }
+
+    // Check forecast for rain on the event date (or today if no date given)
+    try {
+      const targetDate = eventDateStr || new Date().toISOString().split('T')[0];
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}&cnt=40`;
+      const forecastResponse = await axios.get(forecastUrl, { timeout: 10000 });
+      const forecastItems = forecastResponse.data?.list || [];
+
+      const dayItems = forecastItems.filter(item => {
+        const itemDate = new Date(item.dt * 1000).toISOString().split('T')[0];
+        return itemDate === targetDate;
+      });
+
+      if (dayItems.length > 0) {
+        const maxPop = Math.max(...dayItems.map(item => item.pop || 0));
+        result.precipChance = Math.round(maxPop * 100);
+        const rainConditions = ['Rain', 'Drizzle', 'Thunderstorm'];
+        result.hasRain = dayItems.some(item =>
+          rainConditions.includes(item.weather[0]?.main) || (item.pop || 0) >= 0.4
+        );
+        // Also update icon/condition using a midday slot for the event day
+        const middayItem = dayItems[Math.floor(dayItems.length / 2)] || dayItems[0];
+        result.icon = middayItem.weather[0]?.icon || result.icon;
+        result.condition = middayItem.weather[0]?.main || result.condition;
+      }
+    } catch (forecastErr) {
+      logger.debug(logger.categories.SMART_MIRROR, `Drive-time: rain forecast unavailable for ${lat},${lon}: ${forecastErr.message}`);
+    }
+
+    driveTimeCache.weather[cacheKey] = result;
+    logger.debug(logger.categories.SMART_MIRROR,
+      `Drive-time: destination weather ${lat},${lon} → ${result.temp}°, rain:${result.hasRain}, UV:${result.uvIndex}`);
+    return result;
+  } catch (err) {
+    logger.debug(logger.categories.SMART_MIRROR, `Drive-time: destination weather fetch failed for ${lat},${lon}: ${err.message}`);
+    return null;
+  }
+}
+
 // Geocode an address using TomTom Search API
 // Results are cached for 24 hours to minimise API usage
 async function geocodeAddressTomTom(address, apiKey) {
@@ -2608,8 +2690,9 @@ async function getRouteTomTom(originLat, originLon, destLat, destLon, apiKey, de
   return result;
 }
 
-// Fetch drive times for calendar events in the next two days using TomTom API
-async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
+// Fetch drive times for calendar events in the next two days using TomTom API.
+// Optionally enriches each event with destination weather when weatherApiKey is provided.
+async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherApiKey = null, units = 'imperial') {
   if (!tomtomApiKey || !homeAddress) {
     const missing = !tomtomApiKey ? 'TomTom API key' : 'home address';
     logger.warning(logger.categories.SMART_MIRROR, `Drive-time: ${missing} not configured`);
@@ -2696,6 +2779,12 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
         const travelMinutes = Math.round(routeInfo.travelTimeSeconds / 60);
         const delayMinutes = Math.round(routeInfo.trafficDelaySeconds / 60);
 
+        // Fetch destination weather when a weather API key is available
+        const eventDateStr = startDate.toISOString().split('T')[0];
+        const destWeather = weatherApiKey
+          ? await fetchDestinationWeatherByCoords(destCoords.lat, destCoords.lon, weatherApiKey, units, eventDateStr)
+          : null;
+
         eventsWithDriveTimes.push({
           title: event.title || 'Event',
           location: event.location,
@@ -2703,7 +2792,8 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress) {
           daysFromNow,
           travelTimeMinutes: travelMinutes,
           trafficDelayMinutes: delayMinutes,
-          hasTrafficDelay: routeInfo.trafficDelaySeconds > NOTABLE_TRAFFIC_DELAY_SECONDS
+          hasTrafficDelay: routeInfo.trafficDelaySeconds > NOTABLE_TRAFFIC_DELAY_SECONDS,
+          weather: destWeather
         });
 
         logger.debug(logger.categories.SMART_MIRROR,

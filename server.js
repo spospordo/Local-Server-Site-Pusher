@@ -8876,7 +8876,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               const driveTimeResult = await smartMirror.fetchDriveTimes(
                 calendarUrls,
                 tomtomApiKey,
-                homeAddress
+                homeAddress,
+                smartWidgetConfig.apiKey || null,
+                smartWidgetConfig.units || 'imperial'
               );
 
               if (driveTimeResult.success && driveTimeResult.events.length > 0) {
