@@ -5522,6 +5522,38 @@
                             </div>
                         </div>
 
+                        <!-- News Source & Search Tips -->
+                        <details style="margin: 12px 0;">
+                            <summary style="cursor: pointer; font-weight: 600; color: #aac4e8; user-select: none;">
+                                💡 Tips: Recommended News Sources &amp; Regional Search
+                            </summary>
+                            <div style="background: #1a2a3a; border: 1px solid #2a4a6a; border-radius: 6px; padding: 14px; margin-top: 8px; font-size: 0.88rem; line-height: 1.6; color: #ccc;">
+                                <div style="font-weight: 600; color: #aac4e8; margin-bottom: 8px;">📡 Recommended RSS Feed Sources</div>
+                                <ul style="margin: 0 0 12px 0; padding-left: 18px;">
+                                    <li><strong>Google News (regional)</strong> — automatically used for vacation &amp; calendar-event headlines; no URL needed here.</li>
+                                    <li><strong>BBC News</strong> — <code style="background:#0d1b2a;padding:1px 4px;border-radius:3px;">https://feeds.bbci.co.uk/news/rss.xml</code></li>
+                                    <li><strong>Reuters</strong> — <code style="background:#0d1b2a;padding:1px 4px;border-radius:3px;">https://feeds.reuters.com/reuters/topNews</code></li>
+                                    <li><strong>AP News</strong> — <code style="background:#0d1b2a;padding:1px 4px;border-radius:3px;">https://rsshub.app/apnews/topics/apf-topnews</code></li>
+                                    <li><strong>NPR</strong> — <code style="background:#0d1b2a;padding:1px 4px;border-radius:3px;">https://feeds.npr.org/1001/rss.xml</code></li>
+                                    <li><strong>Local outlets</strong> — search <em>"[your city] news RSS"</em> to find your local paper or TV station's feed.</li>
+                                </ul>
+                                <div style="font-weight: 600; color: #aac4e8; margin-bottom: 8px;">📍 How Regional Search Works (Vacation &amp; Calendar Headlines)</div>
+                                <p style="margin: 0 0 8px 0;">When displaying news for a vacation destination or calendar-event location, the system automatically optimises the Google News search query based on the address type:</p>
+                                <ul style="margin: 0 0 12px 0; padding-left: 18px;">
+                                    <li><strong>Residential address</strong> (e.g. <em>123 Oak St, Austin, TX 78701</em>) → search expanded to city + state (<em>Austin, TX</em>) for broader local coverage.</li>
+                                    <li><strong>Landmark / venue</strong> (e.g. <em>Fenway Park, Boston, MA</em>) → landmark name used as the primary keyword, with city context for disambiguation.</li>
+                                    <li><strong>City / region</strong> (e.g. <em>Paris, TX</em> or <em>Paris, France</em>) → used as-is; state or country context prevents mixing up similarly named cities.</li>
+                                </ul>
+                                <div style="font-weight: 600; color: #aac4e8; margin-bottom: 8px;">✏️ Address &amp; Destination Formatting Tips</div>
+                                <ul style="margin: 0; padding-left: 18px;">
+                                    <li>For best results, always include the <strong>city and two-letter state</strong> (e.g. <em>Springfield, IL</em>) or <strong>city and country</strong> (e.g. <em>Paris, France</em>).</li>
+                                    <li>For venues and stadiums, use the <strong>official name</strong> followed by the city (e.g. <em>Madison Square Garden, New York, NY</em>).</li>
+                                    <li>Ambiguous city names (e.g. <em>Paris, Springfield, Portland</em>) should always include the state or country so the correct region is searched.</li>
+                                    <li>The <strong>Home Address</strong> set in the Smart Widget → Drive-Time section is used to detect when you are travelling to a different state, ensuring the search includes the destination's state name.</li>
+                                </ul>
+                            </div>
+                        </details>
+
                         <hr style="margin: 16px 0; border-color: #333;">
                         <div style="font-weight: 600; margin-bottom: 10px;">📍 Vacation Destination Headlines</div>
                         <div class="form-row">
