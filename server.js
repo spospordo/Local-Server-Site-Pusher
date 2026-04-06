@@ -7108,6 +7108,36 @@ app.post('/admin/api/smart-mirror/test/media', requireAuth, async (req, res) => 
   }
 });
 
+// Get recognition status for all configured smart widget media player entities (admin validation)
+app.get('/admin/api/smart-mirror/media-recognition-status', requireAuth, async (req, res) => {
+  try {
+    const smConfig = smartMirror.loadConfig();
+    const entityIds = smConfig.widgets?.smartWidget?.entityIds || [];
+    const haConfig = config.homeAssistant || {};
+
+    if (!haConfig.url || !haConfig.token) {
+      return res.json({
+        success: false,
+        error: 'Home Assistant URL and token are not configured in Settings.'
+      });
+    }
+
+    if (entityIds.length === 0) {
+      return res.json({
+        success: true,
+        entities: [],
+        message: 'No media player entity IDs are configured for the Smart Widget.'
+      });
+    }
+
+    const result = await smartMirror.fetchAllMediaPlayerStates(haConfig.url, haConfig.token, entityIds);
+    res.json(result);
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `Media recognition status error: ${err.message}`);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Test TomTom API connection (used by drive-time sub-widget)
 app.post('/admin/api/smart-mirror/test/tomtom', requireAuth, async (req, res) => {
   const requestContext = {
@@ -8611,29 +8641,33 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             if (config.homeAssistant?.url && config.homeAssistant?.token) {
               const entityIds = smartWidgetConfig.entityIds || [];
               if (entityIds.length > 0) {
-                const mediaResult = await smartMirror.fetchMediaPlayers(
+                const mediaResult = await smartMirror.fetchHomeAssistantMedia(
                   config.homeAssistant.url,
                   config.homeAssistant.token,
                   entityIds
                 );
                 
-                if (mediaResult.success && mediaResult.players && mediaResult.players.length > 0) {
-                  // Only include if media is actually playing
-                  const activePlayers = mediaResult.players.filter(p => 
-                    p.state === 'playing' || p.state === 'paused'
-                  );
-                  
-                  if (activePlayers.length > 0) {
-                    subWidgetData = {
-                      type: 'homeAssistantMedia',
-                      priority: subWidget.priority,
-                      cycleTime: subWidget.cycleTime || 10,
-                      hasContent: true,
-                      data: {
-                        players: activePlayers
-                      }
-                    };
-                  }
+                // Only include if media is actually playing or paused
+                if (mediaResult.success && (mediaResult.state === 'playing' || mediaResult.state === 'paused')) {
+                  const player = {
+                    entityId: mediaResult.entityId,
+                    friendlyName: mediaResult.entityName, // fetchHomeAssistantMedia returns entityName; front-end expects friendlyName
+                    state: mediaResult.state,
+                    title: mediaResult.title,
+                    artist: mediaResult.artist,
+                    album: mediaResult.album,
+                    artwork: mediaResult.artworkUrl, // fetchHomeAssistantMedia returns artworkUrl; front-end expects artwork
+                    platform: mediaResult.platform
+                  };
+                  subWidgetData = {
+                    type: 'homeAssistantMedia',
+                    priority: subWidget.priority,
+                    cycleTime: subWidget.cycleTime || 10,
+                    hasContent: true,
+                    data: {
+                      players: [player]
+                    }
+                  };
                 }
               }
             }
