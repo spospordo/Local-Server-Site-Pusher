@@ -2176,6 +2176,68 @@ async function fetchHomeAssistantMedia(haUrl, haToken, entityIds) {
   }
 }
 
+
+/**
+ * Fetch the current state of all configured media player entities for admin validation.
+ * Unlike fetchHomeAssistantMedia (which returns only the first active player), this
+ * function returns the state of every entity in the list so admins can inspect
+ * each one individually.
+ *
+ * @param {string} haUrl - Home Assistant base URL (e.g. http://homeassistant.local:8123)
+ * @param {string} haToken - Long-lived access token
+ * @param {string[]} entityIds - Array of media_player entity IDs to query
+ * @returns {Promise<{success: boolean, entities?: Array, error?: string}>}
+ */
+async function fetchAllMediaPlayerStates(haUrl, haToken, entityIds) {
+  if (!haUrl || !haToken || !entityIds || entityIds.length === 0) {
+    return { success: false, error: 'Home Assistant URL, token, and entity IDs are required' };
+  }
+
+  const baseUrl = haUrl.replace(/\/$/, '');
+
+  try {
+    const statePromises = entityIds.map(async entityId => {
+      try {
+        const response = await axios.get(
+          `${baseUrl}/api/states/${entityId}`,
+          {
+            ...HOME_ASSISTANT_AXIOS_CONFIG,
+            headers: {
+              ...HOME_ASSISTANT_AXIOS_CONFIG.headers,
+              'Authorization': `Bearer ${haToken}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 5000
+          }
+        );
+        const data = response.data;
+        const attrs = data.attributes || {};
+        return {
+          entityId,
+          found: true,
+          state: data.state,
+          friendlyName: attrs.friendly_name || entityId,
+          title: attrs.media_title || '',
+          artist: attrs.media_artist || ''
+        };
+      } catch (err) {
+        return {
+          entityId,
+          found: false,
+          error: err.response?.status === 404 ? 'Entity not found in Home Assistant' : err.message
+        };
+      }
+    });
+
+    const entities = await Promise.all(statePromises);
+    return { success: true, entities };
+  } catch (err) {
+    const errorMsg = `Failed to fetch media player states: ${err.message}`;
+    logger.error(logger.categories.SMART_MIRROR, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 // Test weather API connection
 async function testWeatherConnection(apiKey, location, units = 'imperial') {
   logger.info(logger.categories.SMART_MIRROR, `Testing weather API connection for location: ${location}`);
@@ -3339,6 +3401,7 @@ module.exports = {
   fetchWeatherForDate,
   fetchAirQuality,
   fetchHomeAssistantMedia,
+  fetchAllMediaPlayerStates,
   searchHomeAssistantBatteryEntities,
   fetchHomeAssistantBatteryDevices,
   fetchLocationTimezone,

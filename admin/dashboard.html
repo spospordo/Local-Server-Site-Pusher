@@ -6199,6 +6199,16 @@
                                                 One or more entity IDs, separated by commas
                                             </small>
                                         </div>
+
+                                        <!-- Recognition Status validation -->
+                                        <div class="form-group">
+                                            <button type="button" class="btn-test-connection" onclick="checkMediaRecognitionStatus()">
+                                                📡 Check Recognition Status
+                                            </button>
+                                            <div id="mediaRecognitionStatusResult" class="test-result-container" style="display: none; margin-top: 10px;">
+                                                <div class="test-result-content"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -16485,7 +16495,95 @@
                 });
             }
         }
-        
+
+        // Check recognition status for all configured smart widget media player entities
+        async function checkMediaRecognitionStatus() {
+            const containerId = 'mediaRecognitionStatusResult';
+
+            displayTestResult(containerId, {
+                loading: true,
+                message: 'Fetching current state of configured media players…'
+            });
+
+            try {
+                const response = await fetch('/admin/api/smart-mirror/media-recognition-status');
+                const result = await response.json();
+
+                if (!result.success) {
+                    displayTestResult(containerId, {
+                        success: false,
+                        error: result.error || 'Failed',
+                        message: result.error || 'Could not retrieve media player states.'
+                    });
+                    return;
+                }
+
+                const entities = result.entities || [];
+
+                if (entities.length === 0) {
+                    displayTestResult(containerId, {
+                        success: false,
+                        error: 'No Entities',
+                        message: result.message || 'No media player entity IDs are configured. Add entity IDs above and save first.'
+                    });
+                    return;
+                }
+
+                const container = document.getElementById(containerId);
+                const content = container.querySelector('.test-result-content');
+                container.style.display = 'block';
+
+                const activeCount = entities.filter(e => e.found && (e.state === 'playing' || e.state === 'paused')).length;
+                const foundCount = entities.filter(e => e.found).length;
+
+                let statusClass = activeCount > 0 ? 'success' : (foundCount > 0 ? 'warning' : 'error');
+                container.className = `test-result-container ${statusClass}`;
+
+                let html = `
+                    <div class="test-result-header">
+                        <span class="test-result-icon">${activeCount > 0 ? '▶️' : (foundCount > 0 ? '⚠️' : '❌')}</span>
+                        <span>Recognition Status — ${foundCount}/${entities.length} entities found${activeCount > 0 ? `, ${activeCount} active` : ', none active'}</span>
+                    </div>
+                    <div class="test-result-details">
+                `;
+
+                entities.forEach(entity => {
+                    const stateLabel = entity.found
+                        ? (entity.state === 'playing' ? '▶️ Playing'
+                            : entity.state === 'paused' ? '⏸️ Paused'
+                            : entity.state === 'idle' ? '🎵 Idle'
+                            : entity.state === 'off' ? '⏹️ Off'
+                            : entity.state || 'Unknown')
+                        : `❌ ${escapeHtml(entity.error || 'Not found')}`;
+
+                    const nameLabel = entity.friendlyName && entity.friendlyName !== entity.entityId
+                        ? `${escapeHtml(entity.friendlyName)} (${escapeHtml(entity.entityId)})`
+                        : escapeHtml(entity.entityId);
+
+                    const mediaInfo = entity.found && entity.title
+                        ? ` — ${escapeHtml(entity.title)}${entity.artist ? ' by ' + escapeHtml(entity.artist) : ''}`
+                        : '';
+
+                    html += `
+                        <div class="test-result-detail-item">
+                            <span class="test-result-detail-label">${nameLabel}:</span>
+                            ${stateLabel}${mediaInfo}
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                content.innerHTML = html;
+
+            } catch (error) {
+                displayTestResult(containerId, {
+                    success: false,
+                    error: 'Request Failed',
+                    message: 'Failed to retrieve media recognition status: ' + error.message
+                });
+            }
+        }
+
         // Test TomTom API connection for Drive-Time sub-widget
         async function testTomTomConnection() {
             const apiKeyInput = document.getElementById('centralTomTomApiKey');
