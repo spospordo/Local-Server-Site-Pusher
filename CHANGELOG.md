@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.15.0] - 2026-04-06
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #585 from spospordo/copilot/enhance-drive-times-weather-forecast
+  - feat: show time-specific forecast in drive-time weather widget
+  - Initial plan
+
+
 ## [2.14.2] - 2026-04-05
 
 ### Patch Update
