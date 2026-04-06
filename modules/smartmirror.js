@@ -1356,23 +1356,210 @@ function _buildGoogleNewsUrl(region) {
 }
 
 /**
- * Fetch region-specific news headlines using Google News RSS.
- * @param {string} region - Location/region name (e.g., "Paris, France")
- * @param {number} count  - Maximum number of headlines to return
- * @returns {Promise<{region: string, items: Array, error?: string}>}
+ * Keywords whose presence in an address strongly suggests a non-residential place
+ * (landmark, business, institution, venue, etc.).
  */
-async function fetchRegionNews(region, count = 2) {
+const LANDMARK_KEYWORDS = [
+  'park', 'stadium', 'arena', 'center', 'centre', 'hotel', 'resort', 'inn',
+  'motel', 'mall', 'airport', 'museum', 'theater', 'theatre', 'university',
+  'college', 'hospital', 'church', 'cathedral', 'convention', 'casino',
+  'beach', 'lake', 'mountain', 'zoo', 'aquarium', 'library', 'plaza',
+  'tower', 'building', 'square', 'garden', 'gardens', 'field', 'ballpark',
+  'amphitheater', 'amphitheatre', 'raceway', 'racetrack', 'speedway',
+  'fairgrounds', 'expo', 'pavilion', 'terminal', 'station', 'depot',
+  'campground', 'campsite', 'spa', 'lodge', 'manor', 'estate',
+  'winery', 'brewery', 'distillery', 'restaurant', 'bar', 'club'
+];
+
+/**
+ * Pre-compiled case-insensitive whole-word patterns for each landmark keyword.
+ * Built once at module load to avoid per-call RegExp construction.
+ */
+const LANDMARK_PATTERNS = LANDMARK_KEYWORDS.map(kw => new RegExp(`\\b${kw}\\b`, 'i'));
+
+/**
+ * Classify an address string as 'residential', 'landmark', or 'city'.
+ *
+ * - 'residential': Starts with a street number (e.g. "123 Main St, Dallas, TX 75201")
+ * - 'landmark':    Contains a recognizable non-residential keyword (e.g. "Fenway Park, Boston, MA")
+ * - 'city':        Simple city/region reference (e.g. "Paris, France", "New York, NY")
+ *
+ * @param {string} address
+ * @returns {'residential'|'landmark'|'city'}
+ */
+function _classifyAddress(address) {
+  if (!address || !address.trim()) return 'city';
+  const trimmed = address.trim();
+
+  // Residential: starts with a house/unit number followed by whitespace and a word
+  if (/^\d+\s+\w/.test(trimmed)) {
+    return 'residential';
+  }
+
+  // Landmark: contains a recognized non-residential keyword (case-insensitive patterns)
+  for (const pattern of LANDMARK_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return 'landmark';
+    }
+  }
+
+  return 'city';
+}
+
+/**
+ * Parse a free-form address string into its component parts.
+ * Handles common US formats such as:
+ *   "123 Main St, Springfield, IL 62701"
+ *   "123 Main St, Springfield IL 62701"
+ *   "Springfield, IL"
+ *   "Paris, France"
+ *
+ * @param {string} address
+ * @returns {{ streetAddress?: string, city?: string, state?: string, zip?: string, country?: string }}
+ */
+function _extractAddressComponents(address) {
+  if (!address || !address.trim()) return {};
+  const parts = address.trim().split(',').map(p => p.trim()).filter(Boolean);
+  const result = {};
+
+  if (parts.length === 0) return result;
+
+  const lastPart = parts[parts.length - 1];
+
+  // Check whether last part looks like "IL" or "IL 62701"
+  const stateZipMatch = lastPart.match(/^([A-Z]{2})\s*(\d{5}(?:-\d{4})?)?$/);
+  if (stateZipMatch) {
+    result.state = stateZipMatch[1];
+    if (stateZipMatch[2]) result.zip = stateZipMatch[2];
+    if (parts.length >= 2) result.city = parts[parts.length - 2];
+    if (parts.length >= 3) result.streetAddress = parts.slice(0, parts.length - 2).join(', ');
+  } else {
+    // Last part may be "City ST 62701", a country name, or something else
+    const cityStateZipMatch = lastPart.match(/^(.*?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+    if (cityStateZipMatch) {
+      result.city = cityStateZipMatch[1];
+      result.state = cityStateZipMatch[2];
+      result.zip = cityStateZipMatch[3];
+      if (parts.length >= 2) result.streetAddress = parts.slice(0, parts.length - 1).join(', ');
+    } else {
+      // Treat as city + country/region (e.g. "Paris, France")
+      result.city = parts[0];
+      if (parts.length >= 2) result.country = parts[parts.length - 1];
+      if (parts.length >= 3) result.streetAddress = parts.slice(1, parts.length - 1).join(', ');
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Extract the two-letter US state abbreviation from any address string.
+ * Returns null if no state can be identified.
+ *
+ * @param {string} address
+ * @returns {string|null}
+ */
+function _extractState(address) {
+  if (!address) return null;
+  const components = _extractAddressComponents(address);
+  return components.state || null;
+}
+
+/**
+ * Build an optimized Google News search query from an address/location string.
+ *
+ * Rules:
+ *  - Residential addresses → expand to "City, ST [ZIP]" (street number stripped)
+ *  - Landmark/business/venue addresses → use name + city for precise matching
+ *  - Simple city/region strings → used as-is, with state disambiguation added
+ *    when the destination state differs from the admin's home state
+ *
+ * @param {string} address     - Destination or event address
+ * @param {string} homeAddress - Admin's home address (for state-comparison context)
+ * @returns {string}           - Search query string
+ */
+function _buildRegionNewsQuery(address, homeAddress) {
+  if (!address || !address.trim()) return address || '';
+  const trimmed = address.trim();
+  const type = _classifyAddress(trimmed);
+  const parts = trimmed.split(',').map(p => p.trim()).filter(Boolean);
+
+  if (type === 'residential') {
+    // Strip the street-level portion; keep city + state (+ ZIP if present)
+    if (parts.length >= 2) {
+      const locationParts = parts.slice(1);
+      const query = locationParts.join(', ');
+      logger.debug(
+        logger.categories.SMART_MIRROR,
+        `Regional news: residential address expanded from "${trimmed}" to "${query}"`
+      );
+      return query;
+    }
+    // Fallback: return as-is if we cannot parse further
+    return trimmed;
+  }
+
+  if (type === 'landmark') {
+    // Use the landmark name with city context to avoid ambiguity
+    const landmarkName = parts[0];
+    if (parts.length >= 2) {
+      // Include up to two additional parts (city + state) for disambiguation
+      const cityContext = parts.slice(1, 3).join(', ');
+      const query = `"${landmarkName}" ${cityContext}`;
+      logger.debug(
+        logger.categories.SMART_MIRROR,
+        `Regional news: landmark address "${trimmed}" → query "${query}"`
+      );
+      return query;
+    }
+    return landmarkName;
+  }
+
+  // City/region type — check whether state disambiguation is needed
+  // (e.g. "Paris, TX" must not be confused with "Paris, France")
+  if (homeAddress) {
+    const homeState = _extractState(homeAddress);
+    const destComponents = _extractAddressComponents(trimmed);
+    const destState = destComponents.state;
+
+    if (homeState && destState && homeState !== destState) {
+      // Destination is in a different US state — keep full "City, ST" string so the
+      // search engine can differentiate (e.g. "Paris, TX" vs. user's home in "IL")
+      logger.debug(
+        logger.categories.SMART_MIRROR,
+        `Regional news: cross-state destination "${trimmed}" (home: ${homeState}, dest: ${destState}) kept verbatim for disambiguation`
+      );
+    }
+  }
+
+  return trimmed;
+}
+
+/**
+ * Fetch region-specific news headlines using Google News RSS.
+ *
+ * The third parameter `homeAddress` is optional and defaults to an empty string
+ * (backward compatible with all existing callers that only pass `region` or
+ * `region, count`).
+ *
+ * @param {string} region      - Location/region name (e.g., "Paris, France")
+ * @param {number} count       - Maximum number of headlines to return
+ * @param {string} [homeAddress=''] - Admin's home address for query disambiguation (optional)
+ * @returns {Promise<{region: string, searchQuery: string, items: Array, error?: string}>}
+ */
+async function fetchRegionNews(region, count = 2, homeAddress = '') {
   if (!region || region.trim() === '') {
-    return { region, items: [], error: 'No region specified' };
+    return { region, searchQuery: '', items: [], error: 'No region specified' };
   }
   const trimmedRegion = region.trim();
-  const url = _buildGoogleNewsUrl(trimmedRegion);
+  const searchQuery = _buildRegionNewsQuery(trimmedRegion, homeAddress);
+  const url = _buildGoogleNewsUrl(searchQuery);
   const parser = new Parser({
     timeout: 10000,
     customFields: { item: ['media:content', 'media:thumbnail'] }
   });
   try {
-    logger.info(logger.categories.SMART_MIRROR, `Fetching region news for "${trimmedRegion}" from Google News RSS`);
+    logger.info(logger.categories.SMART_MIRROR, `Fetching region news for "${trimmedRegion}" (query: "${searchQuery}") from Google News RSS`);
     const feed = await parser.parseURL(url);
     const items = feed.items.slice(0, count).map(item => ({
       title: item.title || 'Untitled',
@@ -1383,10 +1570,10 @@ async function fetchRegionNews(region, count = 2) {
       image: item['media:thumbnail']?.[0]?.$ || item['media:content']?.[0]?.$ || null
     }));
     logger.success(logger.categories.SMART_MIRROR, `Fetched ${items.length} region news items for "${trimmedRegion}"`);
-    return { region: trimmedRegion, items };
+    return { region: trimmedRegion, searchQuery, items };
   } catch (err) {
     logger.warning(logger.categories.SMART_MIRROR, `Failed to fetch region news for "${trimmedRegion}": ${err.message}`);
-    return { region: trimmedRegion, items: [], error: err.message };
+    return { region: trimmedRegion, searchQuery, items: [], error: err.message };
   }
 }
 
@@ -1414,6 +1601,10 @@ async function fetchVacationRegionNews(vacationDates, newsConfig) {
   const now = new Date();
   const cutoff = new Date(now.getTime() + daysInAdvance * 24 * 60 * 60 * 1000);
 
+  // Load the admin home address for location-aware query building
+  const config = loadConfig();
+  const homeAddress = config.widgets?.smartWidget?.homeAddress || '';
+
   // Collect all distinct destination names within the window
   const destinations = new Set();
   for (const vacation of (vacationDates || [])) {
@@ -1429,7 +1620,7 @@ async function fetchVacationRegionNews(vacationDates, newsConfig) {
 
   const regions = [];
   for (const destination of destinations) {
-    const result = await fetchRegionNews(destination, headlinesCount);
+    const result = await fetchRegionNews(destination, headlinesCount, homeAddress);
     regions.push(result);
   }
 
@@ -1448,6 +1639,10 @@ async function fetchCalendarRegionNews(calendarUrls, newsConfig) {
   const headlinesCount = newsConfig.calendarNewsHeadlinesCount ?? 2;
   const now = new Date();
   const cutoff = new Date(now.getTime() + daysInAdvance * 24 * 60 * 60 * 1000);
+
+  // Load the admin home address for location-aware query building
+  const config = loadConfig();
+  const homeAddress = config.widgets?.smartWidget?.homeAddress || '';
 
   // Fetch calendar events
   const calendarResult = await fetchCalendarEvents(calendarUrls || []);
@@ -1469,7 +1664,7 @@ async function fetchCalendarRegionNews(calendarUrls, newsConfig) {
 
   const regions = [];
   for (const location of locations) {
-    const result = await fetchRegionNews(location, headlinesCount);
+    const result = await fetchRegionNews(location, headlinesCount, homeAddress);
     regions.push(result);
   }
 
@@ -3153,6 +3348,11 @@ module.exports = {
   testNewsFeed,
   testHomeAssistantMedia,
   testTomTomConnection,
+  // Regional news search helpers (exported for testing)
+  _classifyAddress,
+  _extractAddressComponents,
+  _extractState,
+  _buildRegionNewsQuery,
   // Export constants for use in other modules
   CACHE_MIN_INTERVAL_MS,
   DEFAULT_CALENDAR_CACHE_TTL,
