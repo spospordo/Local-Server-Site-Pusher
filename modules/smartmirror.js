@@ -2551,11 +2551,16 @@ async function fetchLocationTimezone(apiKey, location) {
 
 // Fetch destination weather by coordinates for drive-time events.
 // Returns temp, weather icon code, UV index (if available), rain flag, and precip chance.
+// temp/icon/condition reflect the forecast slot nearest to the event time so that the
+// displayed conditions are contextually accurate for the scheduled arrival.
+// hasRain covers any rain during the entire event day, not just the event slot.
 // Results are cached for 30 minutes.
-async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 'imperial', eventDateStr = null) {
+async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 'imperial', eventDateStr = null, eventTimestamp = null) {
   if (!weatherApiKey) return null;
 
-  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${eventDateStr || 'today'}`;
+  // Bucket event time to nearest 3-hour interval for a stable cache key
+  const timeBucket = eventTimestamp ? Math.floor(eventTimestamp / (3 * 60 * 60 * 1000)) : 'now';
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${eventDateStr || 'today'}:${timeBucket}`;
   const cached = driveTimeCache.weather[cacheKey];
   if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_WEATHER_TTL) {
     logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached destination weather for ${cacheKey}`);
@@ -2563,23 +2568,19 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
   }
 
   try {
-    // Fetch current weather by coordinates
-    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}`;
-    const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
-    const wd = weatherResponse.data;
-
     const result = {
-      temp: Math.round(wd.main.temp),
-      icon: wd.weather[0]?.icon || '',
-      condition: wd.weather[0]?.main || '',
+      temp: null,
+      icon: '',
+      condition: '',
       uvIndex: null,
       hasRain: false,
       precipChance: 0,
+      isForecast: false,
       units,
       timestamp: Date.now()
     };
 
-    // Fetch UV index (OWM 2.5 UV endpoint, free tier)
+    // Fetch UV index (OWM 2.5 UV endpoint, free tier — current only)
     try {
       const uviUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${weatherApiKey}`;
       const uviResponse = await axios.get(uviUrl, { timeout: 8000 });
@@ -2592,37 +2593,73 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
       logger.debug(logger.categories.SMART_MIRROR, `Drive-time: UV index unavailable for ${lat},${lon}: ${uviErr.message}`);
     }
 
-    // Check forecast for rain on the event date (or today if no date given)
+    // Primary: use the 5-day / 3-hour forecast to obtain event-time conditions and
+    // check for any rain across the entire event day.
     try {
       const targetDate = eventDateStr || new Date().toISOString().split('T')[0];
       const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}&cnt=${FORECAST_ITEM_COUNT}`;
       const forecastResponse = await axios.get(forecastUrl, { timeout: 10000 });
       const forecastItems = forecastResponse.data?.list || [];
 
+      // All slots on the event day — used for the day-wide rain alert
       const dayItems = forecastItems.filter(item => {
         const itemDate = new Date(item.dt * 1000).toISOString().split('T')[0];
         return itemDate === targetDate;
       });
 
       if (dayItems.length > 0) {
+        // Day-wide rain check: flag if any slot has a rain condition or high precip probability
         const maxPop = Math.max(...dayItems.map(item => item.pop || 0));
         result.precipChance = Math.round(maxPop * 100);
         const rainConditions = ['Rain', 'Drizzle', 'Thunderstorm'];
         result.hasRain = dayItems.some(item =>
           rainConditions.includes(item.weather[0]?.main) || (item.pop || 0) >= RAIN_PROBABILITY_THRESHOLD
         );
-        // Also update icon/condition using a midday slot for the event day
-        const middayItem = dayItems[Math.floor(dayItems.length / 2)] || dayItems[0];
-        result.icon = middayItem.weather[0]?.icon || result.icon;
-        result.condition = middayItem.weather[0]?.main || result.condition;
+
+        // Pick the forecast slot closest to the event time for temp/icon/condition
+        let eventItem;
+        if (eventTimestamp) {
+          const eventSec = eventTimestamp / 1000;
+          eventItem = dayItems.reduce((best, item) =>
+            Math.abs(item.dt - eventSec) < Math.abs(best.dt - eventSec) ? item : best
+          );
+        } else {
+          // No specific time — fall back to the midday slot
+          eventItem = dayItems[Math.floor(dayItems.length / 2)] || dayItems[0];
+        }
+
+        result.temp = Math.round(eventItem.main.temp);
+        result.icon = eventItem.weather[0]?.icon || '';
+        result.condition = eventItem.weather[0]?.main || '';
+        result.isForecast = true;
       }
     } catch (forecastErr) {
-      logger.debug(logger.categories.SMART_MIRROR, `Drive-time: rain forecast unavailable for ${lat},${lon}: ${forecastErr.message}`);
+      logger.debug(logger.categories.SMART_MIRROR, `Drive-time: forecast unavailable for ${lat},${lon}: ${forecastErr.message}`);
+    }
+
+    // Fallback: if the forecast did not cover the event date (e.g. > 5 days out),
+    // use the current-conditions endpoint to at least show a temperature and icon.
+    // All three presentation fields (temp/icon/condition) come from the same source.
+    if (result.temp === null) {
+      try {
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=${units}`;
+        const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
+        const wd = weatherResponse.data;
+        result.temp = Math.round(wd.main.temp);
+        result.icon = wd.weather[0]?.icon || '';
+        result.condition = wd.weather[0]?.main || '';
+      } catch (curErr) {
+        logger.debug(logger.categories.SMART_MIRROR, `Drive-time: current weather fallback failed for ${lat},${lon}: ${curErr.message}`);
+      }
+    }
+
+    if (result.temp === null) {
+      return null;
     }
 
     driveTimeCache.weather[cacheKey] = result;
     logger.debug(logger.categories.SMART_MIRROR,
-      `Drive-time: destination weather ${lat},${lon} → ${result.temp}°, rain:${result.hasRain}, UV:${result.uvIndex}`);
+      `Drive-time: destination weather ${lat},${lon} → ${result.temp}°, rain:${result.hasRain}, UV:${result.uvIndex}, forecast:${result.isForecast}`);
     return result;
   } catch (err) {
     logger.debug(logger.categories.SMART_MIRROR, `Drive-time: destination weather fetch failed for ${lat},${lon}: ${err.message}`);
@@ -2784,10 +2821,11 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherA
         const travelMinutes = Math.round(routeInfo.travelTimeSeconds / 60);
         const delayMinutes = Math.round(routeInfo.trafficDelaySeconds / 60);
 
-        // Fetch destination weather when a weather API key is available
+        // Fetch destination weather when a weather API key is available.
+        // Pass the event start timestamp so the nearest forecast slot is used.
         const eventDateStr = startDate.toISOString().split('T')[0];
         const destWeather = weatherApiKey
-          ? await fetchDestinationWeatherByCoords(destCoords.lat, destCoords.lon, weatherApiKey, units, eventDateStr)
+          ? await fetchDestinationWeatherByCoords(destCoords.lat, destCoords.lon, weatherApiKey, units, eventDateStr, startDate.getTime())
           : null;
 
         eventsWithDriveTimes.push({
