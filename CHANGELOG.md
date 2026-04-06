@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.15.1] - 2026-04-06
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #587 from spospordo/copilot/optimize-regional-news-search-logic
+  - Fix British spelling: optimised → optimized in JSDoc comment
+  - Address final review: remove duplicate keyword, add i flag to regex patterns, clarify backward compat in JSDoc
+  - Address code review: pre-compile landmark regexes, fix US spelling in comment
+  - Optimize regional news search: smart address classification, query expansion, admin guidance panel
+  - Initial plan
+
+
 ## [2.15.0] - 2026-04-06
 
 ### Minor Update
