@@ -1466,7 +1466,7 @@ function _extractState(address) {
 }
 
 /**
- * Build an optimised Google News search query from an address/location string.
+ * Build an optimized Google News search query from an address/location string.
  *
  * Rules:
  *  - Residential addresses → expand to "City, ST [ZIP]" (street number stripped)
