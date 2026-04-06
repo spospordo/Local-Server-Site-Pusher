@@ -1372,10 +1372,16 @@ const LANDMARK_KEYWORDS = [
 ];
 
 /**
+ * Pre-compiled whole-word patterns for each landmark keyword.
+ * Built once at module load to avoid per-call RegExp construction.
+ */
+const LANDMARK_PATTERNS = LANDMARK_KEYWORDS.map(kw => new RegExp(`\\b${kw}\\b`));
+
+/**
  * Classify an address string as 'residential', 'landmark', or 'city'.
  *
  * - 'residential': Starts with a street number (e.g. "123 Main St, Dallas, TX 75201")
- * - 'landmark':    Contains a recognisable non-residential keyword (e.g. "Fenway Park, Boston, MA")
+ * - 'landmark':    Contains a recognizable non-residential keyword (e.g. "Fenway Park, Boston, MA")
  * - 'city':        Simple city/region reference (e.g. "Paris, France", "New York, NY")
  *
  * @param {string} address
@@ -1390,12 +1396,10 @@ function _classifyAddress(address) {
     return 'residential';
   }
 
-  // Landmark: contains a recognised non-residential keyword (case-insensitive)
+  // Landmark: contains a recognized non-residential keyword (case-insensitive)
   const lower = trimmed.toLowerCase();
-  for (const kw of LANDMARK_KEYWORDS) {
-    // Match whole-word occurrences to avoid false positives (e.g. "Oakland" matching "land")
-    const re = new RegExp(`\\b${kw}\\b`);
-    if (re.test(lower)) {
+  for (const pattern of LANDMARK_PATTERNS) {
+    if (pattern.test(lower)) {
       return 'landmark';
     }
   }
