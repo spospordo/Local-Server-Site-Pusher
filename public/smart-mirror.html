@@ -2660,7 +2660,7 @@
                                         statusSpan.style.fontSize = '0.75rem';
                                         statusSpan.style.fontWeight = 'bold';
 
-                                        const displayStatus = flightStatus.displayStatus || (flightStatus.limited ? 'Validated' : 'Other');
+                                        const displayStatus = flightStatus.displayStatus || 'Other';
 
                                         switch (displayStatus) {
                                             case 'On Time':
@@ -2692,7 +2692,7 @@
                                             default:
                                                 statusSpan.style.background = '#3b82f6';
                                                 statusSpan.style.color = '#fff';
-                                                statusSpan.textContent = flightStatus.limited ? 'Validated ⓘ' : 'Validated';
+                                                statusSpan.textContent = 'Validated';
                                         }
                                         flightHeaderDiv.appendChild(statusSpan);
                                         

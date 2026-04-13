@@ -702,8 +702,8 @@ function normalizeFlightStatus(flightStatusData) {
     rawStatus: raw,
     limited: false,
     limitedReason: null,
-    departureDelay: departureDelay || null,
-    arrivalDelay: arrivalDelay || null,
+    departureDelay: departureDelay > 0 ? departureDelay : null,
+    arrivalDelay: arrivalDelay > 0 ? arrivalDelay : null,
     gate: (flightStatusData.departure && flightStatusData.departure.gate) || flightStatusData.gate || null,
     terminal: (flightStatusData.departure && flightStatusData.departure.terminal) || flightStatusData.terminal || null
   };
