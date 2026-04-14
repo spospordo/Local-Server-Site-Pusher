@@ -8080,9 +8080,10 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
     
     if (cachedData) {
       logger.debug(logger.categories.SMART_MIRROR, `Returning cached flight data for ${flightNumber}`);
+      const normalized = aviationstack.normalizeFlightStatus(cachedData);
       return res.json({
         success: true,
-        data: cachedData,
+        data: { ...cachedData, displayStatus: normalized ? normalized.displayStatus : undefined },
         cached: true
       });
     }
@@ -8095,15 +8096,17 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
       const result = await aviationstack.getFlightStatus(apiKey, flightNumber, date);
       
       if (result.success) {
+        const normalized = aviationstack.normalizeFlightStatus(result.flightStatus);
         return res.json({
           success: true,
-          data: result.flightStatus,
+          data: { ...result.flightStatus, displayStatus: normalized ? normalized.displayStatus : undefined },
           cached: false
         });
       }
     }
     
-    // Fallback: Return basic status information
+    // Fallback: Return basic status information (no live data / no API key configured).
+    // displayStatus is 'Validated' since the flight was already admin-validated.
     logger.warning(logger.categories.SMART_MIRROR, `No flight data available for ${flightNumber}, returning basic status`);
     res.json({
       success: true,
@@ -8111,7 +8114,8 @@ app.get('/api/smart-mirror/flight-status', async (req, res) => {
         flightNumber: flightNumber.toUpperCase(),
         airline: airline,
         date: date,
-        status: 'Scheduled',
+        status: 'scheduled',
+        displayStatus: 'Validated',
         gate: null,
         terminal: null,
         lastUpdated: new Date().toISOString(),
@@ -8496,7 +8500,15 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       daysUntil: daysUntil,
                       notes: vacation.notes || '',
                       flightTrackingEnabled: vacation.flightTrackingEnabled || false,
-                      flights: (vacation.flights || []).filter(f => f.validated),
+                      flights: (vacation.flights || []).filter(f => f.validated).map(f => {
+                        // Enrich each validated flight with cached live status so the
+                        // frontend sub-widget can display status badges without an extra fetch.
+                        const cachedFlightData = flightScheduler.getFlightDataForDisplay(f.flightNumber, f.date);
+                        const liveStatus = cachedFlightData
+                          ? aviationstack.normalizeFlightStatus(cachedFlightData)
+                          : null;
+                        return { ...f, liveStatus };
+                      }),
                       houseSitting: vacation.houseSitting || false,
                       dogWatching: vacation.dogWatching || null
                     };

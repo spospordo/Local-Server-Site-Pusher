@@ -2644,33 +2644,55 @@
                                         flightNumSpan.textContent = flightStatus.flightNumber;
                                         flightHeaderDiv.appendChild(flightNumSpan);
                                         
-                                        // Status badge — show Free Plan indicator when tracking is limited
+                                        // Status badge
+                                        // Uses displayStatus (normalized by server) with fallback to
+                                        // raw status for backwards compatibility.
+                                        // Status mapping from AviationStack (see modules/aviationstack.js normalizeFlightStatus):
+                                        //   'Validated' – flight confirmed, scheduled, no delay (or limited plan)
+                                        //   'On Time'   – flight currently active and on schedule
+                                        //   'Delayed'   – flight behind schedule
+                                        //   'Canceled'  – flight cancelled
+                                        //   'Completed' – flight has landed
+                                        //   'Other'     – incident, diverted, or unrecognised status
                                         const statusSpan = document.createElement('span');
                                         statusSpan.style.padding = '2px 6px';
                                         statusSpan.style.borderRadius = '3px';
                                         statusSpan.style.fontSize = '0.75rem';
                                         statusSpan.style.fontWeight = 'bold';
-                                        
-                                        if (flightStatus.limited) {
-                                            statusSpan.style.background = '#f59e0b';
-                                            statusSpan.style.color = '#fff';
-                                            statusSpan.textContent = 'Free Plan';
-                                        } else if (flightStatus.status === 'On Time') {
-                                            statusSpan.style.background = '#10b981';
-                                            statusSpan.style.color = '#fff';
-                                            statusSpan.textContent = flightStatus.status;
-                                        } else if (flightStatus.status === 'Delayed') {
-                                            statusSpan.style.background = '#ef4444';
-                                            statusSpan.style.color = '#fff';
-                                            statusSpan.textContent = flightStatus.status;
-                                        } else if (flightStatus.status === 'Completed') {
-                                            statusSpan.style.background = '#6b7280';
-                                            statusSpan.style.color = '#fff';
-                                            statusSpan.textContent = flightStatus.status;
-                                        } else {
-                                            statusSpan.style.background = '#3b82f6';
-                                            statusSpan.style.color = '#fff';
-                                            statusSpan.textContent = flightStatus.status;
+
+                                        const displayStatus = flightStatus.displayStatus || 'Other';
+
+                                        switch (displayStatus) {
+                                            case 'On Time':
+                                                statusSpan.style.background = '#10b981';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'On Time';
+                                                break;
+                                            case 'Delayed':
+                                                statusSpan.style.background = '#ef4444';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'Delayed';
+                                                break;
+                                            case 'Canceled':
+                                                statusSpan.style.background = '#dc2626';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'Canceled';
+                                                break;
+                                            case 'Completed':
+                                                statusSpan.style.background = '#6b7280';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'Completed';
+                                                break;
+                                            case 'Other':
+                                                statusSpan.style.background = '#f59e0b';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'Other';
+                                                break;
+                                            case 'Validated':
+                                            default:
+                                                statusSpan.style.background = '#3b82f6';
+                                                statusSpan.style.color = '#fff';
+                                                statusSpan.textContent = 'Validated';
                                         }
                                         flightHeaderDiv.appendChild(statusSpan);
                                         
@@ -3957,6 +3979,81 @@
                             dateSpan.style.opacity = '0.6';
                             dateSpan.textContent = new Date(flight.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                             flightRow.appendChild(dateSpan);
+                        }
+
+                        // Status badge
+                        // liveStatus is pre-fetched by the backend and contains displayStatus.
+                        // Status mapping (from AviationStack flight_status):
+                        //   'Validated' – flight confirmed (scheduled, no delay, or limited plan)
+                        //   'On Time'   – flight is currently active and on schedule
+                        //   'Delayed'   – flight is behind schedule (active/scheduled with delay > 0)
+                        //   'Canceled'  – flight was cancelled
+                        //   'Completed' – flight has landed
+                        //   'Other'     – incident, diverted, or unrecognised status
+                        const statusBadge = document.createElement('span');
+                        statusBadge.style.padding = '1px 6px';
+                        statusBadge.style.borderRadius = '3px';
+                        statusBadge.style.fontSize = '0.72rem';
+                        statusBadge.style.fontWeight = '700';
+                        statusBadge.style.letterSpacing = '0.02em';
+
+                        const ls = flight.liveStatus;
+                        const displayStatus = ls ? ls.displayStatus : 'Validated';
+
+                        switch (displayStatus) {
+                            case 'On Time':
+                                statusBadge.style.background = '#10b981'; // green
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'On Time';
+                                break;
+                            case 'Delayed':
+                                statusBadge.style.background = '#ef4444'; // red
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'Delayed';
+                                break;
+                            case 'Canceled':
+                                statusBadge.style.background = '#dc2626'; // dark red
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'Canceled';
+                                break;
+                            case 'Completed':
+                                statusBadge.style.background = '#6b7280'; // gray
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'Completed';
+                                break;
+                            case 'Other':
+                                statusBadge.style.background = '#f59e0b'; // amber
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'Other';
+                                break;
+                            case 'Validated':
+                            default:
+                                statusBadge.style.background = '#3b82f6'; // blue
+                                statusBadge.style.color = '#fff';
+                                statusBadge.textContent = 'Validated';
+                        }
+                        flightRow.appendChild(statusBadge);
+
+                        // Show gate/terminal if available from live status
+                        if (ls && !ls.limited && (ls.gate || ls.terminal)) {
+                            const gateSpan = document.createElement('span');
+                            gateSpan.style.opacity = '0.65';
+                            gateSpan.style.fontSize = '0.75rem';
+                            const parts = [];
+                            if (ls.terminal) parts.push(`T${ls.terminal}`);
+                            if (ls.gate) parts.push(`Gate ${ls.gate}`);
+                            gateSpan.textContent = parts.join(' • ');
+                            flightRow.appendChild(gateSpan);
+                        }
+
+                        // Show delay minutes when flight is delayed
+                        if (ls && ls.departureDelay && ls.departureDelay > 0) {
+                            const delaySpan = document.createElement('span');
+                            delaySpan.style.opacity = '0.75';
+                            delaySpan.style.fontSize = '0.75rem';
+                            delaySpan.style.color = '#fca5a5';
+                            delaySpan.textContent = `+${ls.departureDelay} min`;
+                            flightRow.appendChild(delaySpan);
                         }
 
                         flightSection.appendChild(flightRow);

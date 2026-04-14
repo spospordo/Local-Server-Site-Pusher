@@ -619,10 +619,101 @@ async function getFlightStatus(apiKey, flightIata, flightDate, bypassLimit = fal
   }
 }
 
+/**
+ * Normalize raw AviationStack flight_status and timing data into a
+ * user-friendly display status for the Smart Mirror vacation sub-widget.
+ *
+ * AviationStack `flight_status` raw values → display status mapping:
+ *   'scheduled' (departure.delay == 0) → 'Validated'  Flight confirmed, on schedule
+ *   'scheduled' (departure.delay  > 0) → 'Delayed'    Flight confirmed but running late
+ *   'active'    (departure.delay == 0) → 'On Time'    Currently airborne, on time
+ *   'active'    (departure.delay  > 0) → 'Delayed'    Currently airborne but delayed
+ *   'landed'                           → 'Completed'  Flight has arrived at destination
+ *   'cancelled'                        → 'Canceled'   Flight was cancelled
+ *   'incident'                         → 'Other'      Abnormal status – incident
+ *   'diverted'                         → 'Other'      Abnormal status – diversion to alternate airport
+ *   limited (Free Plan restriction)    → 'Validated'  Only admin validation available; live data not supported
+ *   anything else                      → 'Other'      Unrecognised or future AviationStack status values
+ *
+ * @param {Object} flightStatusData - Flight status object returned by getFlightStatus()
+ *   Expected fields: status (string), departure.delay (number), arrival.delay (number),
+ *   departure.gate (string), departure.terminal (string), limited (bool), limitedReason (string)
+ * @returns {Object|null} Normalised status descriptor, or null if flightStatusData is falsy.
+ *   Returned object fields:
+ *     displayStatus  {string}       – One of: 'Validated', 'On Time', 'Delayed', 'Canceled',
+ *                                    'Completed', 'Other'
+ *     rawStatus      {string}       – Original AviationStack flight_status value (lowercase)
+ *     limited        {boolean}      – true when real-time tracking is unavailable (Free Plan)
+ *     limitedReason  {string|null}  – Human-readable reason when limited is true
+ *     departureDelay {number|null}  – Departure delay in minutes, or null if not available
+ *     arrivalDelay   {number|null}  – Arrival delay in minutes, or null if not available
+ *     gate           {string|null}  – Departure gate, or null if not available
+ *     terminal       {string|null}  – Departure terminal, or null if not available
+ */
+function normalizeFlightStatus(flightStatusData) {
+  if (!flightStatusData) return null;
+
+  // Limited data (e.g. AviationStack Free Plan restriction) – only admin validation is confirmed
+  if (flightStatusData.limited) {
+    return {
+      displayStatus: 'Validated',
+      rawStatus: flightStatusData.status || 'unknown',
+      limited: true,
+      limitedReason: flightStatusData.limitedReason || null,
+      departureDelay: null,
+      arrivalDelay: null,
+      gate: null,
+      terminal: null
+    };
+  }
+
+  const raw = (flightStatusData.status || '').toLowerCase();
+  const departureDelay = (flightStatusData.departure && flightStatusData.departure.delay) || 0;
+  const arrivalDelay = (flightStatusData.arrival && flightStatusData.arrival.delay) || 0;
+  const hasDelay = departureDelay > 0 || arrivalDelay > 0;
+
+  let displayStatus;
+  switch (raw) {
+    case 'scheduled':
+      // Scheduled with no delay = confirmed/validated; with delay = already running late
+      displayStatus = hasDelay ? 'Delayed' : 'Validated';
+      break;
+    case 'active':
+      // Active (airborne) with no delay = on time; with delay = delayed
+      displayStatus = hasDelay ? 'Delayed' : 'On Time';
+      break;
+    case 'landed':
+      displayStatus = 'Completed';
+      break;
+    case 'cancelled':
+      displayStatus = 'Canceled';
+      break;
+    case 'incident':
+    case 'diverted':
+      // Abnormal situations that don't fit the standard categories
+      displayStatus = 'Other';
+      break;
+    default:
+      displayStatus = 'Other';
+  }
+
+  return {
+    displayStatus,
+    rawStatus: raw,
+    limited: false,
+    limitedReason: null,
+    departureDelay: departureDelay > 0 ? departureDelay : null,
+    arrivalDelay: arrivalDelay > 0 ? arrivalDelay : null,
+    gate: (flightStatusData.departure && flightStatusData.departure.gate) || flightStatusData.gate || null,
+    terminal: (flightStatusData.departure && flightStatusData.departure.terminal) || flightStatusData.terminal || null
+  };
+}
+
 module.exports = {
   testConnection,
   validateFlight,
   getFlightStatus,
+  normalizeFlightStatus,
   getUsageStats,
   isLimitReached,
   getApiKeyFingerprint,
