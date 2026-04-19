@@ -874,6 +874,68 @@
         .drive-time-event-card:nth-child(2) { animation-delay: 0.1s; }
         .drive-time-event-card:nth-child(3) { animation-delay: 0.2s; }
 
+        /* SpaceX Launch Widget Styles and Animations */
+        .smart-sub-widget-spacexLaunch {
+            background: linear-gradient(135deg, rgba(30, 20, 80, 0.85) 0%, rgba(60, 30, 100, 0.7) 100%) !important;
+            border: 2px solid rgba(255, 120, 0, 0.5) !important;
+            box-shadow: 0 0 25px rgba(255, 120, 0, 0.25);
+        }
+
+        body.theme-light .smart-sub-widget-spacexLaunch {
+            background: linear-gradient(135deg, rgba(30, 20, 80, 0.15) 0%, rgba(60, 30, 100, 0.1) 100%) !important;
+            border: 2px solid rgba(200, 80, 0, 0.6) !important;
+            box-shadow: 0 0 20px rgba(200, 80, 0, 0.2);
+        }
+
+        /* Highlighted (within threshold) — steady orange glow */
+        .smart-sub-widget-spacexLaunch.spacex-highlighted {
+            border-color: rgba(255, 140, 0, 0.9) !important;
+            animation: spacex-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes spacex-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 120, 0, 0.5), 0 0 40px rgba(255, 80, 0, 0.2); }
+            50%       { box-shadow: 0 0 35px rgba(255, 140, 0, 0.8), 0 0 60px rgba(255, 100, 0, 0.35); }
+        }
+
+        /* One-time flash when first entering highlighted state */
+        @keyframes spacex-flash-once {
+            0%   { box-shadow: 0 0 0px rgba(255, 200, 0, 0); border-color: rgba(255, 120, 0, 0.5); }
+            15%  { box-shadow: 0 0 60px rgba(255, 200, 0, 0.9), 0 0 120px rgba(255, 100, 0, 0.6); border-color: rgba(255, 220, 0, 1); }
+            40%  { box-shadow: 0 0 40px rgba(255, 160, 0, 0.7), 0 0 80px rgba(255, 80, 0, 0.4); border-color: rgba(255, 160, 0, 0.9); }
+            100% { box-shadow: 0 0 20px rgba(255, 120, 0, 0.5), 0 0 40px rgba(255, 80, 0, 0.2); border-color: rgba(255, 140, 0, 0.9); }
+        }
+
+        .smart-sub-widget-spacexLaunch.spacex-flash-once {
+            animation: spacex-flash-once 1.5s ease-out forwards, spacex-glow 2s ease-in-out 1.5s infinite;
+        }
+
+        .spacex-rocket-icon {
+            animation: spacex-rocket-bob 3s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes spacex-rocket-bob {
+            0%, 100% { transform: translateY(0px); }
+            50%       { transform: translateY(-4px); }
+        }
+
+        .spacex-launch-card {
+            animation: slide-in 0.5s ease-out;
+        }
+
+        .spacex-sunset-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, rgba(255, 160, 0, 0.3), rgba(255, 80, 0, 0.3));
+            border: 1px solid rgba(255, 140, 0, 0.6);
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #ffcc66;
+            margin-top: 4px;
+        }
+
         /* AQI color coding */
         .aqi-good {
             color: #4CAF50;
@@ -1174,6 +1236,7 @@
         let currentOrientation = 'portrait'; // Track current orientation
         let configLastFetched = 0; // Timestamp of last successful config fetch
         const CONFIG_STALE_THRESHOLD_MS = 30000; // Re-fetch config if older than 30 s
+        const spacexFlashedTypes = new Set(); // Track sub-widget types that have already flashed
 
         // Detect current orientation from URL or screen
         function detectOrientation() {
@@ -3303,6 +3366,19 @@
                 case 'driveTime':
                     innerContent = renderDriveTime(subWidget.data);
                     break;
+                case 'spacexLaunch':
+                    innerContent = renderSpacexLaunch(subWidget.data);
+                    // Apply highlighted class to container after rendering
+                    if (subWidget.data && subWidget.data.isHighlighted) {
+                        const flashKey = `spacexLaunch:${subWidget.data.launchTime || ''}`;
+                        if (!spacexFlashedTypes.has(flashKey)) {
+                            spacexFlashedTypes.add(flashKey);
+                            container.classList.add('spacex-flash-once');
+                        } else {
+                            container.classList.add('spacex-highlighted');
+                        }
+                    }
+                    break;
                 default:
                     return null;
             }
@@ -5048,6 +5124,161 @@
             });
 
             horizontalWrapper.appendChild(cardsSection);
+            container.appendChild(horizontalWrapper);
+            return container;
+        }
+
+        // Render SpaceX Launch sub-widget
+        function renderSpacexLaunch(data) {
+            if (!data) return null;
+
+            const container = document.createElement('div');
+            container.className = 'spacex-launch-card';
+
+            // Section heading
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.style.color = '#ff9944';
+            sectionHeading.textContent = '🚀 SpaceX Launch — Vandenberg';
+            container.appendChild(sectionHeading);
+
+            // Horizontal layout wrapper
+            const horizontalWrapper = document.createElement('div');
+            horizontalWrapper.style.display = 'flex';
+            horizontalWrapper.style.alignItems = 'flex-start';
+            horizontalWrapper.style.gap = '12px';
+            horizontalWrapper.style.width = '100%';
+            horizontalWrapper.style.flexWrap = 'wrap';
+
+            // Left section: icon + mission name + rocket
+            const leftSection = document.createElement('div');
+            leftSection.style.display = 'flex';
+            leftSection.style.alignItems = 'center';
+            leftSection.style.gap = '12px';
+            leftSection.style.flexShrink = '1';
+            leftSection.style.minWidth = '0';
+
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'spacex-rocket-icon';
+            iconDiv.style.fontSize = '2.5rem';
+            iconDiv.textContent = '🚀';
+            leftSection.appendChild(iconDiv);
+
+            const titleDiv = document.createElement('div');
+            titleDiv.style.minWidth = '0';
+
+            const missionDiv = document.createElement('div');
+            missionDiv.style.fontSize = '1.2rem';
+            missionDiv.style.fontWeight = '700';
+            missionDiv.style.color = '#ff9944';
+            missionDiv.style.wordBreak = 'break-word';
+            missionDiv.textContent = data.missionName || 'Unknown Mission';
+            titleDiv.appendChild(missionDiv);
+
+            const rocketDiv = document.createElement('div');
+            rocketDiv.style.fontSize = '0.9rem';
+            rocketDiv.style.opacity = '0.8';
+            rocketDiv.style.marginTop = '2px';
+            rocketDiv.textContent = `${data.provider || ''} · ${data.rocketName || ''}`;
+            titleDiv.appendChild(rocketDiv);
+
+            if (data.isSunsetLaunch) {
+                const sunsetBadge = document.createElement('div');
+                sunsetBadge.className = 'spacex-sunset-badge';
+                sunsetBadge.textContent = '🌅 Sunset Launch!';
+                titleDiv.appendChild(sunsetBadge);
+            }
+
+            leftSection.appendChild(titleDiv);
+            horizontalWrapper.appendChild(leftSection);
+
+            // Right section: countdown card + details
+            const detailsSection = document.createElement('div');
+            detailsSection.style.display = 'flex';
+            detailsSection.style.flexWrap = 'wrap';
+            detailsSection.style.gap = '10px';
+            detailsSection.style.flex = '1 1 auto';
+            detailsSection.style.minWidth = '0';
+
+            // Countdown card
+            const countdownCard = document.createElement('div');
+            countdownCard.style.background = 'rgba(255, 120, 0, 0.15)';
+            countdownCard.style.border = '2px solid rgba(255, 120, 0, 0.4)';
+            countdownCard.style.borderRadius = '8px';
+            countdownCard.style.padding = '10px 14px';
+            countdownCard.style.flex = '0 0 auto';
+            countdownCard.style.textAlign = 'center';
+
+            const countdownLabel = document.createElement('div');
+            countdownLabel.style.fontSize = '0.7rem';
+            countdownLabel.style.opacity = '0.7';
+            countdownLabel.style.textTransform = 'uppercase';
+            countdownLabel.style.letterSpacing = '0.08em';
+            countdownLabel.style.marginBottom = '4px';
+            countdownLabel.textContent = 'T-minus';
+            countdownCard.appendChild(countdownLabel);
+
+            const cd = data.countdown || { days: 0, hours: 0, minutes: 0 };
+            const countdownValue = document.createElement('div');
+            countdownValue.style.fontSize = '1.5rem';
+            countdownValue.style.fontWeight = '800';
+            countdownValue.style.color = '#ff9944';
+            countdownValue.style.lineHeight = '1.1';
+
+            const parts = [];
+            if (cd.days > 0) parts.push(`${cd.days}d`);
+            if (cd.hours > 0 || cd.days > 0) parts.push(`${cd.hours}h`);
+            parts.push(`${cd.minutes}m`);
+            countdownValue.textContent = parts.join(' ');
+            countdownCard.appendChild(countdownValue);
+            detailsSection.appendChild(countdownCard);
+
+            // Details card
+            const detailCard = document.createElement('div');
+            detailCard.style.background = 'rgba(255, 255, 255, 0.05)';
+            detailCard.style.border = '1px solid rgba(255, 120, 0, 0.25)';
+            detailCard.style.borderRadius = '8px';
+            detailCard.style.padding = '10px 14px';
+            detailCard.style.flex = '1 1 150px';
+            detailCard.style.minWidth = '0';
+            detailCard.style.display = 'grid';
+            detailCard.style.gridTemplateColumns = '1fr 1fr';
+            detailCard.style.gap = '8px';
+            detailCard.style.fontSize = '0.85rem';
+            detailCard.style.alignContent = 'start';
+
+            // Launch time
+            const launchTimeDiv = document.createElement('div');
+            const launchDate = new Date(data.launchTime);
+            const launchDateStr = isNaN(launchDate.getTime()) ? 'TBD' :
+                launchDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+                launchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            launchTimeDiv.innerHTML = '<div style="opacity:0.7;margin-bottom:2px;">Launch</div>' +
+                `<div style="font-weight:600;">${launchDateStr}</div>`;
+            detailCard.appendChild(launchTimeDiv);
+
+            // Status
+            const statusDiv = document.createElement('div');
+            const statusColor = data.status === 'Go' ? '#4caf50' :
+                                data.status === 'Hold' ? '#ff5252' : '#ffcc66';
+            statusDiv.innerHTML = '<div style="opacity:0.7;margin-bottom:2px;">Status</div>' +
+                `<div style="font-weight:700;color:${statusColor};">${data.status || 'TBD'}</div>`;
+            detailCard.appendChild(statusDiv);
+
+            // Location
+            const locationDiv = document.createElement('div');
+            locationDiv.style.gridColumn = '1 / -1';
+            locationDiv.innerHTML = '<div style="opacity:0.7;margin-bottom:2px;">Location</div>' +
+                `<div style="font-weight:600;font-size:0.8rem;">${data.location || 'Vandenberg SFB'}</div>`;
+            detailCard.appendChild(locationDiv);
+
+            detailsSection.appendChild(detailCard);
+            horizontalWrapper.appendChild(detailsSection);
             container.appendChild(horizontalWrapper);
             return container;
         }

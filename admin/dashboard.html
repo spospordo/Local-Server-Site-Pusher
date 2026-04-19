@@ -6362,6 +6362,60 @@
                                     </div>
                                 </div>
 
+                                <!-- SpaceX Launch (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            🚀 SpaceX Launch (Vandenberg)
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetSpacexEnabled">Enabled</label>
+                                                <select id="smartWidgetSpacexEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetSpacexPriority">Priority</label>
+                                                <input type="number" id="smartWidgetSpacexPriority" min="1" max="10" value="5">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetSpacexCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetSpacexCycleTime" min="5" max="60" value="12">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetSpacexDisplayDays">Display Threshold (days)</label>
+                                                <input type="number" id="smartWidgetSpacexDisplayDays" min="1" max="30" value="7">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Show widget when launch is within this many days (1–30)
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetSpacexHighlightHours">Highlight Threshold (hours)</label>
+                                                <input type="number" id="smartWidgetSpacexHighlightHours" min="1" max="168" value="24">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Start flashing when launch is within this many hours (1–168)
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Shows upcoming SpaceX launches from Vandenberg Space Force Base using the free Launch Library 2 API (no key required). Highlights launches near sunset (🌅 Sunset Launch! badge) for spectacular plume visibility. Data is refreshed every 30 minutes.
+                                        </p>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
@@ -14327,7 +14381,8 @@
                         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
                         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
-                        { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
+                        { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
+                        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
                     ];
                     
                     const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1, cycleTime: 10 };
@@ -14366,6 +14421,13 @@
                     document.getElementById('smartWidgetDriveTimeEnabled').value = driveTimeSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetDriveTimePriority').value = driveTimeSubWidget.priority || 2;
                     document.getElementById('smartWidgetDriveTimeCycleTime').value = driveTimeSubWidget.cycleTime || 15;
+
+                    const spacexSubWidget = subWidgets.find(sw => sw.type === 'spacexLaunch') || { enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 };
+                    document.getElementById('smartWidgetSpacexEnabled').value = spacexSubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetSpacexPriority').value = spacexSubWidget.priority || 5;
+                    document.getElementById('smartWidgetSpacexCycleTime').value = spacexSubWidget.cycleTime || 12;
+                    document.getElementById('smartWidgetSpacexDisplayDays').value = spacexSubWidget.displayThresholdDays ?? 7;
+                    document.getElementById('smartWidgetSpacexHighlightHours').value = spacexSubWidget.highlightThresholdHours ?? 24;
 
                     const batterySubWidget = subWidgets.find(sw => sw.type === 'homeAssistantBattery') || { enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 };
                     document.getElementById('smartWidgetBatteryEnabled').value = batterySubWidget.enabled ? 'true' : 'false';
@@ -14823,6 +14885,14 @@
                                     enabled: document.getElementById('smartWidgetDriveTimeEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetDriveTimePriority').value),
                                     cycleTime: parseInt(document.getElementById('smartWidgetDriveTimeCycleTime').value)
+                                },
+                                {
+                                    type: 'spacexLaunch',
+                                    enabled: document.getElementById('smartWidgetSpacexEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetSpacexPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetSpacexCycleTime').value),
+                                    displayThresholdDays: parseInt(document.getElementById('smartWidgetSpacexDisplayDays').value),
+                                    highlightThresholdHours: parseInt(document.getElementById('smartWidgetSpacexHighlightHours').value)
                                 }
                             ],
                             apiKey: preserveApiKey(
@@ -16692,7 +16762,8 @@
             { id: 'smartWidgetVacationEnabled', icon: '✈️', name: 'Vacation' },
             { id: 'smartWidgetPartyEnabled',    icon: '🎉', name: 'Party' },
             { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' },
-            { id: 'smartWidgetDriveTimeEnabled', icon: '🚗', name: 'Drive-Time' }
+            { id: 'smartWidgetDriveTimeEnabled', icon: '🚗', name: 'Drive-Time' },
+            { id: 'smartWidgetSpacexEnabled',   icon: '🚀', name: 'SpaceX Launch' }
         ];
         
         // Switch between portrait and landscape editing
