@@ -3854,47 +3854,84 @@
                     }
                 }
 
-                // Helper: render weather for a destination's weather data
+                // Helper: render weather for a destination's weather data.
+                // Displays a row for each forecast day that overlaps the vacation date range.
+                // If none overlap, falls back to showing all available days with a note.
+                // If weather.isFallback is true (current-weather fallback), renders a single row
+                // with an italic note indicating the forecast is unavailable.
                 function renderWeatherInfo(weather, startDateStr, endDateStr, container) {
                     if (!weather || !weather.days || weather.days.length === 0) return;
-                    const vacationDays = weather.days.filter(day => {
-                        if (!startDateStr || !endDateStr) return false;
-                        return day.date >= startDateStr && day.date <= endDateStr;
-                    });
-                    const weatherDay = vacationDays.length > 0 ? vacationDays[0] : weather.days[0];
                     const tempUnit = weather.units === 'metric' ? 'C' : 'F';
-                    const tempHigh = Math.round(weatherDay.tempHigh);
-                    const tempLow = weatherDay.tempLow !== undefined && weatherDay.tempLow !== null ? Math.round(weatherDay.tempLow) : null;
 
-                    const weatherDiv = document.createElement('div');
-                    weatherDiv.style.marginTop = '4px';
-                    weatherDiv.style.marginBottom = '4px';
-                    weatherDiv.style.display = 'flex';
-                    weatherDiv.style.alignItems = 'center';
-                    weatherDiv.style.gap = '6px';
-                    weatherDiv.style.flexWrap = 'wrap';
-
-                    const wIcon = document.createElement('span');
-                    wIcon.style.fontSize = '1.3rem';
-                    wIcon.textContent = getWeatherIcon(weatherDay.icon);
-                    weatherDiv.appendChild(wIcon);
-
-                    const tempSpan = document.createElement('span');
-                    tempSpan.style.fontWeight = '600';
-                    if (tempLow !== null && tempLow !== tempHigh) {
-                        tempSpan.textContent = `${tempHigh}° / ${tempLow}°${tempUnit}`;
+                    // Determine which days to display
+                    let daysToShow;
+                    let showNearestNote = false;
+                    if (weather.isFallback) {
+                        // Current-weather fallback: single day, handled below
+                        daysToShow = weather.days;
                     } else {
-                        tempSpan.textContent = `${tempHigh}°${tempUnit}`;
+                        const vacationDays = weather.days.filter(day => {
+                            if (!startDateStr || !endDateStr) return false;
+                            return day.date >= startDateStr && day.date <= endDateStr;
+                        });
+                        if (vacationDays.length > 0) {
+                            daysToShow = vacationDays;
+                        } else {
+                            // No overlap — show all available forecast days with a note
+                            daysToShow = weather.days;
+                            showNearestNote = true;
+                        }
                     }
-                    weatherDiv.appendChild(tempSpan);
 
-                    const condSpan = document.createElement('span');
-                    condSpan.style.opacity = '0.8';
-                    condSpan.textContent = weatherDay.condition || weatherDay.description || '';
-                    weatherDiv.appendChild(condSpan);
+                    // Render one row per day
+                    daysToShow.forEach(weatherDay => {
+                        const tempHigh = Math.round(weatherDay.tempHigh);
+                        const tempLow = weatherDay.tempLow !== undefined && weatherDay.tempLow !== null
+                            ? Math.round(weatherDay.tempLow) : null;
 
-                    container.appendChild(weatherDiv);
+                        const weatherDiv = document.createElement('div');
+                        weatherDiv.style.marginTop = '4px';
+                        weatherDiv.style.marginBottom = '2px';
+                        weatherDiv.style.display = 'flex';
+                        weatherDiv.style.alignItems = 'center';
+                        weatherDiv.style.gap = '6px';
+                        weatherDiv.style.flexWrap = 'wrap';
 
+                        // Day label (e.g. "Mon 4/25")
+                        if (!weather.isFallback && daysToShow.length > 1) {
+                            const dayLabel = document.createElement('span');
+                            dayLabel.style.fontWeight = '500';
+                            dayLabel.style.minWidth = '3.5rem';
+                            const d = new Date(weatherDay.date + 'T12:00:00');
+                            const shortDay = d.toLocaleDateString('en-US', { weekday: 'short' });
+                            const monthDay = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+                            dayLabel.textContent = `${shortDay} ${monthDay}:`;
+                            weatherDiv.appendChild(dayLabel);
+                        }
+
+                        const wIcon = document.createElement('span');
+                        wIcon.style.fontSize = '1.3rem';
+                        wIcon.textContent = getWeatherIcon(weatherDay.icon);
+                        weatherDiv.appendChild(wIcon);
+
+                        const tempSpan = document.createElement('span');
+                        tempSpan.style.fontWeight = '600';
+                        if (tempLow !== null && tempLow !== tempHigh) {
+                            tempSpan.textContent = `${tempHigh}° / ${tempLow}°${tempUnit}`;
+                        } else {
+                            tempSpan.textContent = `${tempHigh}°${tempUnit}`;
+                        }
+                        weatherDiv.appendChild(tempSpan);
+
+                        const condSpan = document.createElement('span');
+                        condSpan.style.opacity = '0.8';
+                        condSpan.textContent = weatherDay.condition || weatherDay.description || '';
+                        weatherDiv.appendChild(condSpan);
+
+                        container.appendChild(weatherDiv);
+                    });
+
+                    // Append note below the day rows
                     if (weather.isFallback) {
                         const fallbackNote = document.createElement('div');
                         fallbackNote.style.fontSize = '0.75rem';
@@ -3902,12 +3939,13 @@
                         fallbackNote.style.fontStyle = 'italic';
                         fallbackNote.textContent = '(Current weather — forecast unavailable)';
                         container.appendChild(fallbackNote);
-                    } else if (vacationDays.length === 0) {
-                        const noForecastNote = document.createElement('div');
-                        noForecastNote.style.fontSize = '0.75rem';
-                        noForecastNote.style.opacity = '0.6';
-                        noForecastNote.textContent = '⛅ Forecast unavailable for dates';
-                        container.appendChild(noForecastNote);
+                    } else if (showNearestNote) {
+                        const nearestNote = document.createElement('div');
+                        nearestNote.style.fontSize = '0.75rem';
+                        nearestNote.style.opacity = '0.6';
+                        nearestNote.style.fontStyle = 'italic';
+                        nearestNote.textContent = '(Nearest available forecast shown)';
+                        container.appendChild(nearestNote);
                     }
                 }
 
