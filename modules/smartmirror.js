@@ -1768,13 +1768,14 @@ async function fetchForecast(apiKey, location, days = 5, units = 'imperial') {
     return { success: false, error: errorMsg };
   }
   
-  // Validate days parameter (only 3 and 5 supported with free tier)
-  if (![3, 5].includes(days)) {
-    days = 5; // Default to 5 days
+  // OpenWeatherMap free tier provides ~5–6 calendar days of 3-hour interval data.
+  // We allow any positive days value and let the API naturally limit the window.
+  if (days < 1) {
+    days = 5;
   }
-  
+
   try {
-    // Use 5-day forecast endpoint (free tier)
+    // Use 5-day/3-hour forecast endpoint (free tier); returns up to ~5–6 calendar days
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(location)}&appid=${apiKey}&units=${units}`;
     logger.info(logger.categories.SMART_MIRROR, `Fetching forecast from OpenWeatherMap API for location: ${location}`);
     

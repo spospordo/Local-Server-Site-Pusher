@@ -7887,8 +7887,8 @@ app.get('/api/smart-mirror/vacation-weather', async (req, res) => {
       return res.json({ success: false, error: 'Weather API key not configured' });
     }
     
-    // Try to fetch 5-day forecast, fallback to current weather
-    let result = await smartMirror.fetchForecast(apiKey, location, 5, units);
+    // Try to fetch full available forecast window; OpenWeatherMap free tier returns ~5–6 days
+    let result = await smartMirror.fetchForecast(apiKey, location, 10, units);
     
     if (!result.success) {
       // Fallback to current weather
@@ -8554,7 +8554,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                             let weatherResult = await smartMirror.fetchForecast(
                               weatherApiKey,
                               dest.name,
-                              5,
+                              10,
                               weatherUnits
                             );
 
