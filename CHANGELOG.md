@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.17.0] - 2026-04-19
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #593 from spospordo/copilot/improve-vacation-widget-forecast
+  - feat: display all available vacation forecast days, support multi-destination
+  - Initial plan
+
+
 ## [2.16.0] - 2026-04-14
 
 ### Minor Update
