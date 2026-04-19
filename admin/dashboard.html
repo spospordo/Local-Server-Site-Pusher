@@ -17158,7 +17158,10 @@
                 bubbles: true
             });
             document.dispatchEvent(mouseEvent);
-            e.preventDefault();
+            // Only prevent default scroll when actively dragging or resizing a widget
+            if (gridState.isDragging || gridState.isResizing) {
+                e.preventDefault();
+            }
         }
         
         function handleMouseUp(e) {
