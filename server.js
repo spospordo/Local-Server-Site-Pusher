@@ -8191,6 +8191,105 @@ function estimateContentSize(subWidgetData) {
   }
 }
 
+// SpaceX Launch sub-widget — LL2 API cache (refresh every 30 minutes)
+const spacexLaunchCache = {
+  data: null,
+  lastFetched: 0,
+  TTL_MS: 30 * 60 * 1000 // 30 minutes
+};
+
+const VANDENBERG_LAT = 34.7420;
+const VANDENBERG_LON = -120.5724;
+
+async function fetchSpacexLaunchData() {
+  const now = Date.now();
+  if (spacexLaunchCache.data && (now - spacexLaunchCache.lastFetched) < spacexLaunchCache.TTL_MS) {
+    return spacexLaunchCache.data;
+  }
+
+  try {
+    const SunCalc = require('suncalc');
+    const response = await axios.get(
+      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search=vandenberg&format=json',
+      { timeout: 10000 }
+    );
+
+    const launches = (response.data.results || []).filter(launch => {
+      const locationName = launch.pad?.location?.name || '';
+      return locationName.toLowerCase().includes('vandenberg');
+    });
+
+    if (launches.length === 0) {
+      spacexLaunchCache.data = null;
+      spacexLaunchCache.lastFetched = now;
+      return null;
+    }
+
+    // Take the soonest upcoming launch
+    const launch = launches[0];
+    const launchTime = new Date(launch.net);
+
+    // Calculate sunset at Vandenberg on the launch date
+    const sunTimes = SunCalc.getTimes(launchTime, VANDENBERG_LAT, VANDENBERG_LON);
+    const sunsetTime = sunTimes.sunset;
+
+    // Sunset window: 15 min before to 90 min after sunset
+    const windowStart = new Date(sunsetTime.getTime() - 15 * 60 * 1000);
+    const windowEnd = new Date(sunsetTime.getTime() + 90 * 60 * 1000);
+    const isSunsetLaunch = launchTime >= windowStart && launchTime <= windowEnd;
+
+    // Build countdown from now
+    const msUntil = launchTime - new Date();
+    const totalMinutes = Math.max(0, Math.floor(msUntil / 60000));
+    const countdown = {
+      days: Math.floor(totalMinutes / (60 * 24)),
+      hours: Math.floor((totalMinutes % (60 * 24)) / 60),
+      minutes: totalMinutes % 60
+    };
+
+    const result = {
+      missionName: launch.name || 'Unknown Mission',
+      rocketName: launch.rocket?.configuration?.name || 'Unknown Rocket',
+      provider: launch.launch_service_provider?.name || 'Unknown',
+      launchTime: launch.net,
+      status: launch.status?.abbrev || launch.status?.name || 'TBD',
+      countdown,
+      isSunsetLaunch,
+      sunsetTime: sunsetTime.toISOString(),
+      location: launch.pad?.location?.name || 'Vandenberg'
+    };
+
+    spacexLaunchCache.data = result;
+    spacexLaunchCache.lastFetched = now;
+    logger.success(logger.categories.SMART_MIRROR,
+      `SpaceX Launch cache refreshed: ${result.missionName} at ${result.launchTime}`);
+    return result;
+  } catch (err) {
+    logger.warning(logger.categories.SMART_MIRROR,
+      `SpaceX Launch fetch failed: ${err.message}. Using cached data if available.`);
+    return spacexLaunchCache.data; // return stale cache on error
+  }
+}
+
+// SpaceX Launch API endpoint
+app.get('/api/smart-mirror/spacex-launch', async (req, res) => {
+  logger.info(logger.categories.SMART_MIRROR, 'SpaceX Launch data requested');
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const data = await fetchSpacexLaunchData();
+    if (!data) {
+      return res.json({ success: true, hasContent: false, data: null });
+    }
+    return res.json({ success: true, hasContent: true, data });
+  } catch (err) {
+    logger.error(logger.categories.SMART_MIRROR, `SpaceX Launch API error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to fetch SpaceX launch data' });
+  }
+});
+
 // Smart Widget data aggregation endpoint
 app.get('/api/smart-mirror/smart-widget', async (req, res) => {
   logger.info(logger.categories.SMART_MIRROR, 'Smart Widget data requested');
@@ -8950,6 +9049,67 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             } else {
               logger.debug(logger.categories.SMART_MIRROR,
                 'Drive-Time sub-widget: TomTom API key or home address not configured');
+            }
+            break;
+          }
+
+          case 'spacexLaunch': {
+            // Fetch SpaceX launch data from LL2 API (cached)
+            const spacexData = await fetchSpacexLaunchData();
+            if (spacexData) {
+              const displayThresholdDays = subWidget.displayThresholdDays ?? 7;
+              const highlightThresholdHours = subWidget.highlightThresholdHours ?? 24;
+
+              const launchTime = new Date(spacexData.launchTime);
+              const now = new Date();
+              const msUntil = launchTime - now;
+              const hoursUntil = msUntil / (1000 * 60 * 60);
+              const daysUntil = msUntil / (1000 * 60 * 60 * 24);
+
+              // Only show if launch is in the future and within display threshold
+              if (msUntil > 0 && daysUntil <= displayThresholdDays) {
+                const isHighlighted = hoursUntil <= highlightThresholdHours;
+
+                // Recalculate live countdown
+                const totalMinutes = Math.max(0, Math.floor(msUntil / 60000));
+                const countdown = {
+                  days: Math.floor(totalMinutes / (60 * 24)),
+                  hours: Math.floor((totalMinutes % (60 * 24)) / 60),
+                  minutes: totalMinutes % 60
+                };
+
+                subWidgetData = {
+                  type: 'spacexLaunch',
+                  priority: subWidget.priority,
+                  cycleTime: subWidget.cycleTime || 12,
+                  hasContent: true,
+                  data: {
+                    missionName: spacexData.missionName,
+                    rocketName: spacexData.rocketName,
+                    provider: spacexData.provider,
+                    launchTime: spacexData.launchTime,
+                    status: spacexData.status,
+                    countdown,
+                    isSunsetLaunch: spacexData.isSunsetLaunch,
+                    isHighlighted,
+                    sunsetTime: spacexData.sunsetTime,
+                    location: spacexData.location
+                  }
+                };
+                logger.success(logger.categories.SMART_MIRROR,
+                  `SpaceX Launch sub-widget: ${spacexData.missionName} in ${Math.round(daysUntil)} days (highlighted: ${isHighlighted})`);
+              } else if (msUntil <= 0) {
+                logger.debug(logger.categories.SMART_MIRROR,
+                  'SpaceX Launch sub-widget: launch has already passed, clearing cache');
+                spacexLaunchCache.data = null;
+                spacexLaunchCache.lastFetched = 0;
+              } else {
+                logger.debug(logger.categories.SMART_MIRROR,
+                  `SpaceX Launch sub-widget: launch in ${Math.round(daysUntil)} days, outside ${displayThresholdDays}-day display window`);
+              }
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'SpaceX Launch sub-widget: no upcoming Vandenberg launches found');
             }
             break;
           }

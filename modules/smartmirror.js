@@ -196,7 +196,8 @@ function getDefaultWidgets() {
         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: DEFAULT_HA_REFRESH_INTERVAL_MS },
-        { type: 'party', enabled: true, priority: 4, cycleTime: 10 }
+        { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
+        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
       ],
       // Display settings
       displayMode: 'cycle', // 'cycle', 'simultaneous', 'priority', or 'adaptive'
