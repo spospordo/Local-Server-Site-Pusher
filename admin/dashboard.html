@@ -5599,6 +5599,17 @@
                                 <input type="number" id="newsCalendarHeadlinesCount" min="1" max="10" value="2">
                             </div>
                         </div>
+
+                        <hr style="margin: 16px 0; border-color: #333;">
+                        <div style="font-weight: 600; margin-bottom: 10px;">🔢 Feed Display Order</div>
+                        <p style="font-size: 0.88rem; color: #aaa; margin-bottom: 10px;">
+                            Drag the feed types below (or use the ↑↓ buttons) to set the order in which they appear in the News widget.
+                            The top item is shown first.
+                        </p>
+                        <div id="newsFeedOrderList" style="display: flex; flex-direction: column; gap: 6px; max-width: 340px;">
+                            <!-- Items injected by JS -->
+                        </div>
+                        <input type="hidden" id="newsFeedOrderValue" value='["main","vacation","calendar"]'>
                     </div>
                 </div>
 
@@ -14329,6 +14340,7 @@
                     document.getElementById('newsCalendarEnabled').value = news.calendarNewsEnabled === true ? 'true' : 'false';
                     document.getElementById('newsCalendarDaysInAdvance').value = news.calendarNewsDaysInAdvance ?? 2;
                     document.getElementById('newsCalendarHeadlinesCount').value = news.calendarNewsHeadlinesCount ?? 2;
+                    setFeedOrder(news.newsFeedOrder || ['main', 'vacation', 'calendar']);
                     
                     // Load media widget config
                     const media = config.widgets?.media || {};
@@ -14660,6 +14672,8 @@
             if (checkbox) {
                 checkbox.addEventListener('change', toggleEventFiltersContainer);
             }
+            // Initialize feed order list with default order
+            setFeedOrder(['main', 'vacation', 'calendar']);
         });
         
         async function saveSmartMirrorConfig() {
@@ -14804,7 +14818,8 @@
                             vacationNewsHeadlinesCount: parseInt(document.getElementById('newsVacationHeadlinesCount').value) || 2,
                             calendarNewsEnabled: document.getElementById('newsCalendarEnabled').value === 'true',
                             calendarNewsDaysInAdvance: parseInt(document.getElementById('newsCalendarDaysInAdvance').value) || 2,
-                            calendarNewsHeadlinesCount: parseInt(document.getElementById('newsCalendarHeadlinesCount').value) || 2
+                            calendarNewsHeadlinesCount: parseInt(document.getElementById('newsCalendarHeadlinesCount').value) || 2,
+                            newsFeedOrder: getCurrentFeedOrder()
                         },
                         media: {
                             enabled: document.getElementById('mediaEnabled').value === 'true',
@@ -16492,6 +16507,81 @@
         }
         
         // Test news widget connection
+        // Feed order management for News Widget
+        const FEED_ORDER_LABELS = {
+            main:     { label: 'Main Feed',          icon: '📰' },
+            vacation: { label: 'Vacation Feed',       icon: '✈️' },
+            calendar: { label: 'Calendar Event Feed', icon: '📅' }
+        };
+
+        function renderNewsFeedOrderList(order) {
+            const list = document.getElementById('newsFeedOrderList');
+            list.innerHTML = '';
+            order.forEach((key, idx) => {
+                const info = FEED_ORDER_LABELS[key] || { label: key, icon: '' };
+                const item = document.createElement('div');
+                item.style.cssText = 'display:flex;align-items:center;gap:8px;background:#1a2a3a;border:1px solid #2a4a6a;border-radius:6px;padding:8px 12px;cursor:default;';
+                item.dataset.key = key;
+
+                const grip = document.createElement('span');
+                grip.textContent = info.icon + ' ' + info.label;
+                grip.style.cssText = 'flex:1;font-size:0.9rem;';
+                item.appendChild(grip);
+
+                const upBtn = document.createElement('button');
+                upBtn.type = 'button';
+                upBtn.textContent = '↑';
+                upBtn.title = 'Move up';
+                upBtn.className = 'btn btn-sm';
+                upBtn.style.cssText = 'padding:2px 8px;font-size:0.8rem;';
+                upBtn.disabled = idx === 0;
+                upBtn.onclick = () => moveFeedOrderItem(key, -1);
+                item.appendChild(upBtn);
+
+                const downBtn = document.createElement('button');
+                downBtn.type = 'button';
+                downBtn.textContent = '↓';
+                downBtn.title = 'Move down';
+                downBtn.className = 'btn btn-sm';
+                downBtn.style.cssText = 'padding:2px 8px;font-size:0.8rem;';
+                downBtn.disabled = idx === order.length - 1;
+                downBtn.onclick = () => moveFeedOrderItem(key, 1);
+                item.appendChild(downBtn);
+
+                list.appendChild(item);
+            });
+        }
+
+        function moveFeedOrderItem(key, direction) {
+            const current = getCurrentFeedOrder();
+            const idx = current.indexOf(key);
+            if (idx < 0) return;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= current.length) return;
+            current.splice(idx, 1);
+            current.splice(newIdx, 0, key);
+            document.getElementById('newsFeedOrderValue').value = JSON.stringify(current);
+            renderNewsFeedOrderList(current);
+        }
+
+        function getCurrentFeedOrder() {
+            try {
+                return JSON.parse(document.getElementById('newsFeedOrderValue').value);
+            } catch (e) {
+                return ['main', 'vacation', 'calendar'];
+            }
+        }
+
+        function setFeedOrder(order) {
+            const valid = ['main', 'vacation', 'calendar'];
+            // Ensure all three keys are present; append any missing ones at the end
+            const filtered = (order || []).filter(k => valid.includes(k));
+            const missing = valid.filter(k => !filtered.includes(k));
+            const full = [...filtered, ...missing];
+            document.getElementById('newsFeedOrderValue').value = JSON.stringify(full);
+            renderNewsFeedOrderList(full);
+        }
+
         async function testNewsConnection() {
             const feedUrlsText = document.getElementById('newsFeedUrl').value.trim();
             const containerId = 'newsTestResult';

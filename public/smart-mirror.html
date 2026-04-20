@@ -2198,55 +2198,69 @@
                     wrapper.appendChild(section);
                 }
 
-                // Fetch general news
-                const newsResponse = await fetch('/api/smart-mirror/news');
-                const newsData = await newsResponse.json();
-                if (newsData.success && newsData.items && newsData.items.length > 0) {
-                    renderNewsSection(null, null, newsData.items.slice(0, 5));
-                } else if (newsData.error && newsData.items !== undefined) {
-                    // Only show an error message when the widget is enabled but fetching failed
-                    // (not when the widget is simply disabled)
-                    if (newsData.items.length === 0 && !newsData.error.toLowerCase().includes('not enabled')) {
-                        const errDiv = document.createElement('div');
-                        errDiv.style.opacity = '0.6';
-                        errDiv.textContent = '⚠️ ' + newsData.error;
-                        wrapper.appendChild(errDiv);
-                    }
-                }
+                // Fetch all three feed data sources in parallel
+                const [newsResponse, vacResponseRaw, calResponseRaw] = await Promise.allSettled([
+                    fetch('/api/smart-mirror/news'),
+                    fetch('/api/smart-mirror/news/vacation'),
+                    fetch('/api/smart-mirror/news/calendar')
+                ]);
 
-                // Fetch vacation region news
+                const newsData = newsResponse.status === 'fulfilled'
+                    ? await newsResponse.value.json()
+                    : { success: false, items: [] };
+
                 const emptyRegions = [];
-                try {
-                    const vacResponse = await fetch('/api/smart-mirror/news/vacation');
-                    const vacData = await vacResponse.json();
-                    if (vacData.success && vacData.regions && vacData.regions.length > 0) {
-                        for (const region of vacData.regions) {
-                            if (region.items && region.items.length > 0) {
-                                renderRegionNewsSection(region.region, '✈️', region.items);
-                            } else {
-                                emptyRegions.push({ region: region.region, icon: '✈️' });
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.debug('Vacation region news unavailable:', e.message);
+                let vacData = { success: false, regions: [] };
+                if (vacResponseRaw.status === 'fulfilled') {
+                    try { vacData = await vacResponseRaw.value.json(); } catch (e) { console.debug('Vacation news parse error:', e.message); }
+                } else {
+                    console.debug('Vacation region news unavailable:', vacResponseRaw.reason?.message);
                 }
 
-                // Fetch calendar region news
-                try {
-                    const calResponse = await fetch('/api/smart-mirror/news/calendar');
-                    const calData = await calResponse.json();
-                    if (calData.success && calData.regions && calData.regions.length > 0) {
-                        for (const region of calData.regions) {
-                            if (region.items && region.items.length > 0) {
-                                renderRegionNewsSection(region.region, '📅', region.items);
-                            } else {
-                                emptyRegions.push({ region: region.region, icon: '📅' });
+                let calData = { success: false, regions: [] };
+                if (calResponseRaw.status === 'fulfilled') {
+                    try { calData = await calResponseRaw.value.json(); } catch (e) { console.debug('Calendar news parse error:', e.message); }
+                } else {
+                    console.debug('Calendar region news unavailable:', calResponseRaw.reason?.message);
+                }
+
+                // Determine the feed display order from config (default: main, vacation, calendar)
+                const feedOrder = (widgetConfig && widgetConfig.newsFeedOrder) || ['main', 'vacation', 'calendar'];
+
+                // Render each feed section in the configured order
+                for (const feedKey of feedOrder) {
+                    if (feedKey === 'main') {
+                        if (newsData.success && newsData.items && newsData.items.length > 0) {
+                            renderNewsSection(null, null, newsData.items.slice(0, 5));
+                        } else if (newsData.error && newsData.items !== undefined) {
+                            if (newsData.items.length === 0 && !newsData.error.toLowerCase().includes('not enabled')) {
+                                const errDiv = document.createElement('div');
+                                errDiv.style.opacity = '0.6';
+                                errDiv.textContent = '⚠️ ' + newsData.error;
+                                wrapper.appendChild(errDiv);
+                            }
+                        }
+                    } else if (feedKey === 'vacation') {
+                        if (vacData.success && vacData.regions && vacData.regions.length > 0) {
+                            for (const region of vacData.regions) {
+                                if (region.items && region.items.length > 0) {
+                                    renderRegionNewsSection(region.region, '✈️', region.items);
+                                } else {
+                                    emptyRegions.push({ region: region.region, icon: '✈️' });
+                                }
+                            }
+                        }
+                    } else if (feedKey === 'calendar') {
+                        if (calData.success && calData.regions && calData.regions.length > 0) {
+                            for (const region of calData.regions) {
+                                if (region.items && region.items.length > 0) {
+                                    renderRegionNewsSection(region.region, '📅', region.items);
+                                } else {
+                                    emptyRegions.push({ region: region.region, icon: '📅' });
+                                }
                             }
                         }
                     }
-                } catch (e) {
-                    console.debug('Calendar region news unavailable:', e.message);
                 }
 
                 // Show notice for regions that were searched but returned no headlines

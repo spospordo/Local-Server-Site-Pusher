@@ -146,7 +146,9 @@ function getDefaultWidgets() {
       // Calendar event region-based news
       calendarNewsEnabled: false,
       calendarNewsDaysInAdvance: 2,
-      calendarNewsHeadlinesCount: 2
+      calendarNewsHeadlinesCount: 2,
+      // Display order of feed sections: 'main', 'vacation', 'calendar'
+      newsFeedOrder: ['main', 'vacation', 'calendar']
     },
     media: {
       enabled: false,
@@ -975,6 +977,9 @@ function getPublicConfig(orientation = null) {
     }
     if (widgetKey === 'news' && widget.feedUrls) {
       publicConfig.widgets[widgetKey].feedUrls = widget.feedUrls;
+      publicConfig.widgets[widgetKey].vacationNewsEnabled = widget.vacationNewsEnabled || false;
+      publicConfig.widgets[widgetKey].calendarNewsEnabled = widget.calendarNewsEnabled || false;
+      publicConfig.widgets[widgetKey].newsFeedOrder = widget.newsFeedOrder || ['main', 'vacation', 'calendar'];
     }
   });
   
