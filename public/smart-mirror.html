@@ -3980,17 +3980,25 @@
                         weatherDiv.style.gap = '6px';
                         weatherDiv.style.flexWrap = 'wrap';
 
-                        // Day label (e.g. "Mon 4/25")
-                        if (!weather.isFallback && daysToShow.length > 1) {
-                            const dayLabel = document.createElement('span');
-                            dayLabel.style.fontWeight = '500';
-                            dayLabel.style.minWidth = '3.5rem';
+                        // Badge: "Now" for fallback (current weather), or date label for forecast rows
+                        const badge = document.createElement('span');
+                        badge.style.background = 'rgba(255,255,255,0.08)';
+                        badge.style.border = '1px solid rgba(255,255,255,0.15)';
+                        badge.style.borderRadius = '4px';
+                        badge.style.padding = '1px 5px';
+                        badge.style.fontSize = '0.68rem';
+                        badge.style.opacity = '0.75';
+                        badge.style.marginRight = '2px';
+                        badge.style.flexShrink = '0';
+                        if (weather.isFallback) {
+                            badge.textContent = 'Now';
+                        } else {
                             const d = new Date(weatherDay.date + 'T12:00:00');
                             const shortDay = d.toLocaleDateString('en-US', { weekday: 'short' });
                             const monthDay = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
-                            dayLabel.textContent = `${shortDay} ${monthDay}:`;
-                            weatherDiv.appendChild(dayLabel);
+                            badge.textContent = `${shortDay} ${monthDay}`;
                         }
+                        weatherDiv.appendChild(badge);
 
                         const wIcon = document.createElement('span');
                         wIcon.style.fontSize = '1.3rem';
@@ -4014,22 +4022,6 @@
                         container.appendChild(weatherDiv);
                     });
 
-                    // Append note below the day rows
-                    if (weather.isFallback) {
-                        const fallbackNote = document.createElement('div');
-                        fallbackNote.style.fontSize = '0.75rem';
-                        fallbackNote.style.opacity = '0.6';
-                        fallbackNote.style.fontStyle = 'italic';
-                        fallbackNote.textContent = '(Current weather — forecast unavailable)';
-                        container.appendChild(fallbackNote);
-                    } else if (showNearestNote) {
-                        const nearestNote = document.createElement('div');
-                        nearestNote.style.fontSize = '0.75rem';
-                        nearestNote.style.opacity = '0.6';
-                        nearestNote.style.fontStyle = 'italic';
-                        nearestNote.textContent = '(Nearest available forecast shown)';
-                        container.appendChild(nearestNote);
-                    }
                 }
 
                 const startDateStr = vacation.startDate ? vacation.startDate.split('T')[0] : null;
@@ -4044,14 +4036,32 @@
                     effectiveDestinations.forEach(dest => {
                         if (dest.timezoneOffset === undefined && !dest.weather) return;
                         const destInfoDiv = document.createElement('div');
-                        destInfoDiv.style.marginTop = '6px';
-                        destInfoDiv.style.paddingTop = '4px';
+                        destInfoDiv.style.marginTop = '8px';
+                        destInfoDiv.style.paddingTop = '6px';
+                        destInfoDiv.style.paddingLeft = '8px';
                         destInfoDiv.style.borderTop = '1px solid rgba(245,158,11,0.2)';
+                        destInfoDiv.style.borderLeft = '3px solid rgba(245,158,11,0.35)';
                         const destLabel = document.createElement('div');
-                        destLabel.style.fontSize = '0.78rem';
-                        destLabel.style.opacity = '0.7';
-                        destLabel.style.marginBottom = '2px';
+                        destLabel.style.fontSize = '0.88rem';
+                        destLabel.style.fontWeight = '600';
+                        destLabel.style.opacity = '0.9';
+                        destLabel.style.marginBottom = '4px';
+                        destLabel.style.display = 'flex';
+                        destLabel.style.alignItems = 'center';
+                        destLabel.style.gap = '5px';
                         destLabel.textContent = dest.name;
+                        if (dest.weather && dest.weather.isFallback) {
+                            const nowTag = document.createElement('span');
+                            nowTag.style.background = 'rgba(255,255,255,0.08)';
+                            nowTag.style.border = '1px solid rgba(255,255,255,0.15)';
+                            nowTag.style.borderRadius = '4px';
+                            nowTag.style.padding = '1px 5px';
+                            nowTag.style.fontSize = '0.68rem';
+                            nowTag.style.opacity = '0.7';
+                            nowTag.style.fontWeight = 'normal';
+                            nowTag.textContent = 'Now';
+                            destLabel.appendChild(nowTag);
+                        }
                         destInfoDiv.appendChild(destLabel);
                         renderTimezoneInfo(dest.timezoneOffset, destInfoDiv);
                         renderWeatherInfo(dest.weather, startDateStr, endDateStr, destInfoDiv);
