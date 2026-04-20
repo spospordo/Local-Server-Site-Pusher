@@ -194,7 +194,7 @@ function getDefaultWidgets() {
         { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
-        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 }, // pauseTimeout in minutes; 0 = never hide
         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: DEFAULT_HA_REFRESH_INTERVAL_MS },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
         { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
