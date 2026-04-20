@@ -8191,6 +8191,14 @@ function estimateContentSize(subWidgetData) {
   }
 }
 
+// Tracks the timestamp (ms) at which each media-player entity first entered the
+// "paused" state.  Key = entityId string.  Cleared when the player resumes or
+// becomes inactive so the timer resets correctly.
+const mediaPauseStartTimes = new Map();
+
+// Default pause timeout (minutes) used when no value is configured for the sub-widget.
+const DEFAULT_MEDIA_PAUSE_TIMEOUT_MINUTES = 15;
+
 // SpaceX Launch sub-widget — LL2 API cache (refresh every 30 minutes)
 const spacexLaunchCache = {
   data: null,
@@ -8760,6 +8768,33 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 
                 // Only include if media is actually playing or paused
                 if (mediaResult.success && (mediaResult.state === 'playing' || mediaResult.state === 'paused')) {
+                  const entityId = mediaResult.entityId;
+
+                  if (mediaResult.state === 'playing') {
+                    // Player resumed — clear any recorded pause start time
+                    mediaPauseStartTimes.delete(entityId);
+                  } else {
+                    // Player is paused — record when it first entered pause state
+                    if (!mediaPauseStartTimes.has(entityId)) {
+                      mediaPauseStartTimes.set(entityId, Date.now());
+                      logger.info(logger.categories.SMART_MIRROR, `Media player ${entityId} paused — starting pause timer`);
+                    }
+
+                    // Check whether the pause timeout has been exceeded
+                    const pauseTimeoutMinutes = subWidget.pauseTimeout ?? DEFAULT_MEDIA_PAUSE_TIMEOUT_MINUTES;
+                    // A timeout of 0 means "never hide"
+                    if (pauseTimeoutMinutes > 0) {
+                      const pauseTimeoutMs = pauseTimeoutMinutes * 60 * 1000;
+                      const pausedSinceMs = Date.now() - mediaPauseStartTimes.get(entityId);
+
+                      if (pausedSinceMs >= pauseTimeoutMs) {
+                        logger.info(logger.categories.SMART_MIRROR,
+                          `Media player ${entityId} has been paused for ${Math.round(pausedSinceMs / 60000)} min — hiding widget (timeout: ${pauseTimeoutMinutes} min)`);
+                        break; // Skip this sub-widget
+                      }
+                    }
+                  }
+
                   const player = {
                     entityId: mediaResult.entityId,
                     friendlyName: mediaResult.entityName, // fetchHomeAssistantMedia returns entityName; front-end expects friendlyName
@@ -8779,6 +8814,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       players: [player]
                     }
                   };
+                } else if (mediaResult.entityId) {
+                  // Player is no longer playing or paused — clear its pause timer
+                  mediaPauseStartTimes.delete(mediaResult.entityId);
                 }
               }
             }

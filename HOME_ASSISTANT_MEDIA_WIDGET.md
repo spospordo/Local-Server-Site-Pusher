@@ -97,6 +97,17 @@ The widget updates based on your Smart Mirror's refresh interval (default: 60 se
 - ⏸️ **Paused**: Media is paused
 - 🎵 **Idle**: No active media or all players are off/idle
 
+### Pause Timeout
+
+To prevent the widget from displaying stale paused-media info indefinitely, a configurable **Pause Timeout** is available.
+
+- **Default**: 15 minutes
+- **Behavior**: When a media player enters the "paused" state, a timer starts. If the player remains paused beyond the configured timeout, the widget is automatically hidden.
+- **Reset**: The timer resets as soon as playback resumes or a new item starts playing.
+- **Setting to 0**: Disables the timeout entirely — the widget will always display paused media (original behavior).
+
+You can change this value in the admin panel under **Smart Widget → 🎵 Home Assistant Media → Pause Timeout (minutes)**.
+
 ## Troubleshooting
 
 ### Widget Shows Error: "Media widget not enabled"

@@ -6187,6 +6187,13 @@
                                                     How long to display in cycle mode
                                                 </small>
                                             </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMediaPauseTimeout">Pause Timeout (minutes)</label>
+                                                <input type="number" id="smartWidgetMediaPauseTimeout" min="0" max="1440" value="15">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Hide widget after media has been paused for this many minutes. Set to 0 to never hide.
+                                                </small>
+                                            </div>
                                         </div>
                                         <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
                                             Shows when media is playing through Home Assistant. Requires Home Assistant configuration in the main <strong>Settings</strong> page.
@@ -14379,7 +14386,7 @@
                         { type: 'tempChange', enabled: true, priority: 1, cycleTime: 10, threshold: 15 },
                         { type: 'upcomingVacation', enabled: true, priority: 2, cycleTime: 10 },
                         { type: 'driveTime', enabled: true, priority: 2, cycleTime: 15 },
-                        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10 },
+                        { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 },
                         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
                         { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
@@ -14407,10 +14414,11 @@
                     document.getElementById('smartWidgetVacationPriority').value = vacationSubWidget.priority || 2;
                     document.getElementById('smartWidgetVacationCycleTime').value = vacationSubWidget.cycleTime || 10;
                     
-                    const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3, cycleTime: 10 };
+                    const mediaSubWidget = subWidgets.find(sw => sw.type === 'homeAssistantMedia') || { enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 };
                     document.getElementById('smartWidgetMediaEnabled').value = mediaSubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetMediaPriority').value = mediaSubWidget.priority || 3;
                     document.getElementById('smartWidgetMediaCycleTime').value = mediaSubWidget.cycleTime || 10;
+                    document.getElementById('smartWidgetMediaPauseTimeout').value = mediaSubWidget.pauseTimeout ?? 15;
                     
                     const partySubWidget = subWidgets.find(sw => sw.type === 'party') || { enabled: true, priority: 4, cycleTime: 10 };
                     document.getElementById('smartWidgetPartyEnabled').value = partySubWidget.enabled ? 'true' : 'false';
@@ -14864,7 +14872,8 @@
                                     type: 'homeAssistantMedia',
                                     enabled: document.getElementById('smartWidgetMediaEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetMediaPriority').value),
-                                    cycleTime: parseInt(document.getElementById('smartWidgetMediaCycleTime').value)
+                                    cycleTime: parseInt(document.getElementById('smartWidgetMediaCycleTime').value),
+                                    pauseTimeout: (() => { const v = parseInt(document.getElementById('smartWidgetMediaPauseTimeout').value); return isNaN(v) ? 15 : Math.max(0, v); })()
                                 },
                                 {
                                     type: 'homeAssistantBattery',
