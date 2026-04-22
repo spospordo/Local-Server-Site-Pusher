@@ -7650,6 +7650,10 @@
                             <label for="dogWatchingLocationInput" style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Location Details</label>
                             <input type="text" id="dogWatchingLocationInput" placeholder="e.g., Uncle Bob's house, 123 Main St" style="width: 100%;">
                         </div>
+                        <div id="dogWatchingPetCareGroup" style="display: none; margin-top: 8px;">
+                            <label for="dogWatchingPetCareInput" style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 4px;">Pet Care Information</label>
+                            <textarea id="dogWatchingPetCareInput" rows="3" placeholder="e.g., Feed twice daily at 8am and 6pm, morning walk, medications at noon..." style="width: 100%;"></textarea>
+                        </div>
                     </div>
 
                     <!-- Dashboard Clock Widget Section -->
@@ -22154,6 +22158,8 @@
             document.getElementById('dogWatchingNone').checked = true;
             document.getElementById('dogWatchingLocationInput').value = '';
             document.getElementById('dogWatchingLocationGroup').style.display = 'none';
+            document.getElementById('dogWatchingPetCareInput').value = '';
+            document.getElementById('dogWatchingPetCareGroup').style.display = 'none';
             loadDestinationsIntoModal([]);
             loadVacationListsIntoModal([]);
             document.getElementById('vacationDateModal').style.display = 'flex';
@@ -22197,6 +22203,8 @@
             else document.getElementById('dogWatchingNone').checked = true;
             document.getElementById('dogWatchingLocationInput').value = dw.locationDetails || '';
             document.getElementById('dogWatchingLocationGroup').style.display = dwLocation === 'other' ? 'block' : 'none';
+            document.getElementById('dogWatchingPetCareInput').value = dw.petCareInfo || '';
+            document.getElementById('dogWatchingPetCareGroup').style.display = dwLocation === 'home' ? 'block' : 'none';
             
             loadVacationListsIntoModal(date.listIds || []);
             
@@ -22218,7 +22226,9 @@
         function toggleDogWatchingLocation() {
             const selected = document.querySelector('input[name="vacationDogWatching"]:checked');
             const group = document.getElementById('dogWatchingLocationGroup');
+            const petCareGroup = document.getElementById('dogWatchingPetCareGroup');
             group.style.display = (selected && selected.value === 'other') ? 'block' : 'none';
+            petCareGroup.style.display = (selected && selected.value === 'home') ? 'block' : 'none';
         }
         
         // Destinations management
@@ -22364,7 +22374,8 @@
             return {
                 enabled: location !== '',
                 location: location,
-                locationDetails: location === 'other' ? (document.getElementById('dogWatchingLocationInput').value.trim()) : ''
+                locationDetails: location === 'other' ? (document.getElementById('dogWatchingLocationInput').value.trim()) : '',
+                petCareInfo: location === 'home' ? (document.getElementById('dogWatchingPetCareInput').value.trim()) : ''
             };
         }
         

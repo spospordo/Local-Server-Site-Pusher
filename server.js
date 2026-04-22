@@ -7748,8 +7748,9 @@ app.get('/api/smart-mirror/vacation', async (req, res) => {
     
     const upcomingVacations = (vacationData.dates || [])
       .filter(vacation => {
-        const startDate = new Date(vacation.startDate);
-        return startDate >= today;
+        const endDate = new Date(vacation.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        return endDate >= today;
       })
       .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
     
@@ -8572,9 +8573,13 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               
-              // Find upcoming vacations
+              // Find upcoming and ongoing vacations
               const upcomingVacations = vacationData.dates
-                .filter(vac => new Date(vac.startDate) >= today)
+                .filter(vac => {
+                  const endDate = new Date(vac.endDate);
+                  endDate.setHours(23, 59, 59, 999);
+                  return endDate >= today;
+                })
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
               
               if (upcomingVacations.length > 0) {

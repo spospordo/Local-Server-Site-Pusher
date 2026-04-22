@@ -2466,10 +2466,233 @@
                 
                 content.innerHTML = '';
                 
-                // Display up to 3 upcoming vacations
+                // Display up to 3 upcoming/active vacations
                 const displayVacations = vacations.slice(0, 3);
+                let renderedVacationCount = 0;
                 
                 for (const vacation of displayVacations) {
+                    // Check if vacation is in event window (noon on first day to end of end date)
+                    const now = new Date();
+                    const evtWinStart = new Date(vacation.startDate);
+                    evtWinStart.setHours(12, 0, 0, 0);
+                    const evtWinEnd = new Date(vacation.endDate);
+                    evtWinEnd.setHours(23, 59, 59, 999);
+                    const isEventActive = now >= evtWinStart && now <= evtWinEnd;
+
+                    if (isEventActive) {
+                        const houseSitting = vacation.houseSitting || false;
+                        const dw = vacation.dogWatching || {};
+                        const isDogWatched = dw.enabled && dw.location;
+
+                        // Neither condition: skip this vacation entirely
+                        if (!houseSitting && !isDogWatched) continue;
+
+                        // Event-mode vacationDiv: destinations + flights + special info only
+                        const evtDiv = document.createElement('div');
+                        evtDiv.className = 'vacation-item';
+                        evtDiv.style.marginBottom = '20px';
+                        evtDiv.style.paddingBottom = '15px';
+                        evtDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+
+                        // Destination header
+                        const evtDests = (vacation.destinations && vacation.destinations.length > 0)
+                            ? vacation.destinations
+                            : (vacation.destination ? [{ name: vacation.destination }] : []);
+
+                        const evtHeaderDiv = document.createElement('div');
+                        evtHeaderDiv.style.display = 'flex';
+                        evtHeaderDiv.style.alignItems = 'flex-start';
+                        evtHeaderDiv.style.marginBottom = '8px';
+
+                        const evtIconSpan = document.createElement('span');
+                        evtIconSpan.style.fontSize = '1.2rem';
+                        evtIconSpan.style.marginRight = '8px';
+                        evtIconSpan.style.flexShrink = '0';
+                        evtIconSpan.textContent = '📍';
+                        evtHeaderDiv.appendChild(evtIconSpan);
+
+                        if (evtDests.length <= 1) {
+                            const destDiv = document.createElement('div');
+                            destDiv.style.fontSize = '1.1rem';
+                            destDiv.style.fontWeight = 'bold';
+                            destDiv.textContent = (evtDests[0] && evtDests[0].name) || vacation.destination || 'Vacation';
+                            evtHeaderDiv.appendChild(destDiv);
+                        } else {
+                            const destListDiv = document.createElement('div');
+                            evtDests.forEach(dest => {
+                                const d = document.createElement('div');
+                                d.style.fontSize = '1rem';
+                                d.style.fontWeight = 'bold';
+                                d.textContent = dest.name;
+                                destListDiv.appendChild(d);
+                            });
+                            evtHeaderDiv.appendChild(destListDiv);
+                        }
+                        evtDiv.appendChild(evtHeaderDiv);
+
+                        // Date range
+                        const evtDateDiv = document.createElement('div');
+                        evtDateDiv.style.fontSize = '0.9rem';
+                        evtDateDiv.style.marginBottom = '10px';
+                        evtDateDiv.textContent = formatDateRange(new Date(vacation.startDate), new Date(vacation.endDate));
+                        evtDiv.appendChild(evtDateDiv);
+
+                        // Flights section (if tracking enabled)
+                        if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
+                            try {
+                                const evtFlightDiv = document.createElement('div');
+                                evtFlightDiv.style.marginTop = '8px';
+                                evtFlightDiv.style.marginBottom = '10px';
+                                evtFlightDiv.style.padding = '8px';
+                                evtFlightDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+                                evtFlightDiv.style.borderRadius = '5px';
+                                evtFlightDiv.style.fontSize = '0.85rem';
+
+                                for (const flight of vacation.flights) {
+                                    if (!flight.validated) continue;
+
+                                    const flightItemDiv = document.createElement('div');
+                                    flightItemDiv.style.marginBottom = '8px';
+                                    flightItemDiv.style.paddingBottom = '8px';
+                                    if (vacation.flights.indexOf(flight) < vacation.flights.length - 1) {
+                                        flightItemDiv.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+                                    }
+
+                                    try {
+                                        const statusResponse = await fetch(
+                                            `/api/smart-mirror/flight-status?flightNumber=${encodeURIComponent(flight.flightNumber)}&airline=${encodeURIComponent(flight.airline)}&date=${encodeURIComponent(flight.date)}`
+                                        );
+                                        const statusData = await statusResponse.json();
+
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.marginBottom = '4px';
+
+                                        const flightIconSpan = document.createElement('span');
+                                        flightIconSpan.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(flightIconSpan);
+
+                                        const flightNumSpan = document.createElement('span');
+                                        flightNumSpan.style.fontWeight = 'bold';
+                                        flightNumSpan.textContent = flight.flightNumber;
+                                        flightHeaderDiv.appendChild(flightNumSpan);
+
+                                        if (statusData.success && statusData.data) {
+                                            const flightStatus = statusData.data;
+                                            const statusSpan = document.createElement('span');
+                                            statusSpan.style.padding = '2px 6px';
+                                            statusSpan.style.borderRadius = '3px';
+                                            statusSpan.style.fontSize = '0.75rem';
+                                            statusSpan.style.fontWeight = 'bold';
+                                            const displayStatus = flightStatus.displayStatus || 'Other';
+                                            switch (displayStatus) {
+                                                case 'On Time':   statusSpan.style.background = '#10b981'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'On Time';   break;
+                                                case 'Delayed':   statusSpan.style.background = '#ef4444'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'Delayed';   break;
+                                                case 'Canceled':  statusSpan.style.background = '#dc2626'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'Canceled';  break;
+                                                case 'Completed': statusSpan.style.background = '#6b7280'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'Completed'; break;
+                                                case 'Other':     statusSpan.style.background = '#f59e0b'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'Other';     break;
+                                                default:          statusSpan.style.background = '#3b82f6'; statusSpan.style.color = '#fff'; statusSpan.textContent = 'Validated';
+                                            }
+                                            flightHeaderDiv.appendChild(statusSpan);
+                                        }
+                                        flightItemDiv.appendChild(flightHeaderDiv);
+                                    } catch (flightErr) {
+                                        const flightHeaderDiv = document.createElement('div');
+                                        flightHeaderDiv.style.display = 'flex';
+                                        flightHeaderDiv.style.alignItems = 'center';
+                                        flightHeaderDiv.style.gap = '6px';
+                                        flightHeaderDiv.style.opacity = '0.7';
+                                        const fi = document.createElement('span');
+                                        fi.textContent = '✈️';
+                                        flightHeaderDiv.appendChild(fi);
+                                        const fn = document.createElement('span');
+                                        fn.textContent = flight.flightNumber;
+                                        flightHeaderDiv.appendChild(fn);
+                                        flightItemDiv.appendChild(flightHeaderDiv);
+                                    }
+                                    evtFlightDiv.appendChild(flightItemDiv);
+                                }
+                                evtDiv.appendChild(evtFlightDiv);
+                            } catch (err) {
+                                console.error('Error displaying event-mode flight information:', err);
+                            }
+                        }
+
+                        // Special info block
+                        if (houseSitting) {
+                            const hsBlock = document.createElement('div');
+                            hsBlock.style.marginTop = '8px';
+                            hsBlock.style.padding = '8px 10px';
+                            hsBlock.style.background = 'rgba(99, 102, 241, 0.1)';
+                            hsBlock.style.border = '1px solid rgba(99, 102, 241, 0.35)';
+                            hsBlock.style.borderRadius = '6px';
+                            const hsLabel = document.createElement('div');
+                            hsLabel.style.fontSize = '0.72rem';
+                            hsLabel.style.fontWeight = '700';
+                            hsLabel.style.textTransform = 'uppercase';
+                            hsLabel.style.opacity = '0.8';
+                            hsLabel.style.marginBottom = '2px';
+                            hsLabel.textContent = '🏠 House Sitter';
+                            hsBlock.appendChild(hsLabel);
+                            const hsText = document.createElement('div');
+                            hsText.style.fontSize = '0.82rem';
+                            hsText.style.opacity = '0.85';
+                            hsText.textContent = 'Someone is house-sitting';
+                            hsBlock.appendChild(hsText);
+                            evtDiv.appendChild(hsBlock);
+                        } else if (isDogWatched) {
+                            if (dw.location === 'other') {
+                                const infoBlock = document.createElement('div');
+                                infoBlock.style.marginTop = '8px';
+                                infoBlock.style.padding = '8px 10px';
+                                infoBlock.style.background = 'rgba(245, 158, 11, 0.1)';
+                                infoBlock.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+                                infoBlock.style.borderRadius = '6px';
+                                const infoLabel = document.createElement('div');
+                                infoLabel.style.fontSize = '0.72rem';
+                                infoLabel.style.fontWeight = '700';
+                                infoLabel.style.textTransform = 'uppercase';
+                                infoLabel.style.opacity = '0.7';
+                                infoLabel.style.marginBottom = '4px';
+                                infoLabel.textContent = '🐕 Location Details';
+                                infoBlock.appendChild(infoLabel);
+                                const infoText = document.createElement('div');
+                                infoText.style.fontSize = '0.85rem';
+                                infoText.textContent = dw.locationDetails || 'Dog watched at another location';
+                                infoBlock.appendChild(infoText);
+                                evtDiv.appendChild(infoBlock);
+                            } else if (dw.location === 'home') {
+                                const infoBlock = document.createElement('div');
+                                infoBlock.style.marginTop = '8px';
+                                infoBlock.style.padding = '8px 10px';
+                                infoBlock.style.background = 'rgba(245, 158, 11, 0.1)';
+                                infoBlock.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+                                infoBlock.style.borderRadius = '6px';
+                                const infoLabel = document.createElement('div');
+                                infoLabel.style.fontSize = '0.72rem';
+                                infoLabel.style.fontWeight = '700';
+                                infoLabel.style.textTransform = 'uppercase';
+                                infoLabel.style.opacity = '0.7';
+                                infoLabel.style.marginBottom = '4px';
+                                infoLabel.textContent = '🐕 Pet Care Information';
+                                infoBlock.appendChild(infoLabel);
+                                const infoText = document.createElement('div');
+                                infoText.style.fontSize = '0.85rem';
+                                infoText.style.whiteSpace = 'pre-wrap';
+                                infoText.textContent = dw.petCareInfo || 'Dog watched at home';
+                                infoBlock.appendChild(infoText);
+                                evtDiv.appendChild(infoBlock);
+                            }
+                        }
+
+                        content.appendChild(evtDiv);
+                        renderedVacationCount++;
+                        continue; // Skip normal (upcoming) rendering for this vacation
+                    }
+                    // --- End of event-mode block; normal upcoming rendering follows ---
+
                     const vacationDiv = document.createElement('div');
                     vacationDiv.className = 'vacation-item';
                     vacationDiv.style.marginBottom = '20px';
@@ -2889,6 +3112,13 @@
                     }
                     
                     content.appendChild(vacationDiv);
+                    renderedVacationCount++;
+                }
+
+                // If no vacations were rendered (all active vacations had neither condition), hide the widget
+                if (renderedVacationCount === 0 && displayVacations.length > 0) {
+                    const widget = content.closest('.widget');
+                    if (widget) widget.style.display = 'none';
                 }
                 
             } catch (error) {
@@ -3860,7 +4090,215 @@
             detailsSection.style.flex = '1 1 auto';
             detailsSection.style.minWidth = '0';
 
+            // Determine if any vacation is currently in event window (noon first day → end of end date)
+            const _now = new Date();
+            const hasActiveVacation = vacations.some(vac => {
+                const evtS = new Date(vac.startDate); evtS.setHours(12, 0, 0, 0);
+                const evtE = new Date(vac.endDate);   evtE.setHours(23, 59, 59, 999);
+                return _now >= evtS && _now <= evtE;
+            });
+            if (hasActiveVacation) sectionHeading.textContent = 'Current Vacation';
+
             vacations.forEach(vacation => {
+                // --- Adaptive event-mode rendering ---
+                const now = new Date();
+                const eventWindowStart = new Date(vacation.startDate);
+                eventWindowStart.setHours(12, 0, 0, 0);
+                const eventWindowEnd = new Date(vacation.endDate);
+                eventWindowEnd.setHours(23, 59, 59, 999);
+                const isEventActive = now >= eventWindowStart && now <= eventWindowEnd;
+
+                if (isEventActive) {
+                    const houseSitting = vacation.houseSitting || false;
+                    const dw = vacation.dogWatching || {};
+                    const isDogWatched = dw.enabled && dw.location;
+
+                    // Neither condition: skip this vacation card entirely
+                    if (!houseSitting && !isDogWatched) return;
+
+                    // Build event-mode card: destinations + flights + special info only
+                    const eventCard = document.createElement('div');
+                    eventCard.style.background = 'rgba(245, 158, 11, 0.12)';
+                    eventCard.style.border = '2px solid rgba(245, 158, 11, 0.4)';
+                    eventCard.style.borderRadius = '8px';
+                    eventCard.style.padding = '12px 14px';
+                    eventCard.style.flex = '1 1 200px';
+                    eventCard.style.minWidth = '0';
+                    eventCard.style.fontSize = '0.85rem';
+
+                    // Destinations header (always shown in event mode)
+                    const evtDests = (vacation.destinations && vacation.destinations.length > 0)
+                        ? vacation.destinations
+                        : (vacation.destination ? [{ name: vacation.destination }] : [{ name: 'Vacation' }]);
+                    if (evtDests.length === 1) {
+                        const destDiv = document.createElement('div');
+                        destDiv.style.fontSize = '1.05rem';
+                        destDiv.style.fontWeight = '700';
+                        destDiv.style.color = VACATION_COLOR;
+                        destDiv.style.marginBottom = '6px';
+                        destDiv.style.whiteSpace = 'nowrap';
+                        destDiv.style.overflow = 'hidden';
+                        destDiv.style.textOverflow = 'ellipsis';
+                        destDiv.textContent = '📍 ' + (evtDests[0].name || 'Vacation');
+                        eventCard.appendChild(destDiv);
+                    } else {
+                        const destContainer = document.createElement('div');
+                        destContainer.style.marginBottom = '6px';
+                        evtDests.forEach(dest => {
+                            const destItem = document.createElement('div');
+                            destItem.style.fontSize = '0.95rem';
+                            destItem.style.fontWeight = '700';
+                            destItem.style.color = VACATION_COLOR;
+                            destItem.style.whiteSpace = 'nowrap';
+                            destItem.style.overflow = 'hidden';
+                            destItem.style.textOverflow = 'ellipsis';
+                            destItem.textContent = `📍 ${dest.name}`;
+                            destContainer.appendChild(destItem);
+                        });
+                        eventCard.appendChild(destContainer);
+                    }
+
+                    // Date range
+                    const evtDateDiv = document.createElement('div');
+                    evtDateDiv.style.marginBottom = '8px';
+                    evtDateDiv.style.opacity = '0.85';
+                    evtDateDiv.textContent = formatDateRange(new Date(vacation.startDate), new Date(vacation.endDate));
+                    eventCard.appendChild(evtDateDiv);
+
+                    // Flights section (if available)
+                    if (vacation.flightTrackingEnabled && vacation.flights && vacation.flights.length > 0) {
+                        const evtFlightSection = document.createElement('div');
+                        evtFlightSection.style.marginTop = '6px';
+                        evtFlightSection.style.marginBottom = '8px';
+                        evtFlightSection.style.padding = '6px 8px';
+                        evtFlightSection.style.background = 'rgba(255, 255, 255, 0.05)';
+                        evtFlightSection.style.borderRadius = '5px';
+                        vacation.flights.forEach((flight, fi) => {
+                            const flightRow = document.createElement('div');
+                            flightRow.style.display = 'flex';
+                            flightRow.style.alignItems = 'center';
+                            flightRow.style.gap = '6px';
+                            flightRow.style.flexWrap = 'wrap';
+                            if (fi > 0) {
+                                flightRow.style.marginTop = '4px';
+                                flightRow.style.paddingTop = '4px';
+                                flightRow.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+                            }
+                            const planeSpan = document.createElement('span');
+                            planeSpan.textContent = '✈️';
+                            flightRow.appendChild(planeSpan);
+                            const numSpan = document.createElement('span');
+                            numSpan.style.fontWeight = '600';
+                            numSpan.textContent = flight.flightNumber;
+                            flightRow.appendChild(numSpan);
+                            if (flight.airline) {
+                                const airlineSpan = document.createElement('span');
+                                airlineSpan.style.opacity = '0.7';
+                                airlineSpan.textContent = flight.airline;
+                                flightRow.appendChild(airlineSpan);
+                            }
+                            if (flight.date) {
+                                const evtFlightDateSpan = document.createElement('span');
+                                evtFlightDateSpan.style.opacity = '0.6';
+                                evtFlightDateSpan.textContent = new Date(flight.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                flightRow.appendChild(evtFlightDateSpan);
+                            }
+                            const ls = flight.liveStatus;
+                            const displayStatus = ls ? ls.displayStatus : 'Validated';
+                            const statusBadge = document.createElement('span');
+                            statusBadge.style.padding = '1px 6px';
+                            statusBadge.style.borderRadius = '3px';
+                            statusBadge.style.fontSize = '0.72rem';
+                            statusBadge.style.fontWeight = '700';
+                            switch (displayStatus) {
+                                case 'On Time':    statusBadge.style.background = '#10b981'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'On Time';    break;
+                                case 'Delayed':    statusBadge.style.background = '#ef4444'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'Delayed';    break;
+                                case 'Canceled':   statusBadge.style.background = '#dc2626'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'Canceled';   break;
+                                case 'Completed':  statusBadge.style.background = '#6b7280'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'Completed';  break;
+                                case 'Other':      statusBadge.style.background = '#f59e0b'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'Other';      break;
+                                default:           statusBadge.style.background = '#3b82f6'; statusBadge.style.color = '#fff'; statusBadge.textContent = 'Validated';
+                            }
+                            flightRow.appendChild(statusBadge);
+                            evtFlightSection.appendChild(flightRow);
+                        });
+                        eventCard.appendChild(evtFlightSection);
+                    }
+
+                    // Special info block based on house-sitting or dog-watching setting
+                    if (houseSitting) {
+                        const hsInfo = document.createElement('div');
+                        hsInfo.style.marginTop = '8px';
+                        hsInfo.style.padding = '8px 10px';
+                        hsInfo.style.background = 'rgba(99, 102, 241, 0.1)';
+                        hsInfo.style.border = '1px solid rgba(99, 102, 241, 0.35)';
+                        hsInfo.style.borderRadius = '6px';
+                        const hsLabel = document.createElement('div');
+                        hsLabel.style.fontSize = '0.72rem';
+                        hsLabel.style.fontWeight = '700';
+                        hsLabel.style.letterSpacing = '0.05em';
+                        hsLabel.style.textTransform = 'uppercase';
+                        hsLabel.style.opacity = '0.8';
+                        hsLabel.style.marginBottom = '2px';
+                        hsLabel.textContent = '🏠 House Sitter';
+                        hsInfo.appendChild(hsLabel);
+                        const hsText = document.createElement('div');
+                        hsText.style.fontSize = '0.82rem';
+                        hsText.style.opacity = '0.85';
+                        hsText.textContent = 'Someone is house-sitting';
+                        hsInfo.appendChild(hsText);
+                        eventCard.appendChild(hsInfo);
+                    } else if (isDogWatched) {
+                        if (dw.location === 'other') {
+                            const infoBlock = document.createElement('div');
+                            infoBlock.style.marginTop = '8px';
+                            infoBlock.style.padding = '8px 10px';
+                            infoBlock.style.background = 'rgba(245, 158, 11, 0.1)';
+                            infoBlock.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+                            infoBlock.style.borderRadius = '6px';
+                            const infoLabel = document.createElement('div');
+                            infoLabel.style.fontSize = '0.72rem';
+                            infoLabel.style.fontWeight = '700';
+                            infoLabel.style.letterSpacing = '0.05em';
+                            infoLabel.style.textTransform = 'uppercase';
+                            infoLabel.style.opacity = '0.7';
+                            infoLabel.style.marginBottom = '4px';
+                            infoLabel.textContent = '🐕 Location Details';
+                            infoBlock.appendChild(infoLabel);
+                            const infoText = document.createElement('div');
+                            infoText.style.fontSize = '0.85rem';
+                            infoText.textContent = dw.locationDetails || 'Dog watched at another location';
+                            infoBlock.appendChild(infoText);
+                            eventCard.appendChild(infoBlock);
+                        } else if (dw.location === 'home') {
+                            const infoBlock = document.createElement('div');
+                            infoBlock.style.marginTop = '8px';
+                            infoBlock.style.padding = '8px 10px';
+                            infoBlock.style.background = 'rgba(245, 158, 11, 0.1)';
+                            infoBlock.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+                            infoBlock.style.borderRadius = '6px';
+                            const infoLabel = document.createElement('div');
+                            infoLabel.style.fontSize = '0.72rem';
+                            infoLabel.style.fontWeight = '700';
+                            infoLabel.style.letterSpacing = '0.05em';
+                            infoLabel.style.textTransform = 'uppercase';
+                            infoLabel.style.opacity = '0.7';
+                            infoLabel.style.marginBottom = '4px';
+                            infoLabel.textContent = '🐕 Pet Care Information';
+                            infoBlock.appendChild(infoLabel);
+                            const infoText = document.createElement('div');
+                            infoText.style.fontSize = '0.85rem';
+                            infoText.style.whiteSpace = 'pre-wrap';
+                            infoText.textContent = dw.petCareInfo || 'Dog watched at home';
+                            infoBlock.appendChild(infoText);
+                            eventCard.appendChild(infoBlock);
+                        }
+                    }
+
+                    detailsSection.appendChild(eventCard);
+                    return; // Skip normal (upcoming) rendering for this vacation
+                }
+                // --- End of event-mode block; normal upcoming rendering follows ---
+
                 const card = document.createElement('div');
                 card.style.background = `rgba(245, 158, 11, 0.12)`;
                 card.style.border = `2px solid rgba(245, 158, 11, 0.4)`;
@@ -4314,6 +4752,8 @@
                 detailsSection.appendChild(card);
             });
 
+            // If no cards were rendered (all active vacations filtered by "neither" rule), hide widget
+            if (detailsSection.childElementCount === 0) return null;
 
             horizontalWrapper.appendChild(detailsSection);
             container.appendChild(horizontalWrapper);
