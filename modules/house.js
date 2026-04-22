@@ -160,7 +160,7 @@ function addVacationDate(vacationDate) {
     clockTimezone: vacationDate.clockTimezone || "",
     listIds: vacationDate.listIds || [],
     houseSitting: vacationDate.houseSitting || false,
-    dogWatching: vacationDate.dogWatching || { enabled: false, location: "", locationDetails: "" }
+    dogWatching: vacationDate.dogWatching || { enabled: false, location: "", locationDetails: "", petCareInfo: "" }
   });
   return saveVacationData(vacation);
 }
