@@ -2660,6 +2660,7 @@
                                 infoBlock.appendChild(infoLabel);
                                 const infoText = document.createElement('div');
                                 infoText.style.fontSize = '0.85rem';
+                                infoText.style.whiteSpace = 'pre-wrap';
                                 infoText.textContent = dw.locationDetails || 'Dog watched at another location';
                                 infoBlock.appendChild(infoText);
                                 evtDiv.appendChild(infoBlock);
@@ -4266,6 +4267,7 @@
                             infoBlock.appendChild(infoLabel);
                             const infoText = document.createElement('div');
                             infoText.style.fontSize = '0.85rem';
+                            infoText.style.whiteSpace = 'pre-wrap';
                             infoText.textContent = dw.locationDetails || 'Dog watched at another location';
                             infoBlock.appendChild(infoText);
                             eventCard.appendChild(infoBlock);
