@@ -636,6 +636,14 @@
             .widget-palette {
                 width: 100%;
             }
+
+            #vacationPreviewPane {
+                width: 100% !important;
+            }
+
+            #vacationDateModal .modal-body {
+                flex-direction: column;
+            }
         }
         
         .logs-container {
@@ -7593,13 +7601,14 @@
     <!-- House Modals -->
     <!-- Add/Edit Vacation Date Modal -->
     <div id="vacationDateModal" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 960px;">
             <div class="modal-header">
                 <h3 id="vacationDateModalTitle">Add Vacation Date</h3>
                 <span class="close" onclick="closeVacationDateModal()">&times;</span>
             </div>
-            <div class="modal-body">
-                <form id="vacationDateForm" onsubmit="saveVacationDate(event)">
+            <div class="modal-body" style="display: flex; gap: 20px; align-items: flex-start;">
+                <div style="flex: 1; min-width: 0;">
+                <form id="vacationDateForm" onsubmit="saveVacationDate(event)" oninput="updateVacationPreview()" onchange="updateVacationPreview()">
                     <input type="hidden" id="vacationDateId">
                     <div class="form-group">
                         <label for="vacationStartDate">Start Date</label>
@@ -7747,7 +7756,29 @@
                         <button type="submit" class="btn">Save</button>
                     </div>
                 </form>
-            </div>
+                </div><!-- end form column -->
+
+                <!-- Widget Preview Pane -->
+                <div id="vacationPreviewPane" style="width: 280px; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start;">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Widget Preview</div>
+                    <!-- Preview mode tabs -->
+                    <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                        <button type="button" id="previewTabBefore" onclick="setVacationPreviewMode('before')"
+                                style="flex: 1; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px 4px 0 0; border: 1px solid #667eea; background: #667eea; color: #fff; cursor: pointer; font-weight: 600;">
+                            Before
+                        </button>
+                        <button type="button" id="previewTabDuring" onclick="setVacationPreviewMode('during')"
+                                style="flex: 1; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px 4px 0 0; border: 1px solid #ddd; background: #f5f5f5; color: #555; cursor: pointer;">
+                            During
+                        </button>
+                    </div>
+                    <div id="vacationPreviewWidget" style="background: #1a1a2e; color: #e0e0e0; border-radius: 8px; padding: 14px; font-family: sans-serif; font-size: 0.9rem; min-height: 120px;">
+                        <div style="opacity: 0.5; text-align: center; padding: 20px 0; font-size: 0.85rem;">Fill in details to see preview</div>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #888; margin-top: 6px; text-align: center;">Approximate widget appearance</div>
+                </div><!-- end preview pane -->
+
+            </div><!-- end modal-body flex -->
         </div>
     </div>
 
@@ -22164,6 +22195,9 @@
             loadVacationListsIntoModal([]);
             document.getElementById('vacationDateModal').style.display = 'flex';
             checkFlightApiStatus();
+            _vacationPreviewMode = 'before';
+            setVacationPreviewMode('before');
+            updateVacationPreview();
         }
         
         function editVacationDate(id) {
@@ -22210,11 +22244,256 @@
             
             document.getElementById('vacationDateModal').style.display = 'flex';
             checkFlightApiStatus();
+            _vacationPreviewMode = 'before';
+            setVacationPreviewMode('before');
+            updateVacationPreview();
         }
         
         function closeVacationDateModal() {
             document.getElementById('vacationDateModal').style.display = 'none';
         }
+
+        // ── Vacation Widget Preview ──────────────────────────────────────────
+        let _vacationPreviewMode = 'before'; // 'before' | 'during'
+
+        function setVacationPreviewMode(mode) {
+            _vacationPreviewMode = mode;
+            const btnBefore = document.getElementById('previewTabBefore');
+            const btnDuring = document.getElementById('previewTabDuring');
+            if (btnBefore && btnDuring) {
+                if (mode === 'before') {
+                    btnBefore.style.background = '#667eea';
+                    btnBefore.style.color = '#fff';
+                    btnBefore.style.borderColor = '#667eea';
+                    btnBefore.style.fontWeight = '600';
+                    btnDuring.style.background = '#f5f5f5';
+                    btnDuring.style.color = '#555';
+                    btnDuring.style.borderColor = '#ddd';
+                    btnDuring.style.fontWeight = 'normal';
+                } else {
+                    btnDuring.style.background = '#667eea';
+                    btnDuring.style.color = '#fff';
+                    btnDuring.style.borderColor = '#667eea';
+                    btnDuring.style.fontWeight = '600';
+                    btnBefore.style.background = '#f5f5f5';
+                    btnBefore.style.color = '#555';
+                    btnBefore.style.borderColor = '#ddd';
+                    btnBefore.style.fontWeight = 'normal';
+                }
+            }
+            updateVacationPreview();
+        }
+
+        function updateVacationPreview() {
+            const widget = document.getElementById('vacationPreviewWidget');
+            if (!widget) return;
+
+            // Gather form values
+            const startDateVal = document.getElementById('vacationStartDate')?.value || '';
+            const endDateVal   = document.getElementById('vacationEndDate')?.value || '';
+            const notes        = document.getElementById('vacationNotes')?.value.trim() || '';
+            const houseSitting = document.getElementById('vacationHouseSitting')?.checked || false;
+            const dwSelected   = document.querySelector('input[name="vacationDogWatching"]:checked');
+            const dwLocation   = dwSelected ? dwSelected.value : '';
+            const dwLocationDetails = document.getElementById('dogWatchingLocationInput')?.value.trim() || '';
+            const dwPetCareInfo     = document.getElementById('dogWatchingPetCareInput')?.value.trim() || '';
+
+            // Collect destinations from the form
+            const destsList = document.getElementById('destinationsList');
+            const destinations = [];
+            if (destsList) {
+                destsList.querySelectorAll('[id^="dest-"]').forEach(destDiv => {
+                    const name = (destDiv.querySelector('.dest-name')?.value || '').trim();
+                    if (name) {
+                        destinations.push({
+                            name: name,
+                            showWeather: destDiv.querySelector('.dest-show-weather')?.checked !== false,
+                            showTimezone: destDiv.querySelector('.dest-show-timezone')?.checked !== false
+                        });
+                    }
+                });
+            }
+
+            // Collect flights from the form
+            const flights = [];
+            const flightsList = document.getElementById('flightsList');
+            if (flightsList) {
+                flightsList.querySelectorAll('[id^="flight-"]').forEach(entry => {
+                    const airline = entry.querySelector('.flight-airline')?.value.trim() || '';
+                    const number  = entry.querySelector('.flight-number')?.value.trim() || '';
+                    const date    = entry.querySelector('.flight-date')?.value || '';
+                    const validated = entry.dataset.validated === 'true';
+                    if (airline || number) {
+                        flights.push({ airline, flightNumber: airline + number, date, validated });
+                    }
+                });
+            }
+            const flightTrackingEnabled = document.getElementById('vacationFlightTrackingEnabled')?.checked || false;
+
+            const hasAnyContent = destinations.length > 0 || startDateVal || endDateVal;
+            if (!hasAnyContent) {
+                widget.innerHTML = '<div style="opacity:0.5;text-align:center;padding:20px 0;font-size:0.85rem;">Fill in details to see preview</div>';
+                return;
+            }
+
+            const h = (str) => {
+                const d = document.createElement('div'); d.textContent = String(str || ''); return d.innerHTML;
+            };
+
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const d = new Date(dateStr + 'T12:00:00');
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            };
+
+            let html = '';
+
+            if (_vacationPreviewMode === 'before') {
+                // ── Before / Upcoming view ─────────────────────────────────
+
+                // Destination header
+                html += '<div style="display:flex;align-items:flex-start;margin-bottom:8px;">';
+                html += '<span style="font-size:1.2rem;margin-right:8px;flex-shrink:0;">📍</span>';
+                if (destinations.length === 0) {
+                    html += '<div style="font-size:1.1rem;font-weight:bold;opacity:0.4;">No destination yet</div>';
+                } else if (destinations.length === 1) {
+                    html += `<div style="font-size:1.1rem;font-weight:bold;">${h(destinations[0].name)}</div>`;
+                } else {
+                    html += '<div>';
+                    destinations.forEach(dest => {
+                        html += `<div style="font-size:1rem;font-weight:bold;">${h(dest.name)}</div>`;
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+
+                // Date range
+                if (startDateVal || endDateVal) {
+                    let dateText = '';
+                    if (startDateVal && endDateVal) {
+                        dateText = `${formatDate(startDateVal)} – ${formatDate(endDateVal)}`;
+                    } else if (startDateVal) {
+                        dateText = `From ${formatDate(startDateVal)}`;
+                    } else {
+                        dateText = `Until ${formatDate(endDateVal)}`;
+                    }
+                    html += `<div style="font-size:0.9rem;margin-bottom:5px;">${h(dateText)}</div>`;
+                }
+
+                // Countdown
+                if (startDateVal) {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const start = new Date(startDateVal + 'T12:00:00'); start.setHours(0,0,0,0);
+                    const daysUntil = Math.ceil((start - today) / 86400000);
+                    if (daysUntil > 0) {
+                        html += `<div style="font-size:0.85rem;opacity:0.8;margin-bottom:8px;">🗓️ ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} away</div>`;
+                    } else if (daysUntil === 0) {
+                        html += `<div style="font-size:0.85rem;color:#4ade80;margin-bottom:8px;">🎉 Today!</div>`;
+                    }
+                }
+
+                // Per-destination weather/timezone placeholders
+                destinations.forEach(dest => {
+                    if (dest.showTimezone) {
+                        html += `<div style="font-size:0.85rem;margin-bottom:4px;opacity:0.6;">🕐 ${h(dest.name)}: local time shown if timezone differs</div>`;
+                    }
+                    if (dest.showWeather) {
+                        html += `<div style="font-size:0.85rem;margin-bottom:6px;opacity:0.6;">⛅ ${h(dest.name)}: weather shown when available</div>`;
+                    }
+                });
+
+                // Notes
+                if (notes) {
+                    html += `<div style="font-size:0.8rem;opacity:0.7;margin-top:8px;font-style:italic;">${h(notes)}</div>`;
+                }
+
+                // House-sitting indicator
+                if (houseSitting) {
+                    html += `<div style="font-size:0.8rem;opacity:0.85;margin-top:6px;">🏠 House-sitter arranged</div>`;
+                }
+
+                // Dog-watching indicator
+                if (dwLocation === 'home') {
+                    html += `<div style="font-size:0.8rem;opacity:0.85;margin-top:4px;">🐕 Dog watched at home</div>`;
+                } else if (dwLocation === 'other') {
+                    const label = dwLocationDetails ? `Dog at: ${dwLocationDetails}` : 'Dog watched elsewhere';
+                    html += `<div style="font-size:0.8rem;opacity:0.85;margin-top:4px;">🐕 ${h(label)}</div>`;
+                }
+
+            } else {
+                // ── During / Active event view ─────────────────────────────
+
+                const isDogWatched = dwLocation !== '';
+                if (!houseSitting && !isDogWatched) {
+                    html += '<div style="opacity:0.55;font-size:0.85rem;text-align:center;padding:12px 0;">During-vacation view only displays when house-sitting or dog-watching is configured.</div>';
+                } else {
+                    // Destination header
+                    html += '<div style="display:flex;align-items:flex-start;margin-bottom:8px;">';
+                    html += '<span style="font-size:1.2rem;margin-right:8px;flex-shrink:0;">📍</span>';
+                    if (destinations.length === 0) {
+                        html += '<div style="font-size:1.1rem;font-weight:bold;opacity:0.4;">No destination yet</div>';
+                    } else if (destinations.length === 1) {
+                        html += `<div style="font-size:1.1rem;font-weight:bold;">${h(destinations[0].name)}</div>`;
+                    } else {
+                        html += '<div>';
+                        destinations.forEach(dest => {
+                            html += `<div style="font-size:1rem;font-weight:bold;">${h(dest.name)}</div>`;
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+
+                    // Date range
+                    if (startDateVal || endDateVal) {
+                        let dateText = '';
+                        if (startDateVal && endDateVal) {
+                            dateText = `${formatDate(startDateVal)} – ${formatDate(endDateVal)}`;
+                        } else if (startDateVal) {
+                            dateText = `From ${formatDate(startDateVal)}`;
+                        } else {
+                            dateText = `Until ${formatDate(endDateVal)}`;
+                        }
+                        html += `<div style="font-size:0.9rem;margin-bottom:10px;">${h(dateText)}</div>`;
+                    }
+
+                    // Validated flights (if any are validated in the form)
+                    const validatedFlights = flights.filter(f => f.validated);
+                    if (validatedFlights.length > 0) {
+                        html += '<div style="margin-top:8px;margin-bottom:10px;padding:8px;background:rgba(255,255,255,0.05);border-radius:5px;font-size:0.85rem;">';
+                        validatedFlights.forEach((flight, i) => {
+                            if (i > 0) html += '<div style="border-top:1px solid rgba(255,255,255,0.1);margin:6px 0;"></div>';
+                            html += `<div style="display:flex;align-items:center;gap:6px;">`;
+                            html += `<span>✈️</span>`;
+                            html += `<span style="font-weight:bold;">${h(flight.flightNumber)}</span>`;
+                            html += `<span style="background:#3b82f6;color:#fff;padding:2px 6px;border-radius:3px;font-size:0.75rem;font-weight:bold;">Validated</span>`;
+                            html += `</div>`;
+                        });
+                        html += '</div>';
+                    }
+
+                    // House-sitting block
+                    if (houseSitting) {
+                        html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.35);border-radius:6px;">';
+                        html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;opacity:0.8;margin-bottom:2px;">🏠 House Sitter</div>';
+                        html += '<div style="font-size:0.82rem;opacity:0.85;">Someone is house-sitting</div>';
+                        html += '</div>';
+                    } else if (dwLocation === 'other') {
+                        html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;">';
+                        html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:4px;">🐕 Location Details</div>';
+                        html += `<div style="font-size:0.85rem;white-space:pre-wrap;">${h(dwLocationDetails || 'Dog watched at another location')}</div>`;
+                        html += '</div>';
+                    } else if (dwLocation === 'home') {
+                        html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;">';
+                        html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:4px;">🐕 Pet Care Information</div>';
+                        html += `<div style="font-size:0.85rem;white-space:pre-wrap;">${h(dwPetCareInfo || 'Dog watched at home')}</div>`;
+                        html += '</div>';
+                    }
+                }
+            }
+
+            widget.innerHTML = html;
+        }
+        // ── End Vacation Widget Preview ──────────────────────────────────────
         
         function toggleVacationClockSection(checked) {
             document.getElementById('vacationClockSection').style.display = checked ? 'block' : 'none';
@@ -22275,11 +22554,13 @@
                 <div class="dest-test-result" style="font-size: 0.85rem; margin-top: 6px;"></div>
             `;
             document.getElementById('destinationsList').appendChild(destDiv);
+            updateVacationPreview();
         }
         
         function removeDestination(destId) {
             const destDiv = document.getElementById(destId);
             if (destDiv) destDiv.remove();
+            updateVacationPreview();
         }
         
         async function testDestinationLocation(destId) {
