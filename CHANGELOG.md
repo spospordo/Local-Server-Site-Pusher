@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.17.7] - 2026-04-22
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #603 from spospordo/copilot/enhance-vacation-widget-content
+  - Fix: apply pre-wrap consistently to both Location Details and Pet Care info blocks
+  - Implement adaptive vacation widget event-mode with house-sitting and dog-watching logic
+  - Initial plan
+
+
 ## [2.17.6] - 2026-04-20
 
 ### Patch Update
