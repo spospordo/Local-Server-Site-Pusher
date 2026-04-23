@@ -2642,7 +2642,8 @@
                             hsText.textContent = 'Someone is house-sitting';
                             hsBlock.appendChild(hsText);
                             evtDiv.appendChild(hsBlock);
-                        } else if (isDogWatched) {
+                        }
+                        if (isDogWatched) {
                             if (dw.location === 'other') {
                                 const infoBlock = document.createElement('div');
                                 infoBlock.style.marginTop = '8px';
@@ -4248,7 +4249,8 @@
                         hsText.textContent = 'Someone is house-sitting';
                         hsInfo.appendChild(hsText);
                         eventCard.appendChild(hsInfo);
-                    } else if (isDogWatched) {
+                    }
+                    if (isDogWatched) {
                         if (dw.location === 'other') {
                             const infoBlock = document.createElement('div');
                             infoBlock.style.marginTop = '8px';

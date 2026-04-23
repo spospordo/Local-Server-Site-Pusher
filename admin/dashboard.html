@@ -22477,7 +22477,8 @@
                         html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;opacity:0.8;margin-bottom:2px;">🏠 House Sitter</div>';
                         html += '<div style="font-size:0.82rem;opacity:0.85;">Someone is house-sitting</div>';
                         html += '</div>';
-                    } else if (dwLocation === 'other') {
+                    }
+                    if (dwLocation === 'other') {
                         html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;">';
                         html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:4px;">🐕 Location Details</div>';
                         html += `<div style="font-size:0.85rem;white-space:pre-wrap;">${h(dwLocationDetails || 'Dog watched at another location')}</div>`;
