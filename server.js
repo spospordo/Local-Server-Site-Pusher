@@ -8553,11 +8553,10 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                       units
                     );
 
-                    const fetchedDailyHigh = (
-                      weatherResult.success && typeof weatherResult.data?.tempMax === 'number'
-                    )
-                      ? weatherResult.data.tempMax
-                      : todayForecastDay.tempHigh;
+                    let fetchedDailyHigh = todayForecastDay.tempHigh;
+                    if (weatherResult.success && typeof weatherResult.data?.tempMax === 'number') {
+                      fetchedDailyHigh = weatherResult.data.tempMax;
+                    }
 
                     dailyTempHighCache.date = todayDateString;
                     dailyTempHighCache.tempHigh = fetchedDailyHigh;
