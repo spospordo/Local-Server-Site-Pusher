@@ -8207,6 +8207,16 @@ const spacexLaunchCache = {
   TTL_MS: 30 * 60 * 1000 // 30 minutes
 };
 
+// Daily high temperature cache for tempChange sub-widget.
+// Stores today's official daily-high from OWM's current-weather endpoint so it
+// doesn't decrease as the afternoon slots disappear from the 3-hour forecast.
+const dailyTempHighCache = {
+  date: null,       // 'YYYY-MM-DD' string for which the high was cached
+  tempHigh: null,   // cached high (number)
+  location: null,   // location string the cached value belongs to
+  units: null       // units string ('imperial' | 'metric')
+};
+
 const VANDENBERG_LAT = 34.7420;
 const VANDENBERG_LON = -120.5724;
 
@@ -8498,11 +8508,12 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             // Check if day-to-day high temp change exceeds the threshold over the next 3 days
             if (smartWidgetConfig.apiKey && smartWidgetConfig.location) {
               const changeThreshold = subWidget.threshold || 15;
+              const units = smartWidgetConfig.units || 'imperial';
               const changeForecastResult = await smartMirror.fetchForecast(
                 smartWidgetConfig.apiKey,
                 smartWidgetConfig.location,
                 5,
-                smartWidgetConfig.units || 'imperial'
+                units
               );
               
               if (changeForecastResult.success) {
@@ -8517,6 +8528,49 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                   }))
                   .filter(day => day.daysFromNow >= 0 && day.daysFromNow <= 3)
                   .sort((a, b) => a.daysFromNow - b.daysFromNow);
+
+                const todayDateString = new Date().toISOString().split('T')[0];
+                const todayForecastDay = forecastDays.find(day => day.daysFromNow === 0);
+
+                if (todayForecastDay) {
+                  const hasValidCachedDailyHigh = (
+                    dailyTempHighCache.date === todayDateString &&
+                    dailyTempHighCache.location === smartWidgetConfig.location &&
+                    dailyTempHighCache.units === units &&
+                    typeof dailyTempHighCache.tempHigh === 'number'
+                  );
+
+                  if (hasValidCachedDailyHigh) {
+                    logger.debug(
+                      logger.categories.SMART_MIRROR,
+                      `Temp Change sub-widget: Using cached daily high ${dailyTempHighCache.tempHigh}° for ${todayDateString}`
+                    );
+                    todayForecastDay.tempHigh = dailyTempHighCache.tempHigh;
+                  } else {
+                    const weatherResult = await smartMirror.fetchWeather(
+                      smartWidgetConfig.apiKey,
+                      smartWidgetConfig.location,
+                      units
+                    );
+
+                    const fetchedDailyHigh = (
+                      weatherResult.success && typeof weatherResult.data?.tempMax === 'number'
+                    )
+                      ? weatherResult.data.tempMax
+                      : todayForecastDay.tempHigh;
+
+                    dailyTempHighCache.date = todayDateString;
+                    dailyTempHighCache.tempHigh = fetchedDailyHigh;
+                    dailyTempHighCache.location = smartWidgetConfig.location;
+                    dailyTempHighCache.units = units;
+
+                    logger.info(
+                      logger.categories.SMART_MIRROR,
+                      `Temp Change sub-widget: Fetched and cached daily high ${fetchedDailyHigh}° for ${todayDateString}`
+                    );
+                    todayForecastDay.tempHigh = fetchedDailyHigh;
+                  }
+                }
                 
                 const changeDays = [];
                 for (let i = 1; i < forecastDays.length; i++) {
@@ -8548,7 +8602,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                     data: {
                       changeDays,
                       threshold: changeThreshold,
-                      units: smartWidgetConfig.units || 'imperial',
+                      units,
                       location: smartWidgetConfig.location
                     }
                   };
