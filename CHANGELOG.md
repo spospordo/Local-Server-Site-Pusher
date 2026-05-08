@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.17.10] - 2026-05-08
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #608 from spospordo/copilot/fix-todays-high-temperature
+  - style: simplify tempChange daily-high fallback assignment
+  - fix: cache today's daily high for tempChange smart sub-widget
+  - Initial plan
+
+
 ## [2.17.9] - 2026-04-23
 
 ### Patch Update
