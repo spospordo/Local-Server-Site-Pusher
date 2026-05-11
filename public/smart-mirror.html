@@ -5559,11 +5559,25 @@
                     wIconDiv.textContent = getWeatherIcon(w.icon);
                     weatherRow.appendChild(wIconDiv);
 
-                    // Temperature
+                    // Temperature (range if event spans multiple hours with meaningful spread)
                     const wTempDiv = document.createElement('div');
                     wTempDiv.style.fontWeight = '600';
-                    wTempDiv.textContent = `${w.temp}${tempUnit}`;
+                    if (w.tempMin !== null && w.tempMax !== null && w.tempMax - w.tempMin >= 2) {
+                        wTempDiv.textContent = `🌡 ${w.tempMin}°–${w.tempMax}°${tempUnit.replace('°', '')}`;
+                    } else {
+                        wTempDiv.textContent = `${w.temp}${tempUnit}`;
+                    }
                     weatherRow.appendChild(wTempDiv);
+
+                    // Fallback badge: shown when current conditions are used instead of a forecast
+                    if (w.isFallback === true || w.isForecast === false) {
+                        const fallbackBadge = document.createElement('div');
+                        fallbackBadge.style.opacity = '0.65';
+                        fallbackBadge.style.fontSize = '0.75rem';
+                        fallbackBadge.style.fontWeight = '400';
+                        fallbackBadge.textContent = '(est.)';
+                        weatherRow.appendChild(fallbackBadge);
+                    }
 
                     // UV index (if available)
                     if (w.uvIndex !== null && w.uvIndex !== undefined) {

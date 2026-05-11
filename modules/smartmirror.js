@@ -2819,12 +2819,15 @@ async function fetchLocationTimezone(apiKey, location) {
 // displayed conditions are contextually accurate for the scheduled arrival.
 // hasRain covers any rain during the entire event day, not just the event slot.
 // Results are cached for 30 minutes.
-async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 'imperial', eventDateStr = null, eventTimestamp = null) {
+async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 'imperial', eventDateStr = null, eventTimestamp = null, eventEndTimestamp = null) {
   if (!weatherApiKey) return null;
 
   // Bucket event time to nearest 3-hour interval for a stable cache key
   const timeBucket = eventTimestamp ? Math.floor(eventTimestamp / (3 * 60 * 60 * 1000)) : 'now';
-  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${eventDateStr || 'today'}:${timeBucket}`;
+  const endBucket = eventEndTimestamp
+    ? Math.floor(eventEndTimestamp / (3 * 60 * 60 * 1000))
+    : '';
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${eventDateStr || 'today'}:${timeBucket}${endBucket ? `:${endBucket}` : ''}`;
   const cached = driveTimeCache.weather[cacheKey];
   if (cached && (Date.now() - cached.timestamp) < DRIVE_TIME_WEATHER_TTL) {
     logger.debug(logger.categories.SMART_MIRROR, `Drive-time: using cached destination weather for ${cacheKey}`);
@@ -2834,12 +2837,16 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
   try {
     const result = {
       temp: null,
+      tempMin: null,
+      tempMax: null,
+      tempAtEnd: null,
       icon: '',
       condition: '',
       uvIndex: null,
       hasRain: false,
       precipChance: 0,
       isForecast: false,
+      isFallback: false,
       units,
       timestamp: Date.now()
     };
@@ -2896,6 +2903,46 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
         result.icon = eventItem.weather[0]?.icon || '';
         result.condition = eventItem.weather[0]?.main || '';
         result.isForecast = true;
+
+        // Range logic: if an event end time is provided, collect forecast items
+        // that span the event window and compute min/max/end temperatures.
+        if (eventEndTimestamp && eventTimestamp) {
+          const startSec = eventTimestamp / 1000;
+          const endSec = eventEndTimestamp / 1000;
+          const SLOT_TOLERANCE = 3 * 60 * 60; // 3-hour slot width
+
+          let rangeItems = forecastItems.filter(item =>
+            item.dt >= startSec - SLOT_TOLERANCE && item.dt <= endSec + SLOT_TOLERANCE
+          );
+
+          if (rangeItems.length === 0) {
+            rangeItems = [eventItem];
+          }
+
+          // Find the forecast item closest to the event end time
+          const endItem = forecastItems.reduce((best, item) =>
+            Math.abs(item.dt - endSec) < Math.abs(best.dt - endSec) ? item : best,
+            forecastItems[0]
+          );
+
+          // Ensure the start item and end item are always included in the range
+          if (!rangeItems.includes(eventItem)) rangeItems.unshift(eventItem);
+          if (!rangeItems.includes(endItem)) rangeItems.push(endItem);
+
+          const rangeTemps = rangeItems.map(item => Math.round(item.main.temp));
+          result.tempMin = Math.min(...rangeTemps);
+          result.tempMax = Math.max(...rangeTemps);
+          result.tempAtEnd = Math.round(endItem.main.temp);
+
+          // Update rain/precip to cover the full event window
+          const rainConditions = ['Rain', 'Drizzle', 'Thunderstorm'];
+          const rangeHasRain = rangeItems.some(item =>
+            rainConditions.includes(item.weather[0]?.main) || (item.pop || 0) >= RAIN_PROBABILITY_THRESHOLD
+          );
+          result.hasRain = result.hasRain || rangeHasRain;
+          const rangeMaxPop = Math.max(...rangeItems.map(item => item.pop || 0));
+          result.precipChance = Math.max(result.precipChance, Math.round(rangeMaxPop * 100));
+        }
       }
     } catch (forecastErr) {
       logger.debug(logger.categories.SMART_MIRROR, `Drive-time: forecast unavailable for ${lat},${lon}: ${forecastErr.message}`);
@@ -2912,6 +2959,8 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
         result.temp = Math.round(wd.main.temp);
         result.icon = wd.weather[0]?.icon || '';
         result.condition = wd.weather[0]?.main || '';
+        result.isForecast = false;
+        result.isFallback = true;
       } catch (curErr) {
         logger.debug(logger.categories.SMART_MIRROR, `Drive-time: current weather fallback failed for ${lat},${lon}: ${curErr.message}`);
       }
@@ -3087,15 +3136,23 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherA
 
         // Fetch destination weather when a weather API key is available.
         // Pass the event start timestamp so the nearest forecast slot is used.
+        // Also pass the end timestamp (if same-day, non-all-day event) for range weather.
         const eventDateStr = startDate.toISOString().split('T')[0];
+        const endDate = event.end ? new Date(event.end) : null;
+        const endDateStr = endDate ? endDate.toISOString().split('T')[0] : null;
+        // Only compute a range when the event has a non-all-day end time on the same calendar day
+        const eventEndTimestamp = (endDate && !event.isAllDay && endDateStr === eventDateStr)
+          ? endDate.getTime()
+          : null;
         const destWeather = weatherApiKey
-          ? await fetchDestinationWeatherByCoords(destCoords.lat, destCoords.lon, weatherApiKey, units, eventDateStr, startDate.getTime())
+          ? await fetchDestinationWeatherByCoords(destCoords.lat, destCoords.lon, weatherApiKey, units, eventDateStr, startDate.getTime(), eventEndTimestamp)
           : null;
 
         eventsWithDriveTimes.push({
           title: event.title || 'Event',
           location: event.location,
           startTime: event.start,
+          endTime: event.end || null,
           daysFromNow,
           travelTimeMinutes: travelMinutes,
           trafficDelayMinutes: delayMinutes,
