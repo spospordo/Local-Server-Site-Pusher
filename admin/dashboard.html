@@ -20615,6 +20615,31 @@
         
         // Finance History Functions
         let historyChart = null;
+        const historyNoDataDefaultHTML = `
+            <p style="font-size: 1.1rem;">📭 No historical data available</p>
+            <p style="font-size: 0.9rem;">Historical data is automatically recorded when you update account balances.</p>
+        `;
+
+        function showHistoryNoData(messageHTML = null) {
+            const noDataEl = document.getElementById('historyNoData');
+            const chartContainerEl = document.getElementById('historyChartContainer');
+            noDataEl.innerHTML = messageHTML || historyNoDataDefaultHTML;
+            noDataEl.style.display = 'block';
+            chartContainerEl.style.display = 'none';
+        }
+
+        function showHistoryChart() {
+            document.getElementById('historyNoData').style.display = 'none';
+            document.getElementById('historyNoData').innerHTML = historyNoDataDefaultHTML;
+            document.getElementById('historyChartContainer').style.display = 'block';
+        }
+
+        function showHistoryChartError(message) {
+            showHistoryNoData(`
+                <p style="font-size: 1.1rem; color: #dc3545;">⚠️ Unable to render chart</p>
+                <p style="font-size: 0.9rem; color: #666;">${message}</p>
+            `);
+        }
         
         async function initializeHistory() {
             try {
@@ -20667,10 +20692,17 @@
         
         async function updateHistoryView() {
             try {
+                if (typeof Chart === 'undefined') {
+                    console.error('[Finance History] Chart.js is not loaded!');
+                    showHistoryChartError('Chart.js is not loaded. Please refresh the page and try again.');
+                    return;
+                }
+
                 const viewType = document.getElementById('historyViewType').value;
                 const startDate = document.getElementById('historyStartDate').value;
                 const endDate = document.getElementById('historyEndDate').value;
                 const accountId = document.getElementById('historyAccountFilter').value;
+                console.log('[Finance History] updateHistoryView params:', { viewType, startDate, endDate, accountId });
                 
                 if (viewType === 'net-worth') {
                     await renderNetWorthChart(startDate, endDate);
@@ -20678,8 +20710,7 @@
                     await renderCategoryChart(startDate, endDate);
                 } else if (viewType === 'single-account') {
                     if (!accountId) {
-                        document.getElementById('historyNoData').style.display = 'block';
-                        document.getElementById('historyChartContainer').style.display = 'none';
+                        showHistoryNoData();
                         return;
                     }
                     await renderSingleAccountChart(accountId, startDate, endDate);
@@ -20690,15 +20721,15 @@
                 
             } catch (err) {
                 console.error('Failed to update history view:', err);
-                document.getElementById('historyNoData').style.display = 'block';
-                document.getElementById('historyChartContainer').style.display = 'none';
+                showHistoryChartError('An unexpected error occurred while loading history.');
             }
         }
         
         async function renderNetWorthChart(startDate, endDate) {
             try {
                 if (typeof Chart === 'undefined') {
-                    console.warn('Chart.js not available');
+                    console.error('[Finance History] Chart.js is not loaded!');
+                    showHistoryChartError('Chart.js is not loaded. Unable to render net worth chart.');
                     return;
                 }
                 
@@ -20708,15 +20739,43 @@
                 
                 const response = await fetch(url);
                 const data = await response.json();
+                console.log('[Finance History] Net worth data received:', data);
+                console.log('[Finance History] Data point count:', Array.isArray(data) ? data.length : 'invalid shape');
+
+                if (!Array.isArray(data)) {
+                    console.warn('[Finance History] Expected net worth response array but got:', typeof data, data);
+                    showHistoryChartError('Invalid net worth data format received from server.');
+                    return;
+                }
+
+                data.forEach((point, index) => {
+                    if (!point || typeof point !== 'object') {
+                        console.warn(`[Finance History] Net worth point ${index} is not an object:`, point);
+                        return;
+                    }
+
+                    if (!point.timestamp || point.netWorth == null || point.assets == null || point.liabilities == null) {
+                        console.warn(`[Finance History] Net worth point ${index} missing expected fields:`, point);
+                    }
+
+                    const parsedDate = new Date(point.timestamp);
+                    if (isNaN(parsedDate.getTime())) {
+                        console.warn(`[Finance History] Net worth point ${index} has invalid timestamp:`, point.timestamp);
+                    }
+
+                    ['netWorth', 'assets', 'liabilities'].forEach(field => {
+                        if (point[field] == null || Number.isNaN(Number(point[field]))) {
+                            console.warn(`[Finance History] Net worth point ${index} has invalid ${field}:`, point[field], point);
+                        }
+                    });
+                });
                 
                 if (!data || data.length === 0) {
-                    document.getElementById('historyNoData').style.display = 'block';
-                    document.getElementById('historyChartContainer').style.display = 'none';
+                    showHistoryNoData();
                     return;
                 }
                 
-                document.getElementById('historyNoData').style.display = 'none';
-                document.getElementById('historyChartContainer').style.display = 'block';
+                showHistoryChart();
                 
                 // Convert timestamps to Date.UTC numeric values for proper datetime axis
                 // Server now returns one point per date with UTC midnight timestamps
@@ -20733,99 +20792,130 @@
                 // Sort by date (should already be sorted, but ensure it)
                 chartData.sort((a, b) => a.x - b.x);
                 
-                const ctx = document.getElementById('historyChart').getContext('2d');
+                const canvas = document.getElementById('historyChart');
+                console.log('[Finance History] Canvas element:', canvas);
+                console.log('[Finance History] Canvas dimensions:', canvas?.width, canvas?.height);
+                if (!canvas) {
+                    showHistoryChartError('History chart canvas was not found in the DOM.');
+                    return;
+                }
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    showHistoryChartError('Unable to get 2D chart context from canvas.');
+                    return;
+                }
+
+                const labels = chartData.map(d => new Date(d.x).toLocaleDateString());
+                const netWorthDataset = chartData.map(d => ({ x: d.x, y: d.netWorth }));
+                const assetsDataset = chartData.map(d => ({ x: d.x, y: d.assets }));
+                const liabilitiesDataset = chartData.map(d => ({ x: d.x, y: d.liabilities }));
+                console.log('[Finance History] Net worth labels:', labels);
+                console.log('[Finance History] Net worth dataset:', netWorthDataset);
+                console.log('[Finance History] Assets dataset:', assetsDataset);
+                console.log('[Finance History] Liabilities dataset:', liabilitiesDataset);
                 
                 if (historyChart) {
+                    console.log('[Finance History] Destroying existing chart instance');
                     historyChart.destroy();
+                    historyChart = null;
                 }
                 
-                historyChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: [
-                            {
-                                label: 'Net Worth',
-                                data: chartData.map(d => ({ x: d.x, y: d.netWorth })),
-                                borderColor: '#28a745',
-                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Total Assets',
-                                data: chartData.map(d => ({ x: d.x, y: d.assets })),
-                                borderColor: '#007bff',
-                                backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                                borderWidth: 2,
-                                fill: false,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Total Liabilities',
-                                data: chartData.map(d => ({ x: d.x, y: d.liabilities })),
-                                borderColor: '#dc3545',
-                                backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                                borderWidth: 2,
-                                fill: false,
-                                tension: 0.4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                try {
+                    historyChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            datasets: [
+                                {
+                                    label: 'Net Worth',
+                                    data: netWorthDataset,
+                                    borderColor: '#28a745',
+                                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                    borderWidth: 3,
+                                    fill: true,
+                                    tension: 0.4
+                                },
+                                {
+                                    label: 'Total Assets',
+                                    data: assetsDataset,
+                                    borderColor: '#007bff',
+                                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                                    borderWidth: 2,
+                                    fill: false,
+                                    tension: 0.4
+                                },
+                                {
+                                    label: 'Total Liabilities',
+                                    data: liabilitiesDataset,
+                                    borderColor: '#dc3545',
+                                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                                    borderWidth: 2,
+                                    fill: false,
+                                    tension: 0.4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'day',
-                                    displayFormats: {
-                                        day: 'MMM d, yyyy'
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        displayFormats: {
+                                            day: 'MMM d, yyyy'
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Date'
                                     }
                                 },
-                                title: {
-                                    display: true,
-                                    text: 'Date'
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString();
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toLocaleString();
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                    console.log('[Finance History] Chart created successfully');
+                } catch (err) {
+                    console.error('[Finance History] Chart creation failed:', err);
+                    showHistoryChartError('Net worth chart rendering failed. Check console for details.');
+                    return;
+                }
                 
                 // Update summary statistics
                 updateHistorySummary(data);
                 
             } catch (err) {
                 console.error('Failed to render net worth chart:', err);
+                showHistoryChartError('Failed to load net worth chart data.');
             }
         }
         
         async function renderCategoryChart(startDate, endDate) {
             try {
                 if (typeof Chart === 'undefined') {
-                    console.warn('Chart.js not available');
+                    console.error('[Finance History] Chart.js is not loaded!');
+                    showHistoryChartError('Chart.js is not loaded. Unable to render category chart.');
                     return;
                 }
                 
@@ -20835,32 +20925,56 @@
                 
                 const response = await fetch(url);
                 const typeHistory = await response.json();
-                
-                if (!typeHistory || Object.keys(typeHistory).length === 0) {
-                    document.getElementById('historyNoData').style.display = 'block';
-                    document.getElementById('historyChartContainer').style.display = 'none';
+                console.log('[Finance History] Category data received:', typeHistory);
+                console.log('[Finance History] Category count:', typeHistory && typeof typeHistory === 'object' ? Object.keys(typeHistory).length : 'invalid shape');
+
+                if (!typeHistory || typeof typeHistory !== 'object' || Array.isArray(typeHistory)) {
+                    console.warn('[Finance History] Expected category response object but got:', typeof typeHistory, typeHistory);
+                    showHistoryChartError('Invalid category data format received from server.');
                     return;
                 }
                 
-                document.getElementById('historyNoData').style.display = 'none';
-                document.getElementById('historyChartContainer').style.display = 'block';
+                if (!typeHistory || Object.keys(typeHistory).length === 0) {
+                    showHistoryNoData();
+                    return;
+                }
+                
+                showHistoryChart();
                 
                 // Server now returns data already aggregated by date per category
                 // typeHistory[category] = [{timestamp: '...', balance: num}, ...]
                 // Build datasets with Date.UTC x values
                 const datasets = Object.keys(typeHistory).map(category => {
-                    const data = typeHistory[category].map(entry => {
+                    if (!Array.isArray(typeHistory[category])) {
+                        console.warn(`[Finance History] Category ${category} is not an array:`, typeHistory[category]);
+                        return null;
+                    }
+
+                    const data = typeHistory[category].map((entry, index) => {
+                        if (!entry || typeof entry !== 'object') {
+                            console.warn(`[Finance History] Category ${category} point ${index} is invalid:`, entry);
+                            return null;
+                        }
+
+                        const parsedDate = new Date(entry.timestamp);
+                        if (isNaN(parsedDate.getTime())) {
+                            console.warn(`[Finance History] Category ${category} point ${index} has invalid timestamp:`, entry.timestamp);
+                        }
+                        if (entry.balance == null || Number.isNaN(Number(entry.balance))) {
+                            console.warn(`[Finance History] Category ${category} point ${index} has invalid balance:`, entry.balance, entry);
+                        }
+
                         const date = new Date(entry.timestamp);
                         return {
                             x: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
                             y: entry.balance
                         };
-                    });
+                    }).filter(entry => !!entry);
                     
                     // Sort by date
                     data.sort((a, b) => a.x - b.x);
                     
-                    return {
+                    const dataset = {
                         label: category.replace('_', ' ').toUpperCase(),
                         data: data,
                         borderColor: FINANCE_CATEGORY_COLORS[category],
@@ -20869,77 +20983,109 @@
                         fill: true,
                         tension: 0.4
                     };
-                }).filter(ds => ds.data.length > 0);
+                    console.log(`[Finance History] Category dataset (${category}):`, dataset);
+                    return dataset;
+                }).filter(ds => ds && ds.data.length > 0);
+
+                if (datasets.length === 0) {
+                    console.warn('[Finance History] No valid category datasets to render');
+                    showHistoryNoData();
+                    return;
+                }
+                console.log('[Finance History] Category labels:', datasets.map(ds => ds.label));
+                console.log('[Finance History] Category datasets:', datasets);
                 
-                const ctx = document.getElementById('historyChart').getContext('2d');
-                
-                if (historyChart) {
-                    historyChart.destroy();
+                const canvas = document.getElementById('historyChart');
+                console.log('[Finance History] Canvas element:', canvas);
+                console.log('[Finance History] Canvas dimensions:', canvas?.width, canvas?.height);
+                if (!canvas) {
+                    showHistoryChartError('History chart canvas was not found in the DOM.');
+                    return;
+                }
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    showHistoryChartError('Unable to get 2D chart context from canvas.');
+                    return;
                 }
                 
-                historyChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                if (historyChart) {
+                    console.log('[Finance History] Destroying existing chart instance');
+                    historyChart.destroy();
+                    historyChart = null;
+                }
+                
+                try {
+                    historyChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'day',
-                                    displayFormats: {
-                                        day: 'MMM d, yyyy'
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        displayFormats: {
+                                            day: 'MMM d, yyyy'
+                                        }
+                                    },
+                                    stacked: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Date'
                                     }
                                 },
-                                stacked: true,
-                                title: {
-                                    display: true,
-                                    text: 'Date'
-                                }
-                            },
-                            y: {
-                                stacked: true,
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString();
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toLocaleString();
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                    console.log('[Finance History] Chart created successfully');
+                } catch (err) {
+                    console.error('[Finance History] Chart creation failed:', err);
+                    showHistoryChartError('Category chart rendering failed. Check console for details.');
+                    return;
+                }
                 
                 // Update summary statistics for category view
                 updateCategorySummary(typeHistory);
                 
             } catch (err) {
                 console.error('Failed to render category chart:', err);
+                showHistoryChartError('Failed to load category chart data.');
             }
         }
         
         async function renderSingleAccountChart(accountId, startDate, endDate) {
             try {
                 if (typeof Chart === 'undefined') {
-                    console.warn('Chart.js not available');
+                    console.error('[Finance History] Chart.js is not loaded!');
+                    showHistoryChartError('Chart.js is not loaded. Unable to render account chart.');
                     return;
                 }
                 
@@ -20949,74 +21095,128 @@
                 
                 const response = await fetch(url);
                 const data = await response.json();
+                console.log('[Finance History] Single account data received:', data);
+                console.log('[Finance History] Data point count:', Array.isArray(data) ? data.length : 'invalid shape');
+
+                if (!Array.isArray(data)) {
+                    console.warn('[Finance History] Expected single account response array but got:', typeof data, data);
+                    showHistoryChartError('Invalid single-account data format received from server.');
+                    return;
+                }
+
+                data.forEach((point, index) => {
+                    if (!point || typeof point !== 'object') {
+                        console.warn(`[Finance History] Single account point ${index} is not an object:`, point);
+                        return;
+                    }
+
+                    if (!point.timestamp || point.balance == null) {
+                        console.warn(`[Finance History] Single account point ${index} missing expected fields:`, point);
+                    }
+
+                    const parsedDate = new Date(point.timestamp);
+                    if (isNaN(parsedDate.getTime())) {
+                        console.warn(`[Finance History] Single account point ${index} has invalid timestamp:`, point.timestamp);
+                    }
+                    if (point.balance == null || Number.isNaN(Number(point.balance))) {
+                        console.warn(`[Finance History] Single account point ${index} has invalid balance:`, point.balance, point);
+                    }
+                });
                 
                 if (!data || data.length === 0) {
-                    document.getElementById('historyNoData').style.display = 'block';
-                    document.getElementById('historyChartContainer').style.display = 'none';
+                    showHistoryNoData();
                     return;
                 }
                 
-                document.getElementById('historyNoData').style.display = 'none';
-                document.getElementById('historyChartContainer').style.display = 'block';
+                showHistoryChart();
                 
-                const labels = data.map(d => new Date(d.timestamp).toLocaleDateString());
+                const labels = data.map((d, index) => {
+                    const parsedDate = new Date(d.timestamp);
+                    if (isNaN(parsedDate.getTime())) {
+                        console.warn(`[Finance History] Invalid Date label for single account point ${index}:`, d.timestamp);
+                    }
+                    return parsedDate.toLocaleDateString();
+                });
                 const balances = data.map(d => d.balance);
                 const accountName = data[0].accountName;
+                console.log('[Finance History] Single account labels:', labels);
+                console.log('[Finance History] Single account dataset:', balances);
                 
-                const ctx = document.getElementById('historyChart').getContext('2d');
-                
-                if (historyChart) {
-                    historyChart.destroy();
+                const canvas = document.getElementById('historyChart');
+                console.log('[Finance History] Canvas element:', canvas);
+                console.log('[Finance History] Canvas dimensions:', canvas?.width, canvas?.height);
+                if (!canvas) {
+                    showHistoryChartError('History chart canvas was not found in the DOM.');
+                    return;
+                }
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    showHistoryChartError('Unable to get 2D chart context from canvas.');
+                    return;
                 }
                 
-                historyChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: accountName,
-                            data: balances,
-                            borderColor: '#007bff',
-                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Balance: $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                if (historyChart) {
+                    console.log('[Finance History] Destroying existing chart instance');
+                    historyChart.destroy();
+                    historyChart = null;
+                }
+                
+                try {
+                    historyChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: accountName,
+                                data: balances,
+                                borderColor: '#007bff',
+                                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return 'Balance: $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString();
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toLocaleString();
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                    console.log('[Finance History] Chart created successfully');
+                } catch (err) {
+                    console.error('[Finance History] Chart creation failed:', err);
+                    showHistoryChartError('Single-account chart rendering failed. Check console for details.');
+                    return;
+                }
                 
                 // Update summary for single account
                 updateSingleAccountSummary(data);
                 
             } catch (err) {
                 console.error('Failed to render single account chart:', err);
+                showHistoryChartError('Failed to load single-account chart data.');
             }
         }
         
