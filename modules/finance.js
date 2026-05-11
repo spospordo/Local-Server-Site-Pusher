@@ -2404,7 +2404,15 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
           // Track latest balance per account per date
           categoryDateBalances[category][dateKey][entry.accountId] = parseFloat(entry.newBalance);
         }
+      } else {
+        console.warn(`[Finance History] Skipping entry (account not found):`, entry.accountId, entry.type);
       }
+    } else {
+      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
+        : !entry.accountId ? 'missing accountId'
+        : entry.newBalance == null ? 'null newBalance'
+        : 'NaN newBalance';
+      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
     }
   });
   
@@ -2447,6 +2455,8 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
     typeHistory[category] = dataPoints;
   });
   
+  const returnedPoints = Object.values(typeHistory).reduce((sum, categoryData) => sum + categoryData.length, 0);
+  console.log(`[Finance History] getHistoryByAccountType: processed ${history.length} entries, returned ${returnedPoints} data points`);
   return typeHistory;
 }
 
@@ -2500,6 +2510,12 @@ function getNetWorthHistory(startDate = null, endDate = null) {
       
       // Latest entry for this account on this date wins
       dateBalances[dateKey][entry.accountId] = parseFloat(entry.newBalance);
+    } else {
+      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
+        : !entry.accountId ? 'missing accountId'
+        : entry.newBalance == null ? 'null newBalance'
+        : 'NaN newBalance';
+      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
     }
   });
   
@@ -2525,6 +2541,8 @@ function getNetWorthHistory(startDate = null, endDate = null) {
         } else if (accountType && accountType.category !== 'future_income') {
           assets += cumulativeBalances[accountId];
         }
+      } else {
+        console.warn(`[Finance History] Account not found for id: ${accountId} - balance will be excluded from net worth`);
       }
     });
     
@@ -2563,6 +2581,8 @@ function getNetWorthHistory(startDate = null, endDate = null) {
           } else if (accountType && accountType.category !== 'future_income') {
             assets += cumulativeBalances[accountId];
           }
+        } else {
+          console.warn(`[Finance History] Account not found for id: ${accountId} - balance will be excluded from net worth`);
         }
       });
       
@@ -2577,6 +2597,7 @@ function getNetWorthHistory(startDate = null, endDate = null) {
     }
   }
   
+  console.log(`[Finance History] getNetWorthHistory: processed ${history.length} entries, returned ${netWorthData.length} data points`);
   return netWorthData;
 }
 
@@ -2618,13 +2639,22 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   });
   
   // Map to balance snapshots, filtering out entries with invalid balances
-  const balanceSnapshots = history
-    .filter(entry => entry.newBalance != null && !isNaN(entry.newBalance))
-    .map(entry => ({
-      timestamp: entry.balanceDate || entry.timestamp,
-      balance: parseFloat(entry.newBalance),
-      accountName: entry.accountName
-    }));
+  const balanceSnapshots = [];
+  history.forEach(entry => {
+    if (entry.type === 'balance_update' && entry.accountId && entry.newBalance != null && !isNaN(entry.newBalance)) {
+      balanceSnapshots.push({
+        timestamp: entry.balanceDate || entry.timestamp,
+        balance: parseFloat(entry.newBalance),
+        accountName: entry.accountName
+      });
+    } else {
+      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
+        : !entry.accountId ? 'missing accountId'
+        : entry.newBalance == null ? 'null newBalance'
+        : 'NaN newBalance';
+      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
+    }
+  });
   
   // Add current date with last known balance if we have data
   if (balanceSnapshots.length > 0) {
@@ -2646,6 +2676,7 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
     }
   }
   
+  console.log(`[Finance History] getAccountBalanceHistory: processed ${history.length} entries, returned ${balanceSnapshots.length} data points`);
   return balanceSnapshots;
 }
 
