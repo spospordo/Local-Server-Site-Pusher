@@ -2352,6 +2352,34 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
 }
 
 /**
+ * Build a standardized reason string for skipped finance history entries.
+ *
+ * @param {Object} entry - History entry being validated
+ * @param {Object} [options] - Optional contextual details
+ * @param {boolean} [options.accountLookupFailed=false] - Whether account lookup failed
+ * @param {string} [options.accountId] - Account ID for lookup failures
+ * @returns {string} Human-readable reason. Returns "unknown reason" only as a defensive fallback.
+ */
+function getFinanceHistorySkipReason(entry, options = {}) {
+  if (options.accountLookupFailed) {
+    return `account not found (id=${options.accountId || entry.accountId || 'unknown'})`;
+  }
+  if (entry.type !== 'balance_update') return `type=${entry.type}`;
+  if (!entry.accountId) return 'missing accountId';
+  if (entry.newBalance == null) return 'null newBalance';
+  if (isNaN(entry.newBalance)) return 'NaN newBalance';
+  return `unexpected entry state (type=${entry.type}, accountId=${entry.accountId || 'missing'}, newBalance=${entry.newBalance})`;
+}
+
+function logFinanceHistorySkippedEntry(entry, reason) {
+  console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
+}
+
+function logNetWorthAccountNotFound(accountId) {
+  console.warn(`[Finance History] Account not found for id: ${accountId} - balance will be excluded from net worth`);
+}
+
+/**
  * Get historical balance data aggregated by account type and date.
  * Uses balanceDate (not timestamp) for date-based grouping.
  * Aggregates multiple account entries per date into totals per category.
@@ -2405,14 +2433,12 @@ function getHistoryByAccountType(startDate = null, endDate = null) {
           categoryDateBalances[category][dateKey][entry.accountId] = parseFloat(entry.newBalance);
         }
       } else {
-        console.warn(`[Finance History] Skipping entry (account not found):`, entry.accountId, entry.type);
+        const reason = getFinanceHistorySkipReason(entry, { accountLookupFailed: true, accountId: entry.accountId });
+        logFinanceHistorySkippedEntry(entry, reason);
       }
     } else {
-      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
-        : !entry.accountId ? 'missing accountId'
-        : entry.newBalance == null ? 'null newBalance'
-        : 'NaN newBalance';
-      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
+      const reason = getFinanceHistorySkipReason(entry);
+      logFinanceHistorySkippedEntry(entry, reason);
     }
   });
   
@@ -2511,11 +2537,8 @@ function getNetWorthHistory(startDate = null, endDate = null) {
       // Latest entry for this account on this date wins
       dateBalances[dateKey][entry.accountId] = parseFloat(entry.newBalance);
     } else {
-      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
-        : !entry.accountId ? 'missing accountId'
-        : entry.newBalance == null ? 'null newBalance'
-        : 'NaN newBalance';
-      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
+      const reason = getFinanceHistorySkipReason(entry);
+      logFinanceHistorySkippedEntry(entry, reason);
     }
   });
   
@@ -2542,7 +2565,7 @@ function getNetWorthHistory(startDate = null, endDate = null) {
           assets += cumulativeBalances[accountId];
         }
       } else {
-        console.warn(`[Finance History] Account not found for id: ${accountId} - balance will be excluded from net worth`);
+        logNetWorthAccountNotFound(accountId);
       }
     });
     
@@ -2582,7 +2605,7 @@ function getNetWorthHistory(startDate = null, endDate = null) {
             assets += cumulativeBalances[accountId];
           }
         } else {
-          console.warn(`[Finance History] Account not found for id: ${accountId} - balance will be excluded from net worth`);
+          logNetWorthAccountNotFound(accountId);
         }
       });
       
@@ -2648,11 +2671,8 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
         accountName: entry.accountName
       });
     } else {
-      const reason = entry.type !== 'balance_update' ? `type=${entry.type}`
-        : !entry.accountId ? 'missing accountId'
-        : entry.newBalance == null ? 'null newBalance'
-        : 'NaN newBalance';
-      console.warn(`[Finance History] Skipping entry (${reason}):`, entry.accountId, entry.type);
+      const reason = getFinanceHistorySkipReason(entry);
+      logFinanceHistorySkippedEntry(entry, reason);
     }
   });
   
