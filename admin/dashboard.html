@@ -20777,20 +20777,7 @@
                 
                 showHistoryChart();
                 
-                // Convert timestamps to Date.UTC numeric values for proper datetime axis
-                // Server now returns one point per date with UTC midnight timestamps
-                const chartData = data.map(d => {
-                    const date = new Date(d.timestamp);
-                    return {
-                        x: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-                        netWorth: d.netWorth,
-                        assets: d.assets,
-                        liabilities: d.liabilities
-                    };
-                });
-                
-                // Sort by date (should already be sorted, but ensure it)
-                chartData.sort((a, b) => a.x - b.x);
+                const sortedData = [...data].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 
                 const canvas = document.getElementById('historyChart');
                 console.log('[Finance History] Canvas element:', canvas);
@@ -20805,25 +20792,30 @@
                     return;
                 }
 
-                const labels = chartData.map(d => new Date(d.x).toLocaleDateString());
-                const netWorthDataset = chartData.map(d => ({ x: d.x, y: d.netWorth }));
-                const assetsDataset = chartData.map(d => ({ x: d.x, y: d.assets }));
-                const liabilitiesDataset = chartData.map(d => ({ x: d.x, y: d.liabilities }));
+                const labels = sortedData.map(d => {
+                    const parsedDate = new Date(d.timestamp);
+                    return parsedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                });
+                const netWorthDataset = sortedData.map(d => d.netWorth);
+                const assetsDataset = sortedData.map(d => d.assets);
+                const liabilitiesDataset = sortedData.map(d => d.liabilities);
                 console.log('[Finance History] Net worth labels:', labels);
                 console.log('[Finance History] Net worth dataset:', netWorthDataset);
                 console.log('[Finance History] Assets dataset:', assetsDataset);
                 console.log('[Finance History] Liabilities dataset:', liabilitiesDataset);
                 
-                if (historyChart) {
+                const existingChart = Chart.getChart('historyChart');
+                if (existingChart) {
                     console.log('[Finance History] Destroying existing chart instance');
-                    historyChart.destroy();
-                    historyChart = null;
+                    existingChart.destroy();
                 }
+                historyChart = null;
                 
                 try {
                     historyChart = new Chart(ctx, {
                         type: 'line',
                         data: {
+                            labels: labels,
                             datasets: [
                                 {
                                     label: 'Net Worth',
@@ -20870,18 +20862,12 @@
                                     }
                                 }
                             },
-                            scales: {
-                                x: {
-                                    type: 'time',
-                                    time: {
-                                        unit: 'day',
-                                        displayFormats: {
-                                            day: 'MMM d, yyyy'
-                                        }
-                                    },
-                                    title: {
-                                        display: true,
-                                        text: 'Date'
+                             scales: {
+                                 x: {
+                                     type: 'category',
+                                     title: {
+                                         display: true,
+                                         text: 'Date'
                                     }
                                 },
                                 y: {
@@ -20941,19 +20927,34 @@
                 
                 showHistoryChart();
                 
-                // Server now returns data already aggregated by date per category
+                const allTimestamps = new Set();
+                Object.values(typeHistory).forEach(categoryData => {
+                    if (!Array.isArray(categoryData)) return;
+                    categoryData.forEach(entry => {
+                        if (entry && entry.timestamp) {
+                            allTimestamps.add(entry.timestamp);
+                        }
+                    });
+                });
+                const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
+                const labels = sortedTimestamps.map(timestamp => {
+                    const parsedDate = new Date(timestamp);
+                    return parsedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                });
+
+                // Server returns data aggregated by date per category:
                 // typeHistory[category] = [{timestamp: '...', balance: num}, ...]
-                // Build datasets with Date.UTC x values
                 const datasets = Object.keys(typeHistory).map(category => {
                     if (!Array.isArray(typeHistory[category])) {
                         console.warn(`[Finance History] Category ${category} is not an array:`, typeHistory[category]);
                         return null;
                     }
 
-                    const data = typeHistory[category].map((entry, index) => {
+                    const balanceByTimestamp = new Map();
+                    typeHistory[category].forEach((entry, index) => {
                         if (!entry || typeof entry !== 'object') {
                             console.warn(`[Finance History] Category ${category} point ${index} is invalid:`, entry);
-                            return null;
+                            return;
                         }
 
                         const parsedDate = new Date(entry.timestamp);
@@ -20964,19 +20965,17 @@
                             console.warn(`[Finance History] Category ${category} point ${index} has invalid balance:`, entry.balance, entry);
                         }
 
-                        const date = new Date(entry.timestamp);
-                        return {
-                            x: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-                            y: entry.balance
-                        };
-                    }).filter(entry => !!entry);
-                    
-                    // Sort by date
-                    data.sort((a, b) => a.x - b.x);
+                        if (entry.timestamp) {
+                            balanceByTimestamp.set(entry.timestamp, entry.balance);
+                        }
+                    });
+                    const categoryData = sortedTimestamps.map(timestamp => {
+                        return balanceByTimestamp.has(timestamp) ? balanceByTimestamp.get(timestamp) : null;
+                    });
                     
                     const dataset = {
                         label: category.replace('_', ' ').toUpperCase(),
-                        data: data,
+                        data: categoryData,
                         borderColor: FINANCE_CATEGORY_COLORS[category],
                         backgroundColor: FINANCE_CATEGORY_COLORS[category] + '40',
                         borderWidth: 2,
@@ -20985,7 +20984,7 @@
                     };
                     console.log(`[Finance History] Category dataset (${category}):`, dataset);
                     return dataset;
-                }).filter(ds => ds && ds.data.length > 0);
+                }).filter(ds => ds && ds.data.some(value => value != null));
 
                 if (datasets.length === 0) {
                     console.warn('[Finance History] No valid category datasets to render');
@@ -21008,16 +21007,18 @@
                     return;
                 }
                 
-                if (historyChart) {
+                const existingChart = Chart.getChart('historyChart');
+                if (existingChart) {
                     console.log('[Finance History] Destroying existing chart instance');
-                    historyChart.destroy();
-                    historyChart = null;
+                    existingChart.destroy();
                 }
+                historyChart = null;
                 
                 try {
                     historyChart = new Chart(ctx, {
                         type: 'line',
                         data: {
+                            labels: labels,
                             datasets: datasets
                         },
                         options: {
@@ -21038,18 +21039,12 @@
                                     }
                                 }
                             },
-                            scales: {
-                                x: {
-                                    type: 'time',
-                                    time: {
-                                        unit: 'day',
-                                        displayFormats: {
-                                            day: 'MMM d, yyyy'
-                                        }
-                                    },
-                                    stacked: true,
-                                    title: {
-                                        display: true,
+                             scales: {
+                                 x: {
+                                     type: 'category',
+                                     stacked: true,
+                                     title: {
+                                         display: true,
                                         text: 'Date'
                                     }
                                 },
@@ -21130,15 +21125,16 @@
                 
                 showHistoryChart();
                 
-                const labels = data.map((d, index) => {
+                const sortedData = [...data].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                const labels = sortedData.map((d, index) => {
                     const parsedDate = new Date(d.timestamp);
                     if (isNaN(parsedDate.getTime())) {
                         console.warn(`[Finance History] Invalid Date label for single account point ${index}:`, d.timestamp);
                     }
-                    return parsedDate.toLocaleDateString();
+                    return parsedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                 });
-                const balances = data.map(d => d.balance);
-                const accountName = data[0].accountName;
+                const balances = sortedData.map(d => d.balance);
+                const accountName = sortedData[0].accountName;
                 console.log('[Finance History] Single account labels:', labels);
                 console.log('[Finance History] Single account dataset:', balances);
                 
@@ -21155,11 +21151,12 @@
                     return;
                 }
                 
-                if (historyChart) {
+                const existingChart = Chart.getChart('historyChart');
+                if (existingChart) {
                     console.log('[Finance History] Destroying existing chart instance');
-                    historyChart.destroy();
-                    historyChart = null;
+                    existingChart.destroy();
                 }
+                historyChart = null;
                 
                 try {
                     historyChart = new Chart(ctx, {
@@ -21192,10 +21189,17 @@
                                     }
                                 }
                             },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
+                             scales: {
+                                 x: {
+                                     type: 'category',
+                                     title: {
+                                         display: true,
+                                         text: 'Date'
+                                     }
+                                 },
+                                 y: {
+                                     beginAtZero: true,
+                                     ticks: {
                                         callback: function(value) {
                                             return '$' + value.toLocaleString();
                                         }
