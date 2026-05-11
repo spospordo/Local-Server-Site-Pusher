@@ -943,7 +943,7 @@ function getPublicConfig(orientation = null) {
   
   // Calculate current theme based on orientation
   if (orientation && fullConfig.autoThemeSwitch && fullConfig.autoThemeSwitch[orientation]) {
-    const themeInfo = calculateCurrentTheme(fullConfig.autoThemeSwitch[orientation], fullConfig.theme);
+    const themeInfo = calculateCurrentTheme(fullConfig.autoThemeSwitch[orientation], 'dark');
     publicConfig.calculatedTheme = themeInfo.theme;
     publicConfig.themeInfo = themeInfo;
   }

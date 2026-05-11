@@ -1397,8 +1397,8 @@
                         Object.keys(config.widgets || {}).filter(k => config.widgets[k]?.enabled)
                     );
                     
-                    // Apply theme - use calculated theme if available, otherwise manual theme
-                    const themeToApply = config.calculatedTheme || config.theme || 'dark';
+                    // Apply theme - use calculated theme if available, otherwise default to dark
+                    const themeToApply = config.calculatedTheme || 'dark';
                     console.log('[Smart Mirror] Theme info:', {
                         manualTheme: config.theme,
                         calculatedTheme: config.calculatedTheme,
