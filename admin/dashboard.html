@@ -20672,6 +20672,14 @@
         let historyChart = null;
         let analysisChart = null;
         let historyAccounts = [];
+        var historyDisplayNameMap = {};
+        function buildHistoryDisplayNameMap(accts) {
+          historyDisplayNameMap = {};
+          (accts||[]).forEach(function(a){ historyDisplayNameMap[a.id] = a.displayName||a.name; });
+        }
+        function resolveDisplayName(id, fallback) {
+          return historyDisplayNameMap[id] || fallback || id;
+        }
         const ANALYSIS_COLORS = [
             '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
             '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'
@@ -20714,6 +20722,7 @@
                 // Populate account filter dropdown
                 const response = await fetch('/admin/api/finance/accounts');
                 historyAccounts = await response.json();
+                buildHistoryDisplayNameMap(historyAccounts);
                 renderCategoryPieCharts(historyAccounts);
                 
                 const filterSelect = document.getElementById('historyAccountFilter');
@@ -21263,6 +21272,7 @@
                 });
                 const balances = sortedData.map(d => d.balance);
                 const accountName = sortedData[0].accountName;
+                const accountDisplayName = resolveDisplayName(accountId, accountName);
                 console.log('[Finance History] Single account labels:', labels);
                 console.log('[Finance History] Single account dataset:', balances);
                 
@@ -21292,7 +21302,7 @@
                         data: {
                             labels: labels,
                             datasets: [{
-                                label: accountName,
+                                label: accountDisplayName,
                                 data: balances,
                                 borderColor: '#007bff',
                                 backgroundColor: 'rgba(0, 123, 255, 0.1)',
@@ -21510,7 +21520,7 @@
                     return `
                         <tr style="border-bottom: 1px solid #dee2e6;">
                             <td style="padding: 0.75rem;">${date}</td>
-                            <td style="padding: 0.75rem;">${entry.accountName}</td>
+                            <td style="padding: 0.75rem;">${resolveDisplayName(entry.accountId, entry.accountName)}</td>
                             <td style="padding: 0.75rem; text-align: right; font-weight: 500;">$${entry.newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                             <td style="padding: 0.75rem; text-align: right; color: ${changeColor}; font-weight: 500;">
                                 ${change >= 0 ? '+' : ''}$${change.toLocaleString('en-US', { minimumFractionDigits: 2 })}
