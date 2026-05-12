@@ -7509,6 +7509,23 @@
           <textarea id="editAccountNotes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
         </div>
 
+        <div style="border-top: 1px solid #eee; margin: 1.5rem 0 1rem 0; padding-top: 1rem;">
+          <button type="button" onclick="toggleBalanceHistorySection()"
+            style="background:none; border:none; cursor:pointer; font-weight:600; font-size:0.95rem; color:#007bff; padding:0; display:flex; align-items:center; gap:0.5rem;">
+            <span id="balanceHistoryToggleIcon">▶</span> Balance History
+          </button>
+          <div id="balanceHistorySection" style="display:none; margin-top:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <small style="color:#666;">Edit, delete, or add balance records for this account.</small>
+              <button type="button" onclick="addNewBalanceRow()" class="btn btn-sm btn-success" style="font-size:0.8rem; padding:0.25rem 0.75rem;">+ Add Record</button>
+            </div>
+            <div id="balanceHistoryList" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; padding:0.5rem;">
+              <div style="text-align:center; color:#999; padding:1rem;">Loading...</div>
+            </div>
+            <div id="balanceHistoryAlert" style="display:none; padding:0.5rem 0.75rem; border-radius:4px; margin-top:0.5rem; font-size:0.85rem;"></div>
+          </div>
+        </div>
+
         <div id="editAccountAlert" style="display:none; padding:0.75rem; border-radius:4px; margin-bottom:1rem;"></div>
 
         <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
@@ -18002,6 +18019,12 @@
         }
 
         function openEditAccountModal(accountId) {
+            _currentEditAccountId = accountId;
+            _balanceHistoryOpen = false;
+            document.getElementById('balanceHistorySection').style.display = 'none';
+            document.getElementById('balanceHistoryToggleIcon').textContent = '▶';
+            window._balanceHistoryEntries = [];
+
             var account = (window.financeAccounts || []).find(function(a) { return a.id === accountId; });
             if (!account) {
                 showAlert('Account not found', 'error');
@@ -18073,6 +18096,9 @@
         function closeEditAccountModal() {
             document.getElementById('editAccountModal').style.display = 'none';
             document.body.style.overflow = '';
+            _balanceHistoryOpen = false;
+            document.getElementById('balanceHistorySection').style.display = 'none';
+            document.getElementById('balanceHistoryToggleIcon').textContent = '▶';
         }
 
         async function saveEditAccount() {
@@ -18149,6 +18175,189 @@
             el.style.background = type === 'error' ? '#f8d7da' : '#d4edda';
             el.style.color = type === 'error' ? '#721c24' : '#155724';
             el.style.border = '1px solid ' + (type === 'error' ? '#f5c6cb' : '#c3e6cb');
+        }
+
+        var _currentEditAccountId = null;
+        var _balanceHistoryOpen = false;
+
+        function toggleBalanceHistorySection() {
+            _balanceHistoryOpen = !_balanceHistoryOpen;
+            var section = document.getElementById('balanceHistorySection');
+            var icon = document.getElementById('balanceHistoryToggleIcon');
+            section.style.display = _balanceHistoryOpen ? 'block' : 'none';
+            icon.textContent = _balanceHistoryOpen ? '▼' : '▶';
+            if (_balanceHistoryOpen && _currentEditAccountId) {
+                loadBalanceHistory(_currentEditAccountId);
+            }
+        }
+
+        async function loadBalanceHistory(accountId) {
+            var container = document.getElementById('balanceHistoryList');
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">Loading...</div>';
+            try {
+                var resp = await fetch('/admin/api/finance/history?accountId=' + encodeURIComponent(accountId));
+                var entries = await resp.json();
+                var balanceEntries = (Array.isArray(entries) ? entries : [])
+                    .filter(function(e) { return e.type === 'balance_update'; })
+                    .sort(function(a, b) {
+                        return new Date(b.balanceDate || b.timestamp) - new Date(a.balanceDate || a.timestamp);
+                    });
+                renderBalanceHistory(balanceEntries, accountId);
+            } catch(e) {
+                container.innerHTML = '<div style="color:red;padding:0.5rem;">Failed to load history: ' + e.message + '</div>';
+            }
+        }
+
+        function renderBalanceHistory(entries, accountId) {
+            var container = document.getElementById('balanceHistoryList');
+            if (entries.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999;padding:1rem;">No balance records found.</div>';
+                return;
+            }
+            var html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+            html += '<thead><tr style="background:#f8f9fa;">';
+            html += '<th style="padding:0.4rem 0.5rem;text-align:left;border-bottom:1px solid #dee2e6;">Date</th>';
+            html += '<th style="padding:0.4rem 0.5rem;text-align:right;border-bottom:1px solid #dee2e6;">Balance</th>';
+            html += '<th style="padding:0.4rem 0.5rem;text-align:right;border-bottom:1px solid #dee2e6;">Actions</th>';
+            html += '</tr></thead><tbody>';
+            entries.forEach(function(entry, idx) {
+                var dateVal = (entry.balanceDate || entry.timestamp || '').split('T')[0];
+                var balance = entry.newBalance != null ? entry.newBalance : '';
+                html += '<tr id="balrow-' + idx + '" style="border-bottom:1px solid #f0f0f0;">';
+                html += '<td style="padding:0.35rem 0.5rem;">';
+                html += '<input type="date" value="' + dateVal + '" data-entry-idx="' + idx + '" data-field="date" style="border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:0.82rem;width:130px;">';
+                html += '</td>';
+                html += '<td style="padding:0.35rem 0.5rem;text-align:right;">';
+                html += '<input type="number" value="' + balance + '" data-entry-idx="' + idx + '" data-field="balance" step="0.01" style="border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:0.82rem;width:110px;text-align:right;">';
+                html += '</td>';
+                html += '<td style="padding:0.35rem 0.5rem;text-align:right;white-space:nowrap;">';
+                html += '<button onclick="saveBalanceRow(' + idx + ')" style="background:#007bff;color:white;border:none;border-radius:3px;padding:2px 8px;font-size:0.78rem;cursor:pointer;margin-right:4px;">Save</button>';
+                html += '<button onclick="deleteBalanceRow(' + idx + ')" style="background:#dc3545;color:white;border:none;border-radius:3px;padding:2px 8px;font-size:0.78rem;cursor:pointer;">Delete</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            window._balanceHistoryEntries = entries;
+        }
+
+        async function saveBalanceRow(idx) {
+            var entry = window._balanceHistoryEntries[idx];
+            var dateInput = document.querySelector('[data-entry-idx="' + idx + '"][data-field="date"]');
+            var balanceInput = document.querySelector('[data-entry-idx="' + idx + '"][data-field="balance"]');
+            var newDate = dateInput ? dateInput.value : null;
+            var newBalance = balanceInput ? parseFloat(balanceInput.value) : null;
+            if (!newDate || isNaN(newBalance)) {
+                showBalanceHistoryAlert('Date and balance are required.', 'error');
+                return;
+            }
+            if (entry._isNew) {
+                createBalanceRow(idx);
+                return;
+            }
+            try {
+                var resp = await fetch('/admin/api/finance/history/entry', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        accountId: entry.accountId,
+                        balanceDate: entry.balanceDate,
+                        timestamp: entry.timestamp,
+                        newBalanceDate: newDate,
+                        newBalance: newBalance
+                    })
+                });
+                var result = await resp.json();
+                if (result.success) {
+                    showBalanceHistoryAlert('Record updated.', 'success');
+                    loadBalanceHistory(_currentEditAccountId);
+                } else {
+                    showBalanceHistoryAlert(result.error || 'Failed to update.', 'error');
+                }
+            } catch(e) {
+                showBalanceHistoryAlert('Network error: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteBalanceRow(idx) {
+            var entry = window._balanceHistoryEntries[idx];
+            if (entry._isNew) {
+                var entries = window._balanceHistoryEntries.filter(function(_, i) { return i !== idx; });
+                window._balanceHistoryEntries = entries;
+                renderBalanceHistory(entries, _currentEditAccountId);
+                return;
+            }
+            if (!confirm('Delete this balance record? This cannot be undone.')) return;
+            try {
+                var url = '/admin/api/finance/history/entry?' +
+                    'accountId=' + encodeURIComponent(entry.accountId) +
+                    '&balanceDate=' + encodeURIComponent(entry.balanceDate || '') +
+                    '&timestamp=' + encodeURIComponent(entry.timestamp || '');
+                var resp = await fetch(url, { method: 'DELETE' });
+                var result = await resp.json();
+                if (result.success) {
+                    showBalanceHistoryAlert('Record deleted.', 'success');
+                    loadBalanceHistory(_currentEditAccountId);
+                } else {
+                    showBalanceHistoryAlert(result.error || 'Failed to delete.', 'error');
+                }
+            } catch(e) {
+                showBalanceHistoryAlert('Network error: ' + e.message, 'error');
+            }
+        }
+
+        function addNewBalanceRow() {
+            var today = new Date().toISOString().split('T')[0];
+            var blankEntry = {
+                accountId: _currentEditAccountId,
+                balanceDate: today + 'T00:00:00.000Z',
+                timestamp: null,
+                newBalance: 0,
+                type: 'balance_update',
+                _isNew: true
+            };
+            var entries = [blankEntry].concat(window._balanceHistoryEntries || []);
+            window._balanceHistoryEntries = entries;
+            renderBalanceHistory(entries, _currentEditAccountId);
+            var dateInput = document.querySelector('[data-entry-idx="0"][data-field="date"]');
+            if (dateInput) dateInput.focus();
+        }
+
+        async function createBalanceRow(idx) {
+            var dateInput = document.querySelector('[data-entry-idx="' + idx + '"][data-field="date"]');
+            var balanceInput = document.querySelector('[data-entry-idx="' + idx + '"][data-field="balance"]');
+            var newDate = dateInput ? dateInput.value : null;
+            var newBalance = balanceInput ? parseFloat(balanceInput.value) : null;
+            if (!newDate || isNaN(newBalance)) {
+                showBalanceHistoryAlert('Date and balance are required.', 'error');
+                return;
+            }
+            try {
+                var resp = await fetch('/admin/api/finance/accounts/' + encodeURIComponent(_currentEditAccountId) + '/balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ balance: newBalance, balanceDate: newDate })
+                });
+                var result = await resp.json();
+                if (result.success) {
+                    showBalanceHistoryAlert('Record created.', 'success');
+                    loadBalanceHistory(_currentEditAccountId);
+                } else {
+                    showBalanceHistoryAlert(result.error || 'Failed to create.', 'error');
+                }
+            } catch(e) {
+                showBalanceHistoryAlert('Network error: ' + e.message, 'error');
+            }
+        }
+
+        function showBalanceHistoryAlert(msg, type) {
+            var el = document.getElementById('balanceHistoryAlert');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.background = type === 'error' ? '#f8d7da' : '#d4edda';
+            el.style.color = type === 'error' ? '#721c24' : '#155724';
+            el.style.border = '1px solid ' + (type === 'error' ? '#f5c6cb' : '#c3e6cb');
+            setTimeout(function() { el.style.display = 'none'; }, 3000);
         }
 
         function editAccount(accountId) {

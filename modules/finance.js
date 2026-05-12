@@ -3644,5 +3644,8 @@ module.exports = {
   getApartmentAnalysis,
   getApartmentEquityOverview,
   // Export for testing
-  parseAccountsFromText
+  parseAccountsFromText,
+  // Export raw data access for history entry management
+  loadFinanceData,
+  saveFinanceData
 };
