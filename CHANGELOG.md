@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.18.6] - 2026-05-12
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #616 from spospordo/copilot/fix-finance-history-display-names
+  - Fix Finance History tab to use account display names via resolveDisplayName helper
+  - Initial plan
+
+
 ## [2.18.5] - 2026-05-12
 
 ### Patch Update
