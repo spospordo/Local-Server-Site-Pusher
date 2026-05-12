@@ -3041,6 +3041,52 @@
 
                 <div class="section-divider"></div>
 
+                <div id="finance-history-analysis" class="finance-subsection">
+                    <h3>📊 Account Analysis</h3>
+                    <p class="help-text">Compare account types and individual accounts over time</p>
+                    
+                    <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <div>
+                            <label><strong>Account Types</strong></label>
+                            <div id="analysisTypeCheckboxes" style="margin-top: 0.5rem;">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 220px;">
+                            <label><strong>Specific Accounts</strong></label>
+                            <div id="analysisAccountCheckboxes" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem;">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <button onclick="updateAnalysisChart()" class="btn btn-primary btn-sm">Update Chart</button>
+                        <button onclick="clearAnalysisSelection()" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;">Clear</button>
+                    </div>
+
+                    <div id="analysisChartContainer" style="position: relative; height: 350px; display: none;">
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+
+                    <div id="analysisSummaryContainer" style="margin-top: 1rem; display: none;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Start Value</th>
+                                    <th>End Value</th>
+                                    <th>Change ($)</th>
+                                    <th>Change (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analysisSummaryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
                 <!-- Export Options Section -->
                 <div class="finance-subsection">
                     <h3>💾 Export Options</h3>
@@ -20615,6 +20661,19 @@
         
         // Finance History Functions
         let historyChart = null;
+        let analysisChart = null;
+        let historyAccounts = [];
+        const ANALYSIS_COLORS = [
+            '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
+            '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'
+        ];
+        const ANALYSIS_TYPE_LABELS = {
+            cash: 'Cash',
+            investments: 'Investments',
+            retirement: 'Retirement',
+            real_estate: 'Real Estate',
+            liabilities: 'Liabilities'
+        };
         const historyNoDataDefaultHTML = `
             <p style="font-size: 1.1rem;">📭 No historical data available</p>
             <p style="font-size: 0.9rem;">Historical data is automatically recorded when you update account balances.</p>
@@ -20645,17 +20704,19 @@
             try {
                 // Populate account filter dropdown
                 const response = await fetch('/admin/api/finance/accounts');
-                const accounts = await response.json();
+                historyAccounts = await response.json();
                 
                 const filterSelect = document.getElementById('historyAccountFilter');
                 filterSelect.innerHTML = '<option value="">All Accounts</option>';
                 
-                accounts.forEach(account => {
+                historyAccounts.forEach(account => {
                     const option = document.createElement('option');
                     option.value = account.id;
                     option.textContent = account.displayName || account.name;
                     filterSelect.appendChild(option);
                 });
+
+                initializeAnalysisSection();
                 
                 // Load initial history view
                 await updateHistoryView();
@@ -21394,6 +21455,256 @@
             } catch (err) {
                 console.error('Failed to update history table:', err);
             }
+        }
+
+        function initializeAnalysisSection() {
+            const typeContainer = document.getElementById('analysisTypeCheckboxes');
+            const accountContainer = document.getElementById('analysisAccountCheckboxes');
+            if (!typeContainer || !accountContainer) return;
+
+            typeContainer.innerHTML = Object.entries(ANALYSIS_TYPE_LABELS).map(([key, label]) => `
+                <label style="display: block; margin-bottom: 0.35rem;">
+                    <input type="checkbox" name="analysisType" value="${key}">
+                    ${label}
+                </label>
+            `).join('');
+
+            if (!historyAccounts.length) {
+                accountContainer.innerHTML = '<div style="color: #999; font-size: 0.9rem;">No accounts available</div>';
+                return;
+            }
+
+            accountContainer.innerHTML = historyAccounts.map(account => {
+                const accountName = escapeHtml(account.displayName || account.name || 'Unnamed Account');
+                return `
+                    <label style="display: block; margin-bottom: 0.35rem;">
+                        <input type="checkbox" name="analysisAccount" value="${account.id}">
+                        ${accountName}
+                    </label>
+                `;
+            }).join('');
+        }
+
+        async function updateAnalysisChart() {
+            try {
+                const selectedTypes = Array.from(document.querySelectorAll('input[name="analysisType"]:checked')).map(input => input.value);
+                const selectedAccountIds = Array.from(document.querySelectorAll('input[name="analysisAccount"]:checked')).map(input => input.value);
+
+                if (selectedTypes.length === 0 && selectedAccountIds.length === 0) {
+                    clearAnalysisSelection();
+                    return;
+                }
+
+                const startDate = document.getElementById('historyStartDate').value;
+                const endDate = document.getElementById('historyEndDate').value;
+                const query = new URLSearchParams();
+                if (startDate) query.set('startDate', startDate);
+                if (endDate) query.set('endDate', endDate);
+                const queryString = query.toString();
+
+                const seriesList = [];
+
+                if (selectedTypes.length > 0) {
+                    const typeUrl = '/admin/api/finance/history/by-type' + (queryString ? `?${queryString}` : '');
+                    const typeResponse = await fetch(typeUrl);
+                    const typeHistory = await typeResponse.json();
+
+                    selectedTypes.forEach(typeKey => {
+                        const points = Array.isArray(typeHistory?.[typeKey]) ? typeHistory[typeKey] : [];
+                        seriesList.push({
+                            name: ANALYSIS_TYPE_LABELS[typeKey] || typeKey,
+                            points: points
+                        });
+                    });
+                }
+
+                if (selectedAccountIds.length > 0) {
+                    const accountResults = await Promise.all(selectedAccountIds.map(async accountId => {
+                        const account = historyAccounts.find(a => a.id === accountId);
+                        const accountName = account?.displayName || account?.name || accountId;
+                        const accountUrl = `/admin/api/finance/history/account/${accountId}` + (queryString ? `?${queryString}` : '');
+                        const accountResponse = await fetch(accountUrl);
+                        const accountHistory = await accountResponse.json();
+                        return {
+                            name: accountName,
+                            points: Array.isArray(accountHistory) ? accountHistory : []
+                        };
+                    }));
+
+                    seriesList.push(...accountResults);
+                }
+
+                const labelKeySet = new Set();
+                const normalizedSeries = seriesList.map(series => {
+                    const valueByDate = new Map();
+                    (series.points || []).forEach(point => {
+                        const timestamp = point?.timestamp;
+                        const parsedDate = new Date(timestamp);
+                        const dateKey = Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().split('T')[0];
+                        const rawValue = point?.balance;
+                        const balance = rawValue == null ? null : Number(rawValue);
+
+                        if (!dateKey || Number.isNaN(balance)) return;
+                        labelKeySet.add(dateKey);
+                        valueByDate.set(dateKey, balance);
+                    });
+
+                    return {
+                        name: series.name,
+                        valueByDate
+                    };
+                });
+
+                const labelKeys = Array.from(labelKeySet).sort((a, b) => new Date(a) - new Date(b));
+                if (labelKeys.length === 0) {
+                    clearAnalysisOutput();
+                    return;
+                }
+
+                const labels = labelKeys.map(dateKey => new Date(`${dateKey}T00:00:00.000Z`).toLocaleDateString('en-US', {
+                    month: 'short',
+                    year: 'numeric'
+                }));
+
+                const datasets = normalizedSeries.map((series, index) => ({
+                    label: series.name,
+                    data: labelKeys.map(dateKey => series.valueByDate.has(dateKey) ? series.valueByDate.get(dateKey) : null),
+                    borderColor: ANALYSIS_COLORS[index % ANALYSIS_COLORS.length],
+                    backgroundColor: ANALYSIS_COLORS[index % ANALYSIS_COLORS.length] + '20',
+                    borderWidth: 2,
+                    fill: false,
+                    spanGaps: true,
+                    tension: 0.2
+                })).filter(dataset => dataset.data.some(value => value !== null));
+
+                if (datasets.length === 0) {
+                    clearAnalysisOutput();
+                    return;
+                }
+
+                renderAnalysisChart(datasets, labels);
+                updateAnalysisTable(datasets);
+            } catch (err) {
+                console.error('Failed to update analysis chart:', err);
+                clearAnalysisOutput();
+            }
+        }
+
+        function renderAnalysisChart(datasets, labels) {
+            const existingChart = Chart.getChart('analysisChart');
+            if (existingChart) existingChart.destroy();
+            analysisChart = null;
+
+            const chartContainer = document.getElementById('analysisChartContainer');
+            const canvas = document.getElementById('analysisChart');
+            if (!chartContainer || !canvas) return;
+
+            chartContainer.style.display = 'block';
+
+            analysisChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    if (value == null) return `${context.dataset.label}: N/A`;
+                                    return `${context.dataset.label}: $${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + Number(value).toLocaleString('en-US');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateAnalysisTable(datasets) {
+            const container = document.getElementById('analysisSummaryContainer');
+            const tbody = document.getElementById('analysisSummaryBody');
+            if (!container || !tbody) return;
+
+            const rows = datasets.map(dataset => {
+                const firstValue = dataset.data.find(value => value !== null);
+                const lastValue = [...dataset.data].reverse().find(value => value !== null);
+
+                if (firstValue == null || lastValue == null) return null;
+
+                const change = lastValue - firstValue;
+                const changePct = firstValue !== 0 ? (change / firstValue) * 100 : null;
+                const changeColor = change >= 0 ? '#28a745' : '#dc3545';
+
+                return `
+                    <tr>
+                        <td>${escapeHtml(dataset.label)}</td>
+                        <td>$${Number(firstValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td>$${Number(lastValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="color: ${changeColor};">${change >= 0 ? '+' : ''}$${Number(change).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="color: ${changeColor};">${changePct == null ? '—' : `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`}</td>
+                    </tr>
+                `;
+            }).filter(Boolean);
+
+            if (rows.length === 0) {
+                container.style.display = 'none';
+                tbody.innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = rows.join('');
+            container.style.display = 'block';
+        }
+
+        function clearAnalysisSelection() {
+            document.querySelectorAll('input[name="analysisType"], input[name="analysisAccount"]').forEach(input => {
+                input.checked = false;
+            });
+
+            clearAnalysisOutput();
+        }
+
+        function clearAnalysisOutput() {
+            const existingChart = Chart.getChart('analysisChart');
+            if (existingChart) existingChart.destroy();
+            analysisChart = null;
+
+            const chartContainer = document.getElementById('analysisChartContainer');
+            const summaryContainer = document.getElementById('analysisSummaryContainer');
+            const summaryBody = document.getElementById('analysisSummaryBody');
+
+            if (chartContainer) chartContainer.style.display = 'none';
+            if (summaryContainer) summaryContainer.style.display = 'none';
+            if (summaryBody) summaryBody.innerHTML = '';
         }
         
         function exportHistoryToCSV() {
