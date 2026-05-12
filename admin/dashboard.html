@@ -7455,6 +7455,69 @@
         </div>
     </div>
 
+    <!-- Edit Account Modal -->
+    <div id="editAccountModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; overflow-y:auto;">
+      <div style="background:white; border-radius:8px; max-width:520px; margin:3rem auto; padding:2rem; position:relative;">
+        <button onclick="closeEditAccountModal()" style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#666;">&times;</button>
+        <h4 style="margin:0 0 1.5rem 0;">✏️ Edit Account</h4>
+
+        <input type="hidden" id="editAccountId">
+
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label for="editAccountName">Account Name</label>
+          <input type="text" id="editAccountName" class="form-control" placeholder="e.g., Chase Savings">
+        </div>
+
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label for="editAccountType">Account Type</label>
+          <select id="editAccountType" class="form-control"></select>
+          <small id="editAccountTypeDesc" style="color:#666; font-size:0.85rem; margin-top:4px; display:block;"></small>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label for="editAccountValue">Current Value ($)</label>
+          <input type="number" id="editAccountValue" class="form-control" step="0.01" placeholder="0.00">
+        </div>
+
+        <div id="editAccountFutureIncomeFields" style="display:none; margin-bottom:1rem;">
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="editAccountMonthlyPayment">Expected Monthly Payment ($)</label>
+            <input type="number" id="editAccountMonthlyPayment" class="form-control" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="editAccountStartAge">Starting Age</label>
+            <input type="number" id="editAccountStartAge" class="form-control" placeholder="65">
+          </div>
+        </div>
+
+        <div id="editAccountMortgageFields" style="display:none; margin-bottom:1rem;">
+          <div class="form-group">
+            <label for="editAccountPropertyLink">Linked Property</label>
+            <select id="editAccountPropertyLink" class="form-control">
+              <option value="">-- No property linked --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label for="editAccountStartDate">Start Date (optional)</label>
+          <input type="date" id="editAccountStartDate" class="form-control">
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label for="editAccountNotes">Notes (optional)</label>
+          <textarea id="editAccountNotes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+        </div>
+
+        <div id="editAccountAlert" style="display:none; padding:0.75rem; border-radius:4px; margin-bottom:1rem;"></div>
+
+        <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+          <button onclick="closeEditAccountModal()" class="btn btn-secondary">Cancel</button>
+          <button onclick="saveEditAccount()" class="btn btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Unmerge Account Modal -->
     <div id="unmergeModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -10679,6 +10742,18 @@
         document.getElementById('displayNameModal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeDisplayNameModal();
+            }
+        });
+
+        document.getElementById('editAccountModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeEditAccountModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('editAccountModal').style.display !== 'none') {
+                closeEditAccountModal();
             }
         });
         
@@ -17528,6 +17603,7 @@
                 // Load account types
                 const typesResponse = await fetch('/admin/api/finance/account-types');
                 accountTypes = await typesResponse.json();
+                window.financeAccountTypes = accountTypes;
                 
                 // Populate account type dropdown
                 const accountTypeSelect = document.getElementById('accountType');
@@ -17773,6 +17849,7 @@
             try {
                 const response = await fetch('/admin/api/finance/accounts');
                 const accounts = await response.json();
+                window.financeAccounts = accounts;
                 
                 const accountsList = document.getElementById('accountsList');
                 
@@ -17852,7 +17929,7 @@
                             </div>
                             ${!isMergeMode ? `
                                 <div class="account-actions">
-                                    <button class="btn" onclick="editAccount('${account.id}')">Edit</button>
+                                    <button class="btn" onclick="openEditAccountModal('${account.id}')">Edit</button>
                                     <button class="btn" style="background: #17a2b8;" onclick="showEditDisplayNameModal('${account.id}', '${escapeHtml(displayName)}', '${escapeHtml(account.name)}')">Edit Display Name</button>
                                     <button class="btn" style="background: #28a745;" onclick="showUpdateBalanceModal('${account.id}', '${escapeHtml(displayName)}', ${account.currentValue || 0})">Update Balance</button>
                                     ${account.previousNames && account.previousNames.length > 0 ? `
@@ -17923,44 +18000,159 @@
                 showAlert('Failed to save account: ' + err.message, 'error');
             }
         }
-        
-        async function editAccount(accountId) {
-            try {
-                const response = await fetch('/admin/api/finance/accounts');
-                const accounts = await response.json();
-                const account = accounts.find(a => a.id === accountId);
-                
-                if (!account) {
-                    showAlert('Account not found', 'error');
-                    return;
-                }
-                
-                document.getElementById('accountId').value = account.id;
-                document.getElementById('accountName').value = account.name;
-                document.getElementById('accountType').value = account.type;
-                document.getElementById('accountValue').value = account.currentValue;
-                document.getElementById('accountStartDate').value = account.startDate || '';
-                document.getElementById('accountNotes').value = account.notes || '';
-                
-                updateAccountTypeHelp();
-                
-                // Set future income fields if applicable
-                const type = accountTypes[account.type];
-                if (type && type.category === 'future_income') {
-                    document.getElementById('monthlyPayment').value = account.monthlyPayment || '';
-                    document.getElementById('startAge').value = account.startAge || '';
-                }
-                
-                // Set mortgage property link field if applicable
-                if (type && type.requiresPropertyLink) {
-                    document.getElementById('linkedProperty').value = account.linkedProperty || '';
-                }
-                
-                // Scroll to form
-                document.getElementById('accountName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } catch (err) {
-                showAlert('Failed to load account: ' + err.message, 'error');
+
+        function openEditAccountModal(accountId) {
+            var account = (window.financeAccounts || []).find(function(a) { return a.id === accountId; });
+            if (!account) {
+                showAlert('Account not found', 'error');
+                return;
             }
+
+            var typeSelect = document.getElementById('editAccountType');
+            typeSelect.innerHTML = '';
+            var availableAccountTypes = window.financeAccountTypes || {};
+            Object.keys(availableAccountTypes).forEach(function(key) {
+                var opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = availableAccountTypes[key].name || key;
+                if (key === account.type) opt.selected = true;
+                typeSelect.appendChild(opt);
+            });
+
+            document.getElementById('editAccountId').value = account.id;
+            document.getElementById('editAccountName').value = account.name || '';
+            document.getElementById('editAccountValue').value = account.currentValue != null ? account.currentValue : '';
+            document.getElementById('editAccountStartDate').value = account.startDate ? account.startDate.split('T')[0] : '';
+            document.getElementById('editAccountNotes').value = account.notes || '';
+            document.getElementById('editAccountMonthlyPayment').value = account.monthlyPayment || account.expectedMonthlyPayment || '';
+            document.getElementById('editAccountStartAge').value = account.startAge || '';
+
+            var propSelect = document.getElementById('editAccountPropertyLink');
+            propSelect.innerHTML = '<option value="">-- No property linked --</option>';
+            (window.financeAccounts || []).filter(function(a) {
+                var accountTypeMeta = availableAccountTypes[a.type];
+                return accountTypeMeta && accountTypeMeta.category === 'real_estate';
+            }).forEach(function(a) {
+                var opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.displayName || a.name;
+                if (a.id === (account.linkedPropertyId || account.linkedProperty)) opt.selected = true;
+                propSelect.appendChild(opt);
+            });
+
+            updateEditAccountConditionalFields(account.type);
+            typeSelect.onchange = function() { updateEditAccountConditionalFields(this.value); };
+
+            var alert = document.getElementById('editAccountAlert');
+            alert.style.display = 'none';
+            alert.textContent = '';
+
+            document.getElementById('editAccountModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function updateEditAccountConditionalFields(type) {
+            var availableAccountTypes = window.financeAccountTypes || {};
+            var typeInfo = availableAccountTypes[type] || {};
+            var isFutureIncome = typeInfo.category === 'future_income';
+            var isMortgage = !!typeInfo.requiresPropertyLink;
+
+            document.getElementById('editAccountFutureIncomeFields').style.display = isFutureIncome ? 'block' : 'none';
+            document.getElementById('editAccountMortgageFields').style.display = isMortgage ? 'block' : 'none';
+
+            var desc = document.getElementById('editAccountTypeDesc');
+            if (typeInfo.description) {
+                desc.textContent = typeInfo.description;
+                desc.style.display = 'block';
+            } else {
+                desc.style.display = 'none';
+                desc.textContent = '';
+            }
+        }
+
+        function closeEditAccountModal() {
+            document.getElementById('editAccountModal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        async function saveEditAccount() {
+            var id = document.getElementById('editAccountId').value;
+            var account = (window.financeAccounts || []).find(function(a) { return a.id === id; });
+            if (!account) {
+                showEditAccountAlert('Account not found.', 'error');
+                return;
+            }
+
+            var name = document.getElementById('editAccountName').value.trim();
+            var type = document.getElementById('editAccountType').value;
+            var value = parseFloat(document.getElementById('editAccountValue').value);
+            var startDate = document.getElementById('editAccountStartDate').value;
+            var notes = document.getElementById('editAccountNotes').value.trim();
+            var availableAccountTypes = window.financeAccountTypes || {};
+            var typeInfo = availableAccountTypes[type] || {};
+
+            if (!name) {
+                showEditAccountAlert('Account name is required.', 'error');
+                return;
+            }
+
+            var payload = Object.assign({}, account, {
+                name: name,
+                type: type,
+                currentValue: isNaN(value) ? 0 : value,
+                startDate: startDate || null,
+                notes: notes || null
+            });
+
+            if (typeInfo.category === 'future_income') {
+                payload.monthlyPayment = parseFloat(document.getElementById('editAccountMonthlyPayment').value) || 0;
+                payload.expectedMonthlyPayment = payload.monthlyPayment;
+                payload.startAge = parseInt(document.getElementById('editAccountStartAge').value, 10) || null;
+            } else {
+                payload.monthlyPayment = null;
+                payload.expectedMonthlyPayment = null;
+                payload.startAge = null;
+            }
+
+            if (typeInfo.requiresPropertyLink) {
+                payload.linkedPropertyId = document.getElementById('editAccountPropertyLink').value || null;
+                payload.linkedProperty = payload.linkedPropertyId;
+            } else {
+                payload.linkedPropertyId = null;
+                payload.linkedProperty = null;
+            }
+
+            try {
+                var response = await fetch('/admin/api/finance/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var result = await response.json();
+                if (result.success) {
+                    closeEditAccountModal();
+                    showAlert('Account saved successfully!', 'success');
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    showEditAccountAlert(result.error || 'Failed to save account.', 'error');
+                }
+            } catch (err) {
+                showEditAccountAlert('Network error: ' + err.message, 'error');
+            }
+        }
+
+        function showEditAccountAlert(msg, type) {
+            var el = document.getElementById('editAccountAlert');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.background = type === 'error' ? '#f8d7da' : '#d4edda';
+            el.style.color = type === 'error' ? '#721c24' : '#155724';
+            el.style.border = '1px solid ' + (type === 'error' ? '#f5c6cb' : '#c3e6cb');
+        }
+
+        function editAccount(accountId) {
+            openEditAccountModal(accountId);
         }
         
         async function deleteAccount(accountId) {
