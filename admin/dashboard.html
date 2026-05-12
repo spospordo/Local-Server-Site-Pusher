@@ -3013,34 +3013,6 @@
 
                 <div class="section-divider"></div>
 
-                <!-- Historical Data Table Section -->
-                <div class="finance-subsection">
-                    <h3>📝 Historical Data</h3>
-                    <p class="help-text">Detailed list of balance changes and updates</p>
-                    
-                    <div style="overflow-x: auto;">
-                        <table id="historyTable" class="data-table" style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
-                            <thead>
-                                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                                    <th style="padding: 0.75rem; text-align: left;">Date</th>
-                                    <th style="padding: 0.75rem; text-align: left;">Account</th>
-                                    <th style="padding: 0.75rem; text-align: right;">Balance</th>
-                                    <th style="padding: 0.75rem; text-align: right;">Change</th>
-                                </tr>
-                            </thead>
-                            <tbody id="historyTableBody">
-                                <tr>
-                                    <td colspan="4" style="padding: 2rem; text-align: center; color: #999;">
-                                        Loading history data...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="section-divider"></div>
-
                 <div id="finance-history-analysis" class="finance-subsection">
                     <h3>📊 Account Analysis</h3>
                     <p class="help-text">Compare account types and individual accounts over time</p>
@@ -3081,6 +3053,43 @@
                                 </tr>
                             </thead>
                             <tbody id="analysisSummaryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Category Pie Charts Section -->
+                <div id="finance-category-pies" style="margin-bottom:2rem">
+                    <h4>&#x1F967; Current Balance by Category</h4>
+                    <p style="color:#666;font-size:0.9rem">Breakdown of your current account balances within each category.</p>
+                    <div id="categoryPieGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem"></div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Historical Data Table Section -->
+                <div class="finance-subsection">
+                    <h3>📝 Historical Data</h3>
+                    <p class="help-text">Detailed list of balance changes and updates</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="historyTable" class="data-table" style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                            <thead>
+                                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                    <th style="padding: 0.75rem; text-align: left;">Date</th>
+                                    <th style="padding: 0.75rem; text-align: left;">Account</th>
+                                    <th style="padding: 0.75rem; text-align: right;">Balance</th>
+                                    <th style="padding: 0.75rem; text-align: right;">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr>
+                                    <td colspan="4" style="padding: 2rem; text-align: center; color: #999;">
+                                        Loading history data...
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -20705,6 +20714,7 @@
                 // Populate account filter dropdown
                 const response = await fetch('/admin/api/finance/accounts');
                 historyAccounts = await response.json();
+                renderCategoryPieCharts(historyAccounts);
                 
                 const filterSelect = document.getElementById('historyAccountFilter');
                 filterSelect.innerHTML = '<option value="">All Accounts</option>';
@@ -20786,6 +20796,63 @@
             }
         }
         
+        function renderCategoryPieCharts(accounts) {
+          var categoryMap = {
+            cash: { types: ['savings','checking'], label: 'Cash', emoji: '&#x1F4B0;' },
+            investments: { types: ['stocks','mutual_funds','etf','bonds'], label: 'Investments', emoji: '&#x1F4C8;' },
+            retirement: { types: ['401k','ira','roth_ira'], label: 'Retirement', emoji: '&#x1F3E6;' },
+            real_estate: { types: ['home','investment_property'], label: 'Real Estate', emoji: '&#x1F3E0;' },
+            liabilities: { types: ['credit_card','mortgage'], label: 'Liabilities', emoji: '&#x1F4B3;' },
+            future_income: { types: ['pension','social_security'], label: 'Future Income', emoji: '&#x1F52E;' }
+          };
+          var COLORS = ['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac'];
+          var grid = document.getElementById('categoryPieGrid');
+          if (!grid) return;
+          grid.innerHTML = '';
+          Object.keys(categoryMap).forEach(function(key) {
+            var info = categoryMap[key];
+            var catAccounts = (accounts||[]).filter(function(a){ return info.types.indexOf(a.type) !== -1 && parseFloat(a.currentValue) > 0; });
+            if (!catAccounts.length) return;
+            var total = catAccounts.reduce(function(s,a){ return s + parseFloat(a.currentValue); }, 0);
+            var fmt = function(v){ return '$' + v.toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2}); };
+            var cid = 'categoryPieChart_' + key;
+            var lid = 'categoryPieLegend_' + key;
+            var card = document.createElement('div');
+            card.style.cssText = 'background:white;border:1px solid #e0e0e0;border-radius:8px;padding:1rem';
+            card.innerHTML = '<h5 style="margin:0 0 .25rem 0">' + info.emoji + ' ' + info.label + '</h5>' +
+              '<p style="margin:0 0 .75rem 0;color:#555;font-size:.9rem">Total: ' + fmt(total) + '</p>' +
+              '<div style="position:relative;height:220px"><canvas id="' + cid + '"></canvas></div>' +
+              '<div id="' + lid + '" style="margin-top:.75rem;font-size:.85rem"></div>';
+            grid.appendChild(card);
+            var ex = Chart.getChart(cid);
+            if (ex) ex.destroy();
+            new Chart(document.getElementById(cid).getContext('2d'), {
+              type: 'doughnut',
+              data: {
+                labels: catAccounts.map(function(a){ return a.displayName || a.name; }),
+                datasets: [{ data: catAccounts.map(function(a){ return parseFloat(a.currentValue); }), backgroundColor: catAccounts.map(function(_,i){ return COLORS[i%COLORS.length]; }) }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { callbacks: { label: function(c){ return (c.label||'') + ': ' + fmt(c.parsed); } } }
+                }
+              }
+            });
+            var leg = document.getElementById(lid);
+            catAccounts.forEach(function(a, i) {
+              var r = document.createElement('div');
+              r.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px';
+              r.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:' + COLORS[i%COLORS.length] + ';flex-shrink:0"></span>' +
+                '<span style="flex:1">' + (a.displayName || a.name) + '</span>' +
+                '<span style="color:#555">' + fmt(parseFloat(a.currentValue)) + '</span>';
+              leg.appendChild(r);
+            });
+          });
+        }
+
         async function renderNetWorthChart(startDate, endDate) {
             try {
                 if (typeof Chart === 'undefined') {
