@@ -5832,6 +5832,45 @@ app.post('/admin/api/finance/history', requireAuth, (req, res) => {
   }
 });
 
+// Update a specific history entry (by accountId + balanceDate + timestamp)
+app.put('/admin/api/finance/history/entry', requireAuth, (req, res) => {
+  try {
+    const { accountId, balanceDate, timestamp, newBalanceDate, newBalance } = req.body;
+    const data = finance.loadFinanceData();
+    const entry = data.history.find(h =>
+      h.accountId === accountId &&
+      h.balanceDate === balanceDate &&
+      h.timestamp === timestamp
+    );
+    if (!entry) return res.status(404).json({ success: false, error: 'Entry not found' });
+    if (newBalanceDate) entry.balanceDate = new Date(newBalanceDate + 'T00:00:00.000Z').toISOString();
+    if (newBalance !== undefined) entry.newBalance = parseFloat(newBalance);
+    const result = finance.saveFinanceData(data);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a specific history entry (by accountId + balanceDate + timestamp)
+app.delete('/admin/api/finance/history/entry', requireAuth, (req, res) => {
+  try {
+    const { accountId, balanceDate, timestamp } = req.query;
+    const data = finance.loadFinanceData();
+    const idx = data.history.findIndex(h =>
+      h.accountId === accountId &&
+      h.balanceDate === balanceDate &&
+      h.timestamp === timestamp
+    );
+    if (idx < 0) return res.status(404).json({ success: false, error: 'Entry not found' });
+    data.history.splice(idx, 1);
+    const result = finance.saveFinanceData(data);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get history
 app.get('/admin/api/finance/history', requireAuth, (req, res) => {
   try {
