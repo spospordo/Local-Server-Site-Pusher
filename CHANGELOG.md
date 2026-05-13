@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.20.0] - 2026-05-13
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #619 from spospordo/copilot/fix-chart-rendering-issues
+  - feat: add unmerge modal with merge info, balance preview, and Clear Link Only button
+  - Initial plan
+
+
 ## [2.19.0] - 2026-05-12
 
 ### Minor Update
