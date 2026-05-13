@@ -5674,6 +5674,53 @@ app.get('/admin/api/finance/accounts', requireAuth, (req, res) => {
   }
 });
 
+// Get merged accounts with merge audit info
+app.get('/admin/api/finance/accounts/merged', requireAuth, (req, res) => {
+  try {
+    const accounts = finance.getAccounts();
+    const history = finance.getHistory();
+
+    // Build a map from survivingAccountId → most recent accounts_merged entry
+    const mergeEntryMap = {};
+    history
+      .filter(h => h.type === 'accounts_merged' && h.survivingAccountId)
+      .forEach(h => {
+        const existing = mergeEntryMap[h.survivingAccountId];
+        if (!existing || new Date(h.timestamp) > new Date(existing.timestamp)) {
+          mergeEntryMap[h.survivingAccountId] = h;
+        }
+      });
+
+    const mergedAccounts = accounts.filter(
+      a => Array.isArray(a.previousNames) && a.previousNames.length > 0
+    );
+
+    const result = mergedAccounts.map(account => {
+      const mergeEntry = mergeEntryMap[account.id];
+
+      const mergeInfo = mergeEntry
+        ? {
+            mergedAt: mergeEntry.timestamp,
+            absorbedAccountNames: mergeEntry.mergedAccountNames || [],
+            absorbedAccountIds: mergeEntry.mergedAccountIds || [],
+            survivingBalance: account.currentValue
+          }
+        : {
+            mergedAt: null,
+            absorbedAccountNames: account.previousNames || [],
+            absorbedAccountIds: [],
+            survivingBalance: account.currentValue
+          };
+
+      return { account, mergeInfo };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get merged accounts: ' + err.message });
+  }
+});
+
 // Create or update account
 app.post('/admin/api/finance/accounts', requireAuth, (req, res) => {
   try {
