@@ -5794,6 +5794,25 @@ app.post('/admin/api/finance/accounts/:id/unmerge', requireAuth, (req, res) => {
   }
 });
 
+// Clear the merge link from an account (keeps the account, just removes previousNames)
+app.post('/admin/api/finance/accounts/:id/clear-merge-link', requireAuth, (req, res) => {
+  try {
+    const accountId = req.params.id;
+    const result = finance.clearMergeLink(accountId);
+    if (result.success) {
+      logger.success(logger.categories.FINANCE,
+        `Cleared merge link for account ${accountId} (removed: ${result.clearedNames.join(', ')})`);
+      res.json(result);
+    } else {
+      logger.error(logger.categories.FINANCE, `Failed to clear merge link: ${result.error}`);
+      res.status(400).json(result);
+    }
+  } catch (err) {
+    logger.error(logger.categories.FINANCE, `Clear merge link error: ${err.message}`);
+    res.status(500).json({ success: false, error: 'Failed to clear merge link: ' + err.message });
+  }
+});
+
 // Get demographics
 app.get('/admin/api/finance/demographics', requireAuth, (req, res) => {
   try {

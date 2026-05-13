@@ -7537,29 +7537,48 @@
 
     <!-- Unmerge Account Modal -->
     <div id="unmergeModal" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
                 <h3>🔓 Unmerge Account</h3>
                 <span class="close" onclick="closeUnmergeModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <div id="unmergeAlert" class="alert" style="display: none;"></div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <p><strong>Account to Unmerge:</strong></p>
-                    <div style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin: 10px 0;">
+
+                <!-- Surviving account info -->
+                <div style="margin-bottom: 1.25rem;">
+                    <p style="margin: 0 0 0.4rem 0;"><strong>Merged account:</strong></p>
+                    <div style="padding: 10px 14px; background: #f0f0f0; border-radius: 4px; font-size: 0.95rem;">
                         <span id="unmergeAccountName"></span>
                     </div>
                 </div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <p><strong>This will recreate the following accounts:</strong></p>
-                    <ul id="unmergePreviousNames" style="margin: 10px 0; padding-left: 20px;">
-                        <!-- Previous account names will be populated here -->
-                    </ul>
+
+                <!-- Merge date -->
+                <div style="margin-bottom: 1.25rem;">
+                    <p style="margin: 0 0 0.4rem 0;"><strong>Merge date:</strong></p>
+                    <div style="padding: 10px 14px; background: #f0f0f0; border-radius: 4px; font-size: 0.95rem;">
+                        <span id="unmergeMergeDate">Loading…</span>
+                    </div>
                 </div>
-                
-                <div class="alert alert-warning" style="display: block; margin-bottom: 1rem;">
+
+                <!-- Accounts to be recreated with estimated balances -->
+                <div style="margin-bottom: 1.25rem;">
+                    <p style="margin: 0 0 0.5rem 0;"><strong>Accounts that will be recreated:</strong></p>
+                    <div id="unmergeRecreatedAccountsLoading" style="color: #888; font-size: 0.9rem; padding: 0.5rem 0;">Loading details…</div>
+                    <table id="unmergeRecreatedAccountsTable" style="display:none; width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:#f8f9fa; border-bottom:2px solid #dee2e6;">
+                                <th style="text-align:left; padding:8px 10px;">Account Name</th>
+                                <th style="text-align:right; padding:8px 10px;">Est. Balance</th>
+                                <th style="text-align:left; padding:8px 10px; color:#888; font-weight:normal;">Source</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unmergeRecreatedAccountsBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-warning" style="display: block; margin-bottom: 1.25rem;">
                     <strong>⚠️ Important:</strong>
                     <ul style="margin: 10px 0; padding-left: 20px;">
                         <li>Each previously merged account will be recreated as a separate account</li>
@@ -7569,9 +7588,10 @@
                         <li>This operation creates an audit trail but cannot be automatically reversed</li>
                     </ul>
                 </div>
-                
-                <div class="modal-actions">
+
+                <div class="modal-actions" style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:flex-end;">
                     <button type="button" onclick="closeUnmergeModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="performClearMergeLink()" class="btn" style="background: #6c757d;" title="Remove the merge link without recreating sub-accounts. Future uploads will no longer auto-link to this account.">🔗 Clear Link Only</button>
                     <button type="button" onclick="performUnmerge()" class="btn" style="background: #ff9800;">🔓 Confirm Unmerge</button>
                 </div>
             </div>
@@ -18630,38 +18650,95 @@
         }
         
         async function showUnmergeModal(accountId, accountName) {
-            // Fetch account details to get previousNames
+            // Reset modal to loading state
+            document.getElementById('unmergeAccountName').textContent = accountName;
+            document.getElementById('unmergeMergeDate').textContent = 'Loading…';
+            document.getElementById('unmergeRecreatedAccountsLoading').style.display = 'block';
+            document.getElementById('unmergeRecreatedAccountsTable').style.display = 'none';
+            document.getElementById('unmergeRecreatedAccountsBody').innerHTML = '';
+            const alertEl = document.getElementById('unmergeAlert');
+            alertEl.style.display = 'none';
+
+            // Show modal early so the user sees it while data loads
+            document.getElementById('unmergeModal').style.display = 'flex';
+
             try {
-                const response = await fetch('/admin/api/finance/accounts');
-                const accounts = await response.json();
+                // Fetch accounts and history in parallel
+                const [accountsResp, historyResp] = await Promise.all([
+                    fetch('/admin/api/finance/accounts'),
+                    fetch('/admin/api/finance/history?accountId=' + encodeURIComponent(accountId))
+                ]);
+                const accounts = await accountsResp.json();
+                const history = await historyResp.json();
+
                 const account = accounts.find(a => a.id === accountId);
-                
+
                 if (!account || !account.previousNames || account.previousNames.length === 0) {
-                    showAlert('This account has no merge history', 'error');
+                    alertEl.textContent = 'This account has no merge history.';
+                    alertEl.className = 'alert alert-error';
+                    alertEl.style.display = 'block';
+                    document.getElementById('unmergeRecreatedAccountsLoading').style.display = 'none';
                     return;
                 }
-                
-                // Store account details for unmerge
+
+                // Store account details for the confirm/clear actions
                 window.unmergeAccountData = {
                     id: accountId,
                     name: accountName,
                     previousNames: account.previousNames
                 };
-                
-                // Populate modal
-                document.getElementById('unmergeAccountName').textContent = accountName;
-                document.getElementById('unmergePreviousNames').innerHTML = account.previousNames
-                    .map(name => `<li><strong>${escapeHtml(name)}</strong></li>`)
-                    .join('');
-                
-                // Show modal
-                document.getElementById('unmergeModal').style.display = 'flex';
-                
-                // Hide alert
-                const alert = document.getElementById('unmergeAlert');
-                alert.style.display = 'none';
+
+                // Find the accounts_merged audit entry (most recent one for this account)
+                const mergeAudit = (Array.isArray(history) ? history : [])
+                    .filter(h => h.type === 'accounts_merged')
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+                if (mergeAudit) {
+                    const mergeDate = new Date(mergeAudit.timestamp);
+                    document.getElementById('unmergeMergeDate').textContent =
+                        mergeDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) +
+                        ' at ' + mergeDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    document.getElementById('unmergeMergeDate').textContent = 'Unknown (no audit entry found)';
+                }
+
+                // Build the recreated-accounts table
+                const mergeTimestamp = mergeAudit ? mergeAudit.timestamp : null;
+                const tbody = document.getElementById('unmergeRecreatedAccountsBody');
+                tbody.innerHTML = account.previousNames.map(name => {
+                    // Find the last balance_update for this original account name before the merge
+                    const relevantEntries = (Array.isArray(history) ? history : []).filter(h =>
+                        h.type === 'balance_update' &&
+                        h.originalAccountName === name &&
+                        (!mergeTimestamp || h.timestamp < mergeTimestamp)
+                    ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    const lastEntry = relevantEntries[0];
+                    const balance = lastEntry && lastEntry.newBalance !== undefined
+                        ? parseFloat(lastEntry.newBalance)
+                        : null;
+                    const balanceStr = balance !== null
+                        ? '$' + balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '$0.00';
+                    const sourceStr = lastEntry
+                        ? 'from ' + new Date(lastEntry.timestamp).toLocaleDateString()
+                        : 'no history — will default to $0';
+
+                    return `<tr style="border-bottom:1px solid #dee2e6;">
+                        <td style="padding:8px 10px;">${escapeHtml(name)}</td>
+                        <td style="padding:8px 10px; text-align:right; font-family:monospace;">${balanceStr}</td>
+                        <td style="padding:8px 10px; color:#888; font-size:0.85rem;">${escapeHtml(sourceStr)}</td>
+                    </tr>`;
+                }).join('');
+
+                document.getElementById('unmergeRecreatedAccountsLoading').style.display = 'none';
+                document.getElementById('unmergeRecreatedAccountsTable').style.display = 'table';
+
             } catch (err) {
-                showAlert('Failed to load account details: ' + err.message, 'error');
+                alertEl.textContent = 'Failed to load account details: ' + err.message;
+                alertEl.className = 'alert alert-error';
+                alertEl.style.display = 'block';
+                document.getElementById('unmergeRecreatedAccountsLoading').style.display = 'none';
             }
         }
         
@@ -18714,6 +18791,47 @@
                 alert.textContent = 'Failed to unmerge account: ' + err.message;
                 alert.className = 'alert alert-error';
                 alert.style.display = 'block';
+            }
+        }
+
+        async function performClearMergeLink() {
+            if (!window.unmergeAccountData) {
+                return;
+            }
+
+            const accountId = window.unmergeAccountData.id;
+            const accountName = window.unmergeAccountData.name;
+
+            const alertEl = document.getElementById('unmergeAlert');
+            try {
+                alertEl.textContent = 'Clearing merge link…';
+                alertEl.className = 'alert alert-info';
+                alertEl.style.display = 'block';
+
+                const response = await fetch(`/admin/api/finance/accounts/${accountId}/clear-merge-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeUnmergeModal();
+                    showAlert(
+                        `Merge link cleared for "${accountName}". The account remains as-is; future uploads will no longer auto-merge with it.`,
+                        'success'
+                    );
+                    await loadAccounts();
+                    await updateChart();
+                } else {
+                    alertEl.textContent = 'Error: ' + result.error;
+                    alertEl.className = 'alert alert-error';
+                    alertEl.style.display = 'block';
+                }
+            } catch (err) {
+                alertEl.textContent = 'Failed to clear merge link: ' + err.message;
+                alertEl.className = 'alert alert-error';
+                alertEl.style.display = 'block';
             }
         }
         
