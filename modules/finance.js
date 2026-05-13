@@ -434,6 +434,9 @@ function mergeAccounts(accountIds) {
   // Use the later of updatedAt or createdAt so that freshly-created accounts
   // (which carry a sentinel updatedAt of 1970-01-01) still break ties correctly
   // by their actual creation time rather than always losing to the first entry.
+  // Accounts with neither timestamp (both undefined/null) fall back to epoch (0),
+  // meaning they will never win unless all candidates are equally missing — an
+  // edge case that is acceptable and consistent.
   const survivingAccount = accountsToMerge.reduce((latest, current) => {
     const latestTime = Math.max(
       new Date(latest.updatedAt || 0).getTime(),

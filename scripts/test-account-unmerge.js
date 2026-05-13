@@ -282,7 +282,7 @@ async function runTests() {
 
     console.log('✅ clearMergeLink succeeded:');
     console.log(`   - Account "${clAccountAfter.name}" still exists`);
-    console.log(`   - previousNames cleared (cleared names: ${clearResult.clearedNames.join(', ')})`);
+    console.log(`   - previousNames cleared (cleared names: ${Array.isArray(clearResult.clearedNames) && clearResult.clearedNames.length > 0 ? clearResult.clearedNames.join(', ') : '(none)'})`);
 
     // Clean up
     console.log('\n🧹 Cleaning up test accounts...');

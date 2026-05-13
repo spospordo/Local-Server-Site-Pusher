@@ -150,19 +150,24 @@ async function runTests() {
                     // name must appear in survivingAccount.previousNames.
                     console.log('\n🔍 Step 5: Testing lookup by previous name...');
                     
-                    const mergedAwayName = mergeResult.mergedAccountNames[0];
-                    const allAccountsNow = finance.getAccounts();
-                    const foundByPrevName = allAccountsNow.find(a =>
-                      a.previousNames && a.previousNames.some(n => n === mergedAwayName)
-                    );
-                    
-                    if (!foundByPrevName) {
-                      console.error(`❌ Could not find account with "${mergedAwayName}" in previousNames`);
+                    if (!mergeResult.mergedAccountNames || mergeResult.mergedAccountNames.length === 0) {
+                      console.error('❌ No merged account names returned from merge result');
                       allPassed = false;
                     } else {
-                      console.log(`✅ Successfully found account by previous name`);
-                      console.log(`   Surviving account: ${foundByPrevName.name}`);
-                      console.log(`   Previous name stored: ${mergedAwayName}`);
+                      const mergedAwayName = mergeResult.mergedAccountNames[0];
+                      const allAccountsNow = finance.getAccounts();
+                      const foundByPrevName = allAccountsNow.find(a =>
+                        a.previousNames && a.previousNames.some(n => n === mergedAwayName)
+                      );
+                      
+                      if (!foundByPrevName) {
+                        console.error(`❌ Could not find account with "${mergedAwayName}" in previousNames`);
+                        allPassed = false;
+                      } else {
+                        console.log(`✅ Successfully found account by previous name`);
+                        console.log(`   Surviving account: ${foundByPrevName.name}`);
+                        console.log(`   Previous name stored: ${mergedAwayName}`);
+                      }
                     }
                   }
                 }
