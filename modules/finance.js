@@ -672,6 +672,45 @@ function unmergeAccount(accountId, manualBalances = {}) {
   }
 }
 
+// Clear the merge link from a merged account without recreating sub-accounts
+function clearMergeLink(accountId) {
+  const data = loadFinanceData();
+
+  const account = data.accounts.find(a => a.id === accountId);
+  if (!account) {
+    return { success: false, error: 'Account not found' };
+  }
+
+  if (!account.previousNames || account.previousNames.length === 0) {
+    return { success: false, error: 'This account has no merge link to clear' };
+  }
+
+  const clearedNames = [...account.previousNames];
+  account.previousNames = [];
+  account.updatedAt = new Date().toISOString();
+
+  // Audit log entry so the action is visible in history
+  const auditEntry = {
+    accountId: accountId,
+    accountName: account.displayName || account.name,
+    type: 'merge_link_cleared',
+    timestamp: new Date().toISOString(),
+    clearedNames,
+    note: 'Merge link cleared by admin (no sub-accounts were recreated)'
+  };
+  data.history.push(auditEntry);
+
+  const saveResult = saveFinanceData(data);
+  if (!saveResult.success) {
+    return saveResult;
+  }
+  return {
+    success: true,
+    accountName: account.displayName || account.name,
+    clearedNames
+  };
+}
+
 // Update account balance (with historical tracking)
 /**
  * Update account balance with date handling.
@@ -3604,6 +3643,7 @@ module.exports = {
   deleteAccount,
   mergeAccounts,
   unmergeAccount,
+  clearMergeLink,
   updateAccountBalance,
   updateAccountDisplayName,
   getAccountDisplayName,
