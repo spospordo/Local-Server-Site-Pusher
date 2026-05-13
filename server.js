@@ -5674,6 +5674,45 @@ app.get('/admin/api/finance/accounts', requireAuth, (req, res) => {
   }
 });
 
+// Get merged accounts with merge audit info
+app.get('/admin/api/finance/accounts/merged', requireAuth, (req, res) => {
+  try {
+    const accounts = finance.getAccounts();
+    const history = finance.getHistory();
+
+    const mergedAccounts = accounts.filter(
+      a => Array.isArray(a.previousNames) && a.previousNames.length > 0
+    );
+
+    const result = mergedAccounts.map(account => {
+      // Find the most recent accounts_merged audit entry for this account
+      const mergeEntry = history
+        .filter(h => h.type === 'accounts_merged' && h.survivingAccountId === account.id)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+      const mergeInfo = mergeEntry
+        ? {
+            mergedAt: mergeEntry.timestamp,
+            absorbedAccountNames: mergeEntry.mergedAccountNames || [],
+            absorbedAccountIds: mergeEntry.mergedAccountIds || [],
+            survivingBalance: account.currentValue
+          }
+        : {
+            mergedAt: null,
+            absorbedAccountNames: account.previousNames || [],
+            absorbedAccountIds: [],
+            survivingBalance: account.currentValue
+          };
+
+      return { account, mergeInfo };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get merged accounts: ' + err.message });
+  }
+});
+
 // Create or update account
 app.post('/admin/api/finance/accounts', requireAuth, (req, res) => {
   try {

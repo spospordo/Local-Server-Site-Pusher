@@ -2073,7 +2073,99 @@
             padding: 0.5rem 1rem;
             font-size: 0.85rem;
         }
-        
+
+        /* Merged Accounts Section */
+        .merged-accounts-section {
+            margin-bottom: 2rem;
+        }
+
+        .merged-accounts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.75rem 1rem;
+            background: #f0f8ff;
+            border: 1px solid #b8d9f5;
+            border-radius: 8px;
+            user-select: none;
+        }
+
+        .merged-accounts-header:hover {
+            background: #e2f0fb;
+        }
+
+        .merged-accounts-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+
+        .merged-accounts-body {
+            margin-top: 0.75rem;
+        }
+
+        .merged-account-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-left: 4px solid #17a2b8;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .merged-account-pill {
+            display: inline-block;
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            border-radius: 12px;
+            padding: 0.15rem 0.6rem;
+            font-size: 0.78rem;
+            margin: 0.1rem 0.15rem;
+        }
+
+        .merge-detail-toggle {
+            cursor: pointer;
+            color: #007bff;
+            font-size: 0.85rem;
+            background: none;
+            border: none;
+            padding: 0;
+            margin-top: 0.5rem;
+        }
+
+        .merge-detail-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .merge-detail-panel {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.88rem;
+        }
+
+        .merge-detail-panel dl {
+            margin: 0;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.25rem 1rem;
+        }
+
+        .merge-detail-panel dt {
+            color: #6c757d;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .merge-detail-panel dd {
+            margin: 0;
+            color: #2c3e50;
+        }
+
         .recommendation-card {
             background: #e7f3ff;
             border-left: 4px solid #007bff;
@@ -3248,6 +3340,21 @@
                     
                     <div id="accountsList" class="accounts-list">
                         <p style="color: #666;">No accounts added yet</p>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Merged Accounts Section -->
+                <div class="merged-accounts-section finance-subsection">
+                    <div class="merged-accounts-header" onclick="toggleMergedAccountsPanel()">
+                        <h3 id="mergedAccountsHeading">🔗 Merged Accounts</h3>
+                        <span id="mergedAccountsToggleIcon" style="font-size: 1.2rem; color: #666;">▼</span>
+                    </div>
+                    <div id="mergedAccountsBody" class="merged-accounts-body" style="display: none;">
+                        <div id="mergedAccountsList">
+                            <p style="color: #666; padding: 0.5rem 0;">Loading merged accounts…</p>
+                        </div>
                     </div>
                 </div>
 
@@ -17722,6 +17829,11 @@
             await loadDemographics();
             await loadAccounts();
             await updateChart();
+            // Refresh merged accounts panel if it is currently open
+            const mergedBody = document.getElementById('mergedAccountsBody');
+            if (mergedBody && mergedBody.style.display !== 'none') {
+                await loadMergedAccounts();
+            }
         }
         
         async function loadDemographics() {
@@ -17982,7 +18094,100 @@
                 console.error('Failed to load accounts:', err);
             }
         }
-        
+
+        function toggleMergedAccountsPanel() {
+            const body = document.getElementById('mergedAccountsBody');
+            const icon = document.getElementById('mergedAccountsToggleIcon');
+            const isHidden = body.style.display === 'none';
+            body.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▲' : '▼';
+            if (isHidden) {
+                loadMergedAccounts();
+            }
+        }
+
+        async function loadMergedAccounts() {
+            const container = document.getElementById('mergedAccountsList');
+            if (!container) return;
+
+            try {
+                const response = await fetch('/admin/api/finance/accounts/merged');
+                const mergedItems = await response.json();
+
+                const heading = document.getElementById('mergedAccountsHeading');
+                if (heading) {
+                    heading.textContent = `🔗 Merged Accounts (${mergedItems.length})`;
+                }
+
+                if (!Array.isArray(mergedItems) || mergedItems.length === 0) {
+                    container.innerHTML = '<p style="color: #6c757d; font-size: 0.9rem; padding: 0.5rem 0;">No merged accounts found. When accounts are merged, they will appear here.</p>';
+                    return;
+                }
+
+                container.innerHTML = mergedItems.map(({ account, mergeInfo }) => {
+                    const displayName = account.displayName || account.name;
+                    const balance = parseFloat(account.currentValue || 0)
+                        .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const mergeDate = mergeInfo.mergedAt
+                        ? new Date(mergeInfo.mergedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                        : 'Unknown';
+                    const mergeDateTime = mergeInfo.mergedAt
+                        ? new Date(mergeInfo.mergedAt).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'Unknown';
+                    const absorbedNames = mergeInfo.absorbedAccountNames.length > 0
+                        ? mergeInfo.absorbedAccountNames
+                        : (account.previousNames || []);
+                    const detailId = `mergeDetail_${account.id}`;
+
+                    return `
+                        <div class="merged-account-card">
+                            <div class="account-card-header">
+                                <div class="account-name">${escapeHtml(displayName)}</div>
+                                <div class="account-type-badge">${escapeHtml(account.type || '')}</div>
+                            </div>
+                            <div class="account-value">$${balance}</div>
+                            <div style="margin-top: 0.5rem;">
+                                <span style="color: #0c5460; font-size: 0.85rem; font-weight: 600;">📎 Merged from:</span>
+                                ${absorbedNames.map(n => `<span class="merged-account-pill">${escapeHtml(n)}</span>`).join('')}
+                            </div>
+                            <div style="margin-top: 0.4rem; font-size: 0.85rem; color: #6c757d;">
+                                Merge date: <strong>${escapeHtml(mergeDate)}</strong>
+                            </div>
+                            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <button class="merge-detail-toggle" onclick="toggleMergeDetail('${account.id}')">ℹ️ View Merge Details</button>
+                                <button class="btn" style="background: #ff9800; padding: 0.4rem 0.9rem; font-size: 0.82rem;" onclick="showUnmergeModal('${account.id}', '${escapeHtml(displayName)}')">🔓 Unmerge</button>
+                            </div>
+                            <div id="${detailId}" class="merge-detail-panel" style="display: none;">
+                                <dl>
+                                    <dt>Merged at:</dt>
+                                    <dd>${escapeHtml(mergeDateTime)}</dd>
+                                    <dt>Absorbed accounts:</dt>
+                                    <dd>${absorbedNames.map(n => escapeHtml(n)).join(', ') || '—'}</dd>
+                                    <dt>Balance at merge:</dt>
+                                    <dd>$${parseFloat(mergeInfo.survivingBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                                    <dt>Previous names:</dt>
+                                    <dd>${(account.previousNames || []).map(n => escapeHtml(n)).join(', ') || '—'}</dd>
+                                </dl>
+                                <p style="margin: 0.75rem 0 0 0; color: #6c757d; font-size: 0.82rem; font-style: italic;">All transaction history from merged accounts has been transferred to this account.</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                const container2 = document.getElementById('mergedAccountsList');
+                if (container2) {
+                    container2.innerHTML = `<p style="color: #dc3545;">Failed to load merged accounts: ${escapeHtml(err.message)}</p>`;
+                }
+                console.error('Failed to load merged accounts:', err);
+            }
+        }
+
+        function toggleMergeDetail(accountId) {
+            const panel = document.getElementById(`mergeDetail_${accountId}`);
+            if (!panel) return;
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
         async function saveAccount() {
             try {
                 const accountType = document.getElementById('accountType').value;
@@ -18520,6 +18725,10 @@
                     cancelMergeMode();
                     await loadAccounts();
                     await updateChart();
+                    const mergedBodyPost = document.getElementById('mergedAccountsBody');
+                    if (mergedBodyPost && mergedBodyPost.style.display !== 'none') {
+                        await loadMergedAccounts();
+                    }
                 } else {
                     showAlert('Error merging accounts: ' + result.error, 'error');
                 }
@@ -18781,6 +18990,10 @@
                     );
                     await loadAccounts();
                     await updateChart();
+                    const mergedBody = document.getElementById('mergedAccountsBody');
+                    if (mergedBody && mergedBody.style.display !== 'none') {
+                        await loadMergedAccounts();
+                    }
                 } else {
                     alert.textContent = 'Error: ' + result.error;
                     alert.className = 'alert alert-error';
@@ -18823,6 +19036,10 @@
                     );
                     await loadAccounts();
                     await updateChart();
+                    const mergedBody2 = document.getElementById('mergedAccountsBody');
+                    if (mergedBody2 && mergedBody2.style.display !== 'none') {
+                        await loadMergedAccounts();
+                    }
                 } else {
                     alertEl.textContent = 'Error: ' + result.error;
                     alertEl.className = 'alert alert-error';
