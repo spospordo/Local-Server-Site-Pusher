@@ -5680,15 +5680,23 @@ app.get('/admin/api/finance/accounts/merged', requireAuth, (req, res) => {
     const accounts = finance.getAccounts();
     const history = finance.getHistory();
 
+    // Build a map from survivingAccountId → most recent accounts_merged entry
+    const mergeEntryMap = {};
+    history
+      .filter(h => h.type === 'accounts_merged' && h.survivingAccountId)
+      .forEach(h => {
+        const existing = mergeEntryMap[h.survivingAccountId];
+        if (!existing || new Date(h.timestamp) > new Date(existing.timestamp)) {
+          mergeEntryMap[h.survivingAccountId] = h;
+        }
+      });
+
     const mergedAccounts = accounts.filter(
       a => Array.isArray(a.previousNames) && a.previousNames.length > 0
     );
 
     const result = mergedAccounts.map(account => {
-      // Find the most recent accounts_merged audit entry for this account
-      const mergeEntry = history
-        .filter(h => h.type === 'accounts_merged' && h.survivingAccountId === account.id)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      const mergeEntry = mergeEntryMap[account.id];
 
       const mergeInfo = mergeEntry
         ? {
