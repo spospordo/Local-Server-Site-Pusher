@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.20.1] - 2026-05-13
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #621 from spospordo/copilot/add-merged-accounts-ui
+  - Optimize merged accounts endpoint: build history map in O(n) instead of O(n*m)
+  - Add Merged Accounts UI panel and GET /admin/api/finance/accounts/merged endpoint
+  - Initial plan
+
+
 ## [2.20.0] - 2026-05-13
 
 ### Minor Update
