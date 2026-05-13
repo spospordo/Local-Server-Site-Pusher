@@ -10792,6 +10792,9 @@
             if (e.key === 'Escape' && document.getElementById('editAccountModal').style.display !== 'none') {
                 closeEditAccountModal();
             }
+            if (e.key === 'Escape' && document.getElementById('unmergeModal').style.display !== 'none') {
+                closeUnmergeModal();
+            }
         });
         
         document.getElementById('unmergeModal').addEventListener('click', function(event) {

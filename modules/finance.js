@@ -430,10 +430,19 @@ function mergeAccounts(accountIds) {
     return { success: false, error: 'Some account IDs were not found' };
   }
   
-  // Find the most recently updated account (this becomes the surviving account)
+  // Find the most recently updated account (this becomes the surviving account).
+  // Use the later of updatedAt or createdAt so that freshly-created accounts
+  // (which carry a sentinel updatedAt of 1970-01-01) still break ties correctly
+  // by their actual creation time rather than always losing to the first entry.
   const survivingAccount = accountsToMerge.reduce((latest, current) => {
-    const latestTime = new Date(latest.updatedAt || latest.createdAt || 0);
-    const currentTime = new Date(current.updatedAt || current.createdAt || 0);
+    const latestTime = Math.max(
+      new Date(latest.updatedAt || 0).getTime(),
+      new Date(latest.createdAt || 0).getTime()
+    );
+    const currentTime = Math.max(
+      new Date(current.updatedAt || 0).getTime(),
+      new Date(current.createdAt || 0).getTime()
+    );
     return currentTime > latestTime ? current : latest;
   });
   

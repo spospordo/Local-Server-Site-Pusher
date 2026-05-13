@@ -228,6 +228,62 @@ async function runTests() {
       }
     }
     
+    // Step 7: Test clearMergeLink
+    console.log('\n🔗 Step 7: Testing clearMergeLink...');
+
+    // Create two more accounts for clearMergeLink test
+    const clAcct1 = finance.saveAccount({
+      name: 'Test Unmerge CL Source',
+      type: 'savings',
+      currentValue: 3000,
+      notes: 'clearMergeLink test source'
+    });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const clAcct2 = finance.saveAccount({
+      name: 'Test Unmerge CL Merged',
+      type: 'savings',
+      currentValue: 3500,
+      notes: 'clearMergeLink test merged'
+    });
+
+    if (!clAcct1.success || !clAcct2.success) {
+      console.error('❌ Failed to create clearMergeLink test accounts');
+      return;
+    }
+
+    const clAccounts = finance.getAccounts().filter(a => a.name.startsWith('Test Unmerge CL'));
+    const clMergeIds = clAccounts.map(a => a.id);
+    const clMergeResult = finance.mergeAccounts(clMergeIds);
+
+    if (!clMergeResult.success) {
+      console.error('❌ clearMergeLink test merge failed:', clMergeResult.error);
+      return;
+    }
+
+    const clSurvivingId = clMergeResult.survivingAccount.id;
+    console.log(`   Merged into: ${clMergeResult.survivingAccount.name}`);
+    console.log(`   Previous names before clear: ${clMergeResult.previousNames.join(', ')}`);
+
+    const clearResult = finance.clearMergeLink(clSurvivingId);
+    if (!clearResult.success) {
+      console.error('❌ clearMergeLink failed:', clearResult.error);
+      return;
+    }
+
+    const clAccountAfter = finance.getAccounts().find(a => a.id === clSurvivingId);
+    if (!clAccountAfter) {
+      console.error('❌ Account disappeared after clearMergeLink');
+      return;
+    }
+    if (clAccountAfter.previousNames && clAccountAfter.previousNames.length > 0) {
+      console.error('❌ previousNames not cleared by clearMergeLink');
+      return;
+    }
+
+    console.log('✅ clearMergeLink succeeded:');
+    console.log(`   - Account "${clAccountAfter.name}" still exists`);
+    console.log(`   - previousNames cleared (cleared names: ${clearResult.clearedNames.join(', ')})`);
+
     // Clean up
     console.log('\n🧹 Cleaning up test accounts...');
     
