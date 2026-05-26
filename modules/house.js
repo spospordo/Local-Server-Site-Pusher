@@ -1,12 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 let config = null;
-let idCounter = 0;
 
 function generateId() {
-  idCounter += 1;
-  return `${Date.now()}-${idCounter}`;
+  return randomUUID();
 }
 
 // Initialize the house module with config
