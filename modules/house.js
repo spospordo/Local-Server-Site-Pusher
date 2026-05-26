@@ -597,7 +597,7 @@ function updateOdometerReading(carId, readingId, reading) {
     return { success: false, error: 'Odometer reading not found' };
   }
 
-  const updatedReading = { ...car.odometerReadings[index], ...reading, id: readingId };
+  const updatedReading = { ...car.odometerReadings[index], id: readingId };
   if ('date' in reading) {
     const date = normalizeOdometerReadingDate(reading.date);
     if (date.error) {
