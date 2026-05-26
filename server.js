@@ -9935,6 +9935,48 @@ app.delete('/admin/api/house/cars/:carId/maintenance/:recordId', requireAuth, (r
   }
 });
 
+// Add an odometer reading
+app.post('/admin/api/house/cars/:carId/odometer', requireAuth, (req, res) => {
+  try {
+    const result = house.addOdometerReading(req.params.carId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Odometer reading added successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add odometer reading: ' + err.message });
+  }
+});
+
+// Update an odometer reading
+app.put('/admin/api/house/cars/:carId/odometer/:readingId', requireAuth, (req, res) => {
+  try {
+    const result = house.updateOdometerReading(req.params.carId, req.params.readingId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Odometer reading updated successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update odometer reading: ' + err.message });
+  }
+});
+
+// Delete an odometer reading
+app.delete('/admin/api/house/cars/:carId/odometer/:readingId', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteOdometerReading(req.params.carId, req.params.readingId);
+    if (result.success) {
+      res.json({ success: true, message: 'Odometer reading deleted successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete odometer reading: ' + err.message });
+  }
+});
+
 // =============================================================================
 // House Lists API
 // =============================================================================

@@ -41,6 +41,8 @@ function testHouseCarsModule() {
     assert.strictEqual(carsData.vehicles.length, 1, 'car should be added');
     const carId = carsData.vehicles[0].id;
     assert.deepStrictEqual(carsData.vehicles[0].maintenance, [], 'new cars should default to empty maintenance');
+    assert.deepStrictEqual(carsData.vehicles[0].odometerReadings, [], 'new cars should default to empty odometer readings');
+    assert.strictEqual(carsData.vehicles[0].oilChangeIntervalMiles, 5000, 'new cars should default oil change interval to 5000');
     log('✅ addCar stores a vehicle with default maintenance');
 
     result = house.updateCar(carId, { odometer: '42500', model: 'Camry Hybrid' });
@@ -95,6 +97,42 @@ function testHouseCarsModule() {
     assert.strictEqual(carsData.vehicles[0].maintenance.length, 0, 'maintenance record should be removed');
     log('✅ deleteMaintenanceRecord removes maintenance entries');
 
+    result = house.addOdometerReading(carId, {
+      date: '2026-05-10',
+      mileage: '43000',
+      notes: 'Week 1'
+    });
+    assert.strictEqual(result.success, true, 'addOdometerReading should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].odometerReadings.length, 1, 'odometer reading should be added');
+    const readingId = carsData.vehicles[0].odometerReadings[0].id;
+    assert.strictEqual(carsData.vehicles[0].odometerReadings[0].mileage, 43000, 'odometer mileage should be stored as a number');
+    log('✅ addOdometerReading stores dated readings');
+
+    result = house.updateOdometerReading(carId, readingId, {
+      mileage: '43100',
+      notes: 'Updated'
+    });
+    assert.strictEqual(result.success, true, 'updateOdometerReading should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].odometerReadings[0].mileage, 43100, 'odometer mileage should update');
+    assert.strictEqual(carsData.vehicles[0].odometerReadings[0].notes, 'Updated', 'odometer notes should update');
+    log('✅ updateOdometerReading updates readings');
+
+    result = house.addOdometerReading(carId, {
+      date: '',
+      mileage: '-1'
+    });
+    assert.strictEqual(result.success, false, 'addOdometerReading should reject invalid values');
+    assert.strictEqual(result.error, 'Date is required', 'odometer validation should require date first');
+    log('✅ addOdometerReading validates required fields');
+
+    result = house.deleteOdometerReading(carId, readingId);
+    assert.strictEqual(result.success, true, 'deleteOdometerReading should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].odometerReadings.length, 0, 'odometer reading should be removed');
+    log('✅ deleteOdometerReading removes readings');
+
     result = house.deleteCar(carId);
     assert.strictEqual(result.success, true, 'deleteCar should succeed');
     carsData = house.getCarsData();
@@ -113,7 +151,9 @@ function testStaticIntegration() {
     "/admin/api/house/cars",
     "/admin/api/house/cars/:id",
     "/admin/api/house/cars/:carId/maintenance",
-    "/admin/api/house/cars/:carId/maintenance/:recordId"
+    "/admin/api/house/cars/:carId/maintenance/:recordId",
+    "/admin/api/house/cars/:carId/odometer",
+    "/admin/api/house/cars/:carId/odometer/:readingId"
   ].forEach(route => {
     assert(serverContent.includes(route), `server.js should include route ${route}`);
   });
@@ -129,7 +169,13 @@ function testStaticIntegration() {
     'function deleteCar(id)',
     'function addMaintenanceRecord(carId)',
     'function editMaintenanceRecord(carId, recordId)',
-    'function deleteMaintenanceRecord(carId, recordId)'
+    'function deleteMaintenanceRecord(carId, recordId)',
+    'function loadCarOdometerReadings(carId)',
+    'function addOdometerReading(carId)',
+    'function editOdometerReading(carId, readingId)',
+    'function deleteOdometerReading(carId, readingId)',
+    'function computeMileageAnalysis(readings, maintenanceRecords, oilChangeIntervalMiles)',
+    'function renderMileageAnalysis(carId, analysis)'
   ].forEach(snippet => {
     assert(dashboardContent.includes(snippet), `dashboard.html should include ${snippet}`);
   });
