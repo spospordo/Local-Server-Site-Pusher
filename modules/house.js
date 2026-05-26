@@ -2,6 +2,12 @@ const fs = require('fs');
 const path = require('path');
 
 let config = null;
+let idCounter = 0;
+
+function generateId() {
+  idCounter += 1;
+  return `${Date.now()}-${idCounter}`;
+}
 
 // Initialize the house module with config
 function init(serverConfig) {
@@ -314,7 +320,7 @@ function saveCarsData(carsData) {
 function addCar(car) {
   const cars = getCarsData();
   cars.vehicles.push({
-    id: Date.now().toString(),
+    id: generateId(),
     make: car.make,
     model: car.model,
     year: car.year,
@@ -358,7 +364,7 @@ function addMaintenanceRecord(carId, record) {
   }
 
   car.maintenance.push({
-    id: Date.now().toString(),
+    id: generateId(),
     date: record.date,
     description: record.description,
     mileage: record.mileage || "",
