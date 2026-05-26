@@ -1,7 +1,12 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 let config = null;
+
+function generateId() {
+  return randomUUID();
+}
 
 // Initialize the house module with config
 function init(serverConfig) {
@@ -33,6 +38,9 @@ function getDefaultHouseData() {
     mediaCenter: {
       devices: [],
       connections: []
+    },
+    cars: {
+      vehicles: []
     },
     lists: {
       categories: [],
@@ -294,6 +302,188 @@ function saveMediaCenterData(mediaCenterData) {
   return saveHouseData(data);
 }
 
+function normalizeOptionalCarsValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return "";
+  }
+  return String(value).trim();
+}
+
+function normalizeRequiredCarsValue(value, fieldName) {
+  const normalized = normalizeOptionalCarsValue(value);
+  if (!normalized) {
+    return { error: `${fieldName} is required` };
+  }
+  return { value: normalized };
+}
+
+// Get cars data
+function getCarsData() {
+  const data = loadHouseData();
+  return data.cars || getDefaultHouseData().cars;
+}
+
+// Save cars data
+function saveCarsData(carsData) {
+  const data = loadHouseData();
+  data.cars = carsData;
+  return saveHouseData(data);
+}
+
+// Add a car
+function addCar(car) {
+  const make = normalizeRequiredCarsValue(car.make, 'Make');
+  const model = normalizeRequiredCarsValue(car.model, 'Model');
+  const year = normalizeRequiredCarsValue(car.year, 'Year');
+  if (make.error || model.error || year.error) {
+    return { success: false, error: make.error || model.error || year.error };
+  }
+
+  const cars = getCarsData();
+  cars.vehicles.push({
+    id: generateId(),
+    make: make.value,
+    model: model.value,
+    year: year.value,
+    odometer: normalizeOptionalCarsValue(car.odometer),
+    maintenance: Array.isArray(car.maintenance) ? car.maintenance : []
+  });
+  return saveCarsData(cars);
+}
+
+// Update a car
+function updateCar(id, car) {
+  const cars = getCarsData();
+  const index = cars.vehicles.findIndex(vehicle => vehicle.id === id);
+  if (index !== -1) {
+    const updatedCar = { ...cars.vehicles[index], ...car, id };
+    if ('make' in car) {
+      const make = normalizeRequiredCarsValue(car.make, 'Make');
+      if (make.error) {
+        return { success: false, error: make.error };
+      }
+      updatedCar.make = make.value;
+    }
+    if ('model' in car) {
+      const model = normalizeRequiredCarsValue(car.model, 'Model');
+      if (model.error) {
+        return { success: false, error: model.error };
+      }
+      updatedCar.model = model.value;
+    }
+    if ('year' in car) {
+      const year = normalizeRequiredCarsValue(car.year, 'Year');
+      if (year.error) {
+        return { success: false, error: year.error };
+      }
+      updatedCar.year = year.value;
+    }
+    if ('odometer' in car) {
+      updatedCar.odometer = normalizeOptionalCarsValue(car.odometer);
+    }
+    cars.vehicles[index] = updatedCar;
+    if (!Array.isArray(cars.vehicles[index].maintenance)) {
+      cars.vehicles[index].maintenance = [];
+    }
+    return saveCarsData(cars);
+  }
+  return { success: false, error: 'Car not found' };
+}
+
+// Delete a car
+function deleteCar(id) {
+  const cars = getCarsData();
+  cars.vehicles = cars.vehicles.filter(vehicle => vehicle.id !== id);
+  return saveCarsData(cars);
+}
+
+// Add a maintenance record
+function addMaintenanceRecord(carId, record) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  const date = normalizeRequiredCarsValue(record.date, 'Date');
+  const description = normalizeRequiredCarsValue(record.description, 'Description');
+  if (date.error || description.error) {
+    return { success: false, error: date.error || description.error };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  car.maintenance.push({
+    id: generateId(),
+    date: date.value,
+    description: description.value,
+    mileage: normalizeOptionalCarsValue(record.mileage),
+    notes: normalizeOptionalCarsValue(record.notes)
+  });
+
+  return saveCarsData(cars);
+}
+
+// Update a maintenance record
+function updateMaintenanceRecord(carId, recordId, record) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  const index = car.maintenance.findIndex(item => item.id === recordId);
+  if (index !== -1) {
+    const updatedRecord = { ...car.maintenance[index], ...record, id: recordId };
+    if ('date' in record) {
+      const date = normalizeRequiredCarsValue(record.date, 'Date');
+      if (date.error) {
+        return { success: false, error: date.error };
+      }
+      updatedRecord.date = date.value;
+    }
+    if ('description' in record) {
+      const description = normalizeRequiredCarsValue(record.description, 'Description');
+      if (description.error) {
+        return { success: false, error: description.error };
+      }
+      updatedRecord.description = description.value;
+    }
+    if ('mileage' in record) {
+      updatedRecord.mileage = normalizeOptionalCarsValue(record.mileage);
+    }
+    if ('notes' in record) {
+      updatedRecord.notes = normalizeOptionalCarsValue(record.notes);
+    }
+    car.maintenance[index] = updatedRecord;
+    return saveCarsData(cars);
+  }
+
+  return { success: false, error: 'Maintenance record not found' };
+}
+
+// Delete a maintenance record
+function deleteMaintenanceRecord(carId, recordId) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  car.maintenance = car.maintenance.filter(item => item.id !== recordId);
+  return saveCarsData(cars);
+}
+
 // Add a device
 function addDevice(device) {
   const mediaCenter = getMediaCenterData();
@@ -504,6 +694,14 @@ module.exports = {
   deleteInstruction,
   getMediaCenterData,
   saveMediaCenterData,
+  getCarsData,
+  saveCarsData,
+  addCar,
+  updateCar,
+  deleteCar,
+  addMaintenanceRecord,
+  updateMaintenanceRecord,
+  deleteMaintenanceRecord,
   addDevice,
   updateDevice,
   deleteDevice,
