@@ -50,6 +50,15 @@ function testHouseCarsModule() {
     assert.strictEqual(carsData.vehicles[0].odometer, '42500', 'updateCar should update odometer');
     log('✅ updateCar updates existing vehicles');
 
+    result = house.addCar({
+      make: '',
+      model: 'Missing Make',
+      year: '2024'
+    });
+    assert.strictEqual(result.success, false, 'addCar should reject missing required fields');
+    assert.strictEqual(result.error, 'Make is required', 'addCar should report validation errors');
+    log('✅ addCar validates required fields');
+
     result = house.addMaintenanceRecord(carId, {
       date: '2026-05-01',
       description: 'Oil Change',
@@ -71,6 +80,14 @@ function testHouseCarsModule() {
     assert.strictEqual(carsData.vehicles[0].maintenance[0].description, 'Full Service', 'maintenance description should update');
     assert.strictEqual(carsData.vehicles[0].maintenance[0].notes, 'Oil and filters', 'maintenance notes should update');
     log('✅ updateMaintenanceRecord updates maintenance entries');
+
+    result = house.addMaintenanceRecord(carId, {
+      date: '',
+      description: ''
+    });
+    assert.strictEqual(result.success, false, 'addMaintenanceRecord should reject missing required fields');
+    assert.strictEqual(result.error, 'Date is required', 'maintenance validation should require a date first');
+    log('✅ addMaintenanceRecord validates required fields');
 
     result = house.deleteMaintenanceRecord(carId, recordId);
     assert.strictEqual(result.success, true, 'deleteMaintenanceRecord should succeed');

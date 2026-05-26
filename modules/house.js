@@ -302,6 +302,21 @@ function saveMediaCenterData(mediaCenterData) {
   return saveHouseData(data);
 }
 
+function normalizeOptionalCarsValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return "";
+  }
+  return String(value).trim();
+}
+
+function normalizeRequiredCarsValue(value, fieldName) {
+  const normalized = normalizeOptionalCarsValue(value);
+  if (!normalized) {
+    return { error: `${fieldName} is required` };
+  }
+  return { value: normalized };
+}
+
 // Get cars data
 function getCarsData() {
   const data = loadHouseData();
@@ -317,13 +332,20 @@ function saveCarsData(carsData) {
 
 // Add a car
 function addCar(car) {
+  const make = normalizeRequiredCarsValue(car.make, 'Make');
+  const model = normalizeRequiredCarsValue(car.model, 'Model');
+  const year = normalizeRequiredCarsValue(car.year, 'Year');
+  if (make.error || model.error || year.error) {
+    return { success: false, error: make.error || model.error || year.error };
+  }
+
   const cars = getCarsData();
   cars.vehicles.push({
     id: generateId(),
-    make: car.make,
-    model: car.model,
-    year: car.year,
-    odometer: car.odometer || "",
+    make: make.value,
+    model: model.value,
+    year: year.value,
+    odometer: normalizeOptionalCarsValue(car.odometer),
     maintenance: Array.isArray(car.maintenance) ? car.maintenance : []
   });
   return saveCarsData(cars);
@@ -334,7 +356,32 @@ function updateCar(id, car) {
   const cars = getCarsData();
   const index = cars.vehicles.findIndex(vehicle => vehicle.id === id);
   if (index !== -1) {
-    cars.vehicles[index] = { ...cars.vehicles[index], ...car, id };
+    const updatedCar = { ...cars.vehicles[index], ...car, id };
+    if ('make' in car) {
+      const make = normalizeRequiredCarsValue(car.make, 'Make');
+      if (make.error) {
+        return { success: false, error: make.error };
+      }
+      updatedCar.make = make.value;
+    }
+    if ('model' in car) {
+      const model = normalizeRequiredCarsValue(car.model, 'Model');
+      if (model.error) {
+        return { success: false, error: model.error };
+      }
+      updatedCar.model = model.value;
+    }
+    if ('year' in car) {
+      const year = normalizeRequiredCarsValue(car.year, 'Year');
+      if (year.error) {
+        return { success: false, error: year.error };
+      }
+      updatedCar.year = year.value;
+    }
+    if ('odometer' in car) {
+      updatedCar.odometer = normalizeOptionalCarsValue(car.odometer);
+    }
+    cars.vehicles[index] = updatedCar;
     if (!Array.isArray(cars.vehicles[index].maintenance)) {
       cars.vehicles[index].maintenance = [];
     }
@@ -358,16 +405,22 @@ function addMaintenanceRecord(carId, record) {
     return { success: false, error: 'Car not found' };
   }
 
+  const date = normalizeRequiredCarsValue(record.date, 'Date');
+  const description = normalizeRequiredCarsValue(record.description, 'Description');
+  if (date.error || description.error) {
+    return { success: false, error: date.error || description.error };
+  }
+
   if (!Array.isArray(car.maintenance)) {
     car.maintenance = [];
   }
 
   car.maintenance.push({
     id: generateId(),
-    date: record.date,
-    description: record.description,
-    mileage: record.mileage || "",
-    notes: record.notes || ""
+    date: date.value,
+    description: description.value,
+    mileage: normalizeOptionalCarsValue(record.mileage),
+    notes: normalizeOptionalCarsValue(record.notes)
   });
 
   return saveCarsData(cars);
@@ -387,7 +440,28 @@ function updateMaintenanceRecord(carId, recordId, record) {
 
   const index = car.maintenance.findIndex(item => item.id === recordId);
   if (index !== -1) {
-    car.maintenance[index] = { ...car.maintenance[index], ...record, id: recordId };
+    const updatedRecord = { ...car.maintenance[index], ...record, id: recordId };
+    if ('date' in record) {
+      const date = normalizeRequiredCarsValue(record.date, 'Date');
+      if (date.error) {
+        return { success: false, error: date.error };
+      }
+      updatedRecord.date = date.value;
+    }
+    if ('description' in record) {
+      const description = normalizeRequiredCarsValue(record.description, 'Description');
+      if (description.error) {
+        return { success: false, error: description.error };
+      }
+      updatedRecord.description = description.value;
+    }
+    if ('mileage' in record) {
+      updatedRecord.mileage = normalizeOptionalCarsValue(record.mileage);
+    }
+    if ('notes' in record) {
+      updatedRecord.notes = normalizeOptionalCarsValue(record.notes);
+    }
+    car.maintenance[index] = updatedRecord;
     return saveCarsData(cars);
   }
 

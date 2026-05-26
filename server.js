@@ -9825,6 +9825,22 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
   }
 });
 
+function getHouseCarsErrorStatus(error) {
+  if (!error) {
+    return 500;
+  }
+
+  if (error.toLowerCase().includes('not found')) {
+    return 404;
+  }
+
+  if (error.toLowerCase().includes('required')) {
+    return 400;
+  }
+
+  return 500;
+}
+
 // Get cars data
 app.get('/admin/api/house/cars', requireAuth, (req, res) => {
   try {
@@ -9842,7 +9858,7 @@ app.post('/admin/api/house/cars', requireAuth, (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'Car added successfully' });
     } else {
-      res.status(500).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to add car: ' + err.message });
@@ -9856,7 +9872,7 @@ app.put('/admin/api/house/cars/:id', requireAuth, (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'Car updated successfully' });
     } else {
-      res.status(404).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update car: ' + err.message });
@@ -9870,7 +9886,7 @@ app.delete('/admin/api/house/cars/:id', requireAuth, (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'Car deleted successfully' });
     } else {
-      res.status(500).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete car: ' + err.message });
@@ -9884,7 +9900,7 @@ app.post('/admin/api/house/cars/:carId/maintenance', requireAuth, (req, res) => 
     if (result.success) {
       res.json({ success: true, message: 'Maintenance record added successfully' });
     } else {
-      res.status(404).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to add maintenance record: ' + err.message });
@@ -9898,7 +9914,7 @@ app.put('/admin/api/house/cars/:carId/maintenance/:recordId', requireAuth, (req,
     if (result.success) {
       res.json({ success: true, message: 'Maintenance record updated successfully' });
     } else {
-      res.status(404).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update maintenance record: ' + err.message });
@@ -9912,7 +9928,7 @@ app.delete('/admin/api/house/cars/:carId/maintenance/:recordId', requireAuth, (r
     if (result.success) {
       res.json({ success: true, message: 'Maintenance record deleted successfully' });
     } else {
-      res.status(404).json({ error: result.error });
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete maintenance record: ' + err.message });
