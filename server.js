@@ -9825,6 +9825,100 @@ app.delete('/admin/api/house/mediacenter/connections/:id', requireAuth, (req, re
   }
 });
 
+// Get cars data
+app.get('/admin/api/house/cars', requireAuth, (req, res) => {
+  try {
+    const carsData = house.getCarsData();
+    res.json(carsData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get cars data: ' + err.message });
+  }
+});
+
+// Add a car
+app.post('/admin/api/house/cars', requireAuth, (req, res) => {
+  try {
+    const result = house.addCar(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Car added successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add car: ' + err.message });
+  }
+});
+
+// Update a car
+app.put('/admin/api/house/cars/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateCar(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Car updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update car: ' + err.message });
+  }
+});
+
+// Delete a car
+app.delete('/admin/api/house/cars/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteCar(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Car deleted successfully' });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete car: ' + err.message });
+  }
+});
+
+// Add a maintenance record
+app.post('/admin/api/house/cars/:carId/maintenance', requireAuth, (req, res) => {
+  try {
+    const result = house.addMaintenanceRecord(req.params.carId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Maintenance record added successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add maintenance record: ' + err.message });
+  }
+});
+
+// Update a maintenance record
+app.put('/admin/api/house/cars/:carId/maintenance/:recordId', requireAuth, (req, res) => {
+  try {
+    const result = house.updateMaintenanceRecord(req.params.carId, req.params.recordId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Maintenance record updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update maintenance record: ' + err.message });
+  }
+});
+
+// Delete a maintenance record
+app.delete('/admin/api/house/cars/:carId/maintenance/:recordId', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteMaintenanceRecord(req.params.carId, req.params.recordId);
+    if (result.success) {
+      res.json({ success: true, message: 'Maintenance record deleted successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete maintenance record: ' + err.message });
+  }
+});
+
 // =============================================================================
 // House Lists API
 // =============================================================================

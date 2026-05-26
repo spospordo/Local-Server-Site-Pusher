@@ -2609,6 +2609,7 @@
                 <button class="sub-tab active" onclick="showSubTab('house-vacation')">Vacation</button>
                 <button class="sub-tab" onclick="showSubTab('house-documentation')">Documentation</button>
                 <button class="sub-tab" onclick="showSubTab('house-mediacenter')">Media Center</button>
+                <button class="sub-tab" onclick="showSubTab('house-cars')">🚗 Cars</button>
                 <button class="sub-tab" onclick="showSubTab('house-lists')">Lists</button>
             </div>
             
@@ -4285,6 +4286,55 @@
                 <button class="btn" onclick="showAddListModal()">➕ Create New List</button>
 
                 <div id="listsAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Cars Section -->
+        <div class="card admin-section house-section house-cars-section hidden">
+            <div class="card-header">
+                <h2>🚗 Cars</h2>
+            </div>
+            <div class="card-body">
+                <p>Track your vehicles, current odometer readings, and maintenance history in one place.</p>
+
+                <button class="btn" onclick="showAddCarForm()">➕ Add Car</button>
+
+                <div id="carEditorContainer" style="display: none; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                    <h3 id="carFormTitle" style="margin-top: 0;">Add Car</h3>
+                    <form id="carForm" onsubmit="saveCarForm(event)">
+                        <input type="hidden" id="carId">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="carMake">Make</label>
+                                <input type="text" id="carMake" placeholder="e.g., Toyota" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="carModel">Model</label>
+                                <input type="text" id="carModel" placeholder="e.g., Camry" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="carYear">Year</label>
+                                <input type="number" id="carYear" placeholder="e.g., 2021" min="1886" step="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="carOdometer">Odometer</label>
+                                <input type="number" id="carOdometer" placeholder="e.g., 42000" min="0" step="1">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="submit" class="btn btn-success">💾 Save Car</button>
+                            <button type="button" class="btn btn-secondary" onclick="hideCarForm()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="carsList" style="margin-top: 1rem;">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading cars...</div>
+                </div>
+
+                <div id="carsAlert" class="alert"></div>
             </div>
         </div>
 
@@ -12435,6 +12485,7 @@
                 if (subTabName === 'house-vacation') targetTabText = 'Vacation';
                 else if (subTabName === 'house-documentation') targetTabText = 'Documentation';
                 else if (subTabName === 'house-mediacenter') targetTabText = 'Media Center';
+                else if (subTabName === 'house-cars') targetTabText = '🚗 Cars';
                 else if (subTabName === 'house-lists') targetTabText = 'Lists';
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
@@ -12495,6 +12546,13 @@
                 
                 if (shouldLoadData) {
                     loadMediaCenterData();
+                }
+            } else if (subTabName === 'house-cars') {
+                const carsSections = document.querySelectorAll('.house-cars-section');
+                carsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadCars();
                 }
             } else if (subTabName === 'house-lists') {
                 const listsSections = document.querySelectorAll('.house-lists-section');
@@ -23298,6 +23356,7 @@
         
         let currentVacationData = null;
         let currentDocumentationData = null;
+        let currentCarsData = { vehicles: [] };
         let currentHouseLists = [];
         
         // Load vacation data
@@ -24810,6 +24869,391 @@
                 }
             } catch (err) {
                 alert('Failed to delete instruction: ' + err.message);
+            }
+        }
+
+        // Cars functions
+        async function loadCars() {
+            try {
+                const response = await fetch('/admin/api/house/cars');
+                currentCarsData = await response.json();
+                if (!Array.isArray(currentCarsData?.vehicles)) {
+                    currentCarsData = { vehicles: [] };
+                }
+                renderCars();
+            } catch (err) {
+                console.error('Failed to load cars data:', err);
+                showAlert('Failed to load cars data', 'error', 'carsAlert');
+            }
+        }
+
+        function showAddCarForm() {
+            document.getElementById('carFormTitle').textContent = 'Add Car';
+            document.getElementById('carId').value = '';
+            document.getElementById('carMake').value = '';
+            document.getElementById('carModel').value = '';
+            document.getElementById('carYear').value = '';
+            document.getElementById('carOdometer').value = '';
+            document.getElementById('carEditorContainer').style.display = 'block';
+            document.getElementById('carMake').focus();
+        }
+
+        function openEditCarForm(id) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === id);
+            if (!car) return;
+
+            document.getElementById('carFormTitle').textContent = 'Edit Car';
+            document.getElementById('carId').value = car.id;
+            document.getElementById('carMake').value = car.make || '';
+            document.getElementById('carModel').value = car.model || '';
+            document.getElementById('carYear').value = car.year ?? '';
+            document.getElementById('carOdometer').value = car.odometer ?? '';
+            document.getElementById('carEditorContainer').style.display = 'block';
+            document.getElementById('carMake').focus();
+        }
+
+        function hideCarForm() {
+            document.getElementById('carEditorContainer').style.display = 'none';
+            document.getElementById('carForm').reset();
+            document.getElementById('carId').value = '';
+        }
+
+        function getCarFormData() {
+            return {
+                make: document.getElementById('carMake').value.trim(),
+                model: document.getElementById('carModel').value.trim(),
+                year: document.getElementById('carYear').value.trim(),
+                odometer: document.getElementById('carOdometer').value.trim(),
+                maintenance: undefined
+            };
+        }
+
+        async function saveCarForm(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('carId').value;
+            if (id) {
+                await editCar(id);
+            } else {
+                await addCar();
+            }
+        }
+
+        async function addCar() {
+            const carData = getCarFormData();
+            if (!carData.make || !carData.model || !carData.year) {
+                showAlert('Make, model, and year are required', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/api/house/cars', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(carData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    hideCarForm();
+                    await loadCars();
+                    showAlert('✅ Car added successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to add car: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to add car: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function editCar(id) {
+            const carData = getCarFormData();
+            if (!carData.make || !carData.model || !carData.year) {
+                showAlert('Make, model, and year are required', 'error', 'carsAlert');
+                return;
+            }
+
+            delete carData.maintenance;
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(carData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    hideCarForm();
+                    await loadCars();
+                    showAlert('✅ Car updated successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to update car: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to update car: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function deleteCar(id) {
+            if (!confirm('Are you sure you want to delete this car?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    showAlert('✅ Car deleted successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to delete car: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to delete car: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        function renderCars() {
+            const container = document.getElementById('carsList');
+            const vehicles = currentCarsData?.vehicles || [];
+
+            if (vehicles.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No cars added yet.</div>';
+                return;
+            }
+
+            container.innerHTML = vehicles.map(car => {
+                const maintenanceRecords = [...(car.maintenance || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                const odometerValue = car.odometer !== undefined && car.odometer !== null && car.odometer !== ''
+                    ? escapeHtml(String(car.odometer))
+                    : '—';
+
+                return `
+                    <div style="background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #607D8B; overflow: hidden;">
+                        <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <strong style="font-size: 1.05rem;">${escapeHtml(car.make || '')} ${escapeHtml(car.model || '')}</strong>
+                                <div style="color: #666; margin-top: 0.25rem;">
+                                    <span>Year: ${escapeHtml(String(car.year || ''))}</span>
+                                    <span style="margin-left: 1rem;">Odometer: ${odometerValue}</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                <button class="btn" style="padding: 0.4rem 0.75rem;" onclick="openEditCarForm('${car.id}')">✏️ Edit</button>
+                                <button class="btn btn-danger" style="padding: 0.4rem 0.75rem;" onclick="deleteCar('${car.id}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                        <details id="car-maintenance-${car.id}" style="border-top: 1px solid #e2e8f0;">
+                            <summary style="cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; color: #4a5568;">🛠️ Maintenance (${maintenanceRecords.length})</summary>
+                            <div style="padding: 0 1rem 1rem;">
+                                <div id="maintenance-form-container-${car.id}" style="display: none; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                                    <h4 id="maintenance-form-title-${car.id}" style="margin-top: 0;">Add Maintenance Record</h4>
+                                    <form onsubmit="saveMaintenanceForm(event, '${car.id}')">
+                                        <input type="hidden" id="maintenance-record-id-${car.id}">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="maintenance-date-${car.id}">Date</label>
+                                                <input type="date" id="maintenance-date-${car.id}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="maintenance-mileage-${car.id}">Mileage</label>
+                                                <input type="number" id="maintenance-mileage-${car.id}" min="0" step="1" placeholder="e.g., 42000">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="maintenance-description-${car.id}">Description / Type</label>
+                                            <input type="text" id="maintenance-description-${car.id}" placeholder="e.g., Oil change" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="maintenance-notes-${car.id}">Notes</label>
+                                            <textarea id="maintenance-notes-${car.id}" rows="3" placeholder="Optional notes"></textarea>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                            <button type="submit" class="btn btn-success">💾 Save Record</button>
+                                            <button type="button" class="btn btn-secondary" onclick="hideMaintenanceForm('${car.id}')">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                ${maintenanceRecords.length === 0 ? '<div style="color: #888; padding: 0.25rem 0 0.75rem;">No maintenance records yet.</div>' : maintenanceRecords.map(record => `
+                                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.85rem; margin-bottom: 0.65rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                                            <div style="flex: 1;">
+                                                <strong>${escapeHtml(record.description || '')}</strong>
+                                                <div style="color: #666; margin-top: 0.25rem;">
+                                                    <span>Date: ${escapeHtml(record.date || '')}</span>
+                                                    <span style="margin-left: 1rem;">Mileage: ${record.mileage !== undefined && record.mileage !== null && record.mileage !== '' ? escapeHtml(String(record.mileage)) : '—'}</span>
+                                                </div>
+                                                ${record.notes ? `<div style="color: #666; margin-top: 0.35rem;">${escapeHtml(record.notes)}</div>` : ''}
+                                            </div>
+                                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                                <button class="btn" style="padding: 0.35rem 0.6rem;" onclick="showEditMaintenanceForm('${car.id}', '${record.id}')">✏️ Edit</button>
+                                                <button class="btn btn-danger" style="padding: 0.35rem 0.6rem;" onclick="deleteMaintenanceRecord('${car.id}', '${record.id}')">🗑️ Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                <button class="btn btn-secondary" onclick="showAddMaintenanceForm('${car.id}')">➕ Add Maintenance Record</button>
+                            </div>
+                        </details>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getMaintenanceRecordFormData(carId) {
+            return {
+                date: document.getElementById(`maintenance-date-${carId}`).value,
+                description: document.getElementById(`maintenance-description-${carId}`).value.trim(),
+                mileage: document.getElementById(`maintenance-mileage-${carId}`).value.trim(),
+                notes: document.getElementById(`maintenance-notes-${carId}`).value.trim()
+            };
+        }
+
+        function showAddMaintenanceForm(carId) {
+            const details = document.getElementById(`car-maintenance-${carId}`);
+            const container = document.getElementById(`maintenance-form-container-${carId}`);
+            if (details) details.open = true;
+            if (!container) return;
+
+            document.getElementById(`maintenance-form-title-${carId}`).textContent = 'Add Maintenance Record';
+            document.getElementById(`maintenance-record-id-${carId}`).value = '';
+            document.getElementById(`maintenance-date-${carId}`).value = '';
+            document.getElementById(`maintenance-description-${carId}`).value = '';
+            document.getElementById(`maintenance-mileage-${carId}`).value = '';
+            document.getElementById(`maintenance-notes-${carId}`).value = '';
+            container.style.display = 'block';
+            document.getElementById(`maintenance-date-${carId}`).focus();
+        }
+
+        function showEditMaintenanceForm(carId, recordId) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === carId);
+            const record = car?.maintenance?.find(item => item.id === recordId);
+            if (!record) return;
+
+            const details = document.getElementById(`car-maintenance-${carId}`);
+            const container = document.getElementById(`maintenance-form-container-${carId}`);
+            if (details) details.open = true;
+            if (!container) return;
+
+            document.getElementById(`maintenance-form-title-${carId}`).textContent = 'Edit Maintenance Record';
+            document.getElementById(`maintenance-record-id-${carId}`).value = record.id;
+            document.getElementById(`maintenance-date-${carId}`).value = record.date || '';
+            document.getElementById(`maintenance-description-${carId}`).value = record.description || '';
+            document.getElementById(`maintenance-mileage-${carId}`).value = record.mileage ?? '';
+            document.getElementById(`maintenance-notes-${carId}`).value = record.notes || '';
+            container.style.display = 'block';
+            document.getElementById(`maintenance-date-${carId}`).focus();
+        }
+
+        function hideMaintenanceForm(carId) {
+            const container = document.getElementById(`maintenance-form-container-${carId}`);
+            if (!container) return;
+
+            document.getElementById(`maintenance-form-title-${carId}`).textContent = 'Add Maintenance Record';
+            document.getElementById(`maintenance-record-id-${carId}`).value = '';
+            document.getElementById(`maintenance-date-${carId}`).value = '';
+            document.getElementById(`maintenance-description-${carId}`).value = '';
+            document.getElementById(`maintenance-mileage-${carId}`).value = '';
+            document.getElementById(`maintenance-notes-${carId}`).value = '';
+            container.style.display = 'none';
+        }
+
+        async function saveMaintenanceForm(event, carId) {
+            event.preventDefault();
+
+            const recordId = document.getElementById(`maintenance-record-id-${carId}`).value;
+            if (recordId) {
+                await editMaintenanceRecord(carId, recordId);
+            } else {
+                await addMaintenanceRecord(carId);
+            }
+        }
+
+        async function addMaintenanceRecord(carId) {
+            const recordData = getMaintenanceRecordFormData(carId);
+            if (!recordData.date || !recordData.description) {
+                showAlert('Maintenance date and description are required', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/maintenance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(recordData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    hideMaintenanceForm(carId);
+                    const details = document.getElementById(`car-maintenance-${carId}`);
+                    if (details) details.open = true;
+                    showAlert('✅ Maintenance record added successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to add maintenance record: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to add maintenance record: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function editMaintenanceRecord(carId, recordId) {
+            const recordData = getMaintenanceRecordFormData(carId);
+            if (!recordData.date || !recordData.description) {
+                showAlert('Maintenance date and description are required', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/maintenance/${recordId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(recordData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    hideMaintenanceForm(carId);
+                    const details = document.getElementById(`car-maintenance-${carId}`);
+                    if (details) details.open = true;
+                    showAlert('✅ Maintenance record updated successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to update maintenance record: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to update maintenance record: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function deleteMaintenanceRecord(carId, recordId) {
+            if (!confirm('Are you sure you want to delete this maintenance record?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/maintenance/${recordId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    const details = document.getElementById(`car-maintenance-${carId}`);
+                    if (details) details.open = true;
+                    showAlert('✅ Maintenance record deleted successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to delete maintenance record: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to delete maintenance record: ' + err.message, 'error', 'carsAlert');
             }
         }
 

@@ -34,6 +34,9 @@ function getDefaultHouseData() {
       devices: [],
       connections: []
     },
+    cars: {
+      vehicles: []
+    },
     lists: {
       categories: [],
       lists: []
@@ -294,6 +297,114 @@ function saveMediaCenterData(mediaCenterData) {
   return saveHouseData(data);
 }
 
+// Get cars data
+function getCarsData() {
+  const data = loadHouseData();
+  return data.cars || getDefaultHouseData().cars;
+}
+
+// Save cars data
+function saveCarsData(carsData) {
+  const data = loadHouseData();
+  data.cars = carsData;
+  return saveHouseData(data);
+}
+
+// Add a car
+function addCar(car) {
+  const cars = getCarsData();
+  cars.vehicles.push({
+    id: Date.now().toString(),
+    make: car.make,
+    model: car.model,
+    year: car.year,
+    odometer: car.odometer || "",
+    maintenance: Array.isArray(car.maintenance) ? car.maintenance : []
+  });
+  return saveCarsData(cars);
+}
+
+// Update a car
+function updateCar(id, car) {
+  const cars = getCarsData();
+  const index = cars.vehicles.findIndex(vehicle => vehicle.id === id);
+  if (index !== -1) {
+    cars.vehicles[index] = { ...cars.vehicles[index], ...car, id };
+    if (!Array.isArray(cars.vehicles[index].maintenance)) {
+      cars.vehicles[index].maintenance = [];
+    }
+    return saveCarsData(cars);
+  }
+  return { success: false, error: 'Car not found' };
+}
+
+// Delete a car
+function deleteCar(id) {
+  const cars = getCarsData();
+  cars.vehicles = cars.vehicles.filter(vehicle => vehicle.id !== id);
+  return saveCarsData(cars);
+}
+
+// Add a maintenance record
+function addMaintenanceRecord(carId, record) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  car.maintenance.push({
+    id: Date.now().toString(),
+    date: record.date,
+    description: record.description,
+    mileage: record.mileage || "",
+    notes: record.notes || ""
+  });
+
+  return saveCarsData(cars);
+}
+
+// Update a maintenance record
+function updateMaintenanceRecord(carId, recordId, record) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  const index = car.maintenance.findIndex(item => item.id === recordId);
+  if (index !== -1) {
+    car.maintenance[index] = { ...car.maintenance[index], ...record, id: recordId };
+    return saveCarsData(cars);
+  }
+
+  return { success: false, error: 'Maintenance record not found' };
+}
+
+// Delete a maintenance record
+function deleteMaintenanceRecord(carId, recordId) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.maintenance)) {
+    car.maintenance = [];
+  }
+
+  car.maintenance = car.maintenance.filter(item => item.id !== recordId);
+  return saveCarsData(cars);
+}
+
 // Add a device
 function addDevice(device) {
   const mediaCenter = getMediaCenterData();
@@ -504,6 +615,14 @@ module.exports = {
   deleteInstruction,
   getMediaCenterData,
   saveMediaCenterData,
+  getCarsData,
+  saveCarsData,
+  addCar,
+  updateCar,
+  deleteCar,
+  addMaintenanceRecord,
+  updateMaintenanceRecord,
+  deleteMaintenanceRecord,
   addDevice,
   updateDevice,
   deleteDevice,
