@@ -25777,8 +25777,8 @@
             const termMonths = policyData.termMonths === '' ? null : Number(policyData.termMonths);
             const monthlyPremium = policyData.monthlyPremium === '' ? null : Number(policyData.monthlyPremium);
 
-            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths <= 0)) {
-                showAlert('Term months must be a positive number', 'error', 'carsAlert');
+            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths < 0)) {
+                showAlert('Term months must be a non-negative number', 'error', 'carsAlert');
                 return;
             }
             if (monthlyPremium !== null && (!Number.isFinite(monthlyPremium) || monthlyPremium < 0)) {
@@ -25826,8 +25826,8 @@
             const termMonths = policyData.termMonths === '' ? null : Number(policyData.termMonths);
             const monthlyPremium = policyData.monthlyPremium === '' ? null : Number(policyData.monthlyPremium);
 
-            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths <= 0)) {
-                showAlert('Term months must be a positive number', 'error', 'carsAlert');
+            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths < 0)) {
+                showAlert('Term months must be a non-negative number', 'error', 'carsAlert');
                 return;
             }
             if (monthlyPremium !== null && (!Number.isFinite(monthlyPremium) || monthlyPremium < 0)) {
@@ -26096,7 +26096,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="insurance-term-months-${car.id}">Term Months</label>
-                                <input type="number" id="insurance-term-months-${car.id}" min="1" step="1">
+                                <input type="number" id="insurance-term-months-${car.id}" min="0" step="1">
                             </div>
                             <div class="form-group">
                                 <label for="insurance-annual-miles-${car.id}">Annual Mileage Allowance</label>
