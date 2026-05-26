@@ -9977,6 +9977,48 @@ app.delete('/admin/api/house/cars/:carId/odometer/:readingId', requireAuth, (req
   }
 });
 
+// Add an insurance policy
+app.post('/admin/api/house/cars/:carId/insurance', requireAuth, (req, res) => {
+  try {
+    const result = house.addInsurancePolicy(req.params.carId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Insurance policy added successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add insurance policy: ' + err.message });
+  }
+});
+
+// Update an insurance policy
+app.put('/admin/api/house/cars/:carId/insurance/:policyId', requireAuth, (req, res) => {
+  try {
+    const result = house.updateInsurancePolicy(req.params.carId, req.params.policyId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Insurance policy updated successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update insurance policy: ' + err.message });
+  }
+});
+
+// Delete an insurance policy
+app.delete('/admin/api/house/cars/:carId/insurance/:policyId', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteInsurancePolicy(req.params.carId, req.params.policyId);
+    if (result.success) {
+      res.json({ success: true, message: 'Insurance policy deleted successfully' });
+    } else {
+      res.status(getHouseCarsErrorStatus(result.error)).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete insurance policy: ' + err.message });
+  }
+});
+
 // =============================================================================
 // House Lists API
 // =============================================================================

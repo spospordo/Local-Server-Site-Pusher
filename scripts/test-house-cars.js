@@ -42,6 +42,7 @@ function testHouseCarsModule() {
     const carId = carsData.vehicles[0].id;
     assert.deepStrictEqual(carsData.vehicles[0].maintenance, [], 'new cars should default to empty maintenance');
     assert.deepStrictEqual(carsData.vehicles[0].odometerReadings, [], 'new cars should default to empty odometer readings');
+    assert.deepStrictEqual(carsData.vehicles[0].insurance, [], 'new cars should default to empty insurance policies');
     assert.strictEqual(carsData.vehicles[0].oilChangeIntervalMiles, 5000, 'new cars should default oil change interval to 5000');
     log('✅ addCar stores a vehicle with default maintenance');
 
@@ -133,6 +134,48 @@ function testHouseCarsModule() {
     assert.strictEqual(carsData.vehicles[0].odometerReadings.length, 0, 'odometer reading should be removed');
     log('✅ deleteOdometerReading removes readings');
 
+    result = house.addInsurancePolicy(carId, {
+      provider: 'State Farm',
+      policyNumber: 'ABC123',
+      startDate: '2026-01-01',
+      endDate: '2027-01-01',
+      monthlyPremium: '120.5',
+      annualMileageAllowance: '12000',
+      notes: 'Comprehensive'
+    });
+    assert.strictEqual(result.success, true, 'addInsurancePolicy should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].insurance.length, 1, 'insurance policy should be added');
+    const policyId = carsData.vehicles[0].insurance[0].id;
+    assert.strictEqual(carsData.vehicles[0].insurance[0].annualMileageAllowance, 12000, 'annual mileage should be stored as a number');
+    log('✅ addInsurancePolicy stores policies');
+
+    result = house.updateInsurancePolicy(carId, policyId, {
+      monthlyPremium: '135.25',
+      notes: 'Updated policy'
+    });
+    assert.strictEqual(result.success, true, 'updateInsurancePolicy should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].insurance[0].monthlyPremium, 135.25, 'monthly premium should update');
+    assert.strictEqual(carsData.vehicles[0].insurance[0].notes, 'Updated policy', 'insurance notes should update');
+    log('✅ updateInsurancePolicy updates policies');
+
+    result = house.addInsurancePolicy(carId, {
+      provider: '',
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      annualMileageAllowance: ''
+    });
+    assert.strictEqual(result.success, false, 'addInsurancePolicy should reject missing required fields');
+    assert.strictEqual(result.error, 'Provider is required', 'insurance validation should require provider first');
+    log('✅ addInsurancePolicy validates required fields');
+
+    result = house.deleteInsurancePolicy(carId, policyId);
+    assert.strictEqual(result.success, true, 'deleteInsurancePolicy should succeed');
+    carsData = house.getCarsData();
+    assert.strictEqual(carsData.vehicles[0].insurance.length, 0, 'insurance policy should be removed');
+    log('✅ deleteInsurancePolicy removes policies');
+
     result = house.deleteCar(carId);
     assert.strictEqual(result.success, true, 'deleteCar should succeed');
     carsData = house.getCarsData();
@@ -153,7 +196,9 @@ function testStaticIntegration() {
     "/admin/api/house/cars/:carId/maintenance",
     "/admin/api/house/cars/:carId/maintenance/:recordId",
     "/admin/api/house/cars/:carId/odometer",
-    "/admin/api/house/cars/:carId/odometer/:readingId"
+    "/admin/api/house/cars/:carId/odometer/:readingId",
+    "/admin/api/house/cars/:carId/insurance",
+    "/admin/api/house/cars/:carId/insurance/:policyId"
   ].forEach(route => {
     assert(serverContent.includes(route), `server.js should include route ${route}`);
   });
@@ -174,6 +219,12 @@ function testStaticIntegration() {
     'function addOdometerReading(carId)',
     'function editOdometerReading(carId, readingId)',
     'function deleteOdometerReading(carId, readingId)',
+    'function loadCarInsurance(carId)',
+    'function addInsurancePolicy(carId)',
+    'function editInsurancePolicy(carId, policyId)',
+    'function deleteInsurancePolicy(carId, policyId)',
+    'function computeInsuranceMileageCompliance(policy, odometerReadings, avgMilesPerMonth)',
+    'function renderInsuranceMileageCompliance(carId, policyId, complianceData)',
     'function computeMileageAnalysis(readings, maintenanceRecords, oilChangeIntervalMiles)',
     'function renderMileageAnalysis(carId, analysis)'
   ].forEach(snippet => {

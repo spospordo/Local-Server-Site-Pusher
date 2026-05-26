@@ -24890,6 +24890,7 @@
                     ...car,
                     maintenance: Array.isArray(car.maintenance) ? car.maintenance : [],
                     odometerReadings: Array.isArray(car.odometerReadings) ? car.odometerReadings : [],
+                    insurance: Array.isArray(car.insurance) ? car.insurance : [],
                     oilChangeIntervalMiles: Number(car.oilChangeIntervalMiles) > 0 ? Number(car.oilChangeIntervalMiles) : 5000
                 }));
                 renderCars();
@@ -25045,6 +25046,7 @@
             container.innerHTML = vehicles.map(car => {
                 const maintenanceRecords = [...(car.maintenance || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
                 const odometerReadings = [...(car.odometerReadings || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                const insurancePolicies = [...(car.insurance || [])].sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')));
                 const latestReadingMileage = odometerReadings.length > 0 ? Number(odometerReadings[0].mileage) : null;
                 const numericOdometer = getMileageNumber(car.odometer);
                 const odometerValue = car.odometer !== undefined && car.odometer !== null && car.odometer !== ''
@@ -25125,12 +25127,17 @@
                             <summary style="cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; color: #4a5568;">📍 Odometer Readings (${odometerReadings.length})</summary>
                             <div id="odometer-readings-content-${car.id}" style="padding: 0 1rem 1rem;">Loading readings...</div>
                         </details>
+                        <details id="car-insurance-${car.id}" style="border-top: 1px solid #e2e8f0;">
+                            <summary style="cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; color: #4a5568;">🛡️ Insurance (${insurancePolicies.length})</summary>
+                            <div id="insurance-content-${car.id}" style="padding: 0 1rem 1rem;">Loading insurance policies...</div>
+                        </details>
                     </div>
                 `;
             }).join('');
 
             vehicles.forEach(car => {
                 loadCarOdometerReadings(car.id);
+                loadCarInsurance(car.id);
             });
         }
 
@@ -25153,6 +25160,53 @@
                 return '—';
             }
             return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+
+        function formatShortMonthYear(value) {
+            const date = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '—';
+            }
+            return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        function formatCarsCurrency(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '—';
+            }
+            return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function calculateFullMonthsBetween(startValue, endValue) {
+            const startDate = new Date(startValue);
+            const endDate = new Date(endValue);
+            if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+                return null;
+            }
+
+            let months = (endDate.getFullYear() - startDate.getFullYear()) * 12
+                + (endDate.getMonth() - startDate.getMonth());
+            if (endDate.getDate() < startDate.getDate()) {
+                months -= 1;
+            }
+            return Math.max(0, months);
+        }
+
+        function getInsurancePolicyStatus(policy) {
+            const now = new Date();
+            const start = new Date(policy?.startDate);
+            const end = new Date(policy?.endDate);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                return { label: 'Unknown', icon: '⚪', color: '#718096' };
+            }
+            if (now < start) {
+                return { label: 'Upcoming', icon: '🔵', color: '#3182ce' };
+            }
+            if (now > end) {
+                return { label: 'Expired', icon: '🔴', color: '#e53e3e' };
+            }
+            return { label: 'Active', icon: '🟢', color: '#38a169' };
         }
 
         function getOdometerFormData(carId) {
@@ -25204,8 +25258,10 @@
         function reopenCarDataSections(carId) {
             const maintenanceDetails = document.getElementById(`car-maintenance-${carId}`);
             const odometerDetails = document.getElementById(`car-odometer-${carId}`);
+            const insuranceDetails = document.getElementById(`car-insurance-${carId}`);
             if (maintenanceDetails) maintenanceDetails.open = true;
             if (odometerDetails) odometerDetails.open = true;
+            if (insuranceDetails) insuranceDetails.open = true;
         }
 
         async function saveOdometerReadingForm(event, carId) {
@@ -25619,6 +25675,472 @@
                 car.oilChangeIntervalMiles
             );
             renderMileageAnalysis(car.id, analysis);
+        }
+
+        function getInsurancePolicyFormData(carId) {
+            return {
+                provider: document.getElementById(`insurance-provider-${carId}`).value.trim(),
+                policyNumber: document.getElementById(`insurance-policy-number-${carId}`).value.trim(),
+                startDate: document.getElementById(`insurance-start-date-${carId}`).value,
+                endDate: document.getElementById(`insurance-end-date-${carId}`).value,
+                monthlyPremium: document.getElementById(`insurance-monthly-premium-${carId}`).value.trim(),
+                termMonths: document.getElementById(`insurance-term-months-${carId}`).value.trim(),
+                annualMileageAllowance: document.getElementById(`insurance-annual-miles-${carId}`).value.trim(),
+                notes: document.getElementById(`insurance-notes-${carId}`).value.trim()
+            };
+        }
+
+        function updateInsuranceTermMonths(carId) {
+            const startDate = document.getElementById(`insurance-start-date-${carId}`)?.value;
+            const endDate = document.getElementById(`insurance-end-date-${carId}`)?.value;
+            const termInput = document.getElementById(`insurance-term-months-${carId}`);
+            if (!termInput) return;
+
+            const months = calculateFullMonthsBetween(startDate, endDate);
+            if (months !== null) {
+                termInput.value = String(months);
+            }
+        }
+
+        function showAddInsurancePolicyForm(carId) {
+            const details = document.getElementById(`car-insurance-${carId}`);
+            if (details) details.open = true;
+            document.getElementById(`insurance-policy-id-${carId}`).value = '';
+            document.getElementById(`insurance-form-title-${carId}`).textContent = 'Add Insurance Policy';
+            document.getElementById(`insurance-submit-label-${carId}`).textContent = 'Add Policy';
+            document.getElementById(`insurance-provider-${carId}`).value = '';
+            document.getElementById(`insurance-policy-number-${carId}`).value = '';
+            document.getElementById(`insurance-start-date-${carId}`).value = '';
+            document.getElementById(`insurance-end-date-${carId}`).value = '';
+            document.getElementById(`insurance-monthly-premium-${carId}`).value = '';
+            document.getElementById(`insurance-term-months-${carId}`).value = '';
+            document.getElementById(`insurance-annual-miles-${carId}`).value = '';
+            document.getElementById(`insurance-notes-${carId}`).value = '';
+            document.getElementById(`insurance-provider-${carId}`).focus();
+        }
+
+        function showEditInsurancePolicyForm(carId, policyId) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === carId);
+            const policy = car?.insurance?.find(item => item.id === policyId);
+            if (!policy) return;
+
+            const details = document.getElementById(`car-insurance-${carId}`);
+            if (details) details.open = true;
+
+            document.getElementById(`insurance-policy-id-${carId}`).value = policy.id;
+            document.getElementById(`insurance-form-title-${carId}`).textContent = 'Edit Insurance Policy';
+            document.getElementById(`insurance-submit-label-${carId}`).textContent = 'Save Policy';
+            document.getElementById(`insurance-provider-${carId}`).value = policy.provider || '';
+            document.getElementById(`insurance-policy-number-${carId}`).value = policy.policyNumber || '';
+            document.getElementById(`insurance-start-date-${carId}`).value = (policy.startDate || '').slice(0, 10);
+            document.getElementById(`insurance-end-date-${carId}`).value = (policy.endDate || '').slice(0, 10);
+            document.getElementById(`insurance-monthly-premium-${carId}`).value = policy.monthlyPremium ?? '';
+            document.getElementById(`insurance-term-months-${carId}`).value = policy.termMonths ?? '';
+            document.getElementById(`insurance-annual-miles-${carId}`).value = policy.annualMileageAllowance ?? '';
+            document.getElementById(`insurance-notes-${carId}`).value = policy.notes || '';
+            document.getElementById(`insurance-provider-${carId}`).focus();
+        }
+
+        function resetInsurancePolicyForm(carId) {
+            document.getElementById(`insurance-policy-id-${carId}`).value = '';
+            document.getElementById(`insurance-form-title-${carId}`).textContent = 'Add Insurance Policy';
+            document.getElementById(`insurance-submit-label-${carId}`).textContent = 'Add Policy';
+            document.getElementById(`insurance-provider-${carId}`).value = '';
+            document.getElementById(`insurance-policy-number-${carId}`).value = '';
+            document.getElementById(`insurance-start-date-${carId}`).value = '';
+            document.getElementById(`insurance-end-date-${carId}`).value = '';
+            document.getElementById(`insurance-monthly-premium-${carId}`).value = '';
+            document.getElementById(`insurance-term-months-${carId}`).value = '';
+            document.getElementById(`insurance-annual-miles-${carId}`).value = '';
+            document.getElementById(`insurance-notes-${carId}`).value = '';
+        }
+
+        async function saveInsurancePolicyForm(event, carId) {
+            event.preventDefault();
+
+            const policyId = document.getElementById(`insurance-policy-id-${carId}`).value;
+            if (policyId) {
+                await editInsurancePolicy(carId, policyId);
+            } else {
+                await addInsurancePolicy(carId);
+            }
+        }
+
+        async function addInsurancePolicy(carId) {
+            const policyData = getInsurancePolicyFormData(carId);
+            const annualMiles = Number(policyData.annualMileageAllowance);
+            if (!policyData.provider || !policyData.startDate || !policyData.endDate || !Number.isFinite(annualMiles) || annualMiles <= 0) {
+                showAlert('Provider, start date, end date, and annual mileage allowance are required', 'error', 'carsAlert');
+                return;
+            }
+
+            const termMonths = policyData.termMonths === '' ? null : Number(policyData.termMonths);
+            const monthlyPremium = policyData.monthlyPremium === '' ? null : Number(policyData.monthlyPremium);
+
+            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths < 0)) {
+                showAlert('Term months must be a non-negative number', 'error', 'carsAlert');
+                return;
+            }
+            if (monthlyPremium !== null && (!Number.isFinite(monthlyPremium) || monthlyPremium < 0)) {
+                showAlert('Monthly premium must be a non-negative number', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/insurance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider: policyData.provider,
+                        policyNumber: policyData.policyNumber,
+                        startDate: policyData.startDate,
+                        endDate: policyData.endDate,
+                        monthlyPremium,
+                        termMonths,
+                        annualMileageAllowance: Math.round(annualMiles),
+                        notes: policyData.notes
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Insurance policy added successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to add insurance policy: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to add insurance policy: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function editInsurancePolicy(carId, policyId) {
+            const policyData = getInsurancePolicyFormData(carId);
+            const annualMiles = Number(policyData.annualMileageAllowance);
+            if (!policyData.provider || !policyData.startDate || !policyData.endDate || !Number.isFinite(annualMiles) || annualMiles <= 0) {
+                showAlert('Provider, start date, end date, and annual mileage allowance are required', 'error', 'carsAlert');
+                return;
+            }
+
+            const termMonths = policyData.termMonths === '' ? null : Number(policyData.termMonths);
+            const monthlyPremium = policyData.monthlyPremium === '' ? null : Number(policyData.monthlyPremium);
+
+            if (termMonths !== null && (!Number.isFinite(termMonths) || termMonths < 0)) {
+                showAlert('Term months must be a non-negative number', 'error', 'carsAlert');
+                return;
+            }
+            if (monthlyPremium !== null && (!Number.isFinite(monthlyPremium) || monthlyPremium < 0)) {
+                showAlert('Monthly premium must be a non-negative number', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/insurance/${policyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider: policyData.provider,
+                        policyNumber: policyData.policyNumber,
+                        startDate: policyData.startDate,
+                        endDate: policyData.endDate,
+                        monthlyPremium,
+                        termMonths,
+                        annualMileageAllowance: Math.round(annualMiles),
+                        notes: policyData.notes
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Insurance policy updated successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to update insurance policy: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to update insurance policy: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function deleteInsurancePolicy(carId, policyId) {
+            if (!confirm('Are you sure you want to delete this insurance policy?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/insurance/${policyId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Insurance policy deleted successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to delete insurance policy: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to delete insurance policy: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        function computeInsuranceMileageCompliance(policy, odometerReadings, avgMilesPerMonth) {
+            const startDate = new Date(policy?.startDate);
+            const endDate = new Date(policy?.endDate);
+            const annualMileageAllowance = Number(policy?.annualMileageAllowance);
+            const now = new Date();
+
+            if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || !Number.isFinite(annualMileageAllowance) || annualMileageAllowance <= 0) {
+                return {
+                    expectedMileageToDate: null,
+                    actualMilesDriven: null,
+                    delta: null,
+                    projectedAnnual: null,
+                    isOverLimit: false,
+                    hasBaselineReading: false
+                };
+            }
+
+            const msPerDay = 1000 * 60 * 60 * 24;
+            const policyDurationDays = Math.max(0, (endDate.getTime() - startDate.getTime()) / msPerDay);
+            const analysisDate = now < endDate ? now : endDate;
+            const rawDaysElapsed = (analysisDate.getTime() - startDate.getTime()) / msPerDay;
+            const daysElapsed = Math.min(Math.max(rawDaysElapsed, 0), policyDurationDays);
+            const expectedMileageToDate = annualMileageAllowance * (daysElapsed / 365);
+
+            const normalizedReadings = [...(odometerReadings || [])]
+                .map(reading => ({
+                    ...reading,
+                    mileage: getMileageNumber(reading.mileage),
+                    timestamp: new Date(reading.date).getTime()
+                }))
+                .filter(reading => Number.isFinite(reading.mileage) && Number.isFinite(reading.timestamp))
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            const startTime = startDate.getTime();
+            const baselineReading = normalizedReadings.find(reading => reading.timestamp >= startTime) || null;
+
+            let comparisonReading = null;
+            if (normalizedReadings.length > 0) {
+                if (now > endDate) {
+                    const endTime = endDate.getTime();
+                    comparisonReading = [...normalizedReadings].sort((a, b) => Math.abs(a.timestamp - endTime) - Math.abs(b.timestamp - endTime))[0] || null;
+                } else {
+                    comparisonReading = normalizedReadings[normalizedReadings.length - 1] || null;
+                }
+            }
+
+            const actualMilesDriven = baselineReading && comparisonReading
+                ? Math.max(0, comparisonReading.mileage - baselineReading.mileage)
+                : null;
+            const delta = Number.isFinite(actualMilesDriven) ? actualMilesDriven - expectedMileageToDate : null;
+
+            const projectedAnnual = Number.isFinite(avgMilesPerMonth) ? avgMilesPerMonth * 12 : null;
+            const isOverLimit = Number.isFinite(projectedAnnual) ? projectedAnnual > annualMileageAllowance : false;
+
+            return {
+                expectedMileageToDate,
+                actualMilesDriven,
+                delta,
+                projectedAnnual,
+                isOverLimit,
+                hasBaselineReading: Boolean(baselineReading)
+            };
+        }
+
+        function renderInsuranceMileageCompliance(carId, policyId, complianceData) {
+            const container = document.getElementById(`insurance-compliance-${carId}-${policyId}`);
+            if (!container) return;
+
+            const delta = complianceData.delta;
+            let deltaLabel = 'No mileage data available';
+            let deltaColor = '#4a5568';
+            if (Number.isFinite(delta)) {
+                if (delta > 0) {
+                    deltaLabel = `⚠️ ${formatMileage(Math.abs(delta))} over expected pace`;
+                    deltaColor = '#c05621';
+                } else {
+                    deltaLabel = `✅ ${formatMileage(Math.abs(delta))} under expected pace`;
+                    deltaColor = '#2f855a';
+                }
+            }
+
+            let projectedStatusLabel = 'No projection data yet.';
+            let projectedStatusColor = '#4a5568';
+            if (Number.isFinite(complianceData.projectedAnnual) && Number.isFinite(complianceData.annualMileageAllowance)) {
+                if (complianceData.isOverLimit) {
+                    projectedStatusLabel = '⚠️ You may exceed your policy mileage allowance';
+                    projectedStatusColor = '#c05621';
+                } else {
+                    projectedStatusLabel = '✅ You are within your policy mileage allowance';
+                    projectedStatusColor = '#2f855a';
+                }
+            }
+
+            const baselineNote = complianceData.hasBaselineReading
+                ? ''
+                : '<div style="margin-top: 0.55rem; color: #c05621; font-weight: 600;">Add odometer readings to enable mileage compliance tracking</div>';
+
+            container.innerHTML = `
+                <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.65rem;">
+                    <div style="font-weight: 600; margin-bottom: 0.4rem;">🛡️ ${escapeHtml(complianceData.provider || '')} (${escapeHtml(formatShortMonthYear(complianceData.startDate))} – ${escapeHtml(formatShortMonthYear(complianceData.endDate))}) | Annual Limit: ${escapeHtml(formatMileage(complianceData.annualMileageAllowance))}</div>
+                    <div style="color: #4a5568;">Expected to date: <strong>${escapeHtml(formatMileage(complianceData.expectedMileageToDate))}</strong></div>
+                    <div style="color: #4a5568;">Actual driven: <strong>${complianceData.actualMilesDriven === null ? 'No data' : escapeHtml(formatMileage(complianceData.actualMilesDriven))}</strong></div>
+                    <div style="color: ${deltaColor};">Difference: <strong>${escapeHtml(deltaLabel)}</strong></div>
+                    <div style="margin-top: 0.45rem; color: #4a5568;">Projected annual: <strong>${complianceData.projectedAnnual === null ? 'No data' : escapeHtml(formatMileage(complianceData.projectedAnnual))}</strong></div>
+                    <div style="color: #4a5568;">Policy limit: <strong>${escapeHtml(formatMileage(complianceData.annualMileageAllowance))}</strong></div>
+                    <div style="color: ${projectedStatusColor};">Status: <strong>${escapeHtml(projectedStatusLabel)}</strong></div>
+                    ${baselineNote}
+                </div>
+            `;
+        }
+
+        async function loadCarInsurance(carId) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === carId);
+            const container = document.getElementById(`insurance-content-${carId}`);
+            if (!car || !container) return;
+
+            const policies = [...(car.insurance || [])]
+                .sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')));
+
+            const policyRows = policies.length === 0
+                ? '<div style="color: #888; padding: 0.25rem 0 0.65rem;">No insurance policies yet.</div>'
+                : `
+                    <div style="overflow-x: auto; margin-bottom: 0.85rem;">
+                        <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                            <thead>
+                                <tr style="background: #f7fafc;">
+                                    <th style="text-align: left; padding: 0.45rem;">Provider</th>
+                                    <th style="text-align: left; padding: 0.45rem;">Policy #</th>
+                                    <th style="text-align: left; padding: 0.45rem;">Start</th>
+                                    <th style="text-align: left; padding: 0.45rem;">End</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Premium/mo</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Term</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Annual Miles</th>
+                                    <th style="text-align: left; padding: 0.45rem;">Status</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${policies.map(policy => {
+                                    const status = getInsurancePolicyStatus(policy);
+                                    const termMonths = Number(policy.termMonths);
+                                    const annualMiles = Number(policy.annualMileageAllowance);
+                                    return `
+                                        <tr>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml(policy.provider || '')}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${policy.policyNumber ? escapeHtml(policy.policyNumber) : '—'}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml(formatShortMonthYear(policy.startDate))}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml(formatShortMonthYear(policy.endDate))}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">${escapeHtml(formatCarsCurrency(policy.monthlyPremium))}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">${Number.isFinite(termMonths) ? `${termMonths} mo` : '—'}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">${Number.isFinite(annualMiles) ? escapeHtml(Math.round(annualMiles).toLocaleString('en-US')) : '—'}</td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;"><span style="display: inline-block; border-radius: 10px; padding: 0.15rem 0.55rem; font-size: 0.78rem; color: #fff; background: ${status.color};">${status.icon} ${status.label}</span></td>
+                                            <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">
+                                                <button class="btn" style="padding: 0.3rem 0.55rem; margin-right: 0.35rem;" onclick="showEditInsurancePolicyForm('${car.id}', '${policy.id}')">✏️ Edit</button>
+                                                <button class="btn btn-danger" style="padding: 0.3rem 0.55rem;" onclick="deleteInsurancePolicy('${car.id}', '${policy.id}')">🗑️ Delete</button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+            const now = new Date();
+            const twelveMonthsAgo = new Date(now);
+            twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+            const compliancePolicies = policies.filter(policy => {
+                const annual = Number(policy.annualMileageAllowance);
+                const startDate = new Date(policy.startDate);
+                const endDate = new Date(policy.endDate);
+                if (!Number.isFinite(annual) || annual <= 0 || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+                    return false;
+                }
+                const isActive = startDate <= now && endDate >= now;
+                const isRecentlyExpired = endDate < now && endDate >= twelveMonthsAgo;
+                return isActive || isRecentlyExpired;
+            });
+
+            container.innerHTML = `
+                <div style="background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                    <h4 id="insurance-form-title-${car.id}" style="margin-top: 0;">Add Insurance Policy</h4>
+                    <form onsubmit="saveInsurancePolicyForm(event, '${car.id}')">
+                        <input type="hidden" id="insurance-policy-id-${car.id}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="insurance-provider-${car.id}">Provider</label>
+                                <input type="text" id="insurance-provider-${car.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="insurance-policy-number-${car.id}">Policy Number</label>
+                                <input type="text" id="insurance-policy-number-${car.id}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="insurance-start-date-${car.id}">Start Date</label>
+                                <input type="date" id="insurance-start-date-${car.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="insurance-end-date-${car.id}">End Date</label>
+                                <input type="date" id="insurance-end-date-${car.id}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="insurance-monthly-premium-${car.id}">Monthly Premium ($)</label>
+                                <input type="number" id="insurance-monthly-premium-${car.id}" min="0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="insurance-term-months-${car.id}">Term Months</label>
+                                <input type="number" id="insurance-term-months-${car.id}" min="0" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="insurance-annual-miles-${car.id}">Annual Mileage Allowance</label>
+                                <input type="number" id="insurance-annual-miles-${car.id}" min="1" step="1" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="insurance-notes-${car.id}">Notes</label>
+                            <input type="text" id="insurance-notes-${car.id}" placeholder="Optional notes">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="submit" class="btn btn-success" id="insurance-submit-label-${car.id}">Add Policy</button>
+                            <button type="button" class="btn btn-secondary" onclick="resetInsurancePolicyForm('${car.id}')">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                ${policyRows}
+                <div style="margin-top: 0.95rem; border-top: 1px solid #e2e8f0; padding-top: 0.85rem;">
+                    <h4 style="margin: 0 0 0.65rem;">📏 Mileage vs. Policy</h4>
+                    ${compliancePolicies.length === 0
+                        ? '<div style="color: #888;">No active or recently expired policies with annual mileage allowance available for compliance analysis.</div>'
+                        : compliancePolicies.map(policy => `<div id="insurance-compliance-${car.id}-${policy.id}"></div>`).join('')}
+                </div>
+            `;
+
+            const startInput = document.getElementById(`insurance-start-date-${car.id}`);
+            const endInput = document.getElementById(`insurance-end-date-${car.id}`);
+            if (startInput) startInput.addEventListener('change', () => updateInsuranceTermMonths(car.id));
+            if (endInput) endInput.addEventListener('change', () => updateInsuranceTermMonths(car.id));
+
+            const odometerReadings = [...(car.odometerReadings || [])].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+            const mileageAnalysis = computeMileageAnalysis(odometerReadings, car.maintenance || [], car.oilChangeIntervalMiles);
+            const avgMilesPerMonth = mileageAnalysis.monthlyAverage;
+
+            compliancePolicies.forEach(policy => {
+                const complianceData = computeInsuranceMileageCompliance(policy, odometerReadings, avgMilesPerMonth);
+                renderInsuranceMileageCompliance(car.id, policy.id, {
+                    ...complianceData,
+                    provider: policy.provider || '',
+                    startDate: policy.startDate,
+                    endDate: policy.endDate,
+                    annualMileageAllowance: Number(policy.annualMileageAllowance)
+                });
+            });
         }
 
         function getMaintenanceRecordFormData(carId) {
