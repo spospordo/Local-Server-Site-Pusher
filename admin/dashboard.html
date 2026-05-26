@@ -4323,6 +4323,12 @@
                                 <input type="number" id="carOdometer" placeholder="e.g., 42000" min="0" step="1">
                             </div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="carOilChangeIntervalMiles">Oil Change Interval (miles)</label>
+                                <input type="number" id="carOilChangeIntervalMiles" placeholder="e.g., 5000" min="1" step="1" value="5000">
+                            </div>
+                        </div>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <button type="submit" class="btn btn-success">💾 Save Car</button>
                             <button type="button" class="btn btn-secondary" onclick="hideCarForm()">Cancel</button>
@@ -24880,6 +24886,12 @@
                 if (!Array.isArray(currentCarsData?.vehicles)) {
                     currentCarsData = { vehicles: [] };
                 }
+                currentCarsData.vehicles = currentCarsData.vehicles.map(car => ({
+                    ...car,
+                    maintenance: Array.isArray(car.maintenance) ? car.maintenance : [],
+                    odometerReadings: Array.isArray(car.odometerReadings) ? car.odometerReadings : [],
+                    oilChangeIntervalMiles: Number(car.oilChangeIntervalMiles) > 0 ? Number(car.oilChangeIntervalMiles) : 5000
+                }));
                 renderCars();
             } catch (err) {
                 console.error('Failed to load cars data:', err);
@@ -24894,6 +24906,7 @@
             document.getElementById('carModel').value = '';
             document.getElementById('carYear').value = '';
             document.getElementById('carOdometer').value = '';
+            document.getElementById('carOilChangeIntervalMiles').value = '5000';
             document.getElementById('carEditorContainer').style.display = 'block';
             document.getElementById('carMake').focus();
         }
@@ -24908,6 +24921,7 @@
             document.getElementById('carModel').value = car.model || '';
             document.getElementById('carYear').value = car.year ?? '';
             document.getElementById('carOdometer').value = car.odometer ?? '';
+            document.getElementById('carOilChangeIntervalMiles').value = car.oilChangeIntervalMiles ?? 5000;
             document.getElementById('carEditorContainer').style.display = 'block';
             document.getElementById('carMake').focus();
         }
@@ -24924,6 +24938,7 @@
                 model: document.getElementById('carModel').value.trim(),
                 year: document.getElementById('carYear').value.trim(),
                 odometer: document.getElementById('carOdometer').value.trim(),
+                oilChangeIntervalMiles: document.getElementById('carOilChangeIntervalMiles').value.trim(),
                 maintenance: undefined
             };
         }
@@ -25029,9 +25044,15 @@
 
             container.innerHTML = vehicles.map(car => {
                 const maintenanceRecords = [...(car.maintenance || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                const odometerReadings = [...(car.odometerReadings || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                const latestReadingMileage = odometerReadings.length > 0 ? Number(odometerReadings[0].mileage) : null;
+                const numericOdometer = getMileageNumber(car.odometer);
                 const odometerValue = car.odometer !== undefined && car.odometer !== null && car.odometer !== ''
-                    ? escapeHtml(String(car.odometer))
+                    ? (Number.isFinite(numericOdometer) ? `${Math.round(numericOdometer).toLocaleString('en-US')} miles` : escapeHtml(String(car.odometer)))
                     : '—';
+                const currentMileageLabel = Number.isFinite(latestReadingMileage)
+                    ? `${latestReadingMileage.toLocaleString('en-US')} miles`
+                    : odometerValue;
 
                 return `
                     <div style="background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #607D8B; overflow: hidden;">
@@ -25040,7 +25061,7 @@
                                 <strong style="font-size: 1.05rem;">${escapeHtml(car.make || '')} ${escapeHtml(car.model || '')}</strong>
                                 <div style="color: #666; margin-top: 0.25rem;">
                                     <span>Year: ${escapeHtml(String(car.year || ''))}</span>
-                                    <span style="margin-left: 1rem;">Odometer: ${odometerValue}</span>
+                                    <span style="margin-left: 1rem;">Current Mileage: ${currentMileageLabel}</span>
                                 </div>
                             </div>
                             <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
@@ -25100,9 +25121,504 @@
                                 <button class="btn btn-secondary" onclick="showAddMaintenanceForm('${car.id}')">➕ Add Maintenance Record</button>
                             </div>
                         </details>
+                        <details id="car-odometer-${car.id}" style="border-top: 1px solid #e2e8f0;">
+                            <summary style="cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; color: #4a5568;">📍 Odometer Readings (${odometerReadings.length})</summary>
+                            <div id="odometer-readings-content-${car.id}" style="padding: 0 1rem 1rem;">Loading readings...</div>
+                        </details>
                     </div>
                 `;
             }).join('');
+
+            vehicles.forEach(car => {
+                loadCarOdometerReadings(car.id);
+            });
+        }
+
+        function getMileageNumber(value) {
+            const numeric = Number(String(value ?? '').replace(/,/g, '').trim());
+            return Number.isFinite(numeric) ? numeric : null;
+        }
+
+        function formatMileage(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '—';
+            }
+            return `${Math.round(numeric).toLocaleString('en-US')} miles`;
+        }
+
+        function formatMonthYear(value) {
+            const date = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '—';
+            }
+            return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+
+        function getOdometerFormData(carId) {
+            return {
+                date: document.getElementById(`odometer-date-${carId}`).value,
+                mileage: document.getElementById(`odometer-mileage-${carId}`).value.trim(),
+                notes: document.getElementById(`odometer-notes-${carId}`).value.trim()
+            };
+        }
+
+        function showAddOdometerReadingForm(carId) {
+            const details = document.getElementById(`car-odometer-${carId}`);
+            if (details) details.open = true;
+            document.getElementById(`odometer-reading-id-${carId}`).value = '';
+            document.getElementById(`odometer-form-title-${carId}`).textContent = 'Add Odometer Reading';
+            document.getElementById(`odometer-submit-label-${carId}`).textContent = 'Add Reading';
+            document.getElementById(`odometer-date-${carId}`).value = '';
+            document.getElementById(`odometer-mileage-${carId}`).value = '';
+            document.getElementById(`odometer-notes-${carId}`).value = '';
+            document.getElementById(`odometer-date-${carId}`).focus();
+        }
+
+        function showEditOdometerReadingForm(carId, readingId) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === carId);
+            const reading = car?.odometerReadings?.find(item => item.id === readingId);
+            if (!reading) return;
+
+            const details = document.getElementById(`car-odometer-${carId}`);
+            if (details) details.open = true;
+
+            document.getElementById(`odometer-reading-id-${carId}`).value = reading.id;
+            document.getElementById(`odometer-form-title-${carId}`).textContent = 'Edit Odometer Reading';
+            document.getElementById(`odometer-submit-label-${carId}`).textContent = 'Save Reading';
+            document.getElementById(`odometer-date-${carId}`).value = (reading.date || '').slice(0, 10);
+            document.getElementById(`odometer-mileage-${carId}`).value = reading.mileage ?? '';
+            document.getElementById(`odometer-notes-${carId}`).value = reading.notes || '';
+            document.getElementById(`odometer-date-${carId}`).focus();
+        }
+
+        function resetOdometerReadingForm(carId) {
+            document.getElementById(`odometer-reading-id-${carId}`).value = '';
+            document.getElementById(`odometer-form-title-${carId}`).textContent = 'Add Odometer Reading';
+            document.getElementById(`odometer-submit-label-${carId}`).textContent = 'Add Reading';
+            document.getElementById(`odometer-date-${carId}`).value = '';
+            document.getElementById(`odometer-mileage-${carId}`).value = '';
+            document.getElementById(`odometer-notes-${carId}`).value = '';
+        }
+
+        function reopenCarDataSections(carId) {
+            const maintenanceDetails = document.getElementById(`car-maintenance-${carId}`);
+            const odometerDetails = document.getElementById(`car-odometer-${carId}`);
+            if (maintenanceDetails) maintenanceDetails.open = true;
+            if (odometerDetails) odometerDetails.open = true;
+        }
+
+        async function saveOdometerReadingForm(event, carId) {
+            event.preventDefault();
+
+            const readingId = document.getElementById(`odometer-reading-id-${carId}`).value;
+            if (readingId) {
+                await editOdometerReading(carId, readingId);
+            } else {
+                await addOdometerReading(carId);
+            }
+        }
+
+        async function addOdometerReading(carId) {
+            const readingData = getOdometerFormData(carId);
+            const mileage = getMileageNumber(readingData.mileage);
+            if (!readingData.date || !Number.isFinite(mileage) || mileage <= 0) {
+                showAlert('Reading date and a positive mileage are required', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/odometer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: readingData.date,
+                        mileage,
+                        notes: readingData.notes
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Odometer reading added successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to add odometer reading: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to add odometer reading: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function editOdometerReading(carId, readingId) {
+            const readingData = getOdometerFormData(carId);
+            const mileage = getMileageNumber(readingData.mileage);
+            if (!readingData.date || !Number.isFinite(mileage) || mileage <= 0) {
+                showAlert('Reading date and a positive mileage are required', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/odometer/${readingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: readingData.date,
+                        mileage,
+                        notes: readingData.notes
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Odometer reading updated successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to update odometer reading: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to update odometer reading: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function deleteOdometerReading(carId, readingId) {
+            if (!confirm('Are you sure you want to delete this odometer reading?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}/odometer/${readingId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Odometer reading deleted successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to delete odometer reading: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to delete odometer reading: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        function computeMileageAnalysis(readings, maintenanceRecords, oilChangeIntervalMiles) {
+            const normalizedReadings = [...(readings || [])]
+                .map(reading => ({
+                    ...reading,
+                    mileage: getMileageNumber(reading.mileage),
+                    timestamp: new Date(reading.date).getTime()
+                }))
+                .filter(reading => Number.isFinite(reading.mileage) && Number.isFinite(reading.timestamp))
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            const interpolate = (startReading, endReading, targetTime) => {
+                if (!startReading || !endReading) return null;
+                if (startReading.timestamp === endReading.timestamp) {
+                    return startReading.mileage;
+                }
+                return startReading.mileage + (endReading.mileage - startReading.mileage)
+                    * ((targetTime - startReading.timestamp) / (endReading.timestamp - startReading.timestamp));
+            };
+
+            const estimateMileageAt = (targetDate) => {
+                if (normalizedReadings.length === 0) {
+                    return null;
+                }
+
+                const targetTime = targetDate.getTime();
+                let prev = null;
+                let next = null;
+
+                for (let i = 0; i < normalizedReadings.length; i++) {
+                    const reading = normalizedReadings[i];
+                    if (reading.timestamp <= targetTime) {
+                        prev = reading;
+                    }
+                    if (reading.timestamp >= targetTime) {
+                        next = reading;
+                        break;
+                    }
+                }
+
+                if (prev && next) {
+                    return interpolate(prev, next, targetTime);
+                }
+
+                if (prev && !next && normalizedReadings.length >= 2) {
+                    const prevIndex = normalizedReadings.findIndex(item => item.id === prev.id);
+                    const prevNeighbor = normalizedReadings[prevIndex - 1];
+                    return prevNeighbor ? interpolate(prevNeighbor, prev, targetTime) : null;
+                }
+
+                if (!prev && next && normalizedReadings.length >= 2) {
+                    const nextIndex = normalizedReadings.findIndex(item => item.id === next.id);
+                    const nextNeighbor = normalizedReadings[nextIndex + 1];
+                    return nextNeighbor ? interpolate(next, nextNeighbor, targetTime) : null;
+                }
+
+                return null;
+            };
+
+            const monthlyHistory = [];
+            const now = new Date();
+            for (let offset = 5; offset >= 0; offset--) {
+                const monthStart = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+                const monthEnd = new Date(now.getFullYear(), now.getMonth() - offset + 1, 1);
+                const mileageAtStart = estimateMileageAt(monthStart);
+                const mileageAtEnd = estimateMileageAt(monthEnd);
+                const milesDriven = Number.isFinite(mileageAtStart) && Number.isFinite(mileageAtEnd)
+                    ? Math.max(0, mileageAtEnd - mileageAtStart)
+                    : null;
+
+                monthlyHistory.push({
+                    month: formatMonthYear(monthStart),
+                    milesDriven
+                });
+            }
+
+            let monthlyAverage = null;
+            if (normalizedReadings.length >= 2) {
+                const first = normalizedReadings[0];
+                const last = normalizedReadings[normalizedReadings.length - 1];
+                const monthsSpan = (last.timestamp - first.timestamp) / (1000 * 60 * 60 * 24 * 30.4375);
+                if (monthsSpan > 0) {
+                    monthlyAverage = Math.max(0, (last.mileage - first.mileage) / monthsSpan);
+                }
+            }
+
+            const projectedMonths = [];
+            for (let offset = 1; offset <= 3; offset++) {
+                const futureMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+                projectedMonths.push({
+                    month: formatMonthYear(futureMonth),
+                    projectedMiles: Number.isFinite(monthlyAverage) ? monthlyAverage : null
+                });
+            }
+
+            const normalizedMaintenance = [...(maintenanceRecords || [])]
+                .filter(record => /oil\s*change/i.test(String(record.description || record.type || '')))
+                .map(record => ({
+                    ...record,
+                    mileage: getMileageNumber(record.mileage),
+                    timestamp: new Date(record.date).getTime()
+                }))
+                .filter(record => Number.isFinite(record.mileage))
+                .sort((a, b) => (Number.isFinite(b.timestamp) ? b.timestamp : 0) - (Number.isFinite(a.timestamp) ? a.timestamp : 0));
+
+            const lastOilChange = normalizedMaintenance[0] || null;
+            const intervalMiles = Number(oilChangeIntervalMiles) > 0 ? Math.round(Number(oilChangeIntervalMiles)) : 5000;
+            const latestReading = normalizedReadings[normalizedReadings.length - 1] || null;
+            const currentMileage = latestReading ? latestReading.mileage : null;
+            const dueMileage = lastOilChange ? lastOilChange.mileage + intervalMiles : null;
+            const milesUntilDue = Number.isFinite(dueMileage) && Number.isFinite(currentMileage)
+                ? dueMileage - currentMileage
+                : null;
+
+            let estimatedDate = null;
+            if (Number.isFinite(milesUntilDue) && Number.isFinite(monthlyAverage) && monthlyAverage > 0) {
+                const monthsUntilDue = milesUntilDue <= 0 ? 0 : milesUntilDue / monthlyAverage;
+                const estimated = new Date();
+                estimated.setDate(estimated.getDate() + Math.round(monthsUntilDue * 30.4375));
+                estimatedDate = estimated;
+            }
+
+            return {
+                monthlyHistory,
+                monthlyAverage,
+                projectedMonths,
+                oilChange: {
+                    lastOilChangeMileage: lastOilChange ? lastOilChange.mileage : null,
+                    intervalMiles,
+                    dueMileage,
+                    estimatedDate
+                }
+            };
+        }
+
+        function renderMileageAnalysis(carId, analysis) {
+            const container = document.getElementById(`mileage-analysis-${carId}`);
+            if (!container) return;
+
+            const monthlyRows = analysis.monthlyHistory.map(item => `
+                <tr>
+                    <td style="padding: 0.35rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml(item.month)}</td>
+                    <td style="padding: 0.35rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">
+                        ${item.milesDriven === null ? 'No data' : escapeHtml(formatMileage(item.milesDriven))}
+                    </td>
+                </tr>
+            `).join('');
+
+            const projectionRows = analysis.projectedMonths.map(item => `
+                <tr>
+                    <td style="padding: 0.35rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml(item.month)}</td>
+                    <td style="padding: 0.35rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">
+                        ${item.projectedMiles === null ? 'No data' : escapeHtml(formatMileage(item.projectedMiles))}
+                    </td>
+                </tr>
+            `).join('');
+
+            const monthlyAverageLabel = analysis.monthlyAverage === null
+                ? 'No data'
+                : formatMileage(analysis.monthlyAverage);
+
+            const oilEstimatorSummary = analysis.oilChange.lastOilChangeMileage === null
+                ? 'No oil change record found. Add one in maintenance records to enable prediction.'
+                : `Next oil change due at ${formatMileage(analysis.oilChange.dueMileage)}${analysis.oilChange.estimatedDate ? ` (estimated ~${formatMonthYear(analysis.oilChange.estimatedDate)})` : ''}`;
+
+            container.innerHTML = `
+                <div style="margin-top: 0.95rem; border-top: 1px solid #e2e8f0; padding-top: 0.85rem;">
+                    <h4 style="margin: 0 0 0.65rem;">📊 Mileage Analysis</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                            <thead>
+                                <tr style="background: #f7fafc;">
+                                    <th style="text-align: left; padding: 0.45rem;">Month</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Estimated Miles Driven</th>
+                                </tr>
+                            </thead>
+                            <tbody>${monthlyRows}</tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 0.6rem; color: #4a5568;">
+                        <strong>Monthly average:</strong> ${escapeHtml(monthlyAverageLabel)}
+                    </div>
+                    <div style="overflow-x: auto; margin-top: 0.8rem;">
+                        <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                            <thead>
+                                <tr style="background: #f7fafc;">
+                                    <th style="text-align: left; padding: 0.45rem;">Month</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Projected Miles</th>
+                                </tr>
+                            </thead>
+                            <tbody>${projectionRows}</tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 1rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem;">
+                        <h5 style="margin: 0 0 0.55rem;">🛢️ Oil Change Estimator</h5>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin-bottom: 0.55rem;">
+                            <div class="form-group" style="margin: 0; min-width: 210px;">
+                                <label for="oil-change-interval-${carId}">Interval (miles)</label>
+                                <input type="number" id="oil-change-interval-${carId}" min="1" step="1" value="${analysis.oilChange.intervalMiles}">
+                            </div>
+                            <button class="btn btn-secondary" onclick="saveOilChangeInterval('${carId}')">💾 Save</button>
+                        </div>
+                        <div style="color: #4a5568; margin-bottom: 0.35rem;">
+                            <strong>Last oil change reading:</strong> ${analysis.oilChange.lastOilChangeMileage === null ? 'No data' : escapeHtml(formatMileage(analysis.oilChange.lastOilChangeMileage))}
+                        </div>
+                        <div style="color: #4a5568;">${escapeHtml(oilEstimatorSummary)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveOilChangeInterval(carId) {
+            const input = document.getElementById(`oil-change-interval-${carId}`);
+            const interval = Number(input?.value);
+            if (!Number.isFinite(interval) || interval <= 0) {
+                showAlert('Oil change interval must be a positive number', 'error', 'carsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/cars/${carId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oilChangeIntervalMiles: Math.round(interval) })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadCars();
+                    reopenCarDataSections(carId);
+                    showAlert('✅ Oil change interval saved successfully!', 'success', 'carsAlert');
+                } else {
+                    showAlert('Failed to save oil change interval: ' + result.error, 'error', 'carsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to save oil change interval: ' + err.message, 'error', 'carsAlert');
+            }
+        }
+
+        async function loadCarOdometerReadings(carId) {
+            const car = currentCarsData?.vehicles?.find(vehicle => vehicle.id === carId);
+            const container = document.getElementById(`odometer-readings-content-${carId}`);
+            if (!car || !container) return;
+
+            const readings = [...(car.odometerReadings || [])]
+                .map(reading => ({ ...reading, mileage: getMileageNumber(reading.mileage) }))
+                .filter(reading => Number.isFinite(reading.mileage))
+                .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+            const readingRows = readings.length === 0
+                ? '<div style="color: #888; padding: 0.25rem 0 0.65rem;">No odometer readings yet.</div>'
+                : `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 0.75rem;">
+                            <thead>
+                                <tr style="background: #f7fafc;">
+                                    <th style="text-align: left; padding: 0.45rem;">Date</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Mileage</th>
+                                    <th style="text-align: left; padding: 0.45rem;">Notes</th>
+                                    <th style="text-align: right; padding: 0.45rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${readings.map(reading => `
+                                    <tr>
+                                        <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${escapeHtml((reading.date || '').slice(0, 10))}</td>
+                                        <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">${escapeHtml(formatMileage(reading.mileage))}</td>
+                                        <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0;">${reading.notes ? escapeHtml(reading.notes) : '—'}</td>
+                                        <td style="padding: 0.4rem 0.45rem; border-top: 1px solid #e2e8f0; text-align: right;">
+                                            <button class="btn" style="padding: 0.3rem 0.55rem; margin-right: 0.35rem;" onclick="showEditOdometerReadingForm('${car.id}', '${reading.id}')">✏️ Edit</button>
+                                            <button class="btn btn-danger" style="padding: 0.3rem 0.55rem;" onclick="deleteOdometerReading('${car.id}', '${reading.id}')">🗑️ Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+            container.innerHTML = `
+                <div style="background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.85rem; margin-bottom: 0.85rem;">
+                    <h4 id="odometer-form-title-${car.id}" style="margin-top: 0;">Add Odometer Reading</h4>
+                    <form onsubmit="saveOdometerReadingForm(event, '${car.id}')">
+                        <input type="hidden" id="odometer-reading-id-${car.id}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="odometer-date-${car.id}">Date</label>
+                                <input type="date" id="odometer-date-${car.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="odometer-mileage-${car.id}">Mileage</label>
+                                <input type="number" id="odometer-mileage-${car.id}" min="0" step="1" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="odometer-notes-${car.id}">Notes</label>
+                            <input type="text" id="odometer-notes-${car.id}" placeholder="Optional notes">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="submit" class="btn btn-success" id="odometer-submit-label-${car.id}">Add Reading</button>
+                            <button type="button" class="btn btn-secondary" onclick="resetOdometerReadingForm('${car.id}')">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                ${readingRows}
+                <div id="mileage-analysis-${car.id}"></div>
+            `;
+
+            const analysis = computeMileageAnalysis(
+                [...readings].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))),
+                car.maintenance || [],
+                car.oilChangeIntervalMiles
+            );
+            renderMileageAnalysis(car.id, analysis);
         }
 
         function getMaintenanceRecordFormData(carId) {

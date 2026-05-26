@@ -317,10 +317,61 @@ function normalizeRequiredCarsValue(value, fieldName) {
   return { value: normalized };
 }
 
+function normalizeOilChangeIntervalMiles(value) {
+  if (value === undefined || value === null || value === '') {
+    return { value: 5000 };
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return { error: 'Oil change interval miles must be a positive number' };
+  }
+
+  return { value: Math.round(numeric) };
+}
+
+function normalizeOdometerReadingDate(value) {
+  const date = normalizeRequiredCarsValue(value, 'Date');
+  if (date.error) {
+    return date;
+  }
+
+  const parsed = new Date(date.value);
+  if (Number.isNaN(parsed.getTime())) {
+    return { error: 'Date must be a valid date' };
+  }
+
+  return { value: parsed.toISOString() };
+}
+
+function normalizeOdometerReadingMileage(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return { error: 'Mileage must be a positive number' };
+  }
+
+  return { value: Math.round(numeric) };
+}
+
 // Get cars data
 function getCarsData() {
   const data = loadHouseData();
-  return data.cars || getDefaultHouseData().cars;
+  const cars = data.cars || getDefaultHouseData().cars;
+  if (!Array.isArray(cars.vehicles)) {
+    cars.vehicles = [];
+    return cars;
+  }
+
+  cars.vehicles = cars.vehicles.map(vehicle => ({
+    ...vehicle,
+    maintenance: Array.isArray(vehicle.maintenance) ? vehicle.maintenance : [],
+    odometerReadings: Array.isArray(vehicle.odometerReadings) ? vehicle.odometerReadings : [],
+    oilChangeIntervalMiles: Number(vehicle.oilChangeIntervalMiles) > 0
+      ? Math.round(Number(vehicle.oilChangeIntervalMiles))
+      : 5000
+  }));
+
+  return cars;
 }
 
 // Save cars data
@@ -335,8 +386,9 @@ function addCar(car) {
   const make = normalizeRequiredCarsValue(car.make, 'Make');
   const model = normalizeRequiredCarsValue(car.model, 'Model');
   const year = normalizeRequiredCarsValue(car.year, 'Year');
-  if (make.error || model.error || year.error) {
-    return { success: false, error: make.error || model.error || year.error };
+  const interval = normalizeOilChangeIntervalMiles(car.oilChangeIntervalMiles);
+  if (make.error || model.error || year.error || interval.error) {
+    return { success: false, error: make.error || model.error || year.error || interval.error };
   }
 
   const cars = getCarsData();
@@ -346,7 +398,9 @@ function addCar(car) {
     model: model.value,
     year: year.value,
     odometer: normalizeOptionalCarsValue(car.odometer),
-    maintenance: Array.isArray(car.maintenance) ? car.maintenance : []
+    maintenance: Array.isArray(car.maintenance) ? car.maintenance : [],
+    odometerReadings: Array.isArray(car.odometerReadings) ? car.odometerReadings : [],
+    oilChangeIntervalMiles: interval.value
   });
   return saveCarsData(cars);
 }
@@ -381,9 +435,22 @@ function updateCar(id, car) {
     if ('odometer' in car) {
       updatedCar.odometer = normalizeOptionalCarsValue(car.odometer);
     }
+    if ('oilChangeIntervalMiles' in car) {
+      const interval = normalizeOilChangeIntervalMiles(car.oilChangeIntervalMiles);
+      if (interval.error) {
+        return { success: false, error: interval.error };
+      }
+      updatedCar.oilChangeIntervalMiles = interval.value;
+    }
     cars.vehicles[index] = updatedCar;
     if (!Array.isArray(cars.vehicles[index].maintenance)) {
       cars.vehicles[index].maintenance = [];
+    }
+    if (!Array.isArray(cars.vehicles[index].odometerReadings)) {
+      cars.vehicles[index].odometerReadings = [];
+    }
+    if (!cars.vehicles[index].oilChangeIntervalMiles || Number(cars.vehicles[index].oilChangeIntervalMiles) <= 0) {
+      cars.vehicles[index].oilChangeIntervalMiles = 5000;
     }
     return saveCarsData(cars);
   }
@@ -481,6 +548,94 @@ function deleteMaintenanceRecord(carId, recordId) {
   }
 
   car.maintenance = car.maintenance.filter(item => item.id !== recordId);
+  return saveCarsData(cars);
+}
+
+// Add an odometer reading
+function addOdometerReading(carId, reading) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  const date = normalizeOdometerReadingDate(reading.date);
+  const mileage = normalizeOdometerReadingMileage(reading.mileage);
+  if (date.error || mileage.error) {
+    return { success: false, error: date.error || mileage.error };
+  }
+
+  if (!Array.isArray(car.odometerReadings)) {
+    car.odometerReadings = [];
+  }
+
+  car.odometerReadings.push({
+    id: generateId(),
+    date: date.value,
+    mileage: mileage.value,
+    notes: normalizeOptionalCarsValue(reading.notes),
+    recordedAt: new Date().toISOString()
+  });
+
+  return saveCarsData(cars);
+}
+
+// Update an odometer reading
+function updateOdometerReading(carId, readingId, reading) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.odometerReadings)) {
+    car.odometerReadings = [];
+  }
+
+  const index = car.odometerReadings.findIndex(item => item.id === readingId);
+  if (index === -1) {
+    return { success: false, error: 'Odometer reading not found' };
+  }
+
+  const updatedReading = { ...car.odometerReadings[index], id: readingId };
+  if ('date' in reading) {
+    const date = normalizeOdometerReadingDate(reading.date);
+    if (date.error) {
+      return { success: false, error: date.error };
+    }
+    updatedReading.date = date.value;
+  }
+  if ('mileage' in reading) {
+    const mileage = normalizeOdometerReadingMileage(reading.mileage);
+    if (mileage.error) {
+      return { success: false, error: mileage.error };
+    }
+    updatedReading.mileage = mileage.value;
+  }
+  if ('notes' in reading) {
+    updatedReading.notes = normalizeOptionalCarsValue(reading.notes);
+  }
+  if (!updatedReading.recordedAt) {
+    updatedReading.recordedAt = new Date().toISOString();
+  }
+
+  car.odometerReadings[index] = updatedReading;
+  return saveCarsData(cars);
+}
+
+// Delete an odometer reading
+function deleteOdometerReading(carId, readingId) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.odometerReadings)) {
+    car.odometerReadings = [];
+  }
+
+  car.odometerReadings = car.odometerReadings.filter(item => item.id !== readingId);
   return saveCarsData(cars);
 }
 
@@ -702,6 +857,9 @@ module.exports = {
   addMaintenanceRecord,
   updateMaintenanceRecord,
   deleteMaintenanceRecord,
+  addOdometerReading,
+  updateOdometerReading,
+  deleteOdometerReading,
   addDevice,
   updateDevice,
   deleteDevice,
