@@ -353,6 +353,58 @@ function normalizeOdometerReadingMileage(value) {
   return { value: Math.round(numeric) };
 }
 
+function normalizeInsuranceDate(value, fieldName) {
+  const normalized = normalizeRequiredCarsValue(value, fieldName);
+  if (normalized.error) {
+    return normalized;
+  }
+
+  const parsed = new Date(normalized.value);
+  if (Number.isNaN(parsed.getTime())) {
+    return { error: `${fieldName} must be a valid date` };
+  }
+
+  return { value: parsed.toISOString() };
+}
+
+function normalizeOptionalInsuranceNumber(value, fieldName, options = {}) {
+  const { allowZero = true, round = null } = options;
+  if (value === undefined || value === null || value === '') {
+    return { value: null };
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || (!allowZero && numeric <= 0) || (allowZero && numeric < 0)) {
+    return { error: `${fieldName} must be a ${allowZero ? 'non-negative' : 'positive'} number` };
+  }
+
+  if (round === 'int') {
+    return { value: Math.round(numeric) };
+  }
+  if (round === 'cents') {
+    return { value: Math.round(numeric * 100) / 100 };
+  }
+
+  return { value: numeric };
+}
+
+function calculateInsuranceTermMonths(startIso, endIso) {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return null;
+  }
+
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12
+    + (end.getUTCMonth() - start.getUTCMonth());
+
+  if (end.getUTCDate() < start.getUTCDate()) {
+    months -= 1;
+  }
+
+  return Math.max(0, months);
+}
+
 // Get cars data
 function getCarsData() {
   const data = loadHouseData();
@@ -366,6 +418,7 @@ function getCarsData() {
     ...vehicle,
     maintenance: Array.isArray(vehicle.maintenance) ? vehicle.maintenance : [],
     odometerReadings: Array.isArray(vehicle.odometerReadings) ? vehicle.odometerReadings : [],
+    insurance: Array.isArray(vehicle.insurance) ? vehicle.insurance : [],
     oilChangeIntervalMiles: Number(vehicle.oilChangeIntervalMiles) > 0
       ? Math.round(Number(vehicle.oilChangeIntervalMiles))
       : 5000
@@ -400,6 +453,7 @@ function addCar(car) {
     odometer: normalizeOptionalCarsValue(car.odometer),
     maintenance: Array.isArray(car.maintenance) ? car.maintenance : [],
     odometerReadings: Array.isArray(car.odometerReadings) ? car.odometerReadings : [],
+    insurance: Array.isArray(car.insurance) ? car.insurance : [],
     oilChangeIntervalMiles: interval.value
   });
   return saveCarsData(cars);
@@ -448,6 +502,9 @@ function updateCar(id, car) {
     }
     if (!Array.isArray(cars.vehicles[index].odometerReadings)) {
       cars.vehicles[index].odometerReadings = [];
+    }
+    if (!Array.isArray(cars.vehicles[index].insurance)) {
+      cars.vehicles[index].insurance = [];
     }
     if (!cars.vehicles[index].oilChangeIntervalMiles || Number(cars.vehicles[index].oilChangeIntervalMiles) <= 0) {
       cars.vehicles[index].oilChangeIntervalMiles = 5000;
@@ -636,6 +693,165 @@ function deleteOdometerReading(carId, readingId) {
   }
 
   car.odometerReadings = car.odometerReadings.filter(item => item.id !== readingId);
+  return saveCarsData(cars);
+}
+
+// Add an insurance policy
+function addInsurancePolicy(carId, policy) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  const provider = normalizeRequiredCarsValue(policy.provider, 'Provider');
+  const startDate = normalizeInsuranceDate(policy.startDate, 'Start date');
+  const endDate = normalizeInsuranceDate(policy.endDate, 'End date');
+  const monthlyPremium = normalizeOptionalInsuranceNumber(policy.monthlyPremium, 'Monthly premium', { allowZero: true, round: 'cents' });
+  const termMonths = normalizeOptionalInsuranceNumber(policy.termMonths, 'Term months', { allowZero: false, round: 'int' });
+  const annualMileageAllowance = normalizeOptionalInsuranceNumber(policy.annualMileageAllowance, 'Annual mileage allowance', { allowZero: false, round: 'int' });
+
+  if (provider.error || startDate.error || endDate.error || monthlyPremium.error || termMonths.error || annualMileageAllowance.error) {
+    return {
+      success: false,
+      error: provider.error || startDate.error || endDate.error || monthlyPremium.error || termMonths.error || annualMileageAllowance.error
+    };
+  }
+
+  if (new Date(endDate.value).getTime() < new Date(startDate.value).getTime()) {
+    return { success: false, error: 'End date must be on or after start date' };
+  }
+  if (!Number.isFinite(annualMileageAllowance.value) || annualMileageAllowance.value <= 0) {
+    return { success: false, error: 'Annual mileage allowance is required' };
+  }
+
+  if (!Array.isArray(car.insurance)) {
+    car.insurance = [];
+  }
+
+  car.insurance.push({
+    id: generateId(),
+    provider: provider.value,
+    policyNumber: normalizeOptionalCarsValue(policy.policyNumber),
+    startDate: startDate.value,
+    endDate: endDate.value,
+    monthlyPremium: monthlyPremium.value,
+    termMonths: termMonths.value ?? calculateInsuranceTermMonths(startDate.value, endDate.value),
+    annualMileageAllowance: annualMileageAllowance.value,
+    notes: normalizeOptionalCarsValue(policy.notes),
+    createdAt: new Date().toISOString()
+  });
+
+  return saveCarsData(cars);
+}
+
+// Update an insurance policy
+function updateInsurancePolicy(carId, policyId, policy) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.insurance)) {
+    car.insurance = [];
+  }
+
+  const index = car.insurance.findIndex(item => item.id === policyId);
+  if (index === -1) {
+    return { success: false, error: 'Insurance policy not found' };
+  }
+
+  const updatedPolicy = { ...car.insurance[index], id: policyId };
+  if ('provider' in policy) {
+    const provider = normalizeRequiredCarsValue(policy.provider, 'Provider');
+    if (provider.error) {
+      return { success: false, error: provider.error };
+    }
+    updatedPolicy.provider = provider.value;
+  }
+  if ('policyNumber' in policy) {
+    updatedPolicy.policyNumber = normalizeOptionalCarsValue(policy.policyNumber);
+  }
+  if ('startDate' in policy) {
+    const startDate = normalizeInsuranceDate(policy.startDate, 'Start date');
+    if (startDate.error) {
+      return { success: false, error: startDate.error };
+    }
+    updatedPolicy.startDate = startDate.value;
+  }
+  if ('endDate' in policy) {
+    const endDate = normalizeInsuranceDate(policy.endDate, 'End date');
+    if (endDate.error) {
+      return { success: false, error: endDate.error };
+    }
+    updatedPolicy.endDate = endDate.value;
+  }
+  if ('monthlyPremium' in policy) {
+    const monthlyPremium = normalizeOptionalInsuranceNumber(policy.monthlyPremium, 'Monthly premium', { allowZero: true, round: 'cents' });
+    if (monthlyPremium.error) {
+      return { success: false, error: monthlyPremium.error };
+    }
+    updatedPolicy.monthlyPremium = monthlyPremium.value;
+  }
+  if ('termMonths' in policy) {
+    const termMonths = normalizeOptionalInsuranceNumber(policy.termMonths, 'Term months', { allowZero: false, round: 'int' });
+    if (termMonths.error) {
+      return { success: false, error: termMonths.error };
+    }
+    updatedPolicy.termMonths = termMonths.value;
+  }
+  if ('annualMileageAllowance' in policy) {
+    const annualMileageAllowance = normalizeOptionalInsuranceNumber(policy.annualMileageAllowance, 'Annual mileage allowance', { allowZero: false, round: 'int' });
+    if (annualMileageAllowance.error) {
+      return { success: false, error: annualMileageAllowance.error };
+    }
+    updatedPolicy.annualMileageAllowance = annualMileageAllowance.value;
+  }
+  if ('notes' in policy) {
+    updatedPolicy.notes = normalizeOptionalCarsValue(policy.notes);
+  }
+
+  if (!updatedPolicy.provider) {
+    return { success: false, error: 'Provider is required' };
+  }
+  if (!updatedPolicy.startDate) {
+    return { success: false, error: 'Start date is required' };
+  }
+  if (!updatedPolicy.endDate) {
+    return { success: false, error: 'End date is required' };
+  }
+  if (new Date(updatedPolicy.endDate).getTime() < new Date(updatedPolicy.startDate).getTime()) {
+    return { success: false, error: 'End date must be on or after start date' };
+  }
+  if (!Number.isFinite(Number(updatedPolicy.annualMileageAllowance)) || Number(updatedPolicy.annualMileageAllowance) <= 0) {
+    return { success: false, error: 'Annual mileage allowance is required' };
+  }
+
+  if (updatedPolicy.termMonths === null || updatedPolicy.termMonths === undefined || updatedPolicy.termMonths === '') {
+    updatedPolicy.termMonths = calculateInsuranceTermMonths(updatedPolicy.startDate, updatedPolicy.endDate);
+  }
+  if (!updatedPolicy.createdAt) {
+    updatedPolicy.createdAt = new Date().toISOString();
+  }
+
+  car.insurance[index] = updatedPolicy;
+  return saveCarsData(cars);
+}
+
+// Delete an insurance policy
+function deleteInsurancePolicy(carId, policyId) {
+  const cars = getCarsData();
+  const car = cars.vehicles.find(vehicle => vehicle.id === carId);
+  if (!car) {
+    return { success: false, error: 'Car not found' };
+  }
+
+  if (!Array.isArray(car.insurance)) {
+    car.insurance = [];
+  }
+
+  car.insurance = car.insurance.filter(item => item.id !== policyId);
   return saveCarsData(cars);
 }
 
@@ -860,6 +1076,9 @@ module.exports = {
   addOdometerReading,
   updateOdometerReading,
   deleteOdometerReading,
+  addInsurancePolicy,
+  updateInsurancePolicy,
+  deleteInsurancePolicy,
   addDevice,
   updateDevice,
   deleteDevice,
