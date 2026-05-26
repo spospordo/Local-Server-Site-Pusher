@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.21.0] - 2026-05-26
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #622 from spospordo/copilot/add-cars-sub-tab
+  - fix: validate cars payloads and statuses
+  - fix: use uuid ids for cars data
+  - fix: harden cars id generation
+  - feat: add house cars admin management
+  - Initial plan
+
+
 ## [2.20.1] - 2026-05-13
 
 ### Patch Update
