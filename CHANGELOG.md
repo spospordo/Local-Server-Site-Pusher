@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.21.5] - 2026-05-29
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #631 from spospordo/copilot/finance-imports-avoid-recreating-deleted-accounts
+  - chore: clean up test script per code review feedback
+  - Finance imports: block recreation of previously deleted accounts unless approved
+  - Initial plan
+
+
 ## [2.21.4] - 2026-05-29
 
 ### Patch Update
