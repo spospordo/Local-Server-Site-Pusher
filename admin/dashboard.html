@@ -19190,19 +19190,82 @@
                 asOfDate
             };
 
+            // Separate deleted-account-only rows from other ambiguous rows
+            const deletedAccountRows = rows.filter(row =>
+                row.matchedDeletedAccount &&
+                (row.ambiguityReasons || []).every(r => r.code === 'matches_deleted_account')
+            );
+            const otherAmbiguousRows = rows.filter(row =>
+                !row.matchedDeletedAccount ||
+                (row.ambiguityReasons || []).some(r => r.code !== 'matches_deleted_account')
+            );
+
             panel.style.display = 'block';
             panel.innerHTML = `
                 <div class="alert" style="background: #fff3cd; border-left: 4px solid #ffc107;">
-                    <strong>⚠️ Ambiguous account matches detected</strong>
-                    <p style="margin: 0.5rem 0;">Review each row below. Choose <strong>match</strong>, <strong>create new</strong>, or <strong>skip</strong> before import continues.</p>
+                    <strong>⚠️ Review required before import continues</strong>
+                    <p style="margin: 0.5rem 0;">Review each row below and confirm how to proceed before import continues.</p>
                 </div>
-                ${rows.map((row, idx) => `
+                ${deletedAccountRows.length > 0 ? `
+                <div style="margin-bottom: 1rem;">
+                    <div style="font-weight: 700; color: #721c24; margin-bottom: 0.5rem;">🚫 Blocked: Previously Deleted Account Matches</div>
+                    <p style="margin: 0 0 0.75rem; color: #555; font-size: 0.9rem;">
+                        The following proposed new accounts match accounts that were previously deleted.
+                        Creation is blocked by default. You must explicitly allow each one or skip it.
+                    </p>
+                    ${deletedAccountRows.map((row, idx) => {
+                        const del = row.matchedDeletedAccount;
+                        const deletedAt = del && del.deletedAt ? new Date(del.deletedAt).toLocaleString() : 'unknown';
+                        return `
+                    <div style="border: 2px solid #f5c6cb; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; background: #fff8f8;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #721c24;">⛔ Deleted Account Match — Row ${idx + 1}</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <div style="background: #f8f9fa; border-radius: 4px; padding: 0.5rem;">
+                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">PROPOSED (from screenshot)</div>
+                                <div><strong>${escapeHtml(row.rawLabel || row.name || '')}</strong></div>
+                                <div style="color: #555;">Balance: $${Number(row.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                ${row.category ? `<div style="color: #555;">Category: ${escapeHtml(row.category)}</div>` : ''}
+                            </div>
+                            <div style="background: #fff3cd; border-radius: 4px; padding: 0.5rem;">
+                                <div style="font-size: 0.75rem; color: #856404; margin-bottom: 0.25rem;">PREVIOUSLY DELETED</div>
+                                <div><strong>${escapeHtml(del ? del.name : '')}</strong></div>
+                                ${del && del.type ? `<div style="color: #555;">Type: ${escapeHtml(del.type)}</div>` : ''}
+                                <div style="color: #856404; font-size: 0.85rem;">Deleted: ${escapeHtml(deletedAt)}</div>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="screenshotDecisionAction-${row.rowIndex}">Decision</label>
+                                <select id="screenshotDecisionAction-${row.rowIndex}" onchange="onScreenshotDecisionActionChange(${row.rowIndex})">
+                                    <option value="skip" selected>⛔ Skip / keep blocked (recommended)</option>
+                                    <option value="allow_deleted">✅ Allow creation anyway</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                        `;
+                    }).join('')}
+                </div>
+                ` : ''}
+                ${otherAmbiguousRows.length > 0 ? `
+                <div style="margin-bottom: 1rem;">
+                    ${deletedAccountRows.length > 0 ? `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Other Ambiguous Matches</div>` : `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Ambiguous account matches detected</div><p style="margin: 0 0 0.75rem; color: #555; font-size: 0.9rem;">Review each row below. Choose <strong>match</strong>, <strong>create new</strong>, or <strong>skip</strong> before import continues.</p>`}
+                    ${otherAmbiguousRows.map((row, idx) => {
+                        const hasDeletedMatch = !!row.matchedDeletedAccount;
+                        const del = row.matchedDeletedAccount;
+                        const deletedAt = del && del.deletedAt ? new Date(del.deletedAt).toLocaleString() : 'unknown';
+                        return `
                     <div style="border: 1px solid #ddd; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; background: #fff;">
                         <div style="font-weight: 600; margin-bottom: 0.5rem;">Row ${idx + 1}</div>
                         <div><strong>Raw label:</strong> ${escapeHtml(row.rawLabel || row.name || '')}</div>
                         <div><strong>Normalized:</strong> ${escapeHtml(row.normalizedLabel || '')}</div>
                         <div><strong>Parsed balance:</strong> $${Number(row.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                        <div style="margin: 0.5rem 0;"><strong>Reason:</strong> ${(row.ambiguityReasons || []).map(reason => escapeHtml(reason.message)).join('; ')}</div>
+                        <div style="margin: 0.5rem 0;"><strong>Reason:</strong> ${(row.ambiguityReasons || []).filter(r => r.code !== 'matches_deleted_account').map(reason => escapeHtml(reason.message)).join('; ')}</div>
+                        ${hasDeletedMatch ? `
+                        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.4rem 0; font-size: 0.85rem;">
+                            ⚠️ Also matches previously deleted account: <strong>${escapeHtml(del.name)}</strong> (deleted ${escapeHtml(deletedAt)})
+                        </div>
+                        ` : ''}
                         <div class="form-row" style="margin-top: 0.5rem;">
                             <div class="form-group">
                                 <label for="screenshotDecisionAction-${row.rowIndex}">Decision</label>
@@ -19220,7 +19283,10 @@
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                        `;
+                    }).join('')}
+                </div>
+                ` : ''}
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="btn" onclick="submitScreenshotAmbiguityConfirmation()">✅ Confirm & Import</button>
                     <button class="btn" style="background: #6c757d;" onclick="hideScreenshotAmbiguityPanel()">Cancel</button>
@@ -19233,8 +19299,10 @@
         function onScreenshotDecisionActionChange(rowIndex) {
             const actionEl = document.getElementById(`screenshotDecisionAction-${rowIndex}`);
             const accountWrap = document.getElementById(`screenshotDecisionAccountWrap-${rowIndex}`);
-            if (!actionEl || !accountWrap) return;
-            accountWrap.style.display = actionEl.value === 'match' ? 'block' : 'none';
+            if (!actionEl) return;
+            if (accountWrap) {
+                accountWrap.style.display = actionEl.value === 'match' ? 'block' : 'none';
+            }
         }
 
         async function submitScreenshotAmbiguityConfirmation() {
