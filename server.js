@@ -6184,6 +6184,30 @@ app.post('/admin/api/finance/upload-screenshot', requireAuth, upload.single('scr
   }
 });
 
+// Confirm and apply ambiguous screenshot import mappings
+app.post('/admin/api/finance/upload-screenshot/confirm', requireAuth, async (req, res) => {
+  try {
+    const { parsedAccounts, groups, netWorth, asOfDate, decisions } = req.body || {};
+    
+    if (!Array.isArray(parsedAccounts) || parsedAccounts.length === 0) {
+      return res.status(400).json({ success: false, error: 'Parsed account data is required' });
+    }
+    
+    if (!asOfDate) {
+      return res.status(400).json({ success: false, error: 'As Of date is required' });
+    }
+    
+    const result = await finance.confirmScreenshotImport(parsedAccounts, groups || {}, netWorth, asOfDate, decisions || []);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ [Finance] Screenshot confirmation error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to confirm screenshot import: ' + err.message
+    });
+  }
+});
+
 // Apartment Investment Property Tracking API Endpoints
 
 // Get all apartments

@@ -3393,6 +3393,7 @@
                             <li>The system will extract account information using OCR</li>
                             <li>Existing accounts will be updated with new balances</li>
                             <li>New accounts found in the screenshot will be created automatically</li>
+                            <li>Ambiguous account matches require your confirmation before import</li>
                             <li>Screenshots are deleted immediately after processing for security</li>
                         </ul>
                     </div>
@@ -3414,6 +3415,7 @@
                     </button>
                     
                     <div id="screenshotUploadStatus" style="margin-top: 1rem; display: none;"></div>
+                    <div id="screenshotAmbiguityPanel" style="margin-top: 1rem; display: none;"></div>
                 </div>
 
                 <div class="section-divider"></div>
@@ -19149,10 +19151,164 @@
             updateAccountTypeHelp();
         }
         
+        let pendingScreenshotImportConfirmation = null;
+
+        function hideScreenshotAmbiguityPanel() {
+            const panel = document.getElementById('screenshotAmbiguityPanel');
+            panel.style.display = 'none';
+            panel.innerHTML = '';
+            pendingScreenshotImportConfirmation = null;
+        }
+
+        function renderScreenshotImportSummary(result, asOfDate) {
+            const statusDiv = document.getElementById('screenshotUploadStatus');
+            statusDiv.className = 'alert alert-success';
+            statusDiv.innerHTML = `
+                ✅ <strong>Screenshot processed successfully!</strong><br>
+                <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
+                    <li><strong>${result.accountsCreated}</strong> new account(s) created</li>
+                    <li><strong>${result.accountsUpdated}</strong> account(s) updated</li>
+                    ${result.rowsSkipped ? `<li><strong>${result.rowsSkipped}</strong> row(s) skipped</li>` : ''}
+                    <li><strong>${result.totalAccounts}</strong> total accounts processed</li>
+                    ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
+                    <li>Balances recorded as of: <strong>${new Date(asOfDate).toLocaleDateString()}</strong></li>
+                </ul>
+            `;
+            statusDiv.style.display = 'block';
+        }
+
+        function renderScreenshotAmbiguityPanel(result) {
+            const panel = document.getElementById('screenshotAmbiguityPanel');
+            const rows = Array.isArray(result.ambiguousRows) ? result.ambiguousRows : [];
+            const parsedAccounts = Array.isArray(result.parsedAccounts) ? result.parsedAccounts : [];
+            const asOfDate = result.asOfDate || document.getElementById('screenshotAsOfDate').value;
+
+            pendingScreenshotImportConfirmation = {
+                parsedAccounts,
+                groups: result.groups || {},
+                netWorth: result.netWorth,
+                asOfDate
+            };
+
+            panel.style.display = 'block';
+            panel.innerHTML = `
+                <div class="alert" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+                    <strong>⚠️ Ambiguous account matches detected</strong>
+                    <p style="margin: 0.5rem 0;">Review each row below. Choose <strong>match</strong>, <strong>create new</strong>, or <strong>skip</strong> before import continues.</p>
+                </div>
+                ${rows.map((row, idx) => `
+                    <div style="border: 1px solid #ddd; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; background: #fff;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Row ${idx + 1}</div>
+                        <div><strong>Raw label:</strong> ${escapeHtml(row.rawLabel || row.name || '')}</div>
+                        <div><strong>Normalized:</strong> ${escapeHtml(row.normalizedLabel || '')}</div>
+                        <div><strong>Parsed balance:</strong> $${Number(row.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                        <div style="margin: 0.5rem 0;"><strong>Reason:</strong> ${(row.ambiguityReasons || []).map(reason => escapeHtml(reason.message)).join('; ')}</div>
+                        <div class="form-row" style="margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="screenshotDecisionAction-${row.rowIndex}">Decision</label>
+                                <select id="screenshotDecisionAction-${row.rowIndex}" onchange="onScreenshotDecisionActionChange(${row.rowIndex})">
+                                    <option value="match">Match existing</option>
+                                    <option value="create">Create new account</option>
+                                    <option value="skip">Skip row</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="screenshotDecisionAccountWrap-${row.rowIndex}">
+                                <label for="screenshotDecisionAccount-${row.rowIndex}">Candidate account</label>
+                                <select id="screenshotDecisionAccount-${row.rowIndex}">
+                                    ${(row.candidateAccounts || []).map(candidate => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="submitScreenshotAmbiguityConfirmation()">✅ Confirm & Import</button>
+                    <button class="btn" style="background: #6c757d;" onclick="hideScreenshotAmbiguityPanel()">Cancel</button>
+                </div>
+            `;
+
+            rows.forEach(row => onScreenshotDecisionActionChange(row.rowIndex));
+        }
+
+        function onScreenshotDecisionActionChange(rowIndex) {
+            const actionEl = document.getElementById(`screenshotDecisionAction-${rowIndex}`);
+            const accountWrap = document.getElementById(`screenshotDecisionAccountWrap-${rowIndex}`);
+            if (!actionEl || !accountWrap) return;
+            accountWrap.style.display = actionEl.value === 'match' ? 'block' : 'none';
+        }
+
+        async function submitScreenshotAmbiguityConfirmation() {
+            const statusDiv = document.getElementById('screenshotUploadStatus');
+            const panel = document.getElementById('screenshotAmbiguityPanel');
+
+            if (!pendingScreenshotImportConfirmation) {
+                return;
+            }
+
+            const rows = panel.querySelectorAll('[id^="screenshotDecisionAction-"]');
+            const decisions = [];
+
+            for (const actionElement of rows) {
+                const rowIndex = Number(actionElement.id.replace('screenshotDecisionAction-', ''));
+                const action = actionElement.value;
+                const decision = { rowIndex, action };
+                if (action === 'match') {
+                    const accountEl = document.getElementById(`screenshotDecisionAccount-${rowIndex}`);
+                    if (!accountEl || !accountEl.value) {
+                        statusDiv.className = 'alert alert-error';
+                        statusDiv.textContent = 'Please select a candidate account for each "match existing" decision.';
+                        statusDiv.style.display = 'block';
+                        return;
+                    }
+                    decision.accountId = accountEl.value;
+                }
+                decisions.push(decision);
+            }
+
+            statusDiv.className = 'alert alert-info';
+            statusDiv.textContent = 'Applying your confirmation choices...';
+            statusDiv.style.display = 'block';
+
+            try {
+                const response = await fetch('/admin/api/finance/upload-screenshot/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        parsedAccounts: pendingScreenshotImportConfirmation.parsedAccounts,
+                        groups: pendingScreenshotImportConfirmation.groups,
+                        netWorth: pendingScreenshotImportConfirmation.netWorth,
+                        asOfDate: pendingScreenshotImportConfirmation.asOfDate,
+                        decisions
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    statusDiv.className = 'alert alert-error';
+                    statusDiv.innerHTML = `❌ <strong>Confirmation failed:</strong><br>${escapeHtml(result.error || 'Unknown error')}`;
+                    return;
+                }
+
+                const confirmedAsOfDate = pendingScreenshotImportConfirmation.asOfDate;
+                hideScreenshotAmbiguityPanel();
+                renderScreenshotImportSummary(result, confirmedAsOfDate);
+                document.getElementById('screenshotFile').value = '';
+
+                await loadAccounts();
+                await updateChart();
+                showAlert('Account balances updated from screenshot!', 'success');
+            } catch (err) {
+                console.error('Screenshot confirmation error:', err);
+                statusDiv.className = 'alert alert-error';
+                statusDiv.innerHTML = `❌ <strong>Confirmation failed:</strong><br>${escapeHtml(err.message)}`;
+            }
+        }
+
         async function uploadAccountScreenshot() {
             const fileInput = document.getElementById('screenshotFile');
             const asOfDateInput = document.getElementById('screenshotAsOfDate');
             const statusDiv = document.getElementById('screenshotUploadStatus');
+            hideScreenshotAmbiguityPanel();
             
             if (!fileInput.files || fileInput.files.length === 0) {
                 statusDiv.className = 'alert alert-error';
@@ -19216,17 +19372,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.innerHTML = `
-                        ✅ <strong>Screenshot processed successfully!</strong><br>
-                        <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
-                            <li><strong>${result.accountsCreated}</strong> new account(s) created</li>
-                            <li><strong>${result.accountsUpdated}</strong> account(s) updated</li>
-                            <li><strong>${result.totalAccounts}</strong> total accounts processed</li>
-                            ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
-                            <li>Balances recorded as of: <strong>${new Date(asOfDate).toLocaleDateString()}</strong></li>
-                        </ul>
-                    `;
+                    renderScreenshotImportSummary(result, asOfDate);
                     
                     // Clear the file input
                     fileInput.value = '';
@@ -19237,14 +19383,19 @@
                     
                     // Show general success alert
                     showAlert('Account balances updated from screenshot!', 'success');
+                } else if (result.requiresConfirmation) {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.innerHTML = '⚠️ <strong>Ambiguous account matches found.</strong><br>Please review and confirm mappings below.';
+                    statusDiv.style.display = 'block';
+                    renderScreenshotAmbiguityPanel(result);
                 } else {
                     statusDiv.className = 'alert alert-error';
-                    statusDiv.innerHTML = `❌ <strong>Processing failed:</strong><br>${result.error}`;
+                    statusDiv.innerHTML = `❌ <strong>Processing failed:</strong><br>${escapeHtml(result.error || 'Unknown error')}`;
                 }
             } catch (err) {
                 console.error('Upload error:', err);
                 statusDiv.className = 'alert alert-error';
-                statusDiv.innerHTML = `❌ <strong>Upload failed:</strong><br>${err.message}`;
+                statusDiv.innerHTML = `❌ <strong>Upload failed:</strong><br>${escapeHtml(err.message)}`;
             }
         }
         

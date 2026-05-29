@@ -41,6 +41,7 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - **Automatic Account Detection**: Upload a screenshot and the system extracts account names and balances
 - **Smart Matching**: Existing accounts are automatically updated with new balances from the screenshot
 - **Robust Fuzzy Matching**: Handles OCR variations, truncated names, and icon contamination
+- **Ambiguity Confirmation**: If OCR rows are ambiguous, admins must confirm match/create/skip before balances are applied
 - **Display Name Management**: Admins can set custom display names to correct OCR errors
 - **Auto-Creation**: New accounts detected in the screenshot are automatically created
 - **Category Recognition**: Automatically categorizes accounts as Cash, Investments, Real Estate, or Liabilities

@@ -2100,6 +2100,7 @@ function parseAccountsFromText(text) {
       // Try to extract account name and balance
       let accountName = null;
       let balance = null;
+      let parsedRawLabel = null;
       
       // Check if line contains a dollar amount
       const dollarMatch = line.match(/\$(\d{1,3}(?:,\d{3})*)/);
@@ -2118,6 +2119,7 @@ function parseAccountsFromText(text) {
           } else if (numberMatch) {
             nameStr = line.substring(0, numberMatch.index).trim();
           }
+          parsedRawLabel = nameStr;
           
           // Clean up the name
           accountName = nameStr
@@ -2147,6 +2149,7 @@ function parseAccountsFromText(text) {
         const nextMatch = nextLine.match(/^\$?\s*(\d{1,3}(?:,\d{3})*)\s*$/);
         
         if (nextMatch) {
+          const rawLabel = line;
           accountName = line
             .replace(/^[a-z]{1,3}(?=[A-Z])/, '') // Remove lowercase icon prefix
             .replace(/[^\w\s\-&()\/]/g, ' ')
@@ -2166,9 +2169,13 @@ function parseAccountsFromText(text) {
           
           balance = parseFloat(nextMatch[1].replace(/,/g, ''));
           i++; // Skip the next line
+
+          if (accountName) {
+            parsedRawLabel = rawLabel;
+          }
         }
       }
-      
+
       if (accountName && balance !== null && accountName.length >= 3 && accountName.length <= 100) {
         // Filter out category names and skip words
         // Only reject if accountName IS a category keyword, not just contains it
@@ -2188,6 +2195,7 @@ function parseAccountsFromText(text) {
           if (!duplicate) {
             accounts.push({
               name: accountName,
+              rawLabel: parsedRawLabel || accountName,
               balance: balance,
               category: currentCategory
             });
@@ -2222,8 +2230,166 @@ function parseAccountsFromText(text) {
   }
 }
 
+function normalizeScreenshotAccountLabel(label) {
+  return (label || '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function screenshotFuzzyMatch(str1, str2) {
+  const s1 = (str1 || '').toLowerCase().trim();
+  const s2 = (str2 || '').toLowerCase().trim();
+  
+  if (!s1 || !s2) return false;
+  
+  // Exact match
+  if (s1 === s2) return true;
+  
+  // Check if one contains the other (for truncated names)
+  if (s1.includes(s2) || s2.includes(s1)) return true;
+  
+  // Remove common OCR variations and compare
+  const normalize = (s) => s
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  const n1 = normalize(s1);
+  const n2 = normalize(s2);
+  
+  if (n1 === n2) return true;
+  if (n1.includes(n2) || n2.includes(n1)) return true;
+  
+  return false;
+}
+
+function getScreenshotCandidateAccounts(existingAccounts, parsedAccount) {
+  return existingAccounts.filter(acc => {
+    if (acc.name && screenshotFuzzyMatch(acc.name, parsedAccount.name)) {
+      return true;
+    }
+    
+    if (acc.previousNames && Array.isArray(acc.previousNames)) {
+      return acc.previousNames.some(prevName => screenshotFuzzyMatch(prevName, parsedAccount.name));
+    }
+    
+    return false;
+  });
+}
+
+function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
+  const rows = (parsedAccounts || []).map((parsedAccount, index) => {
+    const normalizedLabel = normalizeScreenshotAccountLabel(parsedAccount.name || parsedAccount.rawLabel || '');
+    const candidateAccounts = getScreenshotCandidateAccounts(existingAccounts, parsedAccount);
+    
+    return {
+      rowIndex: index,
+      name: parsedAccount.name,
+      rawLabel: parsedAccount.rawLabel || parsedAccount.name,
+      normalizedLabel,
+      balance: parsedAccount.balance,
+      category: parsedAccount.category,
+      candidateAccounts: candidateAccounts.map(account => ({
+        id: account.id,
+        name: account.name
+      })),
+      ambiguityReasons: []
+    };
+  });
+  
+  const normalizedBuckets = {};
+  rows.forEach(row => {
+    if (!row.normalizedLabel) return;
+    if (!normalizedBuckets[row.normalizedLabel]) {
+      normalizedBuckets[row.normalizedLabel] = [];
+    }
+    normalizedBuckets[row.normalizedLabel].push(row);
+  });
+  
+  Object.values(normalizedBuckets).forEach(bucket => {
+    if (bucket.length > 1) {
+      bucket.forEach(row => {
+        row.ambiguityReasons.push({
+          code: 'duplicate_within_import',
+          message: 'Duplicate normalized label appears multiple times in this import'
+        });
+      });
+    }
+  });
+  
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j < rows.length; j++) {
+      const left = rows[i];
+      const right = rows[j];
+      if (!left.normalizedLabel || !right.normalizedLabel) continue;
+      const minLength = Math.min(left.normalizedLabel.length, right.normalizedLabel.length);
+      if (minLength < 8) continue;
+      if (
+        left.normalizedLabel !== right.normalizedLabel &&
+        (left.normalizedLabel.startsWith(right.normalizedLabel) || right.normalizedLabel.startsWith(left.normalizedLabel))
+      ) {
+        left.ambiguityReasons.push({
+          code: 'similar_prefix_within_import',
+          message: 'Similar prefix detected between parsed labels in this import'
+        });
+        right.ambiguityReasons.push({
+          code: 'similar_prefix_within_import',
+          message: 'Similar prefix detected between parsed labels in this import'
+        });
+      }
+    }
+  }
+  
+  rows.forEach(row => {
+    if (row.candidateAccounts.length > 1) {
+      row.ambiguityReasons.push({
+        code: 'matches_multiple_existing',
+        message: 'Parsed label matches multiple existing accounts'
+      });
+    }
+  });
+  
+  const singleCandidateBuckets = {};
+  rows.forEach(row => {
+    if (row.candidateAccounts.length === 1) {
+      const accountId = row.candidateAccounts[0].id;
+      if (!singleCandidateBuckets[accountId]) {
+        singleCandidateBuckets[accountId] = [];
+      }
+      singleCandidateBuckets[accountId].push(row);
+    }
+  });
+  
+  Object.values(singleCandidateBuckets).forEach(bucket => {
+    if (bucket.length > 1) {
+      bucket.forEach(row => {
+        row.ambiguityReasons.push({
+          code: 'duplicate_target_account',
+          message: 'Multiple parsed rows would auto-map to the same existing account'
+        });
+      });
+    }
+  });
+  
+  rows.forEach(row => {
+    const reasonCodes = new Set();
+    row.ambiguityReasons = row.ambiguityReasons.filter(reason => {
+      if (reasonCodes.has(reason.code)) return false;
+      reasonCodes.add(reason.code);
+      return true;
+    });
+  });
+  
+  return {
+    rows,
+    hasAmbiguity: rows.some(row => row.ambiguityReasons.length > 0)
+  };
+}
+
 // Update or create accounts from parsed data
-async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, asOfDate = null) {
+async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, asOfDate = null, options = {}) {
   try {
     const data = loadFinanceData();
     const existingAccounts = data.accounts || [];
@@ -2238,8 +2404,31 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     
     console.log(`📅 [Finance] Processing accounts with As Of date: ${effectiveDate} (stored as ${effectiveDateISO})`);
     
+    const confirmationDecisions = Array.isArray(options.confirmationDecisions) ? options.confirmationDecisions : null;
+    const plan = buildScreenshotImportPlan(parsedAccounts, existingAccounts);
+    
+    if (plan.hasAmbiguity && !confirmationDecisions) {
+      return {
+        success: false,
+        requiresConfirmation: true,
+        error: 'Ambiguous account matches require confirmation before import',
+        ambiguousRows: plan.rows.filter(row => row.ambiguityReasons.length > 0),
+        parsedAccounts: plan.rows.map(row => ({
+          name: row.name,
+          rawLabel: row.rawLabel,
+          normalizedLabel: row.normalizedLabel,
+          balance: row.balance,
+          category: row.category
+        })),
+        groups: groups,
+        netWorth: netWorth,
+        asOfDate: effectiveDate
+      };
+    }
+    
     let accountsUpdated = 0;
     let accountsCreated = 0;
+    let rowsSkipped = 0;
     const updatedAccountIds = [];
     
     // Map category to default account type
@@ -2250,50 +2439,77 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       'liabilities': 'credit_card'
     };
     
-    // Helper function for fuzzy name matching
-    function fuzzyMatch(str1, str2) {
-      const s1 = str1.toLowerCase().trim();
-      const s2 = str2.toLowerCase().trim();
-      
-      // Exact match
-      if (s1 === s2) return true;
-      
-      // Check if one contains the other (for truncated names)
-      if (s1.includes(s2) || s2.includes(s1)) return true;
-      
-      // Remove common OCR variations and compare
-      const normalize = (s) => s
-        .replace(/[^\w\s]/g, '') // Remove special chars
-        .replace(/\s+/g, ' ')     // Normalize whitespace
-        .trim();
-      
-      const n1 = normalize(s1);
-      const n2 = normalize(s2);
-      
-      if (n1 === n2) return true;
-      if (n1.includes(n2) || n2.includes(n1)) return true;
-      
-      return false;
+    const decisionMap = new Map();
+    if (confirmationDecisions) {
+      for (const decision of confirmationDecisions) {
+        const rowIndex = Number(decision.rowIndex);
+        if (!Number.isInteger(rowIndex)) continue;
+        decisionMap.set(rowIndex, decision);
+      }
     }
     
-    for (const parsedAccount of parsedAccounts) {
-      // Try to find existing account by name (with fuzzy matching)
-      // Match on original name, and also check previousNames for merged accounts
-      const existingAccount = existingAccounts.find(acc => {
-        // Check current name
-        if (acc.name && fuzzyMatch(acc.name, parsedAccount.name)) {
-          return true;
+    const rowsByIndex = new Map(plan.rows.map(row => [row.rowIndex, row]));
+    
+    for (const row of plan.rows) {
+      const decision = decisionMap.get(row.rowIndex);
+      const isAmbiguousRow = row.ambiguityReasons.length > 0;
+      const isExplicitDecision = !!decision;
+      let action = null;
+      let targetAccountId = null;
+      
+      if (isExplicitDecision) {
+        action = decision.action;
+        targetAccountId = decision.accountId || null;
+      } else if (isAmbiguousRow) {
+        return {
+          success: false,
+          error: `Missing confirmation for ambiguous row ${row.rowIndex + 1}`
+        };
+      } else if (row.candidateAccounts.length === 1) {
+        action = 'match';
+        targetAccountId = row.candidateAccounts[0].id;
+      } else {
+        action = 'create';
+      }
+      
+      if (!['match', 'create', 'skip'].includes(action)) {
+        return {
+          success: false,
+          error: `Invalid confirmation action for row ${row.rowIndex + 1}`
+        };
+      }
+      
+      if (action === 'skip') {
+        rowsSkipped++;
+        continue;
+      }
+      
+      let existingAccount = null;
+      if (action === 'match') {
+        if (!targetAccountId) {
+          return {
+            success: false,
+            error: `Missing target account selection for row ${row.rowIndex + 1}`
+          };
         }
         
-        // Check previous names (from merged accounts)
-        if (acc.previousNames && Array.isArray(acc.previousNames)) {
-          return acc.previousNames.some(prevName => 
-            fuzzyMatch(prevName, parsedAccount.name)
-          );
+        const rowCandidates = rowsByIndex.get(row.rowIndex)?.candidateAccounts || [];
+        const hasCandidate = rowCandidates.some(candidate => candidate.id === targetAccountId);
+        if (!hasCandidate) {
+          return {
+            success: false,
+            error: `Selected account is not a valid candidate for row ${row.rowIndex + 1}`
+          };
         }
         
-        return false;
-      });
+        existingAccount = existingAccounts.find(acc => acc.id === targetAccountId);
+        if (!existingAccount) {
+          return {
+            success: false,
+            error: `Selected account was not found for row ${row.rowIndex + 1}`
+          };
+        }
+      }
       
       if (existingAccount) {
         // Update existing account
@@ -2305,9 +2521,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         const shouldUpdateCurrentBalance = effectiveDateObj >= lastUpdated;
         
         if (shouldUpdateCurrentBalance) {
-          existingAccount.currentValue = parsedAccount.balance;
+          existingAccount.currentValue = row.balance;
           existingAccount.updatedAt = effectiveDateISO;
-          console.log(`✅ [Finance] Updated current balance for ${existingAccount.name}: $${parsedAccount.balance}`);
+          console.log(`✅ [Finance] Updated current balance for ${existingAccount.name}: $${row.balance}`);
         } else {
           console.log(`ℹ️ [Finance] Preserved newer balance for ${existingAccount.name} (As Of ${effectiveDate} is older than last update)`);
         }
@@ -2318,7 +2534,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           accountName: existingAccount.name,
           type: 'balance_update',
           oldBalance: parseFloat(oldBalance),
-          newBalance: parsedAccount.balance,
+          newBalance: row.balance,
           balanceDate: effectiveDateISO,
           timestamp: new Date().toISOString(),
           source: 'screenshot_upload'
@@ -2328,12 +2544,12 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         updatedAccountIds.push(existingAccount.id);
       } else {
         // Create new account
-        const accountType = categoryToType[parsedAccount.category] || 'checking';
+        const accountType = categoryToType[row.category] || 'checking';
         const newAccount = {
           id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
-          name: parsedAccount.name,
+          name: row.name,
           type: accountType,
-          currentValue: parsedAccount.balance,
+          currentValue: row.balance,
           createdAt: effectiveDateISO,
           updatedAt: effectiveDateISO,
           notes: `Auto-created from screenshot upload on ${new Date().toLocaleDateString()} (As Of: ${effectiveDate})`
@@ -2346,7 +2562,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           accountId: newAccount.id,
           accountName: newAccount.name,
           type: 'account_created',
-          newBalance: parsedAccount.balance,
+          newBalance: row.balance,
           balanceDate: effectiveDateISO,
           timestamp: new Date().toISOString(),
           source: 'screenshot_upload'
@@ -2354,7 +2570,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         
         accountsCreated++;
         updatedAccountIds.push(newAccount.id);
-        console.log(`✅ [Finance] Created new account ${newAccount.name}: $${parsedAccount.balance}`);
+        console.log(`✅ [Finance] Created new account ${newAccount.name}: $${row.balance}`);
       }
     }
     
@@ -2376,6 +2592,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       success: true,
       accountsCreated: accountsCreated,
       accountsUpdated: accountsUpdated,
+      rowsSkipped: rowsSkipped,
       totalAccounts: parsedAccounts.length,
       updatedAccountIds: updatedAccountIds,
       groups: groups,
@@ -2388,6 +2605,10 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       error: 'Failed to update accounts: ' + error.message
     };
   }
+}
+
+async function confirmScreenshotImport(parsedAccounts, groups, netWorth, asOfDate, confirmationDecisions) {
+  return updateAccountsFromParsedData(parsedAccounts, groups, netWorth, asOfDate, { confirmationDecisions });
 }
 
 /**
@@ -3742,6 +3963,7 @@ module.exports = {
   updateDemoForecasts,
   updateDemoSocialSecurity,
   processAccountScreenshot,
+  confirmScreenshotImport,
   getHistoryByAccountType,
   getNetWorthHistory,
   getAccountBalanceHistory,
