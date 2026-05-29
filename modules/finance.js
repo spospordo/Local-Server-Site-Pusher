@@ -2779,13 +2779,20 @@ function getAccountPerformance(startDate = null, endDate = null) {
     const allEntries = allHistoryByAccount.get(accountId) || [];
     const latestInRange = entriesInRange[entriesInRange.length - 1];
     const earliestInRange = entriesInRange[0];
-    const previousUpload = allEntries.length > 1 ? allEntries[allEntries.length - 2] : null;
+    const latestInRangeDate = latestInRange.balanceDate || latestInRange.timestamp;
+    const latestInRangeBalance = parseFloat(latestInRange.newBalance) || 0;
+    const latestInRangeIndex = allEntries.findLastIndex(entry => {
+      const entryDate = entry.balanceDate || entry.timestamp;
+      const entryBalance = parseFloat(entry.newBalance) || 0;
+      return entryDate === latestInRangeDate && entryBalance === latestInRangeBalance;
+    });
+    const previousBalanceEntry = latestInRangeIndex > 0 ? allEntries[latestInRangeIndex - 1] : null;
 
     const currentBalance = parseFloat(latestInRange.newBalance) || 0;
     const earliestInRangeBalance = parseFloat(earliestInRange.newBalance) || 0;
-    const previousBalance = previousUpload ? (parseFloat(previousUpload.newBalance) || 0) : null;
+    const previousBalance = previousBalanceEntry ? (parseFloat(previousBalanceEntry.newBalance) || 0) : null;
 
-    const prevChangePct = previousUpload && previousBalance !== 0
+    const prevChangePct = previousBalanceEntry && previousBalance !== 0
       ? ((currentBalance - previousBalance) / Math.abs(previousBalance)) * 100
       : null;
 
