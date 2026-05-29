@@ -2166,6 +2166,51 @@
             color: #2c3e50;
         }
 
+        .import-rules-section {
+            margin-bottom: 2rem;
+        }
+
+        .import-rules-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.75rem 1rem;
+            background: #eef7ff;
+            border: 1px solid #b8d9f5;
+            border-radius: 8px;
+            user-select: none;
+        }
+
+        .import-rules-header:hover {
+            background: #e0f0ff;
+        }
+
+        .import-rules-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+
+        .import-rule-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 0.85rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .import-rule-badge {
+            display: inline-block;
+            padding: 0.15rem 0.45rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.4rem;
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+
         .recommendation-card {
             background: #e7f3ff;
             border-left: 4px solid #007bff;
@@ -3375,6 +3420,24 @@
                     <div id="mergedAccountsBody" class="merged-accounts-body" style="display: none;">
                         <div id="mergedAccountsList">
                             <p style="color: #666; padding: 0.5rem 0;">Loading merged accounts…</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Import Rules & Overrides Section -->
+                <div class="import-rules-section finance-subsection">
+                    <div class="import-rules-header" onclick="toggleImportRulesPanel()">
+                        <h3 id="importRulesHeading">🧭 Manage import rules/overrides</h3>
+                        <span id="importRulesToggleIcon" style="font-size: 1.2rem; color: #666;">▼</span>
+                    </div>
+                    <div id="importRulesBody" class="merged-accounts-body" style="display: none;">
+                        <p class="help-text" style="margin: 0.6rem 0 0.8rem;">
+                            Review admin-managed rules that affect import matching/creation behavior and remove any incorrect overrides.
+                        </p>
+                        <div id="importRulesList">
+                            <p style="color: #666; padding: 0.5rem 0;">Loading import rules…</p>
                         </div>
                     </div>
                 </div>
@@ -17920,6 +17983,10 @@
             if (mergedBody && mergedBody.style.display !== 'none') {
                 await loadMergedAccounts();
             }
+            const importRulesBody = document.getElementById('importRulesBody');
+            if (importRulesBody && importRulesBody.style.display !== 'none') {
+                await loadImportRules();
+            }
         }
         
         async function loadDemographics() {
@@ -18272,6 +18339,120 @@
             const panel = document.getElementById(`mergeDetail_${accountId}`);
             if (!panel) return;
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleImportRulesPanel() {
+            const body = document.getElementById('importRulesBody');
+            const icon = document.getElementById('importRulesToggleIcon');
+            const isHidden = body.style.display === 'none';
+            body.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▲' : '▼';
+            if (isHidden) {
+                loadImportRules();
+            }
+        }
+
+        function formatImportRuleType(ruleType) {
+            switch (ruleType) {
+                case 'match': return 'Match';
+                case 'merge': return 'Merge';
+                case 'delete': return 'Delete';
+                case 'skip': return 'Skip';
+                case 'create': return 'Create';
+                case 'override': return 'Override';
+                case 'type_edit': return 'Type Edit';
+                default: return 'Rule';
+            }
+        }
+
+        function renderImportRuleContext(rule) {
+            const context = rule.context || {};
+            const details = [];
+            if (context.accountName) details.push(`Account: ${escapeHtml(context.accountName)}`);
+            if (context.parsedLabel) details.push(`Parsed label: ${escapeHtml(context.parsedLabel)}`);
+            if (context.normalizedName) details.push(`Normalized: ${escapeHtml(context.normalizedName)}`);
+            if (context.deletedAccount) details.push(`Blocked account: ${escapeHtml(context.deletedAccount)}`);
+            if (context.asOfDate) details.push(`As Of: ${escapeHtml(context.asOfDate)}`);
+            if (context.fromType || context.toType) details.push(`Type: ${escapeHtml(context.fromType || '—')} → ${escapeHtml(context.toType || '—')}`);
+            if (context.fromName || context.toName) details.push(`Name: ${escapeHtml(context.fromName || '—')} → ${escapeHtml(context.toName || '—')}`);
+            if (Array.isArray(context.mergedAccounts) && context.mergedAccounts.length > 0) {
+                details.push(`Merged: ${context.mergedAccounts.map(name => escapeHtml(name)).join(', ')}`);
+            }
+            return details.length > 0
+                ? `<div style="margin-top: 0.4rem; color: #555; font-size: 0.85rem;">${details.join(' • ')}</div>`
+                : '';
+        }
+
+        async function loadImportRules() {
+            const container = document.getElementById('importRulesList');
+            if (!container) return;
+
+            try {
+                const response = await fetch('/admin/api/finance/import-rules');
+                const payload = await response.json();
+                const rules = Array.isArray(payload.rules) ? payload.rules : [];
+                const heading = document.getElementById('importRulesHeading');
+                if (heading) {
+                    heading.textContent = `🧭 Manage import rules/overrides (${rules.length})`;
+                }
+
+                if (rules.length === 0) {
+                    container.innerHTML = '<p style="color: #6c757d; font-size: 0.9rem; padding: 0.5rem 0;">No admin import rules or overrides found.</p>';
+                    return;
+                }
+
+                container.innerHTML = rules.map(rule => {
+                    const when = rule.actionDate ? new Date(rule.actionDate).toLocaleString() : 'Unknown date';
+                    const removeButton = rule.removable
+                        ? `<button class="btn" style="background: #dc3545; padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="removeImportRule('${encodeURIComponent(rule.id)}', '${escapeHtml(rule.type)}')">Delete</button>`
+                        : '';
+                    const impact = rule.impactText
+                        ? `<div style="margin-top: 0.35rem; color: #6c757d; font-size: 0.82rem;"><em>${escapeHtml(rule.impactText)}</em></div>`
+                        : '';
+
+                    return `
+                        <div class="import-rule-item">
+                            <div style="display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start;">
+                                <div>
+                                    <span class="import-rule-badge">[${escapeHtml(formatImportRuleType(rule.type))}]</span>
+                                    <strong>${escapeHtml(rule.description || 'Import rule')}</strong>
+                                    <div style="margin-top: 0.35rem; color: #666; font-size: 0.83rem;">Action date: ${escapeHtml(when)}</div>
+                                </div>
+                                ${removeButton}
+                            </div>
+                            ${renderImportRuleContext(rule)}
+                            ${impact}
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Failed to load import rules:', err);
+                container.innerHTML = `<p style="color: #dc3545;">Failed to load import rules: ${escapeHtml(err.message)}</p>`;
+            }
+        }
+
+        async function removeImportRule(encodedRuleId, ruleType) {
+            const ruleId = decodeURIComponent(encodedRuleId || '');
+            if (!ruleId) return;
+            const confirmation = `Delete this ${ruleType || 'import'} rule?\n\nThis only removes the rule for future imports and does not rewrite historical import/account data.`;
+            if (!confirm(confirmation)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/finance/import-rules/${encodeURIComponent(ruleId)}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    showAlert('Failed to remove import rule: ' + (result.error || 'Unknown error'), 'error');
+                    return;
+                }
+                showAlert('Import rule removed successfully.', 'success');
+                await loadImportRules();
+            } catch (err) {
+                showAlert('Failed to remove import rule: ' + err.message, 'error');
+            }
         }
 
         async function saveAccount() {

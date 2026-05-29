@@ -5762,6 +5762,30 @@ app.get('/admin/api/finance/deleted-accounts', requireAuth, (req, res) => {
   }
 });
 
+// Get admin-managed import rules/overrides summary
+app.get('/admin/api/finance/import-rules', requireAuth, (req, res) => {
+  try {
+    const rules = finance.getImportRules();
+    res.json({ success: true, rules });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to retrieve import rules: ' + err.message });
+  }
+});
+
+// Remove a specific import rule/override
+app.delete('/admin/api/finance/import-rules/:ruleId', requireAuth, (req, res) => {
+  try {
+    const ruleId = decodeURIComponent(req.params.ruleId || '');
+    const result = finance.removeImportRule(ruleId);
+    if (result.success) {
+      return res.json({ success: true, message: 'Import rule removed successfully' });
+    }
+    res.status(400).json({ success: false, error: result.error || 'Failed to remove import rule' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to remove import rule: ' + err.message });
+  }
+});
+
 // Update account balance
 app.post('/admin/api/finance/accounts/:id/balance', requireAuth, (req, res) => {
   try {
