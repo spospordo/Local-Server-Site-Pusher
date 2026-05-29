@@ -5752,6 +5752,16 @@ app.delete('/admin/api/finance/accounts/:id', requireAuth, (req, res) => {
   }
 });
 
+// Get deleted account records (used by import flow to detect recreation attempts)
+app.get('/admin/api/finance/deleted-accounts', requireAuth, (req, res) => {
+  try {
+    const deletedAccounts = finance.getDeletedAccounts();
+    res.json({ success: true, deletedAccounts });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to retrieve deleted accounts: ' + err.message });
+  }
+});
+
 // Update account balance
 app.post('/admin/api/finance/accounts/:id/balance', requireAuth, (req, res) => {
   try {

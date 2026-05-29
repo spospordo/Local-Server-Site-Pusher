@@ -167,7 +167,8 @@ function getDefaultFinanceData() {
       retirementVolatilityAdjustment: 0.8 // 80% of accumulation volatility
     },
     history: [],
-    apartments: [] // Investment property tracking
+    apartments: [], // Investment property tracking
+    deletedAccounts: [] // Metadata of deleted accounts for import conflict detection
   };
 }
 
@@ -399,14 +400,34 @@ function getAccountDisplayName(account) {
 // Delete account
 function deleteAccount(accountId) {
   const data = loadFinanceData();
-  const initialLength = data.accounts.length;
-  data.accounts = data.accounts.filter(a => a.id !== accountId);
-  
-  if (data.accounts.length === initialLength) {
+  const account = data.accounts.find(a => a.id === accountId);
+
+  if (!account) {
     return { success: false, error: 'Account not found' };
   }
-  
+
+  // Record deleted account metadata so future imports can detect recreation attempts
+  if (!Array.isArray(data.deletedAccounts)) {
+    data.deletedAccounts = [];
+  }
+  data.deletedAccounts.push({
+    id: accountId,
+    name: account.name,
+    displayName: account.displayName || null,
+    normalizedName: normalizeScreenshotAccountLabel(account.name || ''),
+    type: account.type || null,
+    deletedAt: new Date().toISOString()
+  });
+
+  data.accounts = data.accounts.filter(a => a.id !== accountId);
+
   return saveFinanceData(data);
+}
+
+// Return the list of deleted account records
+function getDeletedAccounts() {
+  const data = loadFinanceData();
+  return data.deletedAccounts || [];
 }
 
 // Merge multiple accounts into one
@@ -2279,11 +2300,21 @@ function getScreenshotCandidateAccounts(existingAccounts, parsedAccount) {
   });
 }
 
-function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
+function buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAccounts) {
   const MIN_LABEL_LENGTH_FOR_PREFIX_CHECK = 8;
+  const knownDeleted = Array.isArray(deletedAccounts) ? deletedAccounts : [];
+
   const rows = (parsedAccounts || []).map((parsedAccount, index) => {
     const normalizedLabel = normalizeScreenshotAccountLabel(parsedAccount.name || parsedAccount.rawLabel || '');
     const candidateAccounts = getScreenshotCandidateAccounts(existingAccounts, parsedAccount);
+
+    // Check for matches against previously deleted accounts (only relevant when no active match exists)
+    const matchedDeletedAccount = candidateAccounts.length === 0
+      ? knownDeleted.find(deleted =>
+          screenshotFuzzyMatch(deleted.name || '', parsedAccount.name || '') ||
+          (deleted.normalizedName && normalizedLabel && deleted.normalizedName === normalizedLabel)
+        ) || null
+      : null;
     
     return {
       rowIndex: index,
@@ -2296,6 +2327,9 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
         id: account.id,
         name: account.name
       })),
+      matchedDeletedAccount: matchedDeletedAccount
+        ? { id: matchedDeletedAccount.id, name: matchedDeletedAccount.name, type: matchedDeletedAccount.type, deletedAt: matchedDeletedAccount.deletedAt }
+        : null,
       ambiguityReasons: []
     };
   });
@@ -2373,7 +2407,17 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
       });
     }
   });
-  
+
+  // Flag rows that would create a new account matching a previously deleted account
+  rows.forEach(row => {
+    if (row.matchedDeletedAccount) {
+      row.ambiguityReasons.push({
+        code: 'matches_deleted_account',
+        message: `Proposed new account matches a previously deleted account: "${row.matchedDeletedAccount.name}"`
+      });
+    }
+  });
+
   rows.forEach(row => {
     const reasonCodes = new Set();
     row.ambiguityReasons = row.ambiguityReasons.filter(reason => {
@@ -2406,14 +2450,25 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     console.log(`📅 [Finance] Processing accounts with As Of date: ${effectiveDate} (stored as ${effectiveDateISO})`);
     
     const confirmationDecisions = Array.isArray(options.confirmationDecisions) ? options.confirmationDecisions : null;
-    const plan = buildScreenshotImportPlan(parsedAccounts, existingAccounts);
+    const deletedAccounts = data.deletedAccounts || [];
+    const plan = buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAccounts);
     
     if (plan.hasAmbiguity && !confirmationDecisions) {
       return {
         success: false,
         requiresConfirmation: true,
         error: 'Ambiguous account matches require confirmation before import',
-        ambiguousRows: plan.rows.filter(row => row.ambiguityReasons.length > 0),
+        ambiguousRows: plan.rows.filter(row => row.ambiguityReasons.length > 0).map(row => ({
+          rowIndex: row.rowIndex,
+          name: row.name,
+          rawLabel: row.rawLabel,
+          normalizedLabel: row.normalizedLabel,
+          balance: row.balance,
+          category: row.category,
+          candidateAccounts: row.candidateAccounts,
+          matchedDeletedAccount: row.matchedDeletedAccount || null,
+          ambiguityReasons: row.ambiguityReasons
+        })),
         parsedAccounts: plan.rows.map(row => ({
           name: row.name,
           rawLabel: row.rawLabel,
@@ -2476,11 +2531,16 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         action = 'create';
       }
       
-      if (!['match', 'create', 'skip'].includes(action)) {
+      if (!['match', 'create', 'skip', 'allow_deleted'].includes(action)) {
         return {
           success: false,
           error: `Invalid confirmation action for row ${row.rowIndex + 1}`
         };
+      }
+
+      // allow_deleted is treated identically to create (admin explicitly approved recreating a deleted account)
+      if (action === 'allow_deleted') {
+        action = 'create';
       }
       
       if (action === 'skip') {
@@ -3951,6 +4011,7 @@ module.exports = {
   getAccounts,
   saveAccount,
   deleteAccount,
+  getDeletedAccounts,
   mergeAccounts,
   unmergeAccount,
   clearMergeLink,
