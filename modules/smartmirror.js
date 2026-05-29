@@ -536,6 +536,49 @@ function migrateConfig(oldConfig) {
         needsUpdate = true;
       }
     });
+
+    const existingSmartSubWidgets = updatedWidgets.smartWidget?.subWidgets;
+    const defaultSmartSubWidgets = defaultWidgets.smartWidget?.subWidgets;
+    if (Array.isArray(existingSmartSubWidgets) && Array.isArray(defaultSmartSubWidgets)) {
+      const existingByType = new Map(
+        existingSmartSubWidgets
+          .filter(subWidget => subWidget && subWidget.type)
+          .map(subWidget => [subWidget.type, subWidget])
+      );
+      const mergedSubWidgets = [];
+
+      defaultSmartSubWidgets.forEach(defaultSubWidget => {
+        const existingSubWidget = existingByType.get(defaultSubWidget.type);
+        if (existingSubWidget) {
+          mergedSubWidgets.push({ ...defaultSubWidget, ...existingSubWidget });
+          existingByType.delete(defaultSubWidget.type);
+        } else {
+          logger.info(
+            logger.categories.SMART_MIRROR,
+            `Adding missing smart widget sub-widget: ${defaultSubWidget.type}`
+          );
+          mergedSubWidgets.push(defaultSubWidget);
+          needsUpdate = true;
+        }
+      });
+
+      if (existingByType.size > 0) {
+        mergedSubWidgets.push(...existingByType.values());
+      }
+
+      const subWidgetsChanged = mergedSubWidgets.length !== existingSmartSubWidgets.length ||
+        mergedSubWidgets.some((subWidget, index) =>
+          JSON.stringify(subWidget) !== JSON.stringify(existingSmartSubWidgets[index])
+        );
+
+      if (subWidgetsChanged) {
+        updatedWidgets.smartWidget = {
+          ...updatedWidgets.smartWidget,
+          subWidgets: mergedSubWidgets
+        };
+        needsUpdate = true;
+      }
+    }
     
     if (needsUpdate) {
       return {
