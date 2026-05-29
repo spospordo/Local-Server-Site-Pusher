@@ -31,6 +31,7 @@ const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits for GCM
 const AUTH_TAG_LENGTH = 16;
 const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
+const BALANCE_COMPARISON_TOLERANCE = 0.01; // Floating-point tolerance for balance equality checks
 
 // Initialize the finance module with config
 function init(serverConfig) {
@@ -2486,6 +2487,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     let accountsCreated = 0;
     let rowsSkipped = 0;
     const updatedAccountIds = [];
+    const newAccounts = [];
+    const unchangedAccounts = [];
+    const updatedAccounts = [];
     
     // Map category to default account type
     const categoryToType = {
@@ -2577,6 +2581,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       if (existingAccount) {
         // Update existing account
         const oldBalance = existingAccount.currentValue || 0;
+        const balanceUnchanged = Math.abs(parseFloat(oldBalance) - parseFloat(row.balance)) < BALANCE_COMPARISON_TOLERANCE;
         
         // Determine if we should update the current balance
         // Only update if asOfDate is today or later than the last update
@@ -2603,7 +2608,12 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           source: 'screenshot_upload'
         });
         
-        accountsUpdated++;
+        if (balanceUnchanged) {
+          unchangedAccounts.push({ name: existingAccount.name, balance: row.balance });
+        } else {
+          updatedAccounts.push({ name: existingAccount.name, oldBalance: parseFloat(oldBalance), newBalance: row.balance });
+          accountsUpdated++;
+        }
         updatedAccountIds.push(existingAccount.id);
       } else {
         // Create new account
@@ -2631,6 +2641,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           source: 'screenshot_upload'
         });
         
+        newAccounts.push({ name: newAccount.name, balance: row.balance });
         accountsCreated++;
         updatedAccountIds.push(newAccount.id);
         console.log(`✅ [Finance] Created new account ${newAccount.name}: $${row.balance}`);
@@ -2658,6 +2669,9 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       rowsSkipped: rowsSkipped,
       totalAccounts: parsedAccounts.length,
       updatedAccountIds: updatedAccountIds,
+      newAccounts: newAccounts,
+      unchangedAccounts: unchangedAccounts,
+      updatedAccounts: updatedAccounts,
       groups: groups,
       netWorth: netWorth
     };
