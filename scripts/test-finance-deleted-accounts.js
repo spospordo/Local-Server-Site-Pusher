@@ -13,29 +13,6 @@
 
 'use strict';
 
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-
-// ---------------------------------------------------------------------------
-// Bootstrap: point the finance module at a temp config directory so that
-// this test script does not touch the real application data.
-// ---------------------------------------------------------------------------
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'finance-test-'));
-const tmpConfig = path.join(tmpDir, 'config');
-fs.mkdirSync(tmpConfig, { recursive: true });
-
-// Override __dirname resolution used by finance.js to find config/
-// We achieve this by temporarily monkey-patching process.env and relying on
-// the module's getFinanceDataPath(), which builds the path relative to the
-// module file location.  Instead, we simply write a key file and data file
-// into the real config/ dir backed up beforehand, OR we load the module with
-// a custom key path via environment variable if the module supports it.
-//
-// The simplest approach: mock the entire file-system calls is complex;
-// instead we just confirm the exported functions behave correctly using a
-// fresh data object and calling lower-level helpers directly.
-
 const finance = require('../modules/finance');
 
 // Init with empty config so the module doesn't throw on missing fields.
@@ -144,41 +121,19 @@ section('Test 3: Screenshot import blocked when matching deleted account');
     { name: 'Legitimate Savings', rawLabel: 'Legitimate Savings', balance: 5000, category: 'cash' }
   ];
 
-  // processAccountScreenshot is async and needs a real image file, so we call
-  // updateAccountsFromParsedData directly (which is what processAccountScreenshot delegates to).
-  // We need to use a dynamic require to access the internal function via the module export
-  // path.  Since it's not exported, we test indirectly by triggering the full confirm flow.
-
-  // Instead, exercise via confirmScreenshotImport with no decisions — this should
-  // trigger requiresConfirmation because of the deleted-account match.
-  const result = finance.confirmScreenshotImport(
+  // confirmScreenshotImport is async; handle the Promise.
+  // Calling with undefined decisions simulates the initial upload that has not
+  // yet been reviewed by the admin — it should return requiresConfirmation.
+  finance.confirmScreenshotImport(
     parsedAccounts,
     {},
     null,
     new Date().toISOString().split('T')[0],
-    [] // empty decisions → no overrides
-  );
-
-  // confirmScreenshotImport is async; handle the Promise
-  // Passing undefined (not []) simulates the first upload call that hasn't yet
-  // been given any admin decisions.
-  Promise.resolve(result).then(r => {
-    // When decisions are not yet provided the import should complete normally
-    // (no blocking) because confirmScreenshotImport always passes a decision
-    // array. We test the blocking path below via undefined-decisions.
-    //
-    // Re-run without decisions to exercise the requiresConfirmation path:
-    return finance.confirmScreenshotImport(
-      parsedAccounts,
-      {},
-      null,
-      new Date().toISOString().split('T')[0],
-      undefined // undefined → treated as null → triggers requiresConfirmation
-    );
-  }).then(r => {
-    assert(r.requiresConfirmation === true, 'Import requires confirmation when deleted match found');
-    assert(Array.isArray(r.ambiguousRows), 'ambiguousRows array returned');
-    const blockedRow = (r.ambiguousRows || []).find(row => row.name === 'Promo Offer Text');
+    undefined // undefined → treated as null → triggers requiresConfirmation
+  ).then(blockedResult => {
+    assert(blockedResult.requiresConfirmation === true, 'Import requires confirmation when deleted match found');
+    assert(Array.isArray(blockedResult.ambiguousRows), 'ambiguousRows array returned');
+    const blockedRow = (blockedResult.ambiguousRows || []).find(row => row.name === 'Promo Offer Text');
     assert(!!blockedRow, 'The deleted-account-matching row appears in ambiguousRows');
     assert(
       (blockedRow.ambiguityReasons || []).some(reason => reason.code === 'matches_deleted_account'),
@@ -204,10 +159,10 @@ section('Test 3: Screenshot import blocked when matching deleted account');
       new Date().toISOString().split('T')[0],
       skipDecisions
     );
-  }).then(r4 => {
-    assert(r4.success === true, 'Import succeeds when admin skips blocked row');
-    assert(r4.accountsCreated === 1, 'Only the legitimate new account was created');
-    assert(r4.rowsSkipped === 1, 'One row was skipped');
+  }).then(skipResult => {
+    assert(skipResult.success === true, 'Import succeeds when admin skips blocked row');
+    assert(skipResult.accountsCreated === 1, 'Only the legitimate new account was created');
+    assert(skipResult.rowsSkipped === 1, 'One row was skipped');
 
     const afterSkip = finance.loadFinanceData();
     const skippedExists = afterSkip.accounts.some(a => a.name === 'Promo Offer Text');
@@ -244,9 +199,9 @@ section('Test 3: Screenshot import blocked when matching deleted account');
       new Date().toISOString().split('T')[0],
       allowDecisions
     );
-  }).then(r5 => {
-    assert(r5.success === true, 'Import succeeds when admin allows blocked row');
-    assert(r5.accountsCreated === 2, 'Both accounts created when admin allows');
+  }).then(allowResult => {
+    assert(allowResult.success === true, 'Import succeeds when admin allows blocked row');
+    assert(allowResult.accountsCreated === 2, 'Both accounts created when admin allows');
 
     const afterAllow = finance.loadFinanceData();
     const recreated = afterAllow.accounts.some(a => a.name === 'Promo Offer Text');
@@ -278,11 +233,10 @@ section('Test 3: Screenshot import blocked when matching deleted account');
       new Date().toISOString().split('T')[0],
       []
     );
-  }).then(r6 => {
-    assert(r6.success === true, 'Import succeeds for non-matching new account');
-    assert(r6.accountsCreated === 1, 'Non-matching account created normally');
-    // No requiresConfirmation
-    assert(!r6.requiresConfirmation, 'No confirmation required for non-matching account');
+  }).then(nonMatchResult => {
+    assert(nonMatchResult.success === true, 'Import succeeds for non-matching new account');
+    assert(nonMatchResult.accountsCreated === 1, 'Non-matching account created normally');
+    assert(!nonMatchResult.requiresConfirmation, 'No confirmation required for non-matching account');
 
     // ---------------------------------------------------------------------------
     // Summary
