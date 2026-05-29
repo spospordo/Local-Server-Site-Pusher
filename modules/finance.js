@@ -502,6 +502,10 @@ function trimImportRules(data) {
   }
 }
 
+function getTypeEditDisplayName(rule) {
+  return rule.accountName || rule.newName || rule.oldName || '(no account)';
+}
+
 // Delete account
 function deleteAccount(accountId) {
   const data = loadFinanceData();
@@ -4364,4 +4368,3 @@ module.exports = {
   loadFinanceData,
   saveFinanceData
 };
-  const getTypeEditDisplayName = (rule) => rule.accountName || rule.newName || rule.oldName || '(no account)';
