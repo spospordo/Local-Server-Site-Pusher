@@ -19163,6 +19163,25 @@
         function renderScreenshotImportSummary(result, asOfDate) {
             const statusDiv = document.getElementById('screenshotUploadStatus');
             statusDiv.className = 'alert alert-success';
+
+            const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const newAccountsHtml = (result.newAccounts && result.newAccounts.length > 0) ? `
+                <div style="margin-top: 0.75rem; background: #fff9c4; border-left: 4px solid #f9a825; border-radius: 4px; padding: 0.6rem 0.85rem;">
+                    <strong>🆕 Newly Created Accounts</strong>
+                    <ul style="margin: 0.4rem 0 0 1.25rem; padding: 0;">
+                        ${result.newAccounts.map(a => `<li>${escapeHtml(a.name)} — <strong>$${fmt(a.balance)}</strong></li>`).join('')}
+                    </ul>
+                </div>` : '';
+
+            const unchangedAccountsHtml = (result.unchangedAccounts && result.unchangedAccounts.length > 0) ? `
+                <div style="margin-top: 0.75rem; background: #e3f2fd; border-left: 4px solid #90caf9; border-radius: 4px; padding: 0.6rem 0.85rem;">
+                    <strong>🔵 Unchanged Balances</strong>
+                    <ul style="margin: 0.4rem 0 0 1.25rem; padding: 0;">
+                        ${result.unchangedAccounts.map(a => `<li>${escapeHtml(a.name)} — <strong>$${fmt(a.balance)}</strong> (no change)</li>`).join('')}
+                    </ul>
+                </div>` : '';
+
             statusDiv.innerHTML = `
                 ✅ <strong>Screenshot processed successfully!</strong><br>
                 <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
@@ -19173,6 +19192,8 @@
                     ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
                     <li>Balances recorded as of: <strong>${new Date(asOfDate).toLocaleDateString()}</strong></li>
                 </ul>
+                ${newAccountsHtml}
+                ${unchangedAccountsHtml}
             `;
             statusDiv.style.display = 'block';
         }
