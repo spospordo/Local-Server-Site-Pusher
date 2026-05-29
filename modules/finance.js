@@ -2739,6 +2739,82 @@ function getAccountBalanceHistory(accountId, startDate = null, endDate = null) {
   return balanceSnapshots;
 }
 
+/**
+ * Get per-account performance metrics for a selected history range.
+ *
+ * @param {string|null} startDate - Optional start date filter (YYYY-MM-DD)
+ * @param {string|null} endDate - Optional end date filter (YYYY-MM-DD)
+ * @returns {Array} Account performance rows sorted by absolute dollar change
+ */
+function getAccountPerformance(startDate = null, endDate = null) {
+  const accounts = getAccounts();
+  const allHistory = getHistory(null, null, null).filter(entry => entry && entry.type === 'balance_update');
+  const rangeHistory = getHistory(null, startDate, endDate).filter(entry => entry && entry.type === 'balance_update');
+
+  const accountNameMap = new Map((accounts || []).map(account => [
+    String(account.id),
+    account.displayName || account.name || account.id
+  ]));
+
+  const allHistoryByAccount = new Map();
+  const rangeHistoryByAccount = new Map();
+
+  allHistory.forEach(entry => {
+    const accountId = String(entry.accountId);
+    if (!allHistoryByAccount.has(accountId)) allHistoryByAccount.set(accountId, []);
+    allHistoryByAccount.get(accountId).push(entry);
+  });
+
+  rangeHistory.forEach(entry => {
+    const accountId = String(entry.accountId);
+    if (!rangeHistoryByAccount.has(accountId)) rangeHistoryByAccount.set(accountId, []);
+    rangeHistoryByAccount.get(accountId).push(entry);
+  });
+
+  const performance = [];
+
+  rangeHistoryByAccount.forEach((entriesInRange, accountId) => {
+    if (!entriesInRange || entriesInRange.length === 0) return;
+
+    const allEntries = allHistoryByAccount.get(accountId) || [];
+    const latestInRange = entriesInRange[entriesInRange.length - 1];
+    const earliestInRange = entriesInRange[0];
+    const latestInRangeDate = latestInRange.balanceDate || latestInRange.timestamp;
+    const latestInRangeBalance = parseFloat(latestInRange.newBalance) || 0;
+    const latestInRangeIndex = allEntries.findLastIndex(entry => {
+      const entryDate = entry.balanceDate || entry.timestamp;
+      const entryBalance = parseFloat(entry.newBalance) || 0;
+      return entryDate === latestInRangeDate && entryBalance === latestInRangeBalance;
+    });
+    const previousBalanceEntry = latestInRangeIndex > 0 ? allEntries[latestInRangeIndex - 1] : null;
+
+    const currentBalance = parseFloat(latestInRange.newBalance) || 0;
+    const earliestInRangeBalance = parseFloat(earliestInRange.newBalance) || 0;
+    const previousBalance = previousBalanceEntry ? (parseFloat(previousBalanceEntry.newBalance) || 0) : null;
+
+    const prevChangePct = previousBalanceEntry && previousBalance !== 0
+      ? ((currentBalance - previousBalance) / Math.abs(previousBalance)) * 100
+      : null;
+
+    const chartStartChangePct = entriesInRange.length > 1 && earliestInRangeBalance !== 0
+      ? ((currentBalance - earliestInRangeBalance) / Math.abs(earliestInRangeBalance)) * 100
+      : null;
+
+    performance.push({
+      accountId,
+      accountName: accountNameMap.get(accountId) || latestInRange.accountName || accountId,
+      currentBalance,
+      previousBalance,
+      earliestInRangeBalance,
+      prevChangePct,
+      chartStartChangePct,
+      absoluteDollarChange: currentBalance - earliestInRangeBalance
+    });
+  });
+
+  return performance.sort((a, b) => Math.abs(b.absoluteDollarChange) - Math.abs(a.absoluteDollarChange));
+}
+
 // ============================================================================
 // Apartment Investment Property Tracking Functions
 // ============================================================================
@@ -3669,6 +3745,7 @@ module.exports = {
   getHistoryByAccountType,
   getNetWorthHistory,
   getAccountBalanceHistory,
+  getAccountPerformance,
   // Apartment functions
   getApartments,
   getApartment,

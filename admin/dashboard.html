@@ -3104,6 +3104,26 @@
                     </div>
                 </div>
 
+                <!-- Account Performance Section -->
+                <div id="finance-history-account-performance" style="margin-top: 20px;">
+                    <h4 style="margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #ccc;">Account Performance</h4>
+                    <div style="overflow-y: auto; max-height: 200px; min-height: 145px;">
+                        <table id="account-performance-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead style="position: sticky; top: 0; background: #1e1e1e; z-index: 1;">
+                                <tr>
+                                    <th style="text-align: left; padding: 5px 8px; color: #aaa; font-weight: 600; border-bottom: 1px solid #333; cursor: pointer;" onclick="sortAccountPerformance('name')">Account ▲▼</th>
+                                    <th style="text-align: right; padding: 5px 8px; color: #aaa; font-weight: 600; border-bottom: 1px solid #333; cursor: pointer;" onclick="sortAccountPerformance('balance')">Balance ▲▼</th>
+                                    <th style="text-align: right; padding: 5px 8px; color: #aaa; font-weight: 600; border-bottom: 1px solid #333; cursor: pointer;" onclick="sortAccountPerformance('prevChange')">vs. Prev Upload ▲▼</th>
+                                    <th style="text-align: right; padding: 5px 8px; color: #aaa; font-weight: 600; border-bottom: 1px solid #333; cursor: pointer;" onclick="sortAccountPerformance('chartStartChange')">vs. Chart Start ▲▼</th>
+                                </tr>
+                            </thead>
+                            <tbody id="account-performance-tbody">
+                                <tr><td colspan="4" style="text-align: center; padding: 10px; color: #666;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="section-divider"></div>
 
                 <div id="finance-history-analysis" class="finance-subsection">
@@ -21472,6 +21492,9 @@
         let historyChart = null;
         let analysisChart = null;
         let historyAccounts = [];
+        window.accountPerfData = [];
+        window.accountPerfSortKey = 'impact';
+        window.accountPerfSortDir = 'desc';
         var historyDisplayNameMap = {};
         function buildHistoryDisplayNameMap(accts) {
           historyDisplayNameMap = {};
@@ -21539,6 +21562,7 @@
                 
                 // Load initial history view
                 await updateHistoryView();
+                await updateAccountPerformance();
             } catch (err) {
                 console.error('Failed to initialize history:', err);
             }
@@ -21598,6 +21622,7 @@
                 
                 // Update the table
                 await updateHistoryTable(accountId, startDate, endDate);
+                await updateAccountPerformance();
                 
             } catch (err) {
                 console.error('Failed to update history view:', err);
@@ -22160,6 +22185,109 @@
                 console.error('Failed to render single account chart:', err);
                 showHistoryChartError('Failed to load single-account chart data.');
             }
+        }
+
+        function renderAccountPerformanceTable() {
+            const tbody = document.getElementById('account-performance-tbody');
+            const data = Array.isArray(window.accountPerfData) ? [...window.accountPerfData] : [];
+
+            if (!tbody) return;
+
+            const sortKey = window.accountPerfSortKey || 'impact';
+            const sortDir = window.accountPerfSortDir === 'asc' ? 'asc' : 'desc';
+            const directionMultiplier = sortDir === 'asc' ? 1 : -1;
+
+            const valueForSort = (row) => {
+                if (sortKey === 'name') return (row.accountName || '').toLowerCase();
+                if (sortKey === 'balance') return Number(row.currentBalance) || 0;
+                if (sortKey === 'prevChange') return row.prevChangePct == null ? Number.NEGATIVE_INFINITY : Number(row.prevChangePct);
+                if (sortKey === 'chartStartChange') return row.chartStartChangePct == null ? Number.NEGATIVE_INFINITY : Number(row.chartStartChangePct);
+                return Math.abs(Number(row.absoluteDollarChange) || 0);
+            };
+
+            data.sort((a, b) => {
+                const aVal = valueForSort(a);
+                const bVal = valueForSort(b);
+                if (typeof aVal === 'string' || typeof bVal === 'string') {
+                    return directionMultiplier * String(aVal).localeCompare(String(bVal));
+                }
+                return directionMultiplier * (aVal - bVal);
+            });
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px; color: #666;">No accounts found for selected range</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(row => {
+                const formatPct = (value) => {
+                    if (value == null || Number.isNaN(Number(value))) {
+                        return '<span style="color: #888;">N/A</span>';
+                    }
+                    const numeric = Number(value);
+                    const color = numeric > 0 ? '#4CAF50' : (numeric < 0 ? '#f44336' : '#aaa');
+                    const sign = numeric > 0 ? '+' : '';
+                    return `<span style="color: ${color};">${sign}${numeric.toFixed(2)}%</span>`;
+                };
+
+                const safeAccountName = String(row.accountName || 'Unknown')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+
+                return `
+                    <tr style="border-bottom: 1px solid #2a2a2a;">
+                        <td style="padding: 4px 8px; color: #ccc; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${safeAccountName}">${safeAccountName}</td>
+                        <td style="padding: 4px 8px; text-align: right; color: #fff;">${formatCurrency(Number(row.currentBalance) || 0)}</td>
+                        <td style="padding: 4px 8px; text-align: right;">${formatPct(row.prevChangePct)}</td>
+                        <td style="padding: 4px 8px; text-align: right;">${formatPct(row.chartStartChangePct)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateAccountPerformance() {
+            const tbody = document.getElementById('account-performance-tbody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px; color: #666;">Loading...</td></tr>';
+
+            try {
+                const startDate = document.getElementById('historyStartDate')?.value || '';
+                const endDate = document.getElementById('historyEndDate')?.value || '';
+
+                const query = new URLSearchParams();
+                if (startDate) query.set('startDate', startDate);
+                if (endDate) query.set('endDate', endDate);
+
+                const url = '/admin/api/finance/history/account-performance' + (query.toString() ? `?${query.toString()}` : '');
+                const response = await fetch(url);
+                const performance = await response.json();
+
+                window.accountPerfData = Array.isArray(performance) ? performance : [];
+                if (!window.accountPerfSortKey) window.accountPerfSortKey = 'impact';
+                if (!window.accountPerfSortDir) window.accountPerfSortDir = 'desc';
+
+                renderAccountPerformanceTable();
+            } catch (err) {
+                console.error('Failed to update account performance:', err);
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px; color: #888;">Unable to load account performance</td></tr>';
+            }
+        }
+
+        function sortAccountPerformance(key) {
+            if (!key) return;
+
+            if (window.accountPerfSortKey === key) {
+                window.accountPerfSortDir = window.accountPerfSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                window.accountPerfSortKey = key;
+                window.accountPerfSortDir = 'desc';
+            }
+
+            renderAccountPerformanceTable();
         }
         
         function updateHistorySummary(netWorthData) {
