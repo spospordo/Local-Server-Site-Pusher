@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.22.0] - 2026-05-29
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #635 from spospordo/copilot/finance-imports-display-manage-rules
+  - fix: place type edit helper before exports
+  - chore: address validation feedback for import rules
+  - fix: tighten import rule payload and override validation
+  - feat: add finance import rules management panel
+  - Initial plan
+
+
 ## [2.21.6] - 2026-05-29
 
 ### Patch Update
