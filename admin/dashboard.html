@@ -19186,7 +19186,8 @@
                 ✅ <strong>Screenshot processed successfully!</strong><br>
                 <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
                     <li><strong>${result.accountsCreated}</strong> new account(s) created</li>
-                    <li><strong>${result.accountsUpdated}</strong> account(s) updated</li>
+                    <li><strong>${result.accountsUpdated}</strong> account(s) balance updated</li>
+                    ${result.unchangedAccounts && result.unchangedAccounts.length > 0 ? `<li><strong>${result.unchangedAccounts.length}</strong> account(s) with no balance change</li>` : ''}
                     ${result.rowsSkipped ? `<li><strong>${result.rowsSkipped}</strong> row(s) skipped</li>` : ''}
                     <li><strong>${result.totalAccounts}</strong> total accounts processed</li>
                     ${result.netWorth ? `<li>Net Worth: <strong>$${result.netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></li>` : ''}
