@@ -5982,6 +5982,17 @@ app.get('/admin/api/finance/history/account/:accountId', requireAuth, (req, res)
   }
 });
 
+// Get account performance metrics for selected date range
+app.get('/admin/api/finance/history/account-performance', requireAuth, (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const performance = finance.getAccountPerformance(startDate || null, endDate || null);
+    res.json(performance);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get account performance: ' + err.message });
+  }
+});
+
 // Get recommendations
 app.get('/admin/api/finance/recommendations', requireAuth, (req, res) => {
   try {
