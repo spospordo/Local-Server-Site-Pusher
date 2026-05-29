@@ -2280,6 +2280,7 @@ function getScreenshotCandidateAccounts(existingAccounts, parsedAccount) {
 }
 
 function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
+  const MIN_LABEL_LENGTH_FOR_PREFIX_CHECK = 8;
   const rows = (parsedAccounts || []).map((parsedAccount, index) => {
     const normalizedLabel = normalizeScreenshotAccountLabel(parsedAccount.name || parsedAccount.rawLabel || '');
     const candidateAccounts = getScreenshotCandidateAccounts(existingAccounts, parsedAccount);
@@ -2325,7 +2326,7 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts) {
       const right = rows[j];
       if (!left.normalizedLabel || !right.normalizedLabel) continue;
       const minLength = Math.min(left.normalizedLabel.length, right.normalizedLabel.length);
-      if (minLength < 8) continue;
+      if (minLength < MIN_LABEL_LENGTH_FOR_PREFIX_CHECK) continue;
       if (
         left.normalizedLabel !== right.normalizedLabel &&
         (left.normalizedLabel.startsWith(right.normalizedLabel) || right.normalizedLabel.startsWith(left.normalizedLabel))
@@ -2443,12 +2444,15 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     if (confirmationDecisions) {
       for (const decision of confirmationDecisions) {
         const rowIndex = Number(decision.rowIndex);
-        if (!Number.isInteger(rowIndex)) continue;
+        if (!Number.isInteger(rowIndex)) {
+          return {
+            success: false,
+            error: 'Invalid confirmation payload: rowIndex must be an integer'
+          };
+        }
         decisionMap.set(rowIndex, decision);
       }
     }
-    
-    const rowsByIndex = new Map(plan.rows.map(row => [row.rowIndex, row]));
     
     for (const row of plan.rows) {
       const decision = decisionMap.get(row.rowIndex);
@@ -2493,8 +2497,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           };
         }
         
-        const rowCandidates = rowsByIndex.get(row.rowIndex)?.candidateAccounts || [];
-        const hasCandidate = rowCandidates.some(candidate => candidate.id === targetAccountId);
+        const hasCandidate = row.candidateAccounts.some(candidate => candidate.id === targetAccountId);
         if (!hasCandidate) {
           return {
             success: false,
@@ -2607,6 +2610,16 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
   }
 }
 
+/**
+ * Apply screenshot import after admin confirms ambiguous account mappings.
+ *
+ * @param {Array} parsedAccounts Parsed OCR account rows
+ * @param {Object} groups Parsed account group totals
+ * @param {number|null} netWorth Parsed net worth value
+ * @param {string} asOfDate Date associated with imported balances (YYYY-MM-DD)
+ * @param {Array} confirmationDecisions Admin decisions for ambiguous rows
+ * @returns {Promise<Object>} Import result payload
+ */
 async function confirmScreenshotImport(parsedAccounts, groups, netWorth, asOfDate, confirmationDecisions) {
   return updateAccountsFromParsedData(parsedAccounts, groups, netWorth, asOfDate, { confirmationDecisions });
 }
