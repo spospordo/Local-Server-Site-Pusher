@@ -363,14 +363,15 @@ function saveAccount(accountData) {
     const previousAccount = data.accounts[existingIndex];
     const typeChanged = (previousAccount.type || null) !== (accountData.type || null);
     const nameChanged = (previousAccount.name || null) !== (accountData.name || null);
-    if (typeChanged || nameChanged) {
+    const displayChanged = (previousAccount.displayName || null) !== (accountData.displayName || null);
+    if (typeChanged || nameChanged || displayChanged) {
       appendTypeEditRule(data, {
         accountId: accountData.id,
-        accountName: previousAccount.displayName || accountData.displayName || accountData.name,
+        accountName: accountData.displayName || previousAccount.displayName || accountData.name,
         oldType: previousAccount.type || null,
         newType: accountData.type || null,
-        oldName: previousAccount.name || null,
-        newName: accountData.name || null
+        oldName: previousAccount.displayName || previousAccount.name || null,
+        newName: accountData.displayName || accountData.name || null
       });
     }
     data.accounts[existingIndex] = accountData;
@@ -440,7 +441,7 @@ function upsertImportDecisionRule(data, ruleInput) {
   const rules = ensureImportRules(data);
   const normalizedLabel = normalizeScreenshotAccountLabel(ruleInput.normalizedLabel || ruleInput.rawLabel || '');
   if (!normalizedLabel) {
-    return;
+    return false;
   }
 
   const existingIndex = rules.findIndex(rule =>
@@ -466,21 +467,32 @@ function upsertImportDecisionRule(data, ruleInput) {
   } else {
     rules.push(nextRule);
   }
+  return true;
 }
 
 function appendTypeEditRule(data, ruleInput) {
+  const oldType = ruleInput.oldType || null;
+  const newType = ruleInput.newType || null;
+  const oldName = ruleInput.oldName || null;
+  const newName = ruleInput.newName || null;
+  const hasMeaningfulChange = oldType !== newType || oldName !== newName;
+  if (!hasMeaningfulChange) {
+    return false;
+  }
+
   const rules = ensureImportRules(data);
   rules.push({
     id: crypto.randomUUID(),
     kind: 'type_edit',
     accountId: ruleInput.accountId,
     accountName: ruleInput.accountName || null,
-    oldType: ruleInput.oldType || null,
-    newType: ruleInput.newType || null,
-    oldName: ruleInput.oldName || null,
-    newName: ruleInput.newName || null,
+    oldType,
+    newType,
+    oldName,
+    newName,
     createdAt: new Date().toISOString()
   });
+  return true;
 }
 
 function trimImportRules(data) {
@@ -548,7 +560,7 @@ function getImportRules() {
     removable: true,
     impactText: 'Removing this override means future imports will use default matching/import logic for this label.',
     description: rule.action === 'match'
-      ? `'${rule.rawLabel || rule.normalizedLabel}' → '${rule.matchedAccountName || 'Unknown account'}' matched by admin override`
+      ? `'${rule.rawLabel || rule.normalizedLabel}' → '${rule.matchedAccountName || 'No matched account'}' matched by admin override`
       : rule.action === 'skip'
         ? `'${rule.rawLabel || rule.normalizedLabel}' is set to skip during import`
         : rule.action === 'allow_deleted'
@@ -607,7 +619,7 @@ function getImportRules() {
       actionDate: rule.createdAt,
       removable: true,
       impactText: 'Removing this record only removes the saved edit rule entry; it does not revert current account values.',
-      description: `Account '${rule.accountName || rule.newName || rule.oldName || rule.accountId}' edited by admin`,
+      description: `Account '${getTypeEditDisplayName(rule)}' edited by admin`,
       context: {
         accountName: rule.accountName || null,
         fromType: rule.oldType || null,
@@ -2818,9 +2830,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         
         const hasCandidate = row.candidateAccounts.some(candidate => candidate.id === targetAccountId);
         if (!hasCandidate) {
-          const canUseStoredOverride = actionCameFromStoredRule &&
-            storedRule &&
-            storedRule.normalizedLabel === row.normalizedLabel;
+          const canUseStoredOverride = actionCameFromStoredRule && !!storedRule;
           if (!canUseStoredOverride) {
             return {
               success: false,
@@ -4354,3 +4364,4 @@ module.exports = {
   loadFinanceData,
   saveFinanceData
 };
+  const getTypeEditDisplayName = (rule) => rule.accountName || rule.newName || rule.oldName || '(no account)';
