@@ -199,7 +199,25 @@ function getDefaultWidgets() {
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 }, // pauseTimeout in minutes; 0 = never hide
         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: DEFAULT_HA_REFRESH_INTERVAL_MS },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
-        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
+        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 },
+        {
+          type: 'qrCodes',
+          enabled: false,
+          priority: 6,
+          cycleTime: 30,
+          wifi1Label: '',
+          wifi1Ssid: '',
+          wifi1Password: '',
+          wifi1Security: 'WPA',
+          wifi2Label: '',
+          wifi2Ssid: '',
+          wifi2Password: '',
+          wifi2Security: 'WPA',
+          link1Label: '',
+          link1Url: '',
+          link2Label: '',
+          link2Url: ''
+        }
       ],
       // Display settings
       displayMode: 'cycle', // 'cycle', 'simultaneous', 'priority', or 'adaptive'

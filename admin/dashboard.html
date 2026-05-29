@@ -6745,6 +6745,113 @@
                                     </div>
                                 </div>
 
+                                <!-- QR Codes (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            📷 QR Codes
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesEnabled">Enabled</label>
+                                                <select id="smartWidgetQrCodesEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false" selected>No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesPriority">Priority</label>
+                                                <input type="number" id="smartWidgetQrCodesPriority" min="1" max="10" value="6">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetQrCodesCycleTime" min="5" max="120" value="30">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi1Label">WiFi 1 Label</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi1Label" placeholder="Guest WiFi">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi1Ssid">WiFi 1 SSID</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi1Ssid" placeholder="Network name">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi1Password">WiFi 1 Password</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi1Password" placeholder="Password">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi1Security">WiFi 1 Security</label>
+                                                <select id="smartWidgetQrCodesWifi1Security">
+                                                    <option value="WPA">WPA / WPA2</option>
+                                                    <option value="WEP">WEP</option>
+                                                    <option value="nopass">None</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi2Label">WiFi 2 Label</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi2Label" placeholder="Family WiFi">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi2Ssid">WiFi 2 SSID</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi2Ssid" placeholder="Network name">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi2Password">WiFi 2 Password</label>
+                                                <input type="text" id="smartWidgetQrCodesWifi2Password" placeholder="Password">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesWifi2Security">WiFi 2 Security</label>
+                                                <select id="smartWidgetQrCodesWifi2Security">
+                                                    <option value="WPA">WPA / WPA2</option>
+                                                    <option value="WEP">WEP</option>
+                                                    <option value="nopass">None</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesLink1Label">Link 1 Label</label>
+                                                <input type="text" id="smartWidgetQrCodesLink1Label" placeholder="Menu">
+                                            </div>
+                                            <div class="form-group" style="flex: 2;">
+                                                <label for="smartWidgetQrCodesLink1Url">Link 1 URL</label>
+                                                <input type="url" id="smartWidgetQrCodesLink1Url" placeholder="https://example.com/menu">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetQrCodesLink2Label">Link 2 Label</label>
+                                                <input type="text" id="smartWidgetQrCodesLink2Label" placeholder="Guest Info">
+                                            </div>
+                                            <div class="form-group" style="flex: 2;">
+                                                <label for="smartWidgetQrCodesLink2Url">Link 2 URL</label>
+                                                <input type="url" id="smartWidgetQrCodesLink2Url" placeholder="https://example.com/info">
+                                            </div>
+                                        </div>
+
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Generates up to two WiFi QR codes and two link QR codes directly on the Smart Mirror display. Only fully populated entries are shown to viewers.
+                                        </p>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
@@ -14859,7 +14966,8 @@
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 },
                         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
-                        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
+                        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 },
+                        { type: 'qrCodes', enabled: false, priority: 6, cycleTime: 30, wifi1Label: '', wifi1Ssid: '', wifi1Password: '', wifi1Security: 'WPA', wifi2Label: '', wifi2Ssid: '', wifi2Password: '', wifi2Security: 'WPA', link1Label: '', link1Url: '', link2Label: '', link2Url: '' }
                     ];
                     
                     const rainWidget = subWidgets.find(sw => sw.type === 'rainForecast') || { enabled: true, priority: 1, cycleTime: 10 };
@@ -14906,6 +15014,23 @@
                     document.getElementById('smartWidgetSpacexCycleTime').value = spacexSubWidget.cycleTime || 12;
                     document.getElementById('smartWidgetSpacexDisplayDays').value = spacexSubWidget.displayThresholdDays ?? 7;
                     document.getElementById('smartWidgetSpacexHighlightHours').value = spacexSubWidget.highlightThresholdHours ?? 24;
+
+                    const qrWidget = subWidgets.find(sw => sw.type === 'qrCodes') || { enabled: false, priority: 6, cycleTime: 30, wifi1Label: '', wifi1Ssid: '', wifi1Password: '', wifi1Security: 'WPA', wifi2Label: '', wifi2Ssid: '', wifi2Password: '', wifi2Security: 'WPA', link1Label: '', link1Url: '', link2Label: '', link2Url: '' };
+                    document.getElementById('smartWidgetQrCodesEnabled').value = qrWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetQrCodesPriority').value = qrWidget.priority || 6;
+                    document.getElementById('smartWidgetQrCodesCycleTime').value = qrWidget.cycleTime || 30;
+                    document.getElementById('smartWidgetQrCodesWifi1Label').value = qrWidget.wifi1Label || '';
+                    document.getElementById('smartWidgetQrCodesWifi1Ssid').value = qrWidget.wifi1Ssid || '';
+                    document.getElementById('smartWidgetQrCodesWifi1Password').value = qrWidget.wifi1Password || '';
+                    document.getElementById('smartWidgetQrCodesWifi1Security').value = qrWidget.wifi1Security || 'WPA';
+                    document.getElementById('smartWidgetQrCodesWifi2Label').value = qrWidget.wifi2Label || '';
+                    document.getElementById('smartWidgetQrCodesWifi2Ssid').value = qrWidget.wifi2Ssid || '';
+                    document.getElementById('smartWidgetQrCodesWifi2Password').value = qrWidget.wifi2Password || '';
+                    document.getElementById('smartWidgetQrCodesWifi2Security').value = qrWidget.wifi2Security || 'WPA';
+                    document.getElementById('smartWidgetQrCodesLink1Label').value = qrWidget.link1Label || '';
+                    document.getElementById('smartWidgetQrCodesLink1Url').value = qrWidget.link1Url || '';
+                    document.getElementById('smartWidgetQrCodesLink2Label').value = qrWidget.link2Label || '';
+                    document.getElementById('smartWidgetQrCodesLink2Url').value = qrWidget.link2Url || '';
 
                     const batterySubWidget = subWidgets.find(sw => sw.type === 'homeAssistantBattery') || { enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 };
                     document.getElementById('smartWidgetBatteryEnabled').value = batterySubWidget.enabled ? 'true' : 'false';
@@ -15375,6 +15500,24 @@
                                     cycleTime: parseInt(document.getElementById('smartWidgetSpacexCycleTime').value),
                                     displayThresholdDays: parseInt(document.getElementById('smartWidgetSpacexDisplayDays').value),
                                     highlightThresholdHours: parseInt(document.getElementById('smartWidgetSpacexHighlightHours').value)
+                                },
+                                {
+                                    type: 'qrCodes',
+                                    enabled: document.getElementById('smartWidgetQrCodesEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetQrCodesPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetQrCodesCycleTime').value),
+                                    wifi1Label: document.getElementById('smartWidgetQrCodesWifi1Label').value.trim(),
+                                    wifi1Ssid: document.getElementById('smartWidgetQrCodesWifi1Ssid').value.trim(),
+                                    wifi1Password: document.getElementById('smartWidgetQrCodesWifi1Password').value,
+                                    wifi1Security: document.getElementById('smartWidgetQrCodesWifi1Security').value,
+                                    wifi2Label: document.getElementById('smartWidgetQrCodesWifi2Label').value.trim(),
+                                    wifi2Ssid: document.getElementById('smartWidgetQrCodesWifi2Ssid').value.trim(),
+                                    wifi2Password: document.getElementById('smartWidgetQrCodesWifi2Password').value,
+                                    wifi2Security: document.getElementById('smartWidgetQrCodesWifi2Security').value,
+                                    link1Label: document.getElementById('smartWidgetQrCodesLink1Label').value.trim(),
+                                    link1Url: document.getElementById('smartWidgetQrCodesLink1Url').value.trim(),
+                                    link2Label: document.getElementById('smartWidgetQrCodesLink2Label').value.trim(),
+                                    link2Url: document.getElementById('smartWidgetQrCodesLink2Url').value.trim()
                                 }
                             ],
                             apiKey: preserveApiKey(

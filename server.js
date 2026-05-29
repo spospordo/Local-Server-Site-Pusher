@@ -8341,6 +8341,10 @@ function estimateContentSize(subWidgetData) {
       // Battery widget size depends on number of visible devices
       return (data.devices || []).length > 3 ? 'medium' : 'small';
       
+    case 'qrCodes':
+      // QR code widget grows with the number of cards shown
+      return ((data.wifiCodes || []).length + (data.linkCodes || []).length) > 2 ? 'medium' : 'small';
+      
     case 'party':
       // Party widget has extensive content (weather, tasks, invitees, menu, events)
       const hasWeather = !!data.weather;
@@ -9380,6 +9384,53 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             } else {
               logger.debug(logger.categories.SMART_MIRROR,
                 'SpaceX Launch sub-widget: no upcoming Vandenberg launches found');
+            }
+            break;
+          }
+
+          case 'qrCodes': {
+            const wifiCodes = [];
+            const linkCodes = [];
+
+            for (const index of [1, 2]) {
+              const ssid = (subWidget[`wifi${index}Ssid`] || '').trim();
+              const password = (subWidget[`wifi${index}Password`] || '').trim();
+              const security = subWidget[`wifi${index}Security`] || 'WPA';
+              const label = (subWidget[`wifi${index}Label`] || '').trim();
+
+              if (ssid && ((security === 'nopass') || password)) {
+                wifiCodes.push({
+                  label: label || ssid,
+                  ssid,
+                  password,
+                  security
+                });
+              }
+            }
+
+            for (const index of [1, 2]) {
+              const label = (subWidget[`link${index}Label`] || '').trim();
+              const url = (subWidget[`link${index}Url`] || '').trim();
+
+              if (label && url) {
+                linkCodes.push({ label, url });
+              }
+            }
+
+            if (wifiCodes.length > 0 || linkCodes.length > 0) {
+              subWidgetData = {
+                type: 'qrCodes',
+                priority: subWidget.priority,
+                cycleTime: subWidget.cycleTime || 30,
+                hasContent: true,
+                data: {
+                  wifiCodes,
+                  linkCodes
+                }
+              };
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'QR Codes sub-widget: no configured WiFi or link QR codes');
             }
             break;
           }
