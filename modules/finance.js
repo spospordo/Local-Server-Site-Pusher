@@ -559,7 +559,7 @@ function getImportRules() {
       normalizedName: rule.normalizedLabel || null,
       accountName: rule.matchedAccountName || null,
       asOfDate: rule.asOfDate || null,
-      deletedAccount: rule.matchedDeletedAccountName || null
+      deletedAccountName: rule.matchedDeletedAccountName || null
     }
     }));
 
@@ -2817,11 +2817,16 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         }
         
         const hasCandidate = row.candidateAccounts.some(candidate => candidate.id === targetAccountId);
-        if (!hasCandidate && !actionCameFromStoredRule) {
-          return {
-            success: false,
-            error: `Selected account is not a valid candidate for row ${row.rowIndex + 1}`
-          };
+        if (!hasCandidate) {
+          const canUseStoredOverride = actionCameFromStoredRule &&
+            storedRule &&
+            storedRule.normalizedLabel === row.normalizedLabel;
+          if (!canUseStoredOverride) {
+            return {
+              success: false,
+              error: `Selected account is not a valid candidate for row ${row.rowIndex + 1}`
+            };
+          }
         }
         
         existingAccount = existingAccounts.find(acc => acc.id === targetAccountId);

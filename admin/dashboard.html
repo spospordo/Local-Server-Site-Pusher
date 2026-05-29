@@ -18371,7 +18371,7 @@
             if (context.accountName) details.push(`Account: ${escapeHtml(context.accountName)}`);
             if (context.parsedLabel) details.push(`Parsed label: ${escapeHtml(context.parsedLabel)}`);
             if (context.normalizedName) details.push(`Normalized: ${escapeHtml(context.normalizedName)}`);
-            if (context.deletedAccount) details.push(`Blocked account: ${escapeHtml(context.deletedAccount)}`);
+            if (context.deletedAccountName) details.push(`Blocked account: ${escapeHtml(context.deletedAccountName)}`);
             if (context.asOfDate) details.push(`As Of: ${escapeHtml(context.asOfDate)}`);
             if (context.fromType || context.toType) details.push(`Type: ${escapeHtml(context.fromType || '—')} → ${escapeHtml(context.toType || '—')}`);
             if (context.fromName || context.toName) details.push(`Name: ${escapeHtml(context.fromName || '—')} → ${escapeHtml(context.toName || '—')}`);
