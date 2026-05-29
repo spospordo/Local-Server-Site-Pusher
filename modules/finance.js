@@ -31,6 +31,7 @@ const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits for GCM
 const AUTH_TAG_LENGTH = 16;
 const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
+const MAX_IMPORT_RULE_ENTRIES = 300; // Maximum admin import override/type-edit rules to keep
 const BALANCE_COMPARISON_TOLERANCE = 0.01; // Floating-point tolerance for balance equality checks
 
 // Initialize the finance module with config
@@ -169,7 +170,8 @@ function getDefaultFinanceData() {
     },
     history: [],
     apartments: [], // Investment property tracking
-    deletedAccounts: [] // Metadata of deleted accounts for import conflict detection
+    deletedAccounts: [], // Metadata of deleted accounts for import conflict detection
+    importRules: [] // Admin-managed import overrides and post-import mapping/type edits
   };
 }
 
@@ -335,6 +337,7 @@ function getAccounts() {
 // Add or update account
 function saveAccount(accountData) {
   const data = loadFinanceData();
+  ensureImportRules(data);
   
   if (!accountData.id) {
     accountData.id = Date.now().toString();
@@ -357,10 +360,25 @@ function saveAccount(accountData) {
   
   const existingIndex = data.accounts.findIndex(a => a.id === accountData.id);
   if (existingIndex >= 0) {
+    const previousAccount = data.accounts[existingIndex];
+    const typeChanged = (previousAccount.type || null) !== (accountData.type || null);
+    const nameChanged = (previousAccount.name || null) !== (accountData.name || null);
+    const displayChanged = (previousAccount.displayName || null) !== (accountData.displayName || null);
+    if (typeChanged || nameChanged || displayChanged) {
+      appendTypeEditRule(data, {
+        accountId: accountData.id,
+        accountName: accountData.displayName || previousAccount.displayName || accountData.name,
+        oldType: previousAccount.type || null,
+        newType: accountData.type || null,
+        oldName: previousAccount.displayName || previousAccount.name || null,
+        newName: accountData.displayName || accountData.name || null
+      });
+    }
     data.accounts[existingIndex] = accountData;
   } else {
     data.accounts.push(accountData);
   }
+  trimImportRules(data);
   
   return saveFinanceData(data);
 }
@@ -368,6 +386,7 @@ function saveAccount(accountData) {
 // Update account display name
 function updateAccountDisplayName(accountId, displayName) {
   const data = loadFinanceData();
+  ensureImportRules(data);
   
   const accountIndex = data.accounts.findIndex(a => a.id === accountId);
   if (accountIndex < 0) {
@@ -375,6 +394,7 @@ function updateAccountDisplayName(accountId, displayName) {
   }
   
   const account = data.accounts[accountIndex];
+  const oldDisplayName = account.displayName || null;
   
   // Set display name (empty or whitespace-only strings become null)
   account.displayName = (typeof displayName === 'string' && displayName.trim() !== '') 
@@ -389,6 +409,18 @@ function updateAccountDisplayName(accountId, displayName) {
     now.getUTCDate(),
     0, 0, 0, 0
   )).toISOString();
+
+  if ((oldDisplayName || null) !== (account.displayName || null)) {
+    appendTypeEditRule(data, {
+      accountId: account.id,
+      accountName: account.displayName || account.name,
+      oldType: account.type || null,
+      newType: account.type || null,
+      oldName: oldDisplayName || account.name,
+      newName: account.displayName || account.name
+    });
+    trimImportRules(data);
+  }
   
   return saveFinanceData(data);
 }
@@ -396,6 +428,82 @@ function updateAccountDisplayName(accountId, displayName) {
 // Get display name for an account (falls back to original name)
 function getAccountDisplayName(account) {
   return account.displayName || account.name;
+}
+
+function ensureImportRules(data) {
+  if (!Array.isArray(data.importRules)) {
+    data.importRules = [];
+  }
+  return data.importRules;
+}
+
+function upsertImportDecisionRule(data, ruleInput) {
+  const rules = ensureImportRules(data);
+  const normalizedLabel = normalizeScreenshotAccountLabel(ruleInput.normalizedLabel || ruleInput.rawLabel || '');
+  if (!normalizedLabel) {
+    return false;
+  }
+
+  const existingIndex = rules.findIndex(rule =>
+    rule.kind === 'decision' &&
+    rule.normalizedLabel === normalizedLabel
+  );
+
+  const nextRule = {
+    id: existingIndex >= 0 ? rules[existingIndex].id : crypto.randomUUID(),
+    kind: 'decision',
+    action: ruleInput.action,
+    normalizedLabel,
+    rawLabel: ruleInput.rawLabel || null,
+    matchedAccountId: ruleInput.matchedAccountId || null,
+    matchedAccountName: ruleInput.matchedAccountName || null,
+    matchedDeletedAccountName: ruleInput.matchedDeletedAccountName || null,
+    asOfDate: ruleInput.asOfDate || null,
+    createdAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    rules[existingIndex] = nextRule;
+  } else {
+    rules.push(nextRule);
+  }
+  return true;
+}
+
+function appendTypeEditRule(data, ruleInput) {
+  const oldType = ruleInput.oldType || null;
+  const newType = ruleInput.newType || null;
+  const oldName = ruleInput.oldName || null;
+  const newName = ruleInput.newName || null;
+  const hasMeaningfulChange = oldType !== newType || oldName !== newName;
+  if (!hasMeaningfulChange) {
+    return false;
+  }
+
+  const rules = ensureImportRules(data);
+  rules.push({
+    id: crypto.randomUUID(),
+    kind: 'type_edit',
+    accountId: ruleInput.accountId,
+    accountName: ruleInput.accountName || null,
+    oldType,
+    newType,
+    oldName,
+    newName,
+    createdAt: new Date().toISOString()
+  });
+  return true;
+}
+
+function trimImportRules(data) {
+  const rules = ensureImportRules(data);
+  if (rules.length > MAX_IMPORT_RULE_ENTRIES) {
+    data.importRules = rules.slice(-MAX_IMPORT_RULE_ENTRIES);
+  }
+}
+
+function getTypeEditDisplayName(rule) {
+  return rule.accountName || rule.newName || rule.oldName || '(no account)';
 }
 
 // Delete account
@@ -429,6 +537,156 @@ function deleteAccount(accountId) {
 function getDeletedAccounts() {
   const data = loadFinanceData();
   return data.deletedAccounts || [];
+}
+
+function getImportRules() {
+  const data = loadFinanceData();
+  const rules = ensureImportRules(data);
+  const accounts = data.accounts || [];
+  const history = data.history || [];
+
+  const latestMergeByAccountId = {};
+  history
+    .filter(entry => entry.type === 'accounts_merged' && entry.survivingAccountId)
+    .forEach(entry => {
+      const existing = latestMergeByAccountId[entry.survivingAccountId];
+      if (!existing || new Date(entry.timestamp) > new Date(existing.timestamp)) {
+        latestMergeByAccountId[entry.survivingAccountId] = entry;
+      }
+    });
+
+  const importDecisionRules = rules
+    .filter(rule => rule.kind === 'decision')
+    .map(rule => ({
+    id: `decision:${rule.id}`,
+    type: rule.action === 'match' ? 'match' : (rule.action === 'allow_deleted' ? 'override' : rule.action),
+    actionDate: rule.createdAt,
+    removable: true,
+    impactText: 'Removing this override means future imports will use default matching/import logic for this label.',
+    description: rule.action === 'match'
+      ? `'${rule.rawLabel || rule.normalizedLabel}' → '${rule.matchedAccountName || 'No matched account'}' matched by admin override`
+      : rule.action === 'skip'
+        ? `'${rule.rawLabel || rule.normalizedLabel}' is set to skip during import`
+        : rule.action === 'allow_deleted'
+          ? `'${rule.rawLabel || rule.normalizedLabel}' is allowed to recreate a previously deleted account`
+          : `'${rule.rawLabel || rule.normalizedLabel}' is set to create a new account during import`,
+    context: {
+      parsedLabel: rule.rawLabel || null,
+      normalizedName: rule.normalizedLabel || null,
+      accountName: rule.matchedAccountName || null,
+      asOfDate: rule.asOfDate || null,
+      deletedAccountName: rule.matchedDeletedAccountName || null
+    }
+    }));
+
+  const mergedRules = accounts
+    .filter(account => Array.isArray(account.previousNames) && account.previousNames.length > 0)
+    .map(account => {
+      const mergeEntry = latestMergeByAccountId[account.id];
+      const absorbed = (mergeEntry && Array.isArray(mergeEntry.mergedAccountNames) && mergeEntry.mergedAccountNames.length > 0)
+        ? mergeEntry.mergedAccountNames
+        : account.previousNames;
+      return {
+        id: `merge:${account.id}`,
+        type: 'merge',
+        actionDate: mergeEntry ? mergeEntry.timestamp : account.updatedAt,
+        removable: true,
+        impactText: 'Removing this merge rule does not undo historical data; it only removes merge-name overrides for future imports.',
+        description: `${absorbed.join(' + ')} merged into '${account.displayName || account.name}'`,
+        context: {
+          accountName: account.displayName || account.name,
+          mergedAccounts: absorbed,
+          normalizedName: normalizeScreenshotAccountLabel(account.displayName || account.name || '')
+        }
+      };
+    });
+
+  const deletedRules = (data.deletedAccounts || []).map(item => ({
+    id: `deleted:${item.id}:${item.deletedAt}`,
+    type: 'delete',
+    actionDate: item.deletedAt,
+    removable: true,
+    impactText: 'Removing this deleted-account rule will allow future imports to recreate this account automatically.',
+    description: `'${item.displayName || item.name}' marked as deleted and blocked from auto-recreation`,
+    context: {
+      accountName: item.displayName || item.name,
+      normalizedName: item.normalizedName || normalizeScreenshotAccountLabel(item.name || ''),
+      type: item.type || null
+    }
+  }));
+
+  const typeEditRules = rules
+    .filter(rule => rule.kind === 'type_edit')
+    .map(rule => ({
+      id: `type_edit:${rule.id}`,
+      type: 'type_edit',
+      actionDate: rule.createdAt,
+      removable: true,
+      impactText: 'Removing this record only removes the saved edit rule entry; it does not revert current account values.',
+      description: `Account '${getTypeEditDisplayName(rule)}' edited by admin`,
+      context: {
+        accountName: rule.accountName || null,
+        fromType: rule.oldType || null,
+        toType: rule.newType || null,
+        fromName: rule.oldName || null,
+        toName: rule.newName || null
+      }
+    }));
+
+  return [...importDecisionRules, ...mergedRules, ...deletedRules, ...typeEditRules]
+    .sort((a, b) => new Date(b.actionDate || 0) - new Date(a.actionDate || 0));
+}
+
+function removeImportRule(ruleId) {
+  if (!ruleId || typeof ruleId !== 'string') {
+    return { success: false, error: 'Rule id is required' };
+  }
+
+  if (ruleId.startsWith('merge:')) {
+    const accountId = ruleId.slice('merge:'.length);
+    return clearMergeLink(accountId);
+  }
+
+  const data = loadFinanceData();
+  ensureImportRules(data);
+
+  if (ruleId.startsWith('deleted:')) {
+    const payload = ruleId.slice('deleted:'.length);
+    const parts = payload.split(':');
+    if (parts.length < 2) {
+      return { success: false, error: 'Invalid deleted-account rule id' };
+    }
+    const accountId = parts.shift();
+    const deletedAt = parts.join(':');
+    const index = (data.deletedAccounts || []).findIndex(item => item.id === accountId && item.deletedAt === deletedAt);
+    if (index < 0) {
+      return { success: false, error: 'Deleted-account rule not found' };
+    }
+    data.deletedAccounts.splice(index, 1);
+    return saveFinanceData(data);
+  }
+
+  if (ruleId.startsWith('decision:')) {
+    const decisionId = ruleId.slice('decision:'.length);
+    const index = data.importRules.findIndex(rule => rule.id === decisionId && rule.kind === 'decision');
+    if (index < 0) {
+      return { success: false, error: 'Import decision rule not found' };
+    }
+    data.importRules.splice(index, 1);
+    return saveFinanceData(data);
+  }
+
+  if (ruleId.startsWith('type_edit:')) {
+    const editId = ruleId.slice('type_edit:'.length);
+    const index = data.importRules.findIndex(rule => rule.id === editId && rule.kind === 'type_edit');
+    if (index < 0) {
+      return { success: false, error: 'Type edit rule not found' };
+    }
+    data.importRules.splice(index, 1);
+    return saveFinanceData(data);
+  }
+
+  return { success: false, error: 'Unsupported rule type' };
 }
 
 // Merge multiple accounts into one
@@ -2512,17 +2770,30 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         decisionMap.set(rowIndex, decision);
       }
     }
+
+    const storedDecisionRules = ensureImportRules(data)
+      .filter(rule => rule.kind === 'decision' && rule.normalizedLabel);
+    const storedDecisionByNormalizedLabel = new Map();
+    storedDecisionRules.forEach(rule => {
+      storedDecisionByNormalizedLabel.set(rule.normalizedLabel, rule);
+    });
     
     for (const row of plan.rows) {
       const decision = decisionMap.get(row.rowIndex);
       const isAmbiguousRow = row.ambiguityReasons.length > 0;
       const isExplicitDecision = !!decision;
+      const storedRule = storedDecisionByNormalizedLabel.get(row.normalizedLabel || '');
       let action = null;
       let targetAccountId = null;
+      let actionCameFromStoredRule = false;
       
       if (isExplicitDecision) {
         action = decision.action;
         targetAccountId = decision.accountId || null;
+      } else if (storedRule) {
+        action = storedRule.action;
+        targetAccountId = storedRule.matchedAccountId || null;
+        actionCameFromStoredRule = true;
       } else if (isAmbiguousRow) {
         return {
           success: false,
@@ -2563,10 +2834,13 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         
         const hasCandidate = row.candidateAccounts.some(candidate => candidate.id === targetAccountId);
         if (!hasCandidate) {
-          return {
-            success: false,
-            error: `Selected account is not a valid candidate for row ${row.rowIndex + 1}`
-          };
+          const canUseStoredOverride = actionCameFromStoredRule && !!storedRule;
+          if (!canUseStoredOverride) {
+            return {
+              success: false,
+              error: `Selected account is not a valid candidate for row ${row.rowIndex + 1}`
+            };
+          }
         }
         
         existingAccount = existingAccounts.find(acc => acc.id === targetAccountId);
@@ -2646,12 +2920,28 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         updatedAccountIds.push(newAccount.id);
         console.log(`✅ [Finance] Created new account ${newAccount.name}: $${row.balance}`);
       }
+
+      if (isExplicitDecision) {
+        const matchedAccountName = targetAccountId
+          ? (existingAccounts.find(acc => acc.id === targetAccountId) || {}).name || null
+          : null;
+        upsertImportDecisionRule(data, {
+          action: decision.action,
+          normalizedLabel: row.normalizedLabel,
+          rawLabel: row.rawLabel,
+          matchedAccountId: targetAccountId,
+          matchedAccountName,
+          matchedDeletedAccountName: row.matchedDeletedAccount ? row.matchedDeletedAccount.name : null,
+          asOfDate: effectiveDate
+        });
+      }
     }
     
     // Keep only last MAX_HISTORY_ENTRIES history entries
     if (data.history.length > MAX_HISTORY_ENTRIES) {
       data.history = data.history.slice(-MAX_HISTORY_ENTRIES);
     }
+    trimImportRules(data);
     
     // Save updated data
     const saveResult = saveFinanceData(data);
@@ -4026,6 +4316,8 @@ module.exports = {
   saveAccount,
   deleteAccount,
   getDeletedAccounts,
+  getImportRules,
+  removeImportRule,
   mergeAccounts,
   unmergeAccount,
   clearMergeLink,
