@@ -6,13 +6,15 @@
  * Tests:
  * 1. Smart Widget API endpoint when disabled
  * 2. Smart Widget API endpoint when enabled
- * 3. Rain forecast sub-widget
+ * 3. Smart sub-widget migrations include newly added defaults
  * 4. Upcoming vacation sub-widget
  * 5. Home Assistant media sub-widget
  */
 
 const smartMirror = require('../modules/smartmirror');
 const house = require('../modules/house');
+const fs = require('fs');
+const path = require('path');
 
 console.log('🧪 Testing Smart Widget Functionality\n');
 console.log('=' .repeat(80));
@@ -36,7 +38,7 @@ smartWidget.subWidgets.forEach(sw => {
 
 // Test 2: Validate sub-widget types
 console.log('\n📋 Test 2: Validating sub-widget types');
-const expectedTypes = ['rainForecast', 'upcomingVacation', 'homeAssistantMedia'];
+const expectedTypes = ['rainForecast', 'upcomingVacation', 'homeAssistantMedia', 'party', 'qrCodes'];
 const actualTypes = smartWidget.subWidgets.map(sw => sw.type);
 const allTypesPresent = expectedTypes.every(type => actualTypes.includes(type));
 if (allTypesPresent) {
@@ -63,7 +65,7 @@ if (portraitLayout && landscapeLayout) {
 
 // Test 4: Validate display modes
 console.log('\n📋 Test 4: Validating display modes');
-const validModes = ['cycle', 'simultaneous', 'priority'];
+const validModes = ['cycle', 'simultaneous', 'priority', 'adaptive'];
 if (validModes.includes(smartWidget.displayMode)) {
     console.log(`✓ Valid display mode: ${smartWidget.displayMode}`);
 } else {
@@ -82,6 +84,27 @@ if (priorities.length === uniquePriorities.size) {
 
 const sortedPriorities = [...priorities].sort((a, b) => a - b);
 console.log(`  Priorities: ${sortedPriorities.join(', ')}`);
+
+// Test 5b: Validate QR code sub-widget defaults
+console.log('\n📋 Test 5b: Checking QR code sub-widget defaults');
+const qrCodesWidget = smartWidget.subWidgets.find(sw => sw.type === 'qrCodes');
+if (qrCodesWidget) {
+    console.log('✓ QR code sub-widget is available');
+    console.log(`  - Enabled: ${qrCodesWidget.enabled}`);
+    console.log(`  - Priority: ${qrCodesWidget.priority}`);
+    console.log(`  - Cycle Time: ${qrCodesWidget.cycleTime}s`);
+} else {
+    console.error('✗ QR code sub-widget is missing');
+}
+
+// Test 5c: Validate admin widget discovery
+console.log('\n📋 Test 5c: Checking admin widget discovery');
+const dashboardHtml = fs.readFileSync(path.join(__dirname, '..', 'admin', 'dashboard.html'), 'utf8');
+if (/id:\s*'smartWidgetQrCodesEnabled'[\s\S]*name:\s*'QR Codes'/.test(dashboardHtml)) {
+    console.log('✓ QR code sub-widget is discoverable in the grid editor');
+} else {
+    console.error('✗ QR code sub-widget is missing from SMART_SUB_WIDGETS');
+}
 
 // Test 6: Simulate vacation data
 console.log('\n📋 Test 6: Testing vacation sub-widget data integration');

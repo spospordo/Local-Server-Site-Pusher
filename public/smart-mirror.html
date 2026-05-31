@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Mirror Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -677,6 +678,51 @@
             width: 100%;
             min-width: 0;
             overflow: hidden;
+        }
+
+        .qr-codes-widget {
+            width: 100%;
+        }
+
+        .qr-codes-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        .qr-code-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 10px;
+            min-width: 136px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .qr-code-canvas-wrap {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 136px;
+            min-height: 136px;
+        }
+
+        .qr-code-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            color: #1f2937;
+            max-width: 140px;
+            word-break: break-word;
+            line-height: 1.3;
         }
 
         /* Rain Forecast Widget Styles and Animations */
@@ -3632,6 +3678,9 @@
                         }
                     }
                     break;
+                case 'qrCodes':
+                    innerContent = renderQrCodes(subWidget.data);
+                    break;
                 default:
                     return null;
             }
@@ -5614,6 +5663,77 @@
 
             horizontalWrapper.appendChild(cardsSection);
             container.appendChild(horizontalWrapper);
+            return container;
+        }
+
+        function escapeWifiQrValue(value) {
+            return String(value || '').replace(/([\\;,:"])/g, '\\$1');
+        }
+
+        function renderQrCodes(data) {
+            const wifiCodes = Array.isArray(data?.wifiCodes) ? data.wifiCodes : [];
+            const linkCodes = Array.isArray(data?.linkCodes) ? data.linkCodes : [];
+
+            if (wifiCodes.length === 0 && linkCodes.length === 0) {
+                return null;
+            }
+
+            if (typeof QRCode !== 'function') {
+                console.warn('QRCode library is not available');
+                return null;
+            }
+
+            const container = document.createElement('div');
+            container.className = 'qr-codes-widget';
+
+            const sectionHeading = document.createElement('div');
+            sectionHeading.style.fontSize = '0.75rem';
+            sectionHeading.style.fontWeight = '700';
+            sectionHeading.style.letterSpacing = '0.1em';
+            sectionHeading.style.opacity = '0.7';
+            sectionHeading.style.marginBottom = '8px';
+            sectionHeading.style.textTransform = 'uppercase';
+            sectionHeading.textContent = '📶 Connect & Links';
+            container.appendChild(sectionHeading);
+
+            const row = document.createElement('div');
+            row.className = 'qr-codes-row';
+
+            const renderCard = (label, qrText) => {
+                const card = document.createElement('div');
+                card.className = 'qr-code-card';
+
+                const qrWrap = document.createElement('div');
+                qrWrap.className = 'qr-code-canvas-wrap';
+                card.appendChild(qrWrap);
+
+                new QRCode(qrWrap, {
+                    text: qrText,
+                    width: 120,
+                    height: 120,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'qr-code-label';
+                labelDiv.textContent = label;
+                card.appendChild(labelDiv);
+
+                row.appendChild(card);
+            };
+
+            wifiCodes.forEach(wifi => {
+                const wifiString = `WIFI:T:${wifi.security || 'WPA'};S:${escapeWifiQrValue(wifi.ssid)};P:${escapeWifiQrValue(wifi.password)};;`;
+                renderCard(wifi.label || wifi.ssid, wifiString);
+            });
+
+            linkCodes.forEach(link => {
+                renderCard(link.label, link.url);
+            });
+
+            container.appendChild(row);
             return container;
         }
 

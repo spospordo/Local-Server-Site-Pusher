@@ -199,7 +199,25 @@ function getDefaultWidgets() {
         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 }, // pauseTimeout in minutes; 0 = never hide
         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: DEFAULT_HA_REFRESH_INTERVAL_MS },
         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
-        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 }
+        { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 },
+        {
+          type: 'qrCodes',
+          enabled: false,
+          priority: 6,
+          cycleTime: 30,
+          wifi1Label: '',
+          wifi1Ssid: '',
+          wifi1Password: '',
+          wifi1Security: 'WPA',
+          wifi2Label: '',
+          wifi2Ssid: '',
+          wifi2Password: '',
+          wifi2Security: 'WPA',
+          link1Label: '',
+          link1Url: '',
+          link2Label: '',
+          link2Url: ''
+        }
       ],
       // Display settings
       displayMode: 'cycle', // 'cycle', 'simultaneous', 'priority', or 'adaptive'
@@ -518,6 +536,49 @@ function migrateConfig(oldConfig) {
         needsUpdate = true;
       }
     });
+
+    const existingSmartSubWidgets = updatedWidgets.smartWidget?.subWidgets;
+    const defaultSmartSubWidgets = defaultWidgets.smartWidget?.subWidgets;
+    if (Array.isArray(existingSmartSubWidgets) && Array.isArray(defaultSmartSubWidgets)) {
+      const existingByType = new Map(
+        existingSmartSubWidgets
+          .filter(subWidget => subWidget && subWidget.type)
+          .map(subWidget => [subWidget.type, subWidget])
+      );
+      const mergedSubWidgets = [];
+
+      defaultSmartSubWidgets.forEach(defaultSubWidget => {
+        const existingSubWidget = existingByType.get(defaultSubWidget.type);
+        if (existingSubWidget) {
+          mergedSubWidgets.push({ ...defaultSubWidget, ...existingSubWidget });
+          existingByType.delete(defaultSubWidget.type);
+        } else {
+          logger.info(
+            logger.categories.SMART_MIRROR,
+            `Adding missing smart widget sub-widget: ${defaultSubWidget.type}`
+          );
+          mergedSubWidgets.push(defaultSubWidget);
+          needsUpdate = true;
+        }
+      });
+
+      if (existingByType.size > 0) {
+        mergedSubWidgets.push(...existingByType.values());
+      }
+
+      const subWidgetsChanged = mergedSubWidgets.length !== existingSmartSubWidgets.length ||
+        mergedSubWidgets.some((subWidget, index) =>
+          JSON.stringify(subWidget) !== JSON.stringify(existingSmartSubWidgets[index])
+        );
+
+      if (subWidgetsChanged) {
+        updatedWidgets.smartWidget = {
+          ...updatedWidgets.smartWidget,
+          subWidgets: mergedSubWidgets
+        };
+        needsUpdate = true;
+      }
+    }
     
     if (needsUpdate) {
       return {
