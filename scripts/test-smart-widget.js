@@ -13,6 +13,8 @@
 
 const smartMirror = require('../modules/smartmirror');
 const house = require('../modules/house');
+const fs = require('fs');
+const path = require('path');
 
 console.log('🧪 Testing Smart Widget Functionality\n');
 console.log('=' .repeat(80));
@@ -93,6 +95,15 @@ if (qrCodesWidget) {
     console.log(`  - Cycle Time: ${qrCodesWidget.cycleTime}s`);
 } else {
     console.error('✗ QR code sub-widget is missing');
+}
+
+// Test 5c: Validate admin widget discovery
+console.log('\n📋 Test 5c: Checking admin widget discovery');
+const dashboardHtml = fs.readFileSync(path.join(__dirname, '..', 'admin', 'dashboard.html'), 'utf8');
+if (/id:\s*'smartWidgetQrCodesEnabled'[\s\S]*name:\s*'QR Codes'/.test(dashboardHtml)) {
+    console.log('✓ QR code sub-widget is discoverable in the grid editor');
+} else {
+    console.error('✗ QR code sub-widget is missing from SMART_SUB_WIDGETS');
 }
 
 // Test 6: Simulate vacation data
