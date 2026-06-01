@@ -10263,7 +10263,7 @@ app.post('/admin/api/house/bills/upload', requireAuth, requireSameOriginForAdmin
       return res.status(400).json({ success: false, error: 'Bill date must use YYYY-MM-DD format' });
     }
 
-    const billId = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const billId = crypto.randomUUID();
     const billDir = ensureHouseBillUploadDir(billId);
 
     try {
