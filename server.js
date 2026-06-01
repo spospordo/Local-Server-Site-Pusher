@@ -129,6 +129,78 @@ function ensureClientUploadDir(deviceId) {
   return clientDir;
 }
 
+function ensureHouseBillsUploadDir() {
+  const billsDir = path.join(uploadsDir, 'house-bills');
+  if (!fs.existsSync(billsDir)) {
+    fs.mkdirSync(billsDir, { recursive: true });
+  }
+  return billsDir;
+}
+
+function ensureHouseBillUploadDir(billId) {
+  const billDir = path.join(ensureHouseBillsUploadDir(), billId);
+  if (!fs.existsSync(billDir)) {
+    fs.mkdirSync(billDir, { recursive: true });
+  }
+  return billDir;
+}
+
+function flattenUploadedFiles(files) {
+  return Object.values(files || {}).flat();
+}
+
+function cleanupUploadedFiles(files) {
+  flattenUploadedFiles(files).forEach(file => {
+    try {
+      if (file?.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    } catch (error) {
+      console.warn('Failed to clean up uploaded file:', error.message);
+    }
+  });
+}
+
+function moveUploadedFileToDirectory(file, targetDir) {
+  const safeFilename = path.basename(file.filename);
+  const targetPath = path.join(targetDir, safeFilename);
+  fs.renameSync(file.path, targetPath);
+  return {
+    filename: safeFilename,
+    originalName: file.originalname,
+    size: file.size,
+    mimeType: file.mimetype
+  };
+}
+
+function isHouseBillPdf(file) {
+  const extension = path.extname(file?.originalname || '').toLowerCase();
+  return extension === '.pdf' || String(file?.mimetype || '').includes('pdf');
+}
+
+function isAllowedHouseBillAttachment(file) {
+  const extension = path.extname(file?.originalname || '').toLowerCase();
+  const allowedExtensions = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tif', '.tiff']);
+  return allowedExtensions.has(extension) || String(file?.mimetype || '').startsWith('image/');
+}
+
+function requireSameOriginForAdminWrite(req, res, next) {
+  const host = String(req.get('host') || '').toLowerCase();
+  const origin = String(req.get('origin') || '').toLowerCase();
+  const referer = String(req.get('referer') || '').toLowerCase();
+  const secFetchSite = String(req.get('sec-fetch-site') || '').toLowerCase();
+
+  const trustedPrefix = host ? [`http://${host}`, `https://${host}`] : [];
+  const trustedReferrer = trustedPrefix.some(prefix => origin.startsWith(prefix) || referer.startsWith(prefix));
+  const trustedFetchSite = !secFetchSite || ['same-origin', 'same-site', 'none'].includes(secFetchSite);
+
+  if (!trustedReferrer && !trustedFetchSite) {
+    return res.status(403).json({ error: 'Cross-site requests are not allowed for this action' });
+  }
+
+  next();
+}
+
 // Multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -10142,6 +10214,134 @@ app.delete('/admin/api/house/cars/:carId/insurance/:policyId', requireAuth, (req
 // =============================================================================
 // House Lists API
 // =============================================================================
+
+// Get house utility bills
+app.get('/admin/api/house/bills', requireAuth, (req, res) => {
+  try {
+    const billsData = house.getBillsData();
+    res.json(billsData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get bills data: ' + err.message });
+  }
+});
+
+// Upload a house utility bill PDF and optional attachments
+app.post('/admin/api/house/bills/upload', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
+  const uploadFields = upload.fields([
+    { name: 'billFile', maxCount: 1 },
+    { name: 'attachments', maxCount: 10 }
+  ]);
+
+  uploadFields(req, res, function (err) {
+    if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+
+    const uploadedFiles = req.files || {};
+    const billFile = uploadedFiles.billFile?.[0];
+    const attachments = uploadedFiles.attachments || [];
+
+    if (!billFile) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'A PDF bill file is required' });
+    }
+
+    if (!isHouseBillPdf(billFile)) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'Bill file must be a PDF' });
+    }
+
+    const invalidAttachment = attachments.find(file => !isAllowedHouseBillAttachment(file));
+    if (invalidAttachment) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'Attachments must be images or PDFs' });
+    }
+
+    const billDate = String(req.body.billDate || '').trim();
+    if (billDate && !/^\d{4}-\d{2}-\d{2}$/.test(billDate)) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'Bill date must use YYYY-MM-DD format' });
+    }
+
+    const billId = crypto.randomUUID();
+    const billDir = ensureHouseBillUploadDir(billId);
+
+    try {
+      const storedBillFile = moveUploadedFileToDirectory(billFile, billDir);
+      const storedAttachments = attachments.map(file => moveUploadedFileToDirectory(file, billDir));
+      const extractedData = house.parseUtilityBillFromFile(path.join(billDir, storedBillFile.filename));
+
+      const result = house.addBill({
+        id: billId,
+        billDate: billDate || extractedData.statementDate || extractedData.period?.endDate || extractedData.period?.startDate || '',
+        periodStartDate: extractedData.period?.startDate || '',
+        periodEndDate: extractedData.period?.endDate || '',
+        notes: String(req.body.notes || '').trim(),
+        billFile: storedBillFile,
+        attachments: storedAttachments,
+        extractedData
+      });
+
+      if (!result.success) {
+        fs.rmSync(billDir, { recursive: true, force: true });
+        return res.status(500).json({ success: false, error: result.error || 'Failed to save bill data' });
+      }
+
+      res.json({ success: true, message: 'Utility bill uploaded successfully', bill: result.bill });
+    } catch (error) {
+      cleanupUploadedFiles(uploadedFiles);
+      fs.rmSync(billDir, { recursive: true, force: true });
+      console.error('❌ [House Bills] Upload error:', error.message);
+      res.status(500).json({ success: false, error: 'Failed to upload utility bill: ' + error.message });
+    }
+  });
+});
+
+// Download a stored house bill or attachment
+app.get('/admin/api/house/bills/:billId/files/:filename', requireAuth, (req, res) => {
+  try {
+    const bill = house.getBill(req.params.billId);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
+    }
+
+    const safeFilename = path.basename(req.params.filename);
+    const allowedFiles = [bill.billFile?.filename, ...(bill.attachments || []).map(file => file.filename)].filter(Boolean);
+    if (!allowedFiles.includes(safeFilename)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const filePath = path.join(ensureHouseBillsUploadDir(), bill.id, safeFilename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.sendFile(path.resolve(filePath));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to serve bill file: ' + err.message });
+  }
+});
+
+// Delete a stored house bill and its attachments
+app.delete('/admin/api/house/bills/:id', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
+  try {
+    const bill = house.getBill(req.params.id);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
+    }
+
+    const result = house.deleteBill(req.params.id);
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || 'Failed to delete bill' });
+    }
+
+    const billDir = path.join(ensureHouseBillsUploadDir(), req.params.id);
+    fs.rmSync(billDir, { recursive: true, force: true });
+    res.json({ success: true, message: 'Bill deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete bill: ' + err.message });
+  }
+});
 
 // Get all lists (and categories)
 app.get('/admin/api/house/lists', requireAuth, (req, res) => {
