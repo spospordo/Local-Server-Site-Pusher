@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { randomUUID } = require('crypto');
 
 let config = null;
@@ -41,6 +42,9 @@ function getDefaultHouseData() {
     },
     cars: {
       vehicles: []
+    },
+    bills: {
+      bills: []
     },
     lists: {
       categories: [],
@@ -937,6 +941,542 @@ function deleteConnection(id) {
   return saveMediaCenterData(mediaCenter);
 }
 
+
+// ── Bills ─────────────────────────────────────────────────────────────────────
+
+function getDefaultBillExtraction() {
+  return {
+    rawTextPreview: '',
+    statementDate: '',
+    period: {
+      startDate: '',
+      endDate: ''
+    },
+    electric: {
+      present: false,
+      usageKwh: null,
+      rateSchedule: '',
+      totalCost: null,
+      costBreakdown: [],
+      nemCredits: [],
+      rawLines: []
+    },
+    water: {
+      present: false,
+      usageHcf: null,
+      totalCost: null,
+      tierUsage: [],
+      costBreakdown: [],
+      rawLines: []
+    },
+    sanitation: {
+      present: false,
+      usageBasis: '',
+      totalCost: null,
+      costBreakdown: [],
+      solidWaste: [],
+      rawLines: []
+    }
+  };
+}
+
+function normalizeBillDate(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '';
+  }
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return text;
+  }
+
+  const usMatch = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (usMatch) {
+    const month = usMatch[1].padStart(2, '0');
+    const day = usMatch[2].padStart(2, '0');
+    const year = usMatch[3].length === 2 ? `20${usMatch[3]}` : usMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return parsed.toISOString().split('T')[0];
+}
+
+function normalizeBillFileMetadata(file) {
+  if (!file) {
+    return null;
+  }
+  return {
+    filename: String(file.filename || '').trim(),
+    originalName: String(file.originalName || file.originalname || '').trim(),
+    size: Number(file.size) || 0,
+    mimeType: String(file.mimeType || file.mimetype || '').trim()
+  };
+}
+
+function normalizeBillRecord(bill) {
+  const extraction = {
+    ...getDefaultBillExtraction(),
+    ...(bill.extractedData || {})
+  };
+
+  extraction.period = {
+    ...getDefaultBillExtraction().period,
+    ...(bill.extractedData?.period || {})
+  };
+  extraction.electric = {
+    ...getDefaultBillExtraction().electric,
+    ...(bill.extractedData?.electric || {})
+  };
+  extraction.water = {
+    ...getDefaultBillExtraction().water,
+    ...(bill.extractedData?.water || {})
+  };
+  extraction.sanitation = {
+    ...getDefaultBillExtraction().sanitation,
+    ...(bill.extractedData?.sanitation || {})
+  };
+
+  extraction.electric.costBreakdown = Array.isArray(extraction.electric.costBreakdown) ? extraction.electric.costBreakdown : [];
+  extraction.electric.nemCredits = Array.isArray(extraction.electric.nemCredits) ? extraction.electric.nemCredits : [];
+  extraction.electric.rawLines = Array.isArray(extraction.electric.rawLines) ? extraction.electric.rawLines : [];
+  extraction.water.tierUsage = Array.isArray(extraction.water.tierUsage) ? extraction.water.tierUsage : [];
+  extraction.water.costBreakdown = Array.isArray(extraction.water.costBreakdown) ? extraction.water.costBreakdown : [];
+  extraction.water.rawLines = Array.isArray(extraction.water.rawLines) ? extraction.water.rawLines : [];
+  extraction.sanitation.costBreakdown = Array.isArray(extraction.sanitation.costBreakdown) ? extraction.sanitation.costBreakdown : [];
+  extraction.sanitation.solidWaste = Array.isArray(extraction.sanitation.solidWaste) ? extraction.sanitation.solidWaste : [];
+  extraction.sanitation.rawLines = Array.isArray(extraction.sanitation.rawLines) ? extraction.sanitation.rawLines : [];
+
+  return {
+    id: String(bill.id || generateId()),
+    uploadedAt: bill.uploadedAt || new Date().toISOString(),
+    billDate: normalizeBillDate(bill.billDate),
+    periodStartDate: normalizeBillDate(bill.periodStartDate || extraction.period.startDate),
+    periodEndDate: normalizeBillDate(bill.periodEndDate || extraction.period.endDate),
+    notes: String(bill.notes || '').trim(),
+    billFile: normalizeBillFileMetadata(bill.billFile),
+    attachments: Array.isArray(bill.attachments) ? bill.attachments.map(normalizeBillFileMetadata).filter(Boolean) : [],
+    extractedData: extraction
+  };
+}
+
+function getBillSortValue(bill) {
+  return bill.periodEndDate || bill.billDate || bill.periodStartDate || bill.uploadedAt || '';
+}
+
+function getBillsData() {
+  const data = loadHouseData();
+  const bills = data.bills || getDefaultHouseData().bills;
+  if (!Array.isArray(bills.bills)) {
+    bills.bills = [];
+    return bills;
+  }
+
+  bills.bills = bills.bills
+    .map(normalizeBillRecord)
+    .sort((a, b) => String(getBillSortValue(b)).localeCompare(String(getBillSortValue(a))));
+  return bills;
+}
+
+function saveBillsData(billsData) {
+  const data = loadHouseData();
+  data.bills = billsData;
+  return saveHouseData(data);
+}
+
+function getBill(id) {
+  const billsData = getBillsData();
+  return billsData.bills.find(bill => bill.id === id) || null;
+}
+
+function addBill(bill) {
+  const billsData = getBillsData();
+  const normalized = normalizeBillRecord(bill);
+  billsData.bills.push(normalized);
+  const result = saveBillsData(billsData);
+  return {
+    ...result,
+    bill: normalized
+  };
+}
+
+function deleteBill(id) {
+  const billsData = getBillsData();
+  const existing = billsData.bills.length;
+  billsData.bills = billsData.bills.filter(bill => bill.id !== id);
+  if (billsData.bills.length === existing) {
+    return { success: false, error: 'Bill not found' };
+  }
+  return saveBillsData(billsData);
+}
+
+function parseUtilityBillFromFile(filePath) {
+  const pdfBuffer = fs.readFileSync(filePath);
+  const extractedText = extractPdfTextFromBuffer(pdfBuffer);
+  return parseUtilityBillText(extractedText);
+}
+
+function extractPdfTextFromBuffer(buffer) {
+  const segments = [];
+  const binary = buffer.toString('latin1');
+  segments.push(binary);
+
+  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let match;
+  while ((match = streamRegex.exec(binary)) !== null) {
+    const rawStream = Buffer.from(match[1], 'latin1');
+    if (!rawStream.length) {
+      continue;
+    }
+
+    const decodedCandidates = [rawStream];
+    try {
+      decodedCandidates.push(zlib.inflateSync(rawStream));
+    } catch (error) {
+      // Ignore non-deflated streams
+    }
+    try {
+      decodedCandidates.push(zlib.inflateRawSync(rawStream));
+    } catch (error) {
+      // Ignore non-raw deflated streams
+    }
+
+    decodedCandidates.forEach(candidate => {
+      const text = candidate.toString('latin1');
+      if (text) {
+        segments.push(text);
+      }
+    });
+  }
+
+  const extracted = [];
+  const seen = new Set();
+  segments.forEach(segment => {
+    extractPdfLiteralStrings(segment).forEach(item => {
+      const normalized = normalizeExtractedTextLine(item);
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        extracted.push(normalized);
+      }
+    });
+
+    const printableMatches = segment.match(/[A-Za-z0-9][A-Za-z0-9\s,$.%#:&()\/[\]\-+]{6,}/g) || [];
+    printableMatches.forEach(item => {
+      const normalized = normalizeExtractedTextLine(item);
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        extracted.push(normalized);
+      }
+    });
+  });
+
+  return extracted.join('\n');
+}
+
+function extractPdfLiteralStrings(segment) {
+  const results = [];
+  for (let index = 0; index < segment.length; index += 1) {
+    if (segment[index] !== '(') {
+      continue;
+    }
+
+    let depth = 1;
+    let current = '';
+    let escaped = false;
+    for (let cursor = index + 1; cursor < segment.length; cursor += 1) {
+      const character = segment[cursor];
+      if (escaped) {
+        current += `\\${character}`;
+        escaped = false;
+        continue;
+      }
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (character === '(') {
+        depth += 1;
+        current += character;
+        continue;
+      }
+      if (character === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          index = cursor;
+          break;
+        }
+      }
+      current += character;
+    }
+
+    if (current) {
+      results.push(decodePdfString(current));
+    }
+  }
+
+  const hexRegex = /<([0-9A-Fa-f\s]{6,})>/g;
+  let hexMatch;
+  while ((hexMatch = hexRegex.exec(segment)) !== null) {
+    const hex = hexMatch[1].replace(/\s+/g, '');
+    if (hex.length % 2 !== 0) {
+      continue;
+    }
+    try {
+      results.push(Buffer.from(hex, 'hex').toString('utf8'));
+    } catch (error) {
+      // Ignore invalid hex strings
+    }
+  }
+
+  return results;
+}
+
+function decodePdfString(value) {
+  return value
+    .replace(/\\([\\()])/g, '$1')
+    .replace(/\\r/g, '\r')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\b/g, '\b')
+    .replace(/\\f/g, '\f')
+    .replace(/\\([0-7]{1,3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)));
+}
+
+function normalizeExtractedTextLine(line) {
+  return String(line || '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseUtilityBillText(text) {
+  const extraction = getDefaultBillExtraction();
+  const normalizedText = String(text || '').replace(/\r/g, '\n');
+  const lines = Array.from(new Set(
+    normalizedText
+      .split('\n')
+      .map(normalizeExtractedTextLine)
+      .filter(line => line.length >= 3)
+  ));
+
+  extraction.rawTextPreview = lines.slice(0, 80).join('\n').slice(0, 4000);
+  extraction.statementDate = extractStatementDate(normalizedText);
+  extraction.period = extractBillingPeriod(normalizedText);
+  extraction.electric = parseElectricCharges(lines, normalizedText);
+  extraction.water = parseWaterCharges(lines, normalizedText);
+  extraction.sanitation = parseSanitationCharges(lines);
+
+  return extraction;
+}
+
+function extractStatementDate(text) {
+  const patterns = [
+    /(?:statement|bill)\s+date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i,
+    /(?:date\s+of\s+bill|issue\s+date)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const normalized = normalizeBillDate(match[1]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+  return '';
+}
+
+function extractBillingPeriod(text) {
+  const patterns = [
+    /(?:billing|service)\s+period(?:\s+(?:from|of))?\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(?:to|through|thru|\-)\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i,
+    /(?:services?\s+(?:from|for))\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(?:to|through|thru|\-)\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return {
+        startDate: normalizeBillDate(match[1]),
+        endDate: normalizeBillDate(match[2])
+      };
+    }
+  }
+
+  return {
+    startDate: '',
+    endDate: ''
+  };
+}
+
+function getRelevantLines(lines, keywords) {
+  return lines.filter(line => keywords.some(keyword => keyword.test(line)));
+}
+
+function parseCurrencyAmount(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return null;
+  }
+  const negative = text.includes('(') || /^-/.test(text);
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  if (!cleaned) {
+    return null;
+  }
+  const numeric = Number(cleaned);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return negative ? -numeric : numeric;
+}
+
+function extractLineAmount(line) {
+  const matches = String(line || '').match(/\(?-?\$?\d[\d,]*\.\d{2}\)?/g) || [];
+  if (!matches.length) {
+    return null;
+  }
+  return parseCurrencyAmount(matches[matches.length - 1]);
+}
+
+function makeBreakdownEntry(line) {
+  const amount = extractLineAmount(line);
+  if (amount === null) {
+    return null;
+  }
+
+  const label = normalizeExtractedTextLine(
+    String(line)
+      .replace(/\(?-?\$?\d[\d,]*\.\d{2}\)?/g, ' ')
+      .replace(/\s+/g, ' ')
+  );
+
+  if (!label) {
+    return null;
+  }
+
+  return { label, amount };
+}
+
+function extractHighestUsage(text, regex) {
+  let highest = null;
+  let match;
+  const source = new RegExp(regex.source, regex.flags);
+  while ((match = source.exec(text)) !== null) {
+    const numeric = Number(String(match[1] || '').replace(/,/g, ''));
+    if (Number.isFinite(numeric) && (highest === null || numeric > highest)) {
+      highest = numeric;
+    }
+  }
+  return highest;
+}
+
+function parseElectricCharges(lines, text) {
+  const relevantLines = getRelevantLines(lines, [
+    /\belectric\b/i,
+    /\bkwh\b/i,
+    /\brate schedule\b/i,
+    /\bdelivery\b/i,
+    /\bgeneration\b/i,
+    /\bnem\b/i,
+    /\bsolar\b/i,
+    /\benergy charge\b/i,
+    /\bbaseline\b/i,
+    /\boff\-peak\b/i,
+    /\bon\-peak\b/i,
+    /\bcustomer charge\b/i
+  ]);
+
+  const breakdown = relevantLines
+    .map(makeBreakdownEntry)
+    .filter(Boolean);
+
+  const totalLine = relevantLines.find(line => /total.*electric|electric.*total|current electric charges|electric charges/i.test(line));
+  const rateMatch = text.match(/rate schedule\s*[:\-]?\s*([A-Z0-9\- ]{2,})/i);
+  const nemCredits = breakdown.filter(entry => /nem|solar|credit/i.test(entry.label));
+  const usageKwh = extractHighestUsage(text, /(\d+(?:,\d{3})*(?:\.\d+)?)\s*kwh\b/gi);
+
+  return {
+    present: relevantLines.length > 0 || usageKwh !== null,
+    usageKwh,
+    rateSchedule: rateMatch ? normalizeExtractedTextLine(rateMatch[1]) : '',
+    totalCost: totalLine ? extractLineAmount(totalLine) : (breakdown.length === 1 ? breakdown[0].amount : null),
+    costBreakdown: breakdown.slice(0, 20),
+    nemCredits: nemCredits.slice(0, 10),
+    rawLines: relevantLines.slice(0, 25)
+  };
+}
+
+function parseWaterCharges(lines, text) {
+  const relevantLines = getRelevantLines(lines, [
+    /\bwater\b/i,
+    /\bhcf\b/i,
+    /\btier\b/i,
+    /\bpotable\b/i,
+    /\bconsumption\b/i,
+    /\busage\b/i
+  ]);
+
+  const breakdown = relevantLines
+    .map(makeBreakdownEntry)
+    .filter(Boolean);
+  const totalLine = relevantLines.find(line => /total.*water|water.*total|current water charges|water charges/i.test(line));
+  const tierUsage = relevantLines
+    .filter(line => /tier/i.test(line) && (/hcf/i.test(line) || /\$/.test(line)))
+    .map(line => {
+      const tierMatch = line.match(/(tier\s*\d+)/i);
+      const usageMatch = line.match(/(\d+(?:\.\d+)?)\s*hcf/i);
+      return {
+        tier: tierMatch ? normalizeExtractedTextLine(tierMatch[1]) : 'Tier',
+        usageHcf: usageMatch ? Number(usageMatch[1]) : null,
+        amount: extractLineAmount(line),
+        label: line
+      };
+    });
+
+  return {
+    present: relevantLines.length > 0,
+    usageHcf: extractHighestUsage(text, /(\d+(?:\.\d+)?)\s*hcf\b/gi),
+    totalCost: totalLine ? extractLineAmount(totalLine) : (breakdown.length === 1 ? breakdown[0].amount : null),
+    tierUsage: tierUsage.slice(0, 10),
+    costBreakdown: breakdown.slice(0, 20),
+    rawLines: relevantLines.slice(0, 25)
+  };
+}
+
+function parseSanitationCharges(lines) {
+  const relevantLines = getRelevantLines(lines, [
+    /\bsewer\b/i,
+    /\bsewage\b/i,
+    /\bsanitation\b/i,
+    /\bwastewater\b/i,
+    /\bsolid waste\b/i,
+    /\brefuse\b/i,
+    /\btrash\b/i,
+    /\brecycling\b/i,
+    /\bstormwater\b/i
+  ]);
+
+  const breakdown = relevantLines
+    .map(makeBreakdownEntry)
+    .filter(Boolean);
+  const totalLine = relevantLines.find(line => /total.*(?:sewer|sanitation|waste)|(?:sewer|sanitation|waste).*total|current sewer charges|current sanitation charges/i.test(line));
+  const usageBasisLine = relevantLines.find(line => /usage|basis|hcf|gallon|dwelling|unit/i.test(line));
+  const solidWaste = breakdown.filter(entry => /solid waste|refuse|trash|recycling/i.test(entry.label));
+
+  return {
+    present: relevantLines.length > 0,
+    usageBasis: usageBasisLine || '',
+    totalCost: totalLine ? extractLineAmount(totalLine) : (breakdown.length === 1 ? breakdown[0].amount : null),
+    costBreakdown: breakdown.slice(0, 20),
+    solidWaste: solidWaste.slice(0, 10),
+    rawLines: relevantLines.slice(0, 25)
+  };
+}
+
 // ── Lists ─────────────────────────────────────────────────────────────────────
 
 // Get lists data
@@ -1074,6 +1614,12 @@ module.exports = {
   saveMediaCenterData,
   getCarsData,
   saveCarsData,
+  getBillsData,
+  saveBillsData,
+  getBill,
+  addBill,
+  deleteBill,
+  parseUtilityBillFromFile,
   addCar,
   updateCar,
   deleteCar,

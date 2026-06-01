@@ -2655,6 +2655,7 @@
                 <button class="sub-tab" onclick="showSubTab('house-documentation')">Documentation</button>
                 <button class="sub-tab" onclick="showSubTab('house-mediacenter')">Media Center</button>
                 <button class="sub-tab" onclick="showSubTab('house-cars')">🚗 Cars</button>
+                <button class="sub-tab" onclick="showSubTab('house-bills')">🧾 Bills</button>
                 <button class="sub-tab" onclick="showSubTab('house-lists')">Lists</button>
             </div>
             
@@ -4426,6 +4427,64 @@
                 </div>
 
                 <div id="carsAlert" class="alert"></div>
+            </div>
+        </div>
+
+        <!-- House Bills Section -->
+        <div class="card admin-section house-section house-bills-section hidden">
+            <div class="card-header">
+                <h2>🧾 Utility Bills</h2>
+            </div>
+            <div class="card-body">
+                <p>Upload PDF utility bills, keep supporting scans with each statement, and review utility charges over time.</p>
+
+                <form id="houseBillsUploadForm" onsubmit="uploadHouseBill(event)" style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="houseBillFile">Utility Bill PDF</label>
+                            <input type="file" id="houseBillFile" accept="application/pdf,.pdf" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="houseBillDate">Bill Date (optional)</label>
+                            <input type="date" id="houseBillDate">
+                            <small>Used when the PDF text does not expose a clear statement date.</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="houseBillNotes">Notes</label>
+                        <textarea id="houseBillNotes" rows="3" placeholder="Optional notes about the bill, meter changes, unusual usage, etc."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="houseBillAttachments">Attachments (optional)</label>
+                        <input type="file" id="houseBillAttachments" accept=".pdf,image/*" multiple>
+                        <small>Attach scans, photos, or supporting PDFs to keep with this bill.</small>
+                    </div>
+                    <button type="submit" class="btn btn-success">📤 Upload Bill</button>
+                </form>
+
+                <div id="houseBillsAlert" class="alert"></div>
+
+                <div style="display: grid; gap: 1rem; margin-top: 1rem;">
+                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                        <h3 style="margin-top: 0;">📈 Period-to-Period Trends</h3>
+                        <p style="margin-top: 0.25rem; color: #666;">Electrical, water, and sanitation totals by bill period.</p>
+                        <div id="houseBillsTrendEmpty" style="text-align: center; color: #888; padding: 1rem;">Upload bills to start tracking trends.</div>
+                        <div id="houseBillsTrendChartWrapper" style="position: relative; height: 320px; display: none;">
+                            <canvas id="houseBillsTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; overflow-x: auto;">
+                        <h3 style="margin-top: 0;">📅 Year-over-Year Comparison</h3>
+                        <p style="margin-top: 0.25rem; color: #666;">Monthly total utility spend grouped by year for quick comparisons.</p>
+                        <div id="houseBillsComparisonTable" style="min-height: 80px;"></div>
+                    </div>
+
+                    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                        <h3 style="margin-top: 0;">🗂️ Stored Bills</h3>
+                        <div id="houseBillsList">Loading bills...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -12684,6 +12743,7 @@
                 else if (subTabName === 'house-documentation') targetTabText = 'Documentation';
                 else if (subTabName === 'house-mediacenter') targetTabText = 'Media Center';
                 else if (subTabName === 'house-cars') targetTabText = '🚗 Cars';
+                else if (subTabName === 'house-bills') targetTabText = '🧾 Bills';
                 else if (subTabName === 'house-lists') targetTabText = 'Lists';
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
@@ -12751,6 +12811,13 @@
                 
                 if (shouldLoadData) {
                     loadCars();
+                }
+            } else if (subTabName === 'house-bills') {
+                const billsSections = document.querySelectorAll('.house-bills-section');
+                billsSections.forEach(section => section.classList.remove('hidden'));
+                
+                if (shouldLoadData) {
+                    loadHouseBills();
                 }
             } else if (subTabName === 'house-lists') {
                 const listsSections = document.querySelectorAll('.house-lists-section');
@@ -24057,6 +24124,8 @@
         let currentVacationData = null;
         let currentDocumentationData = null;
         let currentCarsData = { vehicles: [] };
+        let currentHouseBillsData = { bills: [] };
+        let houseBillsTrendChart = null;
         let currentHouseLists = [];
         
         // Load vacation data
@@ -26987,6 +27056,377 @@
             } catch (err) {
                 showAlert('Failed to delete maintenance record: ' + err.message, 'error', 'carsAlert');
             }
+        }
+
+        // ── House Bills Functions ────────────────────────────────────────────────
+
+        async function loadHouseBills() {
+            try {
+                const response = await fetch('/admin/api/house/bills');
+                currentHouseBillsData = await response.json();
+                if (!Array.isArray(currentHouseBillsData?.bills)) {
+                    currentHouseBillsData = { bills: [] };
+                }
+                renderHouseBills();
+                renderHouseBillsTrendChart();
+                renderHouseBillsComparisonTable();
+            } catch (err) {
+                console.error('Failed to load house bills data:', err);
+                showAlert('Failed to load house bills data', 'error', 'houseBillsAlert');
+            }
+        }
+
+        async function uploadHouseBill(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('houseBillsUploadForm');
+            const billFileInput = document.getElementById('houseBillFile');
+            const attachmentsInput = document.getElementById('houseBillAttachments');
+            const submitButton = form.querySelector('button[type="submit"]');
+            const billFile = billFileInput.files[0];
+
+            if (!billFile) {
+                showAlert('Please choose a PDF utility bill to upload.', 'error', 'houseBillsAlert');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('billFile', billFile);
+
+            const billDate = document.getElementById('houseBillDate').value;
+            const notes = document.getElementById('houseBillNotes').value.trim();
+            if (billDate) formData.append('billDate', billDate);
+            if (notes) formData.append('notes', notes);
+
+            Array.from(attachmentsInput.files || []).forEach(file => {
+                formData.append('attachments', file);
+            });
+
+            submitButton.disabled = true;
+            const originalLabel = submitButton.textContent;
+            submitButton.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch('/admin/api/house/bills/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    form.reset();
+                    await loadHouseBills();
+                    showAlert('✅ Utility bill uploaded successfully!', 'success', 'houseBillsAlert');
+                } else {
+                    showAlert('Failed to upload utility bill: ' + (result.error || 'Unknown error'), 'error', 'houseBillsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to upload utility bill: ' + err.message, 'error', 'houseBillsAlert');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = originalLabel;
+            }
+        }
+
+        async function deleteHouseBill(id) {
+            if (!confirm('Delete this stored utility bill and its attachments?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/bills/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    await loadHouseBills();
+                    showAlert('✅ Utility bill deleted successfully!', 'success', 'houseBillsAlert');
+                } else {
+                    showAlert('Failed to delete utility bill: ' + (result.error || 'Unknown error'), 'error', 'houseBillsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to delete utility bill: ' + err.message, 'error', 'houseBillsAlert');
+            }
+        }
+
+        function getHouseBillSortDate(bill) {
+            return bill.periodEndDate || bill.billDate || bill.periodStartDate || bill.uploadedAt || '';
+        }
+
+        function getHouseBillTotalForChart(bill, sectionName) {
+            const numeric = Number(bill?.extractedData?.[sectionName]?.totalCost);
+            return Number.isFinite(numeric) ? numeric : 0;
+        }
+
+        function formatHouseBillCurrency(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '—';
+            }
+            return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function formatHouseBillDate(value) {
+            if (!value) return '—';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return escapeHtml(String(value));
+            }
+            return date.toLocaleDateString('en-US');
+        }
+
+        function formatHouseBillShortDate(value) {
+            if (!value) return '—';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return escapeHtml(String(value));
+            }
+            return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        function getHouseBillFileUrl(billId, file) {
+            if (!file?.filename) {
+                return '#';
+            }
+            return `/admin/api/house/bills/${encodeURIComponent(billId)}/files/${encodeURIComponent(file.filename)}`;
+        }
+
+        function getHouseBillCombinedTotal(bill) {
+            return ['electric', 'water', 'sanitation'].reduce((sum, key) => sum + getHouseBillTotalForChart(bill, key), 0);
+        }
+
+        function renderHouseBillBreakdown(items, emptyMessage) {
+            if (!Array.isArray(items) || items.length === 0) {
+                return `<div style="color: #888; font-size: 0.9rem;">${escapeHtml(emptyMessage)}</div>`;
+            }
+
+            return `<ul style="margin: 0.5rem 0 0; padding-left: 1rem; color: #4a5568;">${items.map(item => {
+                if (typeof item === 'string') {
+                    return `<li>${escapeHtml(item)}</li>`;
+                }
+                const label = escapeHtml(item.label || item.tier || 'Line Item');
+                const detail = item.amount !== undefined && item.amount !== null
+                    ? ` — ${formatHouseBillCurrency(item.amount)}`
+                    : (item.usageHcf !== undefined && item.usageHcf !== null ? ` — ${escapeHtml(String(item.usageHcf))} HCF` : '');
+                return `<li>${label}${detail}</li>`;
+            }).join('')}</ul>`;
+        }
+
+        function renderHouseBillSectionCard(title, icon, summaryRows, detailHtml) {
+            return `
+                <div style="background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem;">
+                    <h4 style="margin: 0 0 0.65rem;">${icon} ${escapeHtml(title)}</h4>
+                    <div style="display: grid; gap: 0.35rem; color: #4a5568; font-size: 0.95rem;">
+                        ${summaryRows.map(row => `<div><strong>${escapeHtml(row.label)}:</strong> ${row.value}</div>`).join('')}
+                    </div>
+                    ${detailHtml}
+                </div>
+            `;
+        }
+
+        function renderHouseBills() {
+            const bills = [...(currentHouseBillsData?.bills || [])].sort((a, b) => String(getHouseBillSortDate(b)).localeCompare(String(getHouseBillSortDate(a))));
+            const container = document.getElementById('houseBillsList');
+
+            if (bills.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #888; padding: 1rem;">No utility bills uploaded yet.</div>';
+                return;
+            }
+
+            container.innerHTML = bills.map(bill => {
+                const electric = bill.extractedData?.electric || {};
+                const water = bill.extractedData?.water || {};
+                const sanitation = bill.extractedData?.sanitation || {};
+                const periodLabel = bill.periodStartDate || bill.periodEndDate
+                    ? `${formatHouseBillDate(bill.periodStartDate)} → ${formatHouseBillDate(bill.periodEndDate)}`
+                    : 'Period not detected';
+                const attachments = Array.isArray(bill.attachments) ? bill.attachments : [];
+
+                return `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #fff;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 240px;">
+                                <div style="font-size: 1.05rem; font-weight: 700;">${escapeHtml(bill.billFile?.originalName || 'Uploaded bill')}</div>
+                                <div style="color: #666; margin-top: 0.25rem;">Bill Date: ${formatHouseBillDate(bill.billDate)}</div>
+                                <div style="color: #666; margin-top: 0.15rem;">Billing Period: ${periodLabel}</div>
+                                <div style="color: #666; margin-top: 0.15rem;">Uploaded: ${formatHouseBillDate(bill.uploadedAt)}</div>
+                                ${bill.notes ? `<div style="margin-top: 0.5rem; color: #4a5568;"><strong>Notes:</strong> ${escapeHtml(bill.notes)}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <a class="btn" href="${getHouseBillFileUrl(bill.id, bill.billFile)}" target="_blank" rel="noopener noreferrer">📄 Open PDF</a>
+                                <button class="btn btn-danger" onclick="deleteHouseBill('${bill.id}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.85rem; margin-top: 1rem;">
+                            ${renderHouseBillSectionCard('Electric', '⚡', [
+                                { label: 'Usage', value: electric.usageKwh !== null && electric.usageKwh !== undefined ? `${escapeHtml(String(electric.usageKwh))} kWh` : '—' },
+                                { label: 'Rate Schedule', value: electric.rateSchedule ? escapeHtml(electric.rateSchedule) : '—' },
+                                { label: 'Total', value: formatHouseBillCurrency(electric.totalCost) }
+                            ], renderHouseBillBreakdown(electric.costBreakdown?.length ? electric.costBreakdown : electric.rawLines, 'No electric details extracted.'))}
+                            ${renderHouseBillSectionCard('Water', '💧', [
+                                { label: 'Usage', value: water.usageHcf !== null && water.usageHcf !== undefined ? `${escapeHtml(String(water.usageHcf))} HCF` : '—' },
+                                { label: 'Total', value: formatHouseBillCurrency(water.totalCost) },
+                                { label: 'Tiers', value: water.tierUsage?.length ? escapeHtml(String(water.tierUsage.length)) : '—' }
+                            ], renderHouseBillBreakdown(water.tierUsage?.length ? water.tierUsage : (water.costBreakdown?.length ? water.costBreakdown : water.rawLines), 'No water details extracted.'))}
+                            ${renderHouseBillSectionCard('Sanitation / Sewer', '♻️', [
+                                { label: 'Usage Basis', value: sanitation.usageBasis ? escapeHtml(sanitation.usageBasis) : '—' },
+                                { label: 'Total', value: formatHouseBillCurrency(sanitation.totalCost) },
+                                { label: 'Solid Waste', value: sanitation.solidWaste?.length ? escapeHtml(String(sanitation.solidWaste.length)) : '—' }
+                            ], renderHouseBillBreakdown(sanitation.costBreakdown?.length ? sanitation.costBreakdown : sanitation.rawLines, 'No sanitation details extracted.'))}
+                        </div>
+
+                        ${electric.nemCredits?.length ? `
+                            <div style="margin-top: 0.85rem; color: #4a5568;">
+                                <strong>☀️ Solar / NEM Credits</strong>
+                                ${renderHouseBillBreakdown(electric.nemCredits, 'No solar credits extracted.')}
+                            </div>
+                        ` : ''}
+
+                        <div style="margin-top: 0.85rem; color: #4a5568;">
+                            <strong>Total Captured Utility Spend:</strong> ${formatHouseBillCurrency(getHouseBillCombinedTotal(bill))}
+                        </div>
+
+                        <div style="margin-top: 0.85rem; color: #4a5568;">
+                            <strong>Attachments:</strong>
+                            ${attachments.length ? attachments.map(file => `<a href="${getHouseBillFileUrl(bill.id, file)}" target="_blank" rel="noopener noreferrer" style="margin-left: 0.5rem;">${escapeHtml(file.originalName || file.filename)}</a>`).join('') : '<span style="margin-left: 0.5rem; color: #888;">None</span>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderHouseBillsTrendChart() {
+            const bills = [...(currentHouseBillsData?.bills || [])]
+                .sort((a, b) => String(getHouseBillSortDate(a)).localeCompare(String(getHouseBillSortDate(b))));
+            const emptyState = document.getElementById('houseBillsTrendEmpty');
+            const chartWrapper = document.getElementById('houseBillsTrendChartWrapper');
+
+            if (houseBillsTrendChart) {
+                houseBillsTrendChart.destroy();
+                houseBillsTrendChart = null;
+            }
+
+            if (!bills.length || typeof Chart === 'undefined') {
+                emptyState.style.display = 'block';
+                emptyState.textContent = bills.length ? 'Chart.js is unavailable, but the bill list and comparisons still work.' : 'Upload bills to start tracking trends.';
+                chartWrapper.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            chartWrapper.style.display = 'block';
+
+            const ctx = document.getElementById('houseBillsTrendChart').getContext('2d');
+            houseBillsTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: bills.map(bill => formatHouseBillShortDate(getHouseBillSortDate(bill))),
+                    datasets: [
+                        {
+                            label: 'Electric',
+                            data: bills.map(bill => getHouseBillTotalForChart(bill, 'electric')),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                            tension: 0.25,
+                            fill: false
+                        },
+                        {
+                            label: 'Water',
+                            data: bills.map(bill => getHouseBillTotalForChart(bill, 'water')),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                            tension: 0.25,
+                            fill: false
+                        },
+                        {
+                            label: 'Sanitation',
+                            data: bills.map(bill => getHouseBillTotalForChart(bill, 'sanitation')),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.18)',
+                            tension: 0.25,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => `$${Number(value).toLocaleString('en-US')}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderHouseBillsComparisonTable() {
+            const container = document.getElementById('houseBillsComparisonTable');
+            const bills = Array.isArray(currentHouseBillsData?.bills) ? currentHouseBillsData.bills : [];
+
+            if (!bills.length) {
+                container.innerHTML = '<div style="color: #888; padding: 0.5rem 0;">Upload bills to compare year-over-year utility totals.</div>';
+                return;
+            }
+
+            const aggregates = {};
+            const years = new Set();
+            bills.forEach(bill => {
+                const rawDate = getHouseBillSortDate(bill);
+                const date = new Date(rawDate);
+                if (Number.isNaN(date.getTime())) {
+                    return;
+                }
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                years.add(year);
+                if (!aggregates[month]) aggregates[month] = {};
+                if (!aggregates[month][year]) {
+                    aggregates[month][year] = { total: 0, electric: 0, water: 0, sanitation: 0, count: 0 };
+                }
+                aggregates[month][year].electric += getHouseBillTotalForChart(bill, 'electric');
+                aggregates[month][year].water += getHouseBillTotalForChart(bill, 'water');
+                aggregates[month][year].sanitation += getHouseBillTotalForChart(bill, 'sanitation');
+                aggregates[month][year].total += getHouseBillCombinedTotal(bill);
+                aggregates[month][year].count += 1;
+            });
+
+            const sortedYears = Array.from(years).sort();
+            if (sortedYears.length < 2) {
+                container.innerHTML = '<div style="color: #888; padding: 0.5rem 0;">Upload bills from multiple years to see year-over-year comparisons.</div>';
+                return;
+            }
+
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const rows = monthNames.map((monthName, monthIndex) => {
+                const cells = sortedYears.map(year => {
+                    const data = aggregates[monthIndex]?.[year];
+                    if (!data || data.count === 0) {
+                        return '<td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; color: #999;">—</td>';
+                    }
+                    return `<td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; vertical-align: top;">
+                        <div style="font-weight: 600;">${formatHouseBillCurrency(data.total)}</div>
+                        <div style="font-size: 0.82rem; color: #666; margin-top: 0.2rem;">E ${formatHouseBillCurrency(data.electric)} · W ${formatHouseBillCurrency(data.water)} · S ${formatHouseBillCurrency(data.sanitation)}</div>
+                    </td>`;
+                }).join('');
+                return `<tr><th style="text-align: left; padding: 0.6rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">${monthName}</th>${cells}</tr>`;
+            }).join('');
+
+            container.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; min-width: 640px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Month</th>
+                            ${sortedYears.map(year => `<th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">${year}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
         }
 
         // ── House Lists Functions ────────────────────────────────────────────────
