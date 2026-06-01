@@ -184,6 +184,23 @@ function isAllowedHouseBillAttachment(file) {
   return allowedExtensions.has(extension) || String(file?.mimetype || '').startsWith('image/');
 }
 
+function requireSameOriginForAdminWrite(req, res, next) {
+  const host = String(req.get('host') || '').toLowerCase();
+  const origin = String(req.get('origin') || '').toLowerCase();
+  const referer = String(req.get('referer') || '').toLowerCase();
+  const secFetchSite = String(req.get('sec-fetch-site') || '').toLowerCase();
+
+  const trustedPrefix = host ? [`http://${host}`, `https://${host}`] : [];
+  const trustedReferrer = trustedPrefix.some(prefix => origin.startsWith(prefix) || referer.startsWith(prefix));
+  const trustedFetchSite = !secFetchSite || ['same-origin', 'same-site', 'none'].includes(secFetchSite);
+
+  if (!trustedReferrer && !trustedFetchSite) {
+    return res.status(403).json({ error: 'Cross-site requests are not allowed for this action' });
+  }
+
+  next();
+}
+
 // Multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -10209,7 +10226,7 @@ app.get('/admin/api/house/bills', requireAuth, (req, res) => {
 });
 
 // Upload a house utility bill PDF and optional attachments
-app.post('/admin/api/house/bills/upload', requireAuth, (req, res) => {
+app.post('/admin/api/house/bills/upload', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
   const uploadFields = upload.fields([
     { name: 'billFile', maxCount: 1 },
     { name: 'attachments', maxCount: 10 }
@@ -10306,7 +10323,7 @@ app.get('/admin/api/house/bills/:billId/files/:filename', requireAuth, (req, res
 });
 
 // Delete a stored house bill and its attachments
-app.delete('/admin/api/house/bills/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/house/bills/:id', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
   try {
     const bill = house.getBill(req.params.id);
     if (!bill) {
