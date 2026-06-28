@@ -37,11 +37,47 @@ function createSampleBillPdf(targetPath) {
     'Total Sanitation Charges $42.25'
   ];
 
-  const streamText = `BT\n${textLines.map(line => `(${line}) Tj`).join('\n')}\nET`;
-  const compressed = zlib.deflateSync(Buffer.from(streamText, 'utf8'));
-  const header = Buffer.from(`%PDF-1.4\n1 0 obj\n<< /Length ${compressed.length} /Filter /FlateDecode >>\nstream\n`, 'utf8');
-  const footer = Buffer.from('\nendstream\nendobj\ntrailer\n<<>>\n%%EOF\n', 'utf8');
-  fs.writeFileSync(targetPath, Buffer.concat([header, compressed, footer]));
+  // Build a PDF content stream using standard text operators.
+  // Each line is placed 20 units below the previous one using relative Td moves.
+  const streamParts = ['BT', '/F1 12 Tf', '72 720 Td'];
+  textLines.forEach((line, i) => {
+    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    if (i > 0) streamParts.push('0 -20 Td');
+    streamParts.push(`(${escaped}) Tj`);
+  });
+  streamParts.push('ET');
+  const streamContent = streamParts.join('\n');
+
+  // Build the four required PDF objects (all ASCII, so byte length equals string length).
+  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
+  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
+  const obj3 = '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>\nendobj\n';
+  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj\n`;
+
+  // Calculate byte offsets for each object so the xref table is accurate.
+  const header = '%PDF-1.4\n';
+  const off1 = header.length;
+  const off2 = off1 + obj1.length;
+  const off3 = off2 + obj2.length;
+  const off4 = off3 + obj3.length;
+  const xrefPos = off4 + obj4.length;
+
+  // Each xref entry must be exactly 20 bytes: offset(10) SP gen(5) SP type SP LF
+  const pad10 = n => String(n).padStart(10, '0');
+  const xrefEntries = [
+    `0000000000 65535 f \n`,
+    `${pad10(off1)} 00000 n \n`,
+    `${pad10(off2)} 00000 n \n`,
+    `${pad10(off3)} 00000 n \n`,
+    `${pad10(off4)} 00000 n \n`
+  ].join('');
+
+  const pdf = header + obj1 + obj2 + obj3 + obj4 +
+    `xref\n0 5\n${xrefEntries}` +
+    `trailer\n<< /Size 5 /Root 1 0 R >>\n` +
+    `startxref\n${xrefPos}\n%%EOF\n`;
+
+  fs.writeFileSync(targetPath, pdf);
 }
 
 async function testHouseBillsModule() {
