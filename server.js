@@ -1306,6 +1306,41 @@ function generatePartyId() {
   return Date.now() * 1000 + (partyIdCounter++ % 1000);
 }
 
+/**
+ * Parse a YYYY-MM-DD date string as a local-time Date (midnight local).
+ *
+ * ISO date-only strings like "2025-06-28" are parsed by the JS engine as
+ * UTC midnight.  In timezones behind UTC (e.g. UTC-5) that shifts the value
+ * to the *previous* calendar day locally, which causes today's party to
+ * appear as already passed.  Appending 'T00:00:00' (no Z) forces local-time
+ * interpretation at midnight.
+ *
+ * Returns an Invalid Date when:
+ *   - the input is not a string or does not match YYYY-MM-DD format, or
+ *   - the calendar values overflow (e.g. "2025-02-30" → rolls to March 2,
+ *     which we reject by comparing parsed components back to the input).
+ *
+ * Callers should check isNaN(result.getTime()) to detect invalid input.
+ *
+ * @param {string} dateStr - A date string in YYYY-MM-DD format.
+ * @returns {Date}
+ */
+function parseDateStringLocal(dateStr) {
+  if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(NaN);
+  }
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) {
+    return new Date(NaN);
+  }
+  // Reject overflow dates (e.g. "2025-02-30" silently rolls to March 2 in V8).
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (d.getFullYear() !== year || d.getMonth() + 1 !== month || d.getDate() !== day) {
+    return new Date(NaN);
+  }
+  return d;
+}
+
 // Helper function to migrate single party data to multiple parties format
 function migrateToMultiParty() {
   // Check if we have old single-party data and no new multi-party data
@@ -1616,9 +1651,9 @@ app.get('/admin/api/parties/:id/validate', requireAuth, (req, res) => {
         });
         isValid = false;
       } else {
-        // Check if date is valid and not in the past
-        const partyDate = new Date(dateStr);
-        partyDate.setHours(0, 0, 0, 0);
+        // Check if date is valid and not in the past.
+        // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+        const partyDate = parseDateStringLocal(dateStr);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -1743,9 +1778,9 @@ app.get('/admin/api/parties/:id/weather', requireAuth, async (req, res) => {
     
     const partyDate = party.dateTime.date;
     
-    // Calculate days until party
-    const partyDateObj = new Date(partyDate);
-    partyDateObj.setHours(0, 0, 0, 0);
+    // Calculate days until party.
+    // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+    const partyDateObj = parseDateStringLocal(partyDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
@@ -1985,9 +2020,9 @@ app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
         });
         isValid = false;
       } else {
-        // Check if date is valid and not in the past
-        const partyDate = new Date(dateStr);
-        partyDate.setHours(0, 0, 0, 0);
+        // Check if date is valid and not in the past.
+        // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+        const partyDate = parseDateStringLocal(dateStr);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -2119,9 +2154,9 @@ app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
     
     const partyDate = schedulingData.dateTime.date;
     
-    // Calculate days until party
-    const partyDateObj = new Date(partyDate);
-    partyDateObj.setHours(0, 0, 0, 0);
+    // Calculate days until party.
+    // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+    const partyDateObj = parseDateStringLocal(partyDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const daysUntil = Math.ceil((partyDateObj - today) / (1000 * 60 * 60 * 24));
@@ -9185,8 +9220,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               const activeParties = config.parties
                 .filter(p => p.status !== 'archived' && p.dateTime?.date)
                 .map(p => {
-                  const partyDate = new Date(p.dateTime.date);
-                  partyDate.setHours(0, 0, 0, 0);
+                  // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+                  const partyDate = parseDateStringLocal(p.dateTime.date);
                   return { ...p, parsedDate: partyDate };
                 })
                 .filter(p => !isNaN(p.parsedDate.getTime()));
@@ -9216,7 +9251,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             if (!nextParty && config.partyScheduling?.dateTime?.date) {
               nextParty = {
                 ...config.partyScheduling,
-                parsedDate: new Date(config.partyScheduling.dateTime.date)
+                // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+                parsedDate: parseDateStringLocal(config.partyScheduling.dateTime.date)
               };
             }
             
@@ -9237,8 +9273,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 }
               }
               
-              const partyDate = new Date(normalizedDateString);
-              partyDate.setHours(0, 0, 0, 0);
+              // parseDateStringLocal() handles local-time parsing (see its doc comment above).
+              const partyDate = parseDateStringLocal(normalizedDateString);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               
