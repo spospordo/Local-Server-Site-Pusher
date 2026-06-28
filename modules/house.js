@@ -1252,13 +1252,22 @@ async function runOcrOnPdfBuffer(pdfBuffer) {
     return '';
   }
 
+  // Process up to 6 images per PDF: enough to cover all pages of a typical multi-page
+  // utility bill while keeping OCR time and memory usage reasonable.
   for (const imgBuffer of imageStreams.slice(0, 6)) {
     try {
       console.log(`📖 [House Bills] Running OCR on embedded image (${imgBuffer.length} bytes)…`);
+      let lastLoggedPct = -1;
       const { data: { text } } = await Tesseract.recognize(imgBuffer, 'eng', {
         logger: m => {
           if (m.status === 'recognizing text') {
-            console.log(`📖 [House Bills] OCR progress: ${Math.round(m.progress * 100)}%`);
+            // Throttle progress logs to 25% milestones to avoid excessive output
+            const pct = Math.round(m.progress * 100);
+            const milestone = Math.floor(pct / 25) * 25;
+            if (milestone > lastLoggedPct) {
+              lastLoggedPct = milestone;
+              console.log(`📖 [House Bills] OCR progress: ${milestone}%`);
+            }
           }
         }
       });

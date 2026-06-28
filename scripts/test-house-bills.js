@@ -112,11 +112,11 @@ async function testHouseBillsModule() {
     // Verify that a garbage/binary PDF triggers the low-quality detection path
     const garbagePdfPath = path.join(tempDir, 'garbage.pdf');
     const garbageStream = zlib.deflateSync(Buffer.from('not a real bill - no keywords here'));
-    // Deliberately write an invalid PDF where the content is the raw compressed bytes (not
-    // wrapped in a proper FlateDecode stream) so the extractor cannot decompress it.
+    // Build a PDF whose stream bytes are byte-shifted (+1 mod 256) so that the zlib
+    // decompressor will reject them as invalid, leaving only non-decodable binary content.
+    // This simulates receiving a PDF whose content streams are unreadable.
     const garbageContent = Buffer.concat([
       Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length ' + garbageStream.length + ' >>\nstream\n', 'utf8'),
-      // Write the bytes shifted by 1 to make them undecompressable
       Buffer.from(garbageStream.map(b => (b + 1) & 0xFF)),
       Buffer.from('\nendstream\nendobj\ntrailer\n<<>>\n%%EOF\n', 'utf8')
     ]);
