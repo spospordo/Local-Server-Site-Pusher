@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.23.2] - 2026-06-28
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #640 from spospordo/copilot/fix-date-handling-bug
+  - Fix minor review feedback: remove redundant setHours, fix test comment
+  - Improve parseDateStringLocal: add overflow check; test now extracts function from server.js
+  - Refactor: use parseDateStringLocal() helper for all party date parsing
+  - Fix same-day party date classification as passed due to UTC timezone shift
+  - Initial plan
+
+
 ## [2.23.1] - 2026-06-28
 
 ### Patch Update
