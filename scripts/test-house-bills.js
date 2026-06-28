@@ -44,7 +44,7 @@ function createSampleBillPdf(targetPath) {
   fs.writeFileSync(targetPath, Buffer.concat([header, compressed, footer]));
 }
 
-function testHouseBillsModule() {
+async function testHouseBillsModule() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'house-bills-test-'));
   const dataFilePath = path.join(tempDir, 'house-data.json');
   const pdfPath = path.join(tempDir, 'sample-bill.pdf');
@@ -57,7 +57,7 @@ function testHouseBillsModule() {
     log('✅ Default house data includes bills');
 
     createSampleBillPdf(pdfPath);
-    const extracted = house.parseUtilityBillFromFile(pdfPath);
+    const extracted = await house.parseUtilityBillFromFile(pdfPath);
     assert.strictEqual(extracted.statementDate, '2026-02-05', 'statement date should be extracted');
     assert.strictEqual(extracted.period.startDate, '2026-01-01', 'billing start date should be extracted');
     assert.strictEqual(extracted.period.endDate, '2026-01-31', 'billing end date should be extracted');
@@ -68,6 +68,9 @@ function testHouseBillsModule() {
     assert.strictEqual(extracted.water.totalCost, 67.89, 'water total should be extracted');
     assert.strictEqual(extracted.sanitation.totalCost, 42.25, 'sanitation total should be extracted');
     assert(extracted.electric.nemCredits.some(item => item.amount === -12.34), 'NEM credit should be extracted');
+    assert(extracted.extractionMeta, 'extraction result should include extractionMeta');
+    assert.strictEqual(extracted.extractionMeta.ocrFallbackUsed, false, 'OCR fallback should not be used for a born-digital PDF');
+    assert.strictEqual(extracted.extractionMeta.textQualityUsable, true, 'text quality should be marked usable for a valid PDF');
     log('✅ PDF parsing extracts key utility bill values');
 
     const addResult = house.addBill({
@@ -105,6 +108,23 @@ function testHouseBillsModule() {
     assert.strictEqual(deleteResult.success, true, 'deleteBill should succeed');
     assert.strictEqual(house.getBillsData().bills.length, 0, 'deleteBill should remove bills');
     log('✅ deleteBill removes stored bills');
+
+    // Verify that a garbage/binary PDF triggers the low-quality detection path
+    const garbagePdfPath = path.join(tempDir, 'garbage.pdf');
+    const garbageStream = zlib.deflateSync(Buffer.from('not a real bill - no keywords here'));
+    // Deliberately write an invalid PDF where the content is the raw compressed bytes (not
+    // wrapped in a proper FlateDecode stream) so the extractor cannot decompress it.
+    const garbageContent = Buffer.concat([
+      Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length ' + garbageStream.length + ' >>\nstream\n', 'utf8'),
+      // Write the bytes shifted by 1 to make them undecompressable
+      Buffer.from(garbageStream.map(b => (b + 1) & 0xFF)),
+      Buffer.from('\nendstream\nendobj\ntrailer\n<<>>\n%%EOF\n', 'utf8')
+    ]);
+    fs.writeFileSync(garbagePdfPath, garbageContent);
+    const garbageResult = await house.parseUtilityBillFromFile(garbagePdfPath);
+    assert.strictEqual(garbageResult.extractionMeta.textQualityUsable, false, 'garbage PDF should be flagged as low-quality');
+    assert(garbageResult.extractionMeta.warnings.length > 0, 'garbage PDF should produce extraction warnings');
+    log('✅ Binary/garbage PDFs are detected and flagged with warnings');
   } finally {
     cleanup(tempDir);
   }
@@ -142,9 +162,16 @@ function testStaticIntegration() {
 
 try {
   log('Running House Bills checks...\n');
-  testHouseBillsModule();
-  testStaticIntegration();
-  log('\n🎉 House Bills checks passed');
+  testHouseBillsModule()
+    .then(() => {
+      testStaticIntegration();
+      log('\n🎉 House Bills checks passed');
+    })
+    .catch(error => {
+      console.error('\n❌ House Bills checks failed');
+      console.error(error);
+      process.exit(1);
+    });
 } catch (error) {
   console.error('\n❌ House Bills checks failed');
   console.error(error);

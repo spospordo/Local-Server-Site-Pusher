@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const { randomUUID } = require('crypto');
+const Tesseract = require('tesseract.js');
 
 let config = null;
 
@@ -976,6 +977,13 @@ function getDefaultBillExtraction() {
       costBreakdown: [],
       solidWaste: [],
       rawLines: []
+    },
+    extractionMeta: {
+      method: 'native',
+      ocrFallbackUsed: false,
+      ocrFallbackAvailable: false,
+      textQualityUsable: false,
+      warnings: []
     }
   };
 }
@@ -1019,27 +1027,33 @@ function normalizeBillFileMetadata(file) {
 }
 
 function normalizeBillRecord(bill) {
+  const defaultExtraction = getDefaultBillExtraction();
   const extraction = {
-    ...getDefaultBillExtraction(),
+    ...defaultExtraction,
     ...(bill.extractedData || {})
   };
 
   extraction.period = {
-    ...getDefaultBillExtraction().period,
+    ...defaultExtraction.period,
     ...(bill.extractedData?.period || {})
   };
   extraction.electric = {
-    ...getDefaultBillExtraction().electric,
+    ...defaultExtraction.electric,
     ...(bill.extractedData?.electric || {})
   };
   extraction.water = {
-    ...getDefaultBillExtraction().water,
+    ...defaultExtraction.water,
     ...(bill.extractedData?.water || {})
   };
   extraction.sanitation = {
-    ...getDefaultBillExtraction().sanitation,
+    ...defaultExtraction.sanitation,
     ...(bill.extractedData?.sanitation || {})
   };
+  extraction.extractionMeta = {
+    ...defaultExtraction.extractionMeta,
+    ...(bill.extractedData?.extractionMeta || {})
+  };
+  extraction.extractionMeta.warnings = Array.isArray(extraction.extractionMeta.warnings) ? extraction.extractionMeta.warnings : [];
 
   extraction.electric.costBreakdown = Array.isArray(extraction.electric.costBreakdown) ? extraction.electric.costBreakdown : [];
   extraction.electric.nemCredits = Array.isArray(extraction.electric.nemCredits) ? extraction.electric.nemCredits : [];
@@ -1114,16 +1128,159 @@ function deleteBill(id) {
   return saveBillsData(billsData);
 }
 
-function parseUtilityBillFromFile(filePath) {
+async function parseUtilityBillFromFile(filePath) {
   const pdfBuffer = fs.readFileSync(filePath);
-  const extractedText = extractPdfTextFromBuffer(pdfBuffer);
-  return parseUtilityBillText(extractedText);
+  const warnings = [];
+
+  const nativeText = extractPdfTextFromBuffer(pdfBuffer);
+  const nativeUsable = isExtractedTextUsable(nativeText);
+
+  if (!nativeUsable) {
+    warnings.push('Native PDF text extraction produced low-quality or unreadable content; OCR fallback attempted');
+    console.log('⚠️ [House Bills] Native extraction low-quality, attempting OCR fallback for:', filePath);
+  }
+
+  let extractedText = nativeText;
+  let ocrFallbackUsed = false;
+  let ocrFallbackAvailable = false;
+
+  if (!nativeUsable) {
+    try {
+      const ocrText = await runOcrOnPdfBuffer(pdfBuffer);
+      ocrFallbackAvailable = true;
+      if (ocrText && ocrText.trim().length > 0) {
+        extractedText = ocrText;
+        ocrFallbackUsed = true;
+        console.log('✅ [House Bills] OCR fallback succeeded');
+      } else {
+        warnings.push('OCR fallback found no readable text in embedded images');
+        console.log('⚠️ [House Bills] OCR fallback returned no text');
+      }
+    } catch (error) {
+      warnings.push(`OCR fallback failed: ${error.message}`);
+      console.error('❌ [House Bills] OCR fallback error:', error.message);
+    }
+  }
+
+  const result = parseUtilityBillText(extractedText);
+  result.extractionMeta = {
+    method: ocrFallbackUsed ? 'ocr' : 'native',
+    ocrFallbackUsed,
+    ocrFallbackAvailable,
+    textQualityUsable: isExtractedTextUsable(extractedText),
+    warnings
+  };
+  return result;
+}
+
+// Returns true when a string has enough printable ASCII to be considered readable text
+function isTextReadable(text) {
+  if (!text || text.length < 4) {
+    return false;
+  }
+  const printable = (text.match(/[\x20-\x7E\t\n\r]/g) || []).length;
+  return (printable / text.length) > 0.6;
+}
+
+// Keywords used to judge whether extracted text looks like a utility bill
+const BILL_QUALITY_KEYWORDS = [
+  'electric', 'water', 'sewer', 'bill', 'charge', 'amount', 'due',
+  'period', 'kwh', 'hcf', 'account', 'balance', 'payment', 'date'
+];
+
+// Returns true when the extracted text contains enough readable bill content
+function isExtractedTextUsable(text) {
+  if (!text || text.trim().length < 20) {
+    return false;
+  }
+  const lower = text.toLowerCase();
+  const keywordMatches = BILL_QUALITY_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  const printableRatio = (text.match(/[\x20-\x7E\n]/g) || []).length / text.length;
+  // Require both a high printable character ratio AND at least one bill-relevant keyword
+  return printableRatio > 0.75 && keywordMatches >= 1;
+}
+
+// Attempt OCR on JPEG/image streams embedded in a PDF buffer using tesseract.js
+async function runOcrOnPdfBuffer(pdfBuffer) {
+  const binary = pdfBuffer.toString('latin1');
+  const ocrTexts = [];
+
+  // Match PDF object streams that declare themselves as images
+  const objRegex = /\d+\s+\d+\s+obj\s*<<([\s\S]*?)>>\s*stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let match;
+  const imageStreams = [];
+
+  while ((match = objRegex.exec(binary)) !== null) {
+    const dict = match[1];
+    const streamRaw = match[2];
+    if (!/\/Subtype\s*\/Image/i.test(dict)) {
+      continue;
+    }
+    const filterMatch = dict.match(/\/Filter\s*\/([\w]+)/);
+    const filter = filterMatch ? filterMatch[1] : '';
+    const rawStream = Buffer.from(streamRaw, 'latin1');
+    if (filter === 'DCTDecode' || filter === 'JPXDecode') {
+      // JPEG-compressed image stream — usable directly
+      imageStreams.push(rawStream);
+    } else if (filter === 'FlateDecode') {
+      try {
+        imageStreams.push(zlib.inflateSync(rawStream));
+      } catch (_e) {
+        // Ignore streams that fail to decompress
+      }
+    }
+  }
+
+  // Also try to detect bare JPEG signatures not in object wrappers
+  if (imageStreams.length === 0) {
+    let offset = 0;
+    while (offset < pdfBuffer.length - 3) {
+      if (pdfBuffer[offset] === 0xFF && pdfBuffer[offset + 1] === 0xD8 &&
+          pdfBuffer[offset + 2] === 0xFF) {
+        const end = pdfBuffer.indexOf(Buffer.from([0xFF, 0xD9]), offset + 2);
+        if (end !== -1 && end - offset > 1000) {
+          imageStreams.push(pdfBuffer.slice(offset, end + 2));
+          offset = end + 2;
+          continue;
+        }
+      }
+      offset += 1;
+    }
+  }
+
+  if (imageStreams.length === 0) {
+    return '';
+  }
+
+  for (const imgBuffer of imageStreams.slice(0, 6)) {
+    try {
+      console.log(`📖 [House Bills] Running OCR on embedded image (${imgBuffer.length} bytes)…`);
+      const { data: { text } } = await Tesseract.recognize(imgBuffer, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            console.log(`📖 [House Bills] OCR progress: ${Math.round(m.progress * 100)}%`);
+          }
+        }
+      });
+      if (text && text.trim()) {
+        ocrTexts.push(text.trim());
+      }
+    } catch (error) {
+      console.error('⚠️ [House Bills] OCR failed for image stream:', error.message);
+    }
+  }
+
+  return ocrTexts.join('\n');
 }
 
 function extractPdfTextFromBuffer(buffer) {
   const segments = [];
   const binary = buffer.toString('latin1');
-  segments.push(binary);
+
+  // Extract the non-stream portions of the PDF (headers, object dictionaries, cross-reference
+  // tables, etc.) which may contain readable literal strings and metadata.
+  const nonStreamBinary = binary.replace(/stream\r?\n[\s\S]*?\r?\nendstream/g, '');
+  segments.push(nonStreamBinary);
 
   const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
   let match;
@@ -1133,24 +1290,35 @@ function extractPdfTextFromBuffer(buffer) {
       continue;
     }
 
-    const decodedCandidates = [rawStream];
+    // Attempt decompression; the raw (compressed) stream bytes produce garbage text so we
+    // never include them directly as a candidate.
+    const decompressedCandidates = [];
     try {
-      decodedCandidates.push(zlib.inflateSync(rawStream));
-    } catch (error) {
-      // Ignore non-deflated streams
+      decompressedCandidates.push(zlib.inflateSync(rawStream));
+    } catch (_e) {
+      // Not a zlib-deflated stream
     }
     try {
-      decodedCandidates.push(zlib.inflateRawSync(rawStream));
-    } catch (error) {
-      // Ignore non-raw deflated streams
+      decompressedCandidates.push(zlib.inflateRawSync(rawStream));
+    } catch (_e) {
+      // Not a raw-deflate stream
     }
 
-    decodedCandidates.forEach(candidate => {
-      const text = candidate.toString('latin1');
-      if (text) {
-        segments.push(text);
+    if (decompressedCandidates.length > 0) {
+      // Use decompressed content when available
+      decompressedCandidates.forEach(candidate => {
+        const text = candidate.toString('latin1');
+        if (text && isTextReadable(text)) {
+          segments.push(text);
+        }
+      });
+    } else {
+      // Stream was stored without compression — only include if it reads as text
+      const rawText = rawStream.toString('latin1');
+      if (rawText && isTextReadable(rawText)) {
+        segments.push(rawText);
       }
-    });
+    }
   }
 
   const extracted = [];
@@ -1276,7 +1444,9 @@ function parseUtilityBillText(text) {
 function extractStatementDate(text) {
   const patterns = [
     /(?:statement|bill)\s+date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i,
-    /(?:date\s+of\s+bill|issue\s+date)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i
+    /(?:date\s+of\s+bill|issue\s+date)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/i,
+    /(?:statement|bill)\s+date\s*[:\-]?\s*([A-Za-z]+\.?\s+\d{1,2},?\s*\d{4})/i,
+    /(?:date\s+of\s+bill|issue\s+date)\s*[:\-]?\s*([A-Za-z]+\.?\s+\d{1,2},?\s*\d{4})/i
   ];
 
   for (const pattern of patterns) {
