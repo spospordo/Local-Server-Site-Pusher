@@ -9681,21 +9681,39 @@
         }
 
         // Load all parties
-        async function loadParties() {
+        async function loadParties(options = {}) {
+            const { preserveCurrentSelection = false } = options;
             try {
                 const response = await fetch('/admin/api/parties');
                 const data = await response.json();
                 allParties = data.parties || [];
                 renderPartyList();
                 
-                // Load the first non-archived party or create a new one
+                // Load selected party or fallback to the first non-archived party
                 if (allParties.length > 0) {
-                    const activeParty = allParties.find(p => p.status !== 'archived');
-                    if (activeParty) {
-                        await loadParty(activeParty.id);
+                    let partyIdToLoad = null;
+                    
+                    if (preserveCurrentSelection && currentPartyId !== null) {
+                        const selectedParty = allParties.find(p => p.id === currentPartyId);
+                        if (selectedParty) {
+                            partyIdToLoad = selectedParty.id;
+                        }
+                    }
+                    
+                    if (partyIdToLoad === null) {
+                        const activeParty = allParties.find(p => p.status !== 'archived');
+                        if (activeParty) {
+                            partyIdToLoad = activeParty.id;
+                        } else {
+                            // All parties archived, load first one
+                            partyIdToLoad = allParties[0].id;
+                        }
+                    }
+                    
+                    if (partyIdToLoad !== null) {
+                        await loadParty(partyIdToLoad);
                     } else {
-                        // All parties archived, load first one
-                        await loadParty(allParties[0].id);
+                        showEmptyPartyState();
                     }
                 } else {
                     // No parties exist, show empty state
@@ -9873,7 +9891,7 @@
                 
                 if (result.success) {
                     showAlert('Party status updated!', 'success', 'schedulingAlert');
-                    await loadParties(); // Reload to update status badge
+                    await loadParties({ preserveCurrentSelection: true }); // Reload to update status badge
                 } else {
                     showAlert('Failed to update status: ' + result.error, 'error', 'schedulingAlert');
                 }
@@ -9952,7 +9970,7 @@
                     showAlert('Planning data saved successfully!', 'success', 'schedulingAlert');
                     currentSchedulingData = result.party;
                     document.getElementById('currentPartyName').textContent = result.party.name;
-                    await loadParties(); // Reload to update party list
+                    await loadParties({ preserveCurrentSelection: true }); // Reload to update party list
                 } else {
                     showAlert('Failed to save: ' + result.error, 'error', 'schedulingAlert');
                 }
