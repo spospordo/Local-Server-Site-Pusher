@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const vm = require('vm');
 
 const repoRoot = path.join(__dirname, '..');
 const house = require(path.join(repoRoot, 'modules', 'house.js'));
@@ -16,6 +17,30 @@ function cleanup(targetPath) {
   if (fs.existsSync(targetPath)) {
     fs.rmSync(targetPath, { recursive: true, force: true });
   }
+}
+
+function extractFunction(source, signature) {
+  const signatureRegex = new RegExp(`${signature}[\\s\\S]*?\\{`);
+  const signatureMatch = source.match(signatureRegex);
+  if (!signatureMatch || signatureMatch.index === undefined) {
+    throw new Error(`Could not find function signature: ${signature}`);
+  }
+
+  const start = signatureMatch.index;
+  let depth = 0;
+
+  for (let i = start + signatureMatch[0].length - 1; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        return source.slice(start, i + 1);
+      }
+    }
+  }
+
+  throw new Error(`Could not parse function body for: ${signature}`);
 }
 
 function testHouseCarsModule() {
@@ -233,10 +258,85 @@ function testStaticIntegration() {
   log('✅ dashboard.html includes Cars tab markup and JavaScript hooks');
 }
 
+function testInsuranceMileageComplianceMessaging() {
+  const dashboardContent = fs.readFileSync(path.join(repoRoot, 'admin', 'dashboard.html'), 'utf8');
+  const getMileageNumberFn = extractFunction(dashboardContent, 'function getMileageNumber\\s*\\([^)]*\\)\\s*');
+  const computeInsuranceMileageComplianceFn = extractFunction(dashboardContent, 'function computeInsuranceMileageCompliance\\s*\\([^)]*\\)\\s*');
+  const renderInsuranceMileageComplianceFn = extractFunction(dashboardContent, 'function renderInsuranceMileageCompliance\\s*\\([^)]*\\)\\s*');
+
+  const fixedNowIso = '2026-04-01T00:00:00.000Z';
+  const RealDate = Date;
+  function MockDate(...args) {
+    if (args.length === 0) {
+      return new RealDate(fixedNowIso);
+    }
+    return new RealDate(...args);
+  }
+  MockDate.now = () => new RealDate(fixedNowIso).getTime();
+  MockDate.UTC = RealDate.UTC;
+  MockDate.parse = RealDate.parse;
+  MockDate.prototype = RealDate.prototype;
+
+  const complianceContainerId = 'insurance-compliance-car-1-policy-1';
+  const complianceContainer = { innerHTML: '' };
+
+  const context = {
+    Date: MockDate,
+    Math,
+    Number,
+    getMileageNumber: undefined,
+    formatMileage: value => (Number.isFinite(value) ? `${Math.round(value)} miles` : 'No data'),
+    escapeHtml: value => String(value),
+    formatShortMonthYear: value => String(value),
+    document: {
+      getElementById: id => (id === complianceContainerId ? complianceContainer : null)
+    }
+  };
+
+  vm.createContext(context);
+  vm.runInContext(`${getMileageNumberFn}\n${computeInsuranceMileageComplianceFn}\n${renderInsuranceMileageComplianceFn}`, context);
+
+  const annualMileageAllowance = 1460;
+  const avgMilesPerMonth = 130;
+  const projectedAnnualMileage = avgMilesPerMonth * 12;
+
+  const policy = {
+    startDate: '2026-01-01T00:00:00.000Z',
+    endDate: '2026-12-31T23:59:59.000Z',
+    annualMileageAllowance,
+    provider: 'State Farm'
+  };
+  const odometerReadings = [
+    { date: '2026-01-01T00:00:00.000Z', mileage: 10000 },
+    { date: '2026-04-01T00:00:00.000Z', mileage: 10200 }
+  ];
+
+  const result = context.computeInsuranceMileageCompliance(policy, odometerReadings, avgMilesPerMonth);
+  assert.strictEqual(Math.round(result.expectedMileageToDate), 360, 'expected-to-date pace should be calculated from elapsed policy days');
+  assert.strictEqual(result.actualMilesDriven, 200, 'actual miles driven should be computed from baseline and latest reading');
+  assert.strictEqual(Math.round(result.delta), -160, 'difference should compare actual miles against expected-to-date pace');
+  assert.strictEqual(result.projectedAnnual, projectedAnnualMileage, 'projected annual should annualize monthly average');
+  assert.strictEqual(result.isOverLimit, true, 'projection over annual policy allowance should flag warning status');
+
+  context.renderInsuranceMileageCompliance('car-1', 'policy-1', {
+    ...result,
+    provider: policy.provider,
+    startDate: policy.startDate,
+    endDate: policy.endDate,
+    annualMileageAllowance: policy.annualMileageAllowance
+  });
+
+  assert(complianceContainer.innerHTML.includes('Pace to date:'), 'UI should label short-term signal as pace-to-date');
+  assert(complianceContainer.innerHTML.includes('Annual projection status:'), 'UI should label long-term signal as annual projection status');
+  assert(complianceContainer.innerHTML.includes('even though you are currently under expected pace'), 'UI should explain why under-pace and over-limit warning can both be true');
+  log('✅ insurance mileage compliance messaging distinguishes pace-to-date from annual projection');
+}
+
 try {
   log('Running Cars feature checks...\n');
   testHouseCarsModule();
   testStaticIntegration();
+  testInsuranceMileageComplianceMessaging();
   log('\n🎉 Cars feature checks passed');
 } catch (error) {
   console.error('\n❌ Cars feature checks failed');
