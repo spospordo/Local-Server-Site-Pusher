@@ -1315,8 +1315,12 @@ function generatePartyId() {
  * appear as already passed.  Appending 'T00:00:00' (no Z) forces local-time
  * interpretation.  The subsequent setHours call normalises any DST drift.
  *
- * Returns an Invalid Date when the input is not in YYYY-MM-DD format so that
- * callers can detect the error via isNaN(result.getTime()).
+ * Returns an Invalid Date when:
+ *   - the input is not a string or does not match YYYY-MM-DD format, or
+ *   - the calendar values overflow (e.g. "2025-02-30" → rolls to March 2,
+ *     which we reject by comparing parsed components back to the input).
+ *
+ * Callers should check isNaN(result.getTime()) to detect invalid input.
  *
  * @param {string} dateStr - A date string in YYYY-MM-DD format.
  * @returns {Date}
@@ -1327,6 +1331,14 @@ function parseDateStringLocal(dateStr) {
   }
   const d = new Date(dateStr + 'T00:00:00');
   d.setHours(0, 0, 0, 0);
+  if (isNaN(d.getTime())) {
+    return new Date(NaN);
+  }
+  // Reject overflow dates (e.g. "2025-02-30" silently rolls to March 2 in V8).
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (d.getFullYear() !== year || d.getMonth() + 1 !== month || d.getDate() !== day) {
+    return new Date(NaN);
+  }
   return d;
 }
 

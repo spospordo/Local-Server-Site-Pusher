@@ -8,54 +8,66 @@
  * midnight — one full day earlier than intended.  This caused today's party to be
  * treated as already passed, blocking the Widget Validation & Preview.
  *
- * Fix: append 'T00:00:00' when parsing YYYY-MM-DD strings so they are interpreted
- * in local time, not UTC.
+ * Fix: a parseDateStringLocal() helper in server.js parses YYYY-MM-DD strings in
+ * local time (not UTC) and validates the result against the input to catch overflow
+ * dates like "2025-02-30".
  *
- * This test validates the fixed date comparison logic without starting a server.
- * It simulates the same logic used in:
- *   - server.js validatePartyScheduling()
- *   - server.js GET /admin/api/party/scheduling/validate
- *   - admin/dashboard.html showWidgetPreview()
+ * This test extracts parseDateStringLocal() directly from server.js so that any
+ * future change to the production implementation is automatically tested here.
  */
 
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
 
 // ---------------------------------------------------------------------------
-// Helper – mirrors the FIXED logic used in both server.js and dashboard.html
+// Extract parseDateStringLocal from server.js
+// ---------------------------------------------------------------------------
+
+const serverSource = fs.readFileSync(
+  path.join(__dirname, '..', 'server.js'),
+  'utf8'
+);
+
+/**
+ * Extract the first top-level named function matching the given name.
+ * Handles both `function name(` and arrow-style with `function name `.
+ */
+function extractFunction(source, name) {
+  const pattern = new RegExp(`function ${name}\\s*\\([^)]*\\)\\s*\\{`);
+  const match = source.match(pattern);
+  if (!match || match.index === undefined) {
+    throw new Error(`Could not find function: ${name}`);
+  }
+  const start = match.index;
+  let i = start + match[0].length - 1;
+  let depth = 0;
+  for (; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    if (source[i] === '}') {
+      depth--;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error(`Could not parse function body for: ${name}`);
+}
+
+const parseDateStringLocalFn = extractFunction(serverSource, 'parseDateStringLocal');
+
+const context = {};
+vm.createContext(context);
+vm.runInContext(parseDateStringLocalFn, context);
+const { parseDateStringLocal } = context;
+
+// ---------------------------------------------------------------------------
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true if the given YYYY-MM-DD date string represents a date that is
- * strictly in the past relative to the local calendar day.
- *
- * Uses the same algorithm as the patched code (append 'T00:00:00' to force
- * local-time parsing before normalising both sides to midnight).
- */
-function isPartyDateInPast(dateStr) {
-  const partyDate = new Date(dateStr + 'T00:00:00');
-  partyDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return partyDate < today;
-}
-
-/**
- * Returns the daysUntil value for the given YYYY-MM-DD date string, using
- * the same algorithm as the patched code.
- */
-function daysUntilParty(dateStr) {
-  const partyDate = new Date(dateStr + 'T00:00:00');
-  partyDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
-}
-
-/**
- * Returns a YYYY-MM-DD string for a date offset by `deltaDays` from today,
- * computed in local time to match how users enter dates.
+ * Returns a YYYY-MM-DD string for today offset by `deltaDays`, in local time.
  */
 function localDateString(deltaDays) {
   const d = new Date();
@@ -64,6 +76,13 @@ function localDateString(deltaDays) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function daysUntil(dateStr) {
+  const partyDate = parseDateStringLocal(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((partyDate - today) / (1000 * 60 * 60 * 24));
 }
 
 // ---------------------------------------------------------------------------
@@ -87,81 +106,101 @@ function test(name, fn) {
 
 console.log('\n🎉 Party same-day date fix – regression tests\n');
 
-// --- Past date -----------------------------------------------------------------
-console.log('Past date (yesterday)');
-test('isPartyDateInPast returns true for yesterday', () => {
-  assert.strictEqual(isPartyDateInPast(localDateString(-1)), true);
+// --- parseDateStringLocal: basic parsing -------------------------------------
+console.log('parseDateStringLocal() – basic parsing');
+test('returns a valid Date for a well-formed YYYY-MM-DD string', () => {
+  const d = parseDateStringLocal('2099-12-31');
+  assert.ok(!isNaN(d.getTime()), 'expected valid Date');
 });
-test('daysUntilParty returns -1 for yesterday', () => {
-  assert.strictEqual(daysUntilParty(localDateString(-1)), -1);
+test('parsed date components match input (local time, not UTC)', () => {
+  const d = parseDateStringLocal('2099-06-15');
+  assert.strictEqual(d.getFullYear(), 2099);
+  assert.strictEqual(d.getMonth() + 1, 6);
+  assert.strictEqual(d.getDate(), 15);
+});
+test('returns Invalid Date for non-string input', () => {
+  assert.ok(isNaN(parseDateStringLocal(null).getTime()));
+  assert.ok(isNaN(parseDateStringLocal(20250628).getTime()));
+});
+test('returns Invalid Date for wrong format (with time suffix)', () => {
+  assert.ok(isNaN(parseDateStringLocal('2025-06-28T18:00:00').getTime()));
+});
+test('returns Invalid Date for empty string', () => {
+  assert.ok(isNaN(parseDateStringLocal('').getTime()));
+});
+test('returns Invalid Date for overflow date "2025-02-30"', () => {
+  assert.ok(isNaN(parseDateStringLocal('2025-02-30').getTime()),
+    '"2025-02-30" must not silently roll over to March 2');
 });
 
-// --- Today's date --------------------------------------------------------------
-console.log('\nToday\'s date (same-day bug scenario)');
-test('isPartyDateInPast returns false for today', () => {
-  assert.strictEqual(isPartyDateInPast(localDateString(0)), false,
-    'Today\'s party must NOT be classified as passed');
+// --- Past date ---------------------------------------------------------------
+console.log('\nPast date (yesterday)');
+test('parseDateStringLocal gives a date < today for yesterday', () => {
+  const partyDate = parseDateStringLocal(localDateString(-1));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  assert.ok(partyDate < today, 'yesterday should be < today');
 });
-test('daysUntilParty returns 0 for today', () => {
-  assert.strictEqual(daysUntilParty(localDateString(0)), 0,
+test('daysUntil returns -1 for yesterday', () => {
+  assert.strictEqual(daysUntil(localDateString(-1)), -1);
+});
+
+// --- Today's date (core bug scenario) ----------------------------------------
+console.log('\nToday\'s date (same-day bug scenario)');
+test('parseDateStringLocal gives a date equal to today for today', () => {
+  const partyDate = parseDateStringLocal(localDateString(0));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  assert.ok(partyDate >= today,
+    'Today\'s party must NOT be classified as passed (partyDate must be >= today)');
+});
+test('daysUntil returns 0 for today', () => {
+  assert.strictEqual(daysUntil(localDateString(0)), 0,
     'daysUntil for today must be 0');
 });
 
-// --- Future dates --------------------------------------------------------------
+// --- Future dates ------------------------------------------------------------
 console.log('\nFuture dates');
-test('isPartyDateInPast returns false for tomorrow', () => {
-  assert.strictEqual(isPartyDateInPast(localDateString(1)), false);
+test('parseDateStringLocal gives a date > today for tomorrow', () => {
+  const partyDate = parseDateStringLocal(localDateString(1));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  assert.ok(partyDate > today);
 });
-test('daysUntilParty returns 1 for tomorrow', () => {
-  assert.strictEqual(daysUntilParty(localDateString(1)), 1);
+test('daysUntil returns 1 for tomorrow', () => {
+  assert.strictEqual(daysUntil(localDateString(1)), 1);
 });
-test('isPartyDateInPast returns false for 7 days from now', () => {
-  assert.strictEqual(isPartyDateInPast(localDateString(7)), false);
-});
-test('daysUntilParty returns 7 for 7 days from now', () => {
-  assert.strictEqual(daysUntilParty(localDateString(7)), 7);
-});
-test('isPartyDateInPast returns false for far-future date', () => {
-  assert.strictEqual(isPartyDateInPast('2099-12-31'), false);
+test('daysUntil returns 7 for 7 days from now', () => {
+  assert.strictEqual(daysUntil(localDateString(7)), 7);
 });
 
-// --- Old (broken) parsing must NOT be used ------------------------------------
+// --- Timezone safety ---------------------------------------------------------
 console.log('\nTimezone-safety: new Date("YYYY-MM-DD") is UTC midnight (broken pattern)');
-test('new Date("YYYY-MM-DD") parses as UTC, T00:00:00 parses as local', () => {
+test('parseDateStringLocal date components match local calendar for today', () => {
   const todayStr = localDateString(0);
-  // This demonstrates why the old code could fail in UTC-offset timezones:
-  // new Date(todayStr) is UTC midnight; if local offset is negative, the
-  // resulting local date may be the *previous* calendar day.
-  const utcParsed = new Date(todayStr);
-  const localParsed = new Date(todayStr + 'T00:00:00');
-  // Both should represent today when timezone offset is 0, but in UTC-5 the
-  // UTC-parsed version is yesterday local-time.  We simply confirm that the
-  // local parse gives a date matching the date components we passed.
   const [y, m, d] = todayStr.split('-').map(Number);
-  assert.strictEqual(localParsed.getFullYear(), y);
-  assert.strictEqual(localParsed.getMonth() + 1, m);
-  assert.strictEqual(localParsed.getDate(), d);
-  // Whereas the UTC-parsed date may differ (this is informational; we don't
-  // fail the test if offset happens to be 0 in the current environment).
-  const utcDateStr = `${utcParsed.getFullYear()}-${String(utcParsed.getMonth()+1).padStart(2,'0')}-${String(utcParsed.getDate()).padStart(2,'0')}`;
-  if (utcDateStr !== todayStr) {
-    console.log(`     ℹ️  Confirmed UTC-parse shift detected (UTC date=${utcDateStr}, local date=${todayStr})`);
+  const parsed = parseDateStringLocal(todayStr);
+  assert.strictEqual(parsed.getFullYear(), y,
+    'Year must match local calendar (not UTC)');
+  assert.strictEqual(parsed.getMonth() + 1, m,
+    'Month must match local calendar (not UTC)');
+  assert.strictEqual(parsed.getDate(), d,
+    'Day must match local calendar (not UTC)');
+  // Informational: show whether UTC parse would differ in this environment
+  const utcParsed = new Date(todayStr);
+  const utcDay = `${utcParsed.getFullYear()}-${String(utcParsed.getMonth()+1).padStart(2,'0')}-${String(utcParsed.getDate()).padStart(2,'0')}`;
+  if (utcDay !== todayStr) {
+    console.log(`     ℹ️  UTC-parse shift confirmed: UTC=${utcDay}, local=${todayStr}`);
   }
 });
 
-// --- Widget preview logic (mirrors dashboard.html showWidgetPreview) -----------
+// --- Widget Validation & Preview logic ---------------------------------------
 console.log('\nWidget Validation & Preview logic');
-test('Preview should be shown (daysUntil >= 0) for today', () => {
-  const days = daysUntilParty(localDateString(0));
-  assert.ok(days >= 0, `daysUntil must be >= 0 for today, got ${days}`);
+test('Preview shown (daysUntil >= 0) for today', () => {
+  assert.ok(daysUntil(localDateString(0)) >= 0);
 });
-test('Preview should be blocked (daysUntil < 0) for yesterday', () => {
-  const days = daysUntilParty(localDateString(-1));
-  assert.ok(days < 0, `daysUntil must be < 0 for yesterday, got ${days}`);
+test('Preview blocked (daysUntil < 0) for yesterday', () => {
+  assert.ok(daysUntil(localDateString(-1)) < 0);
 });
-test('Preview should be shown (daysUntil >= 0) for tomorrow', () => {
-  const days = daysUntilParty(localDateString(1));
-  assert.ok(days >= 0, `daysUntil must be >= 0 for tomorrow, got ${days}`);
+test('Preview shown (daysUntil >= 0) for tomorrow', () => {
+  assert.ok(daysUntil(localDateString(1)) >= 0);
 });
 
 // ---------------------------------------------------------------------------
