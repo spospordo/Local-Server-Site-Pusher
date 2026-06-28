@@ -10305,30 +10305,37 @@ app.post('/admin/api/house/bills/upload', requireAuth, requireSameOriginForAdmin
     try {
       const storedBillFile = moveUploadedFileToDirectory(billFile, billDir);
       const storedAttachments = attachments.map(file => moveUploadedFileToDirectory(file, billDir));
-      const extractedData = house.parseUtilityBillFromFile(path.join(billDir, storedBillFile.filename));
+      house.parseUtilityBillFromFile(path.join(billDir, storedBillFile.filename))
+        .then(extractedData => {
+          const result = house.addBill({
+            id: billId,
+            billDate: billDate || extractedData.statementDate || extractedData.period?.endDate || extractedData.period?.startDate || '',
+            periodStartDate: extractedData.period?.startDate || '',
+            periodEndDate: extractedData.period?.endDate || '',
+            notes: String(req.body.notes || '').trim(),
+            billFile: storedBillFile,
+            attachments: storedAttachments,
+            extractedData
+          });
 
-      const result = house.addBill({
-        id: billId,
-        billDate: billDate || extractedData.statementDate || extractedData.period?.endDate || extractedData.period?.startDate || '',
-        periodStartDate: extractedData.period?.startDate || '',
-        periodEndDate: extractedData.period?.endDate || '',
-        notes: String(req.body.notes || '').trim(),
-        billFile: storedBillFile,
-        attachments: storedAttachments,
-        extractedData
-      });
+          if (!result.success) {
+            fs.rmSync(billDir, { recursive: true, force: true });
+            return res.status(500).json({ success: false, error: result.error || 'Failed to save bill data' });
+          }
 
-      if (!result.success) {
-        fs.rmSync(billDir, { recursive: true, force: true });
-        return res.status(500).json({ success: false, error: result.error || 'Failed to save bill data' });
-      }
-
-      res.json({ success: true, message: 'Utility bill uploaded successfully', bill: result.bill });
-    } catch (error) {
+          res.json({ success: true, message: 'Utility bill uploaded successfully', bill: result.bill });
+        })
+        .catch(error => {
+          cleanupUploadedFiles(uploadedFiles);
+          fs.rmSync(billDir, { recursive: true, force: true });
+          console.error('❌ [House Bills] Upload error:', error.message);
+          res.status(500).json({ success: false, error: 'Failed to upload utility bill: ' + error.message });
+        });
+    } catch (syncError) {
       cleanupUploadedFiles(uploadedFiles);
       fs.rmSync(billDir, { recursive: true, force: true });
-      console.error('❌ [House Bills] Upload error:', error.message);
-      res.status(500).json({ success: false, error: 'Failed to upload utility bill: ' + error.message });
+      console.error('❌ [House Bills] Upload error:', syncError.message);
+      res.status(500).json({ success: false, error: 'Failed to upload utility bill: ' + syncError.message });
     }
   });
 });
