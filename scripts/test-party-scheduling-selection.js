@@ -31,7 +31,7 @@ function extractFunction(source, signature) {
 }
 
 async function run() {
-  const NON_EXISTENT_PARTY_ID = 999;
+  const TEST_NONEXISTENT_PARTY_ID = 999;
   const dashboardPath = path.join(__dirname, '..', 'admin', 'dashboard.html');
   const dashboard = fs.readFileSync(dashboardPath, 'utf8');
 
@@ -149,7 +149,7 @@ async function run() {
     'Reload after save should load the currently selected party by ID'
   );
 
-  context.currentPartyId = NON_EXISTENT_PARTY_ID;
+  context.currentPartyId = TEST_NONEXISTENT_PARTY_ID;
   await context.loadParties({ preserveCurrentSelection: true });
   assert.strictEqual(
     context.currentPartyId,
