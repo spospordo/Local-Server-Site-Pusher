@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.23.4] - 2026-06-28
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #643 from spospordo/copilot/fix-pdf-extraction-ocr-fallback
+  - Address review feedback: improve OCR progress throttling and clarify test comment
+  - Fix PDF extraction: remove binary stream garbage, add quality check and OCR fallback"
+  - Initial plan
+
+
 ## [2.23.3] - 2026-06-28
 
 ### Patch Update
