@@ -3,6 +3,7 @@ const path = require('path');
 const zlib = require('zlib');
 const { randomUUID } = require('crypto');
 const Tesseract = require('tesseract.js');
+const pdfParse = require('pdf-parse');
 
 let config = null;
 
@@ -979,7 +980,7 @@ function getDefaultBillExtraction() {
       rawLines: []
     },
     extractionMeta: {
-      method: 'native',
+      method: 'pdf-parse',
       ocrFallbackUsed: false,
       ocrFallbackAvailable: false,
       textQualityUsable: false,
@@ -1131,20 +1132,27 @@ function deleteBill(id) {
 async function parseUtilityBillFromFile(filePath) {
   const pdfBuffer = fs.readFileSync(filePath);
   const warnings = [];
-
-  const nativeText = extractPdfTextFromBuffer(pdfBuffer);
-  const nativeUsable = isExtractedTextUsable(nativeText);
-
-  if (!nativeUsable) {
-    warnings.push('Native PDF text extraction produced low-quality or unreadable content; OCR fallback attempted');
-    console.log('⚠️ [House Bills] Native extraction low-quality, attempting OCR fallback for:', filePath);
-  }
-
-  let extractedText = nativeText;
+  let extractedText = '';
   let ocrFallbackUsed = false;
   let ocrFallbackAvailable = false;
 
+  // Primary extraction: pdf-parse walks the PDF page content stream and returns
+  // the actual rendered text, without any PDF operators or binary garbage.
+  try {
+    const pdfData = await pdfParse(pdfBuffer);
+    extractedText = pdfData.text || '';
+    console.log(`📄 [House Bills] pdf-parse extracted ${extractedText.length} characters from: ${filePath}`);
+  } catch (error) {
+    warnings.push(`pdf-parse extraction failed: ${error.message}`);
+    console.error('❌ [House Bills] pdf-parse error:', error.message);
+  }
+
+  const nativeUsable = isExtractedTextUsable(extractedText);
+
   if (!nativeUsable) {
+    warnings.push('PDF text extraction produced low-quality or unreadable content; OCR fallback attempted');
+    console.log('⚠️ [House Bills] Extraction low-quality, attempting OCR fallback for:', filePath);
+
     try {
       const ocrText = await runOcrOnPdfBuffer(pdfBuffer);
       ocrFallbackAvailable = true;
@@ -1164,22 +1172,13 @@ async function parseUtilityBillFromFile(filePath) {
 
   const result = parseUtilityBillText(extractedText);
   result.extractionMeta = {
-    method: ocrFallbackUsed ? 'ocr' : 'native',
+    method: ocrFallbackUsed ? 'ocr' : 'pdf-parse',
     ocrFallbackUsed,
     ocrFallbackAvailable,
     textQualityUsable: isExtractedTextUsable(extractedText),
     warnings
   };
   return result;
-}
-
-// Returns true when a string has enough printable ASCII to be considered readable text
-function isTextReadable(text) {
-  if (!text || text.length < 4) {
-    return false;
-  }
-  const printable = (text.match(/[\x20-\x7E\t\n\r]/g) || []).length;
-  return (printable / text.length) > 0.6;
 }
 
 // Keywords used to judge whether extracted text looks like a utility bill
@@ -1280,147 +1279,6 @@ async function runOcrOnPdfBuffer(pdfBuffer) {
   }
 
   return ocrTexts.join('\n');
-}
-
-function extractPdfTextFromBuffer(buffer) {
-  const segments = [];
-  const binary = buffer.toString('latin1');
-
-  // Extract the non-stream portions of the PDF (headers, object dictionaries, cross-reference
-  // tables, etc.) which may contain readable literal strings and metadata.
-  const nonStreamBinary = binary.replace(/stream\r?\n[\s\S]*?\r?\nendstream/g, '');
-  segments.push(nonStreamBinary);
-
-  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let match;
-  while ((match = streamRegex.exec(binary)) !== null) {
-    const rawStream = Buffer.from(match[1], 'latin1');
-    if (!rawStream.length) {
-      continue;
-    }
-
-    // Attempt decompression; the raw (compressed) stream bytes produce garbage text so we
-    // never include them directly as a candidate.
-    const decompressedCandidates = [];
-    try {
-      decompressedCandidates.push(zlib.inflateSync(rawStream));
-    } catch (_e) {
-      // Not a zlib-deflated stream
-    }
-    try {
-      decompressedCandidates.push(zlib.inflateRawSync(rawStream));
-    } catch (_e) {
-      // Not a raw-deflate stream
-    }
-
-    if (decompressedCandidates.length > 0) {
-      // Use decompressed content when available
-      decompressedCandidates.forEach(candidate => {
-        const text = candidate.toString('latin1');
-        if (text && isTextReadable(text)) {
-          segments.push(text);
-        }
-      });
-    } else {
-      // Stream was stored without compression — only include if it reads as text
-      const rawText = rawStream.toString('latin1');
-      if (rawText && isTextReadable(rawText)) {
-        segments.push(rawText);
-      }
-    }
-  }
-
-  const extracted = [];
-  const seen = new Set();
-  segments.forEach(segment => {
-    extractPdfLiteralStrings(segment).forEach(item => {
-      const normalized = normalizeExtractedTextLine(item);
-      if (normalized && !seen.has(normalized)) {
-        seen.add(normalized);
-        extracted.push(normalized);
-      }
-    });
-
-    const printableMatches = segment.match(/[A-Za-z0-9][A-Za-z0-9\s,$.%#:&()\/[\]\-+]{6,}/g) || [];
-    printableMatches.forEach(item => {
-      const normalized = normalizeExtractedTextLine(item);
-      if (normalized && !seen.has(normalized)) {
-        seen.add(normalized);
-        extracted.push(normalized);
-      }
-    });
-  });
-
-  return extracted.join('\n');
-}
-
-function extractPdfLiteralStrings(segment) {
-  const results = [];
-  for (let index = 0; index < segment.length; index += 1) {
-    if (segment[index] !== '(') {
-      continue;
-    }
-
-    let depth = 1;
-    let current = '';
-    let escaped = false;
-    for (let cursor = index + 1; cursor < segment.length; cursor += 1) {
-      const character = segment[cursor];
-      if (escaped) {
-        current += `\\${character}`;
-        escaped = false;
-        continue;
-      }
-      if (character === '\\') {
-        escaped = true;
-        continue;
-      }
-      if (character === '(') {
-        depth += 1;
-        current += character;
-        continue;
-      }
-      if (character === ')') {
-        depth -= 1;
-        if (depth === 0) {
-          index = cursor;
-          break;
-        }
-      }
-      current += character;
-    }
-
-    if (current) {
-      results.push(decodePdfString(current));
-    }
-  }
-
-  const hexRegex = /<([0-9A-Fa-f\s]{6,})>/g;
-  let hexMatch;
-  while ((hexMatch = hexRegex.exec(segment)) !== null) {
-    const hex = hexMatch[1].replace(/\s+/g, '');
-    if (hex.length % 2 !== 0) {
-      continue;
-    }
-    try {
-      results.push(Buffer.from(hex, 'hex').toString('utf8'));
-    } catch (error) {
-      // Ignore invalid hex strings
-    }
-  }
-
-  return results;
-}
-
-function decodePdfString(value) {
-  return value
-    .replace(/\\([\\()])/g, '$1')
-    .replace(/\\r/g, '\r')
-    .replace(/\\n/g, '\n')
-    .replace(/\\t/g, '\t')
-    .replace(/\\b/g, '\b')
-    .replace(/\\f/g, '\f')
-    .replace(/\\([0-7]{1,3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)));
 }
 
 function normalizeExtractedTextLine(line) {
