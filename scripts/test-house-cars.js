@@ -296,23 +296,26 @@ function testInsuranceMileageComplianceMessaging() {
   vm.createContext(context);
   vm.runInContext(`${getMileageNumberFn}\n${computeInsuranceMileageComplianceFn}\n${renderInsuranceMileageComplianceFn}`, context);
 
+  const annualMileageAllowance = 1460;
+  const avgMilesPerMonth = 130;
+  const projectedAnnualMileage = avgMilesPerMonth * 12;
+
   const policy = {
     startDate: '2026-01-01T00:00:00.000Z',
     endDate: '2026-12-31T23:59:59.000Z',
-    annualMileageAllowance: 1460,
+    annualMileageAllowance,
     provider: 'State Farm'
   };
   const odometerReadings = [
     { date: '2026-01-01T00:00:00.000Z', mileage: 10000 },
     { date: '2026-04-01T00:00:00.000Z', mileage: 10200 }
   ];
-  const avgMilesPerMonth = 130;
 
   const result = context.computeInsuranceMileageCompliance(policy, odometerReadings, avgMilesPerMonth);
   assert.strictEqual(Math.round(result.expectedMileageToDate), 360, 'expected-to-date pace should be calculated from elapsed policy days');
   assert.strictEqual(result.actualMilesDriven, 200, 'actual miles driven should be computed from baseline and latest reading');
   assert.strictEqual(Math.round(result.delta), -160, 'difference should compare actual miles against expected-to-date pace');
-  assert.strictEqual(result.projectedAnnual, 1560, 'projected annual should annualize monthly average');
+  assert.strictEqual(result.projectedAnnual, projectedAnnualMileage, 'projected annual should annualize monthly average');
   assert.strictEqual(result.isOverLimit, true, 'projection over annual policy allowance should flag warning status');
 
   context.renderInsuranceMileageCompliance('car-1', 'policy-1', {
