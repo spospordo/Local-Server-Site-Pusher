@@ -30,14 +30,18 @@ function extractFunction(source, signature) {
   throw new Error(`Could not parse function body for: ${signature}`);
 }
 
+function extractNamedAsyncFunction(source, name) {
+  return extractFunction(source, `async function ${name}\\s*\\([^)]*\\)\\s*`);
+}
+
 async function run() {
-  const TEST_NONEXISTENT_PARTY_ID = 999;
+  const NONEXISTENT_PARTY_ID = 999;
   const dashboardPath = path.join(__dirname, '..', 'admin', 'dashboard.html');
   const dashboard = fs.readFileSync(dashboardPath, 'utf8');
 
-  const loadPartiesFn = extractFunction(dashboard, 'async function loadParties\\s*\\([^)]*\\)\\s*');
-  const loadPartyFn = extractFunction(dashboard, 'async function loadParty\\s*\\([^)]*\\)\\s*');
-  const saveSchedulingDataFn = extractFunction(dashboard, 'async function saveSchedulingData\\s*\\([^)]*\\)\\s*');
+  const loadPartiesFn = extractNamedAsyncFunction(dashboard, 'loadParties');
+  const loadPartyFn = extractNamedAsyncFunction(dashboard, 'loadParty');
+  const saveSchedulingDataFn = extractNamedAsyncFunction(dashboard, 'saveSchedulingData');
 
   const elementMap = {
     currentPartySelector: { style: { display: 'none' } },
@@ -73,13 +77,13 @@ async function run() {
         return elementMap[id];
       }
     },
-    fetch: async (url, options) => {
+    fetch: async (url, requestOptions) => {
       if (url === '/admin/api/parties') {
         return { json: async () => ({ parties }) };
       }
 
       const getMatch = url.match(/^\/admin\/api\/parties\/(\d+)$/);
-      if (getMatch && !options) {
+      if (getMatch && !requestOptions) {
         const partyId = Number(getMatch[1]);
         fetchGetPartyIds.push(partyId);
         const party = parties.find(p => p.id === partyId);
@@ -101,7 +105,7 @@ async function run() {
         };
       }
 
-      if (getMatch && options && options.method === 'PUT') {
+      if (getMatch && requestOptions && requestOptions.method === 'PUT') {
         const partyId = Number(getMatch[1]);
         return {
           json: async () => ({
@@ -149,7 +153,7 @@ async function run() {
     'Reload after save should load the currently selected party by ID'
   );
 
-  context.currentPartyId = TEST_NONEXISTENT_PARTY_ID;
+  context.currentPartyId = NONEXISTENT_PARTY_ID;
   await context.loadParties({ preserveCurrentSelection: true });
   assert.strictEqual(
     context.currentPartyId,
