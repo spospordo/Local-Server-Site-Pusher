@@ -26749,14 +26749,18 @@
                 }
             }
 
-            let projectedStatusLabel = 'No projection data yet.';
+            let projectedStatusLabel = 'No annual projection data yet.';
             let projectedStatusColor = '#4a5568';
             if (Number.isFinite(complianceData.projectedAnnual) && Number.isFinite(complianceData.annualMileageAllowance)) {
                 if (complianceData.isOverLimit) {
-                    projectedStatusLabel = '⚠️ You may exceed your policy mileage allowance';
+                    if (Number.isFinite(delta) && delta <= 0) {
+                        projectedStatusLabel = '⚠️ Annual projection may exceed your policy limit, even though you are currently under expected pace';
+                    } else {
+                        projectedStatusLabel = '⚠️ Annual projection may exceed your policy mileage allowance';
+                    }
                     projectedStatusColor = '#c05621';
                 } else {
-                    projectedStatusLabel = '✅ You are within your policy mileage allowance';
+                    projectedStatusLabel = '✅ Annual projection is within your policy mileage allowance';
                     projectedStatusColor = '#2f855a';
                 }
             }
@@ -26770,10 +26774,10 @@
                     <div style="font-weight: 600; margin-bottom: 0.4rem;">🛡️ ${escapeHtml(complianceData.provider || '')} (${escapeHtml(formatShortMonthYear(complianceData.startDate))} – ${escapeHtml(formatShortMonthYear(complianceData.endDate))}) | Annual Limit: ${escapeHtml(formatMileage(complianceData.annualMileageAllowance))}</div>
                     <div style="color: #4a5568;">Expected to date: <strong>${escapeHtml(formatMileage(complianceData.expectedMileageToDate))}</strong></div>
                     <div style="color: #4a5568;">Actual driven: <strong>${complianceData.actualMilesDriven === null ? 'No data' : escapeHtml(formatMileage(complianceData.actualMilesDriven))}</strong></div>
-                    <div style="color: ${deltaColor};">Difference: <strong>${escapeHtml(deltaLabel)}</strong></div>
+                    <div style="color: ${deltaColor};">Pace to date: <strong>${escapeHtml(deltaLabel)}</strong></div>
                     <div style="margin-top: 0.45rem; color: #4a5568;">Projected annual: <strong>${complianceData.projectedAnnual === null ? 'No data' : escapeHtml(formatMileage(complianceData.projectedAnnual))}</strong></div>
                     <div style="color: #4a5568;">Policy limit: <strong>${escapeHtml(formatMileage(complianceData.annualMileageAllowance))}</strong></div>
-                    <div style="color: ${projectedStatusColor};">Status: <strong>${escapeHtml(projectedStatusLabel)}</strong></div>
+                    <div style="color: ${projectedStatusColor};">Annual projection status: <strong>${escapeHtml(projectedStatusLabel)}</strong></div>
                     ${baselineNote}
                 </div>
             `;
