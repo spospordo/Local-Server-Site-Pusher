@@ -34,7 +34,7 @@ const serverSource = fs.readFileSync(
 
 /**
  * Extract the first top-level named function matching the given name.
- * Handles both `function name(` and arrow-style with `function name `.
+ * Only handles traditional function declarations (`function name(`).
  */
 function extractFunction(source, name) {
   const pattern = new RegExp(`function ${name}\\s*\\([^)]*\\)\\s*\\{`);

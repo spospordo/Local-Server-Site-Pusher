@@ -1313,7 +1313,7 @@ function generatePartyId() {
  * UTC midnight.  In timezones behind UTC (e.g. UTC-5) that shifts the value
  * to the *previous* calendar day locally, which causes today's party to
  * appear as already passed.  Appending 'T00:00:00' (no Z) forces local-time
- * interpretation.  The subsequent setHours call normalises any DST drift.
+ * interpretation at midnight.
  *
  * Returns an Invalid Date when:
  *   - the input is not a string or does not match YYYY-MM-DD format, or
@@ -1330,7 +1330,6 @@ function parseDateStringLocal(dateStr) {
     return new Date(NaN);
   }
   const d = new Date(dateStr + 'T00:00:00');
-  d.setHours(0, 0, 0, 0);
   if (isNaN(d.getTime())) {
     return new Date(NaN);
   }
