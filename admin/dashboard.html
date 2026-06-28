@@ -10712,7 +10712,10 @@
                     notes.style.background = '#fff3cd';
                     notes.style.borderLeft = '4px solid #ffc107';
                 } else {
-                    const partyDate = new Date(data.dateTime.date);
+                    // Append T00:00:00 so the date is parsed in local time, not UTC midnight,
+                    // which would otherwise shift the date back by the UTC offset on negative-offset
+                    // systems and incorrectly classify today's party as already passed.
+                    const partyDate = new Date(data.dateTime.date + 'T00:00:00');
                     partyDate.setHours(0, 0, 0, 0);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);

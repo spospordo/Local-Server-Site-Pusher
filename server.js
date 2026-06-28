@@ -1616,8 +1616,10 @@ app.get('/admin/api/parties/:id/validate', requireAuth, (req, res) => {
         });
         isValid = false;
       } else {
-        // Check if date is valid and not in the past
-        const partyDate = new Date(dateStr);
+        // Check if date is valid and not in the past.
+        // Append T00:00:00 so the date is parsed in local time, not UTC midnight,
+        // which would otherwise shift the date back by the UTC offset on negative-offset systems.
+        const partyDate = new Date(dateStr + 'T00:00:00');
         partyDate.setHours(0, 0, 0, 0);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1743,8 +1745,10 @@ app.get('/admin/api/parties/:id/weather', requireAuth, async (req, res) => {
     
     const partyDate = party.dateTime.date;
     
-    // Calculate days until party
-    const partyDateObj = new Date(partyDate);
+    // Calculate days until party.
+    // Use T00:00:00 to parse the date string in local time rather than UTC midnight,
+    // preventing an off-by-one-day error in negative-UTC-offset timezones.
+    const partyDateObj = new Date(partyDate + 'T00:00:00');
     partyDateObj.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1985,8 +1989,10 @@ app.get('/admin/api/party/scheduling/validate', requireAuth, (req, res) => {
         });
         isValid = false;
       } else {
-        // Check if date is valid and not in the past
-        const partyDate = new Date(dateStr);
+        // Check if date is valid and not in the past.
+        // Append T00:00:00 so the date is parsed in local time, not UTC midnight,
+        // which would otherwise shift the date back by the UTC offset on negative-offset systems.
+        const partyDate = new Date(dateStr + 'T00:00:00');
         partyDate.setHours(0, 0, 0, 0);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -2119,8 +2125,10 @@ app.get('/admin/api/party/weather', requireAuth, async (req, res) => {
     
     const partyDate = schedulingData.dateTime.date;
     
-    // Calculate days until party
-    const partyDateObj = new Date(partyDate);
+    // Calculate days until party.
+    // Use T00:00:00 to parse the date string in local time rather than UTC midnight,
+    // preventing an off-by-one-day error in negative-UTC-offset timezones.
+    const partyDateObj = new Date(partyDate + 'T00:00:00');
     partyDateObj.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -9185,7 +9193,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               const activeParties = config.parties
                 .filter(p => p.status !== 'archived' && p.dateTime?.date)
                 .map(p => {
-                  const partyDate = new Date(p.dateTime.date);
+                  // Append T00:00:00 to parse the date in local time rather than UTC midnight,
+                  // preventing an off-by-one-day shift in negative-UTC-offset timezones.
+                  const partyDate = new Date(p.dateTime.date + 'T00:00:00');
                   partyDate.setHours(0, 0, 0, 0);
                   return { ...p, parsedDate: partyDate };
                 })
@@ -9216,7 +9226,8 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             if (!nextParty && config.partyScheduling?.dateTime?.date) {
               nextParty = {
                 ...config.partyScheduling,
-                parsedDate: new Date(config.partyScheduling.dateTime.date)
+                // Append T00:00:00 to parse the date in local time rather than UTC midnight.
+                parsedDate: new Date(config.partyScheduling.dateTime.date + 'T00:00:00')
               };
             }
             
@@ -9237,7 +9248,9 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
                 }
               }
               
-              const partyDate = new Date(normalizedDateString);
+              // Append T00:00:00 so the date is parsed in local time, not UTC midnight,
+              // which would otherwise shift the date back by the UTC offset on negative-offset systems.
+              const partyDate = new Date(normalizedDateString + 'T00:00:00');
               partyDate.setHours(0, 0, 0, 0);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
