@@ -11506,6 +11506,123 @@
         function formatCurrency(value) {
             return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
+
+        function formatRetirementNumber(value, options = {}) {
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue)) {
+                return '—';
+            }
+            return numericValue.toLocaleString('en-US', options);
+        }
+
+        function formatRetirementCurrency(value, maximumFractionDigits = 2) {
+            return '$' + formatRetirementNumber(value, {
+                minimumFractionDigits: maximumFractionDigits > 0 ? 2 : 0,
+                maximumFractionDigits
+            });
+        }
+
+        function formatRetirementPercent(value, digits = 1) {
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue)) {
+                return '—';
+            }
+            return numericValue.toLocaleString('en-US', {
+                minimumFractionDigits: digits,
+                maximumFractionDigits: digits
+            }) + '%';
+        }
+
+        function describeRetirementProjectionStatistic(statistic) {
+            if (statistic === 'deterministic_future_value_formula') {
+                return 'Deterministic future-value formula using the selected expected return (not a simulation mean or median)';
+            }
+
+            return statistic ? escapeHtml(String(statistic)) : '—';
+        }
+
+        function renderRetirementCalculationDetails(result) {
+            const calculationDetails = result && result.calculationDetails ? result.calculationDetails : {};
+            const returnDetails = calculationDetails.expectedAnnualReturn || null;
+            const projectionDetails = calculationDetails.projectedPortfolioAtRetirement || null;
+
+            if (!returnDetails && !projectionDetails) {
+                return `
+                    <div style="margin: 1rem 0;">
+                        <h5>Calculation Details</h5>
+                        <p style="margin: 0.5rem 0 0; color: #666;">Detailed calculation fields are not available for this evaluation.</p>
+                    </div>
+                `;
+            }
+
+            let returnHtml = '<p style="margin: 0.5rem 0 0; color: #666;">Expected annual return details are unavailable.</p>';
+            if (returnDetails) {
+                if (returnDetails.source === 'historical_growth') {
+                    const clampText = Number.isFinite(Number(returnDetails.growthFloorPercent)) && Number.isFinite(Number(returnDetails.growthCeilingPercent))
+                        ? `Historical annualized growth values outside ${formatRetirementPercent(returnDetails.growthFloorPercent)} to ${formatRetirementPercent(returnDetails.growthCeilingPercent)} were excluded before averaging.`
+                        : '';
+
+                    returnHtml = `
+                        <p style="margin: 0.5rem 0;"><strong>Historical path:</strong> Expected annual return = historical annualized growth = <strong>${formatRetirementPercent(returnDetails.valuePercent)}</strong>.</p>
+                        <ul style="margin: 0.5rem 0;">
+                            <li>Time window used: approximately ${formatRetirementNumber(returnDetails.historyMonthsUsed, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} months</li>
+                            <li>Historical annualized growth used: ${formatRetirementPercent(returnDetails.historicalAnnualizedGrowthPercent)}</li>
+                            ${returnDetails.qualifyingAccountsUsed ? `<li>Qualifying accounts averaged: ${formatRetirementNumber(returnDetails.qualifyingAccountsUsed)}</li>` : ''}
+                            ${clampText ? `<li>${clampText}</li>` : ''}
+                        </ul>
+                    `;
+                } else if (returnDetails.source === 'risk_profile_assumption') {
+                    returnHtml = `
+                        <p style="margin: 0.5rem 0;"><strong>Fallback path:</strong> Expected annual return = ${escapeHtml(String(returnDetails.riskTolerance || 'selected'))} risk profile assumption = <strong>${formatRetirementPercent(returnDetails.valuePercent)}</strong>.</p>
+                        <ul style="margin: 0.5rem 0;">
+                            <li>Configured return assumption: ${formatRetirementPercent(returnDetails.configuredAssumptionReturnPercent)}</li>
+                            <li>Configured volatility assumption: ${formatRetirementPercent(returnDetails.configuredAssumptionVolatilityPercent)}</li>
+                        </ul>
+                    `;
+                }
+            }
+
+            let projectionHtml = '<p style="margin: 0.5rem 0 0; color: #666;">Projected portfolio calculation details are unavailable.</p>';
+            if (projectionDetails) {
+                const ratePercent = Number(projectionDetails.returnMeanPercent);
+                const zeroRateFormula = Number.isFinite(ratePercent) && Math.abs(ratePercent) < 0.000001;
+                const formulaLine = zeroRateFormula
+                    ? `Projected portfolio = starting assets + (annual contribution × years until retirement)`
+                    : `Projected portfolio = starting assets × (1 + return mean)^years + annual contribution × (((1 + return mean)^years − 1) ÷ return mean)`;
+                const substitutedLine = zeroRateFormula
+                    ? `= ${formatRetirementCurrency(projectionDetails.startingAssets)} + (${formatRetirementCurrency(projectionDetails.annualContribution)} × ${formatRetirementNumber(projectionDetails.yearsUntilRetirement)})`
+                    : `= ${formatRetirementCurrency(projectionDetails.startingAssets)} × (1 + ${formatRetirementPercent(projectionDetails.returnMeanPercent)})^${formatRetirementNumber(projectionDetails.yearsUntilRetirement)} + ${formatRetirementCurrency(projectionDetails.annualContribution)} × (((1 + ${formatRetirementPercent(projectionDetails.returnMeanPercent)})^${formatRetirementNumber(projectionDetails.yearsUntilRetirement)} − 1) ÷ ${formatRetirementPercent(projectionDetails.returnMeanPercent)})`;
+
+                projectionHtml = `
+                    <p style="margin: 0.5rem 0;"><strong>Formula:</strong> ${formulaLine}</p>
+                    <p style="margin: 0.5rem 0;"><strong>Substituted values:</strong> ${substitutedLine}</p>
+                    <ul style="margin: 0.5rem 0;">
+                        <li>Starting assets: ${formatRetirementCurrency(projectionDetails.startingAssets)}</li>
+                        <li>Annual contribution: ${formatRetirementCurrency(projectionDetails.annualContribution)}</li>
+                        <li>Years until retirement: ${formatRetirementNumber(projectionDetails.yearsUntilRetirement)}</li>
+                        <li>Simulation context: ${formatRetirementNumber(projectionDetails.numSimulations)} runs, return mean ${formatRetirementPercent(projectionDetails.returnMeanPercent)}, volatility ${formatRetirementPercent(projectionDetails.returnVolatilityPercent)}</li>
+                        <li>Inflation assumption context: ${formatRetirementPercent(projectionDetails.inflationRatePercent)} (used elsewhere in the retirement model, not in this displayed accumulation formula)</li>
+                        <li>Displayed statistic: ${describeRetirementProjectionStatistic(projectionDetails.distributionStatistic)}</li>
+                        <li>Computed value before rounding: ${formatRetirementCurrency(projectionDetails.computedValueBeforeRounding)}</li>
+                        <li>Displayed rounded value: ${formatRetirementCurrency(projectionDetails.displayValueRounded, 0)}</li>
+                    </ul>
+                `;
+            }
+
+            return `
+                <div style="margin: 1rem 0;">
+                    <h5>Calculation Details</h5>
+                    <div style="background: #fff; padding: 1rem; border-radius: 6px; margin-top: 0.5rem;">
+                        <h6 style="margin: 0 0 0.5rem;">Expected Annual Return</h6>
+                        ${returnHtml}
+                    </div>
+                    <div style="background: #fff; padding: 1rem; border-radius: 6px; margin-top: 0.75rem;">
+                        <h6 style="margin: 0 0 0.5rem;">Projected Portfolio at Retirement</h6>
+                        ${projectionHtml}
+                    </div>
+                </div>
+            `;
+        }
         
         // Load initial data
         async function initializeAdmin() {
@@ -18323,6 +18440,10 @@
                 `;
                 
                 // Display detailed information
+                const assumptions = result.assumptions || {};
+                const projections = result.projections || {};
+                const calculationDetailsHtml = renderRetirementCalculationDetails(result);
+
                 detailsDiv.innerHTML = `
                     <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff;">
                         <h4 style="margin-top: 0; color: #007bff;">📖 Analysis Details</h4>
@@ -18330,35 +18451,37 @@
                         <div style="margin: 1rem 0;">
                             <h5>Current Situation</h5>
                             <ul style="margin: 0.5rem 0;">
-                                <li>Current Age: ${result.assumptions.currentAge}</li>
-                                <li>Retirement Age: ${result.assumptions.retirementAge}</li>
-                                <li>Years Until Retirement: ${result.assumptions.yearsUntilRetirement}</li>
-                                <li>Current Total Assets: $${result.assumptions.currentAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
-                                <li>Annual Contribution (15% of income): $${result.assumptions.annualContribution.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
+                                <li>Current Age: ${formatRetirementNumber(assumptions.currentAge)}</li>
+                                <li>Retirement Age: ${formatRetirementNumber(assumptions.retirementAge)}</li>
+                                <li>Years Until Retirement: ${formatRetirementNumber(assumptions.yearsUntilRetirement)}</li>
+                                <li>Current Total Assets: ${formatRetirementCurrency(assumptions.currentAssets)}</li>
+                                <li>Annual Contribution (15% of income): ${formatRetirementCurrency(assumptions.annualContribution)}</li>
                             </ul>
                         </div>
                         
                         <div style="margin: 1rem 0;">
                             <h5>Projections</h5>
                             <ul style="margin: 0.5rem 0;">
-                                <li>Projected Portfolio at Retirement: $${result.projections.projectedPortfolioAtRetirement.toLocaleString('en-US')}</li>
-                                <li>Total Needed for ${result.assumptions.yearsInRetirement} Years: $${result.projections.totalNeededForRetirement.toLocaleString('en-US')}</li>
-                                ${result.projections.shortfall > 0 ? `<li style="color: #d9534f;">Projected Shortfall: $${result.projections.shortfall.toLocaleString('en-US')}</li>` : '<li style="color: #5cb85c;">✅ Projected to meet retirement goals</li>'}
-                                ${result.projections.futureIncomeValue > 0 ? `<li>Future Income Value (Pension/SS): $${result.projections.futureIncomeValue.toLocaleString('en-US')}</li>` : ''}
+                                <li>Projected Portfolio at Retirement: ${formatRetirementCurrency(projections.projectedPortfolioAtRetirement, 0)}</li>
+                                <li>Total Needed for ${formatRetirementNumber(assumptions.yearsInRetirement)} Years: ${formatRetirementCurrency(projections.totalNeededForRetirement, 0)}</li>
+                                ${Number(projections.shortfall) > 0 ? `<li style="color: #d9534f;">Projected Shortfall: ${formatRetirementCurrency(projections.shortfall, 0)}</li>` : '<li style="color: #5cb85c;">✅ Projected to meet retirement goals</li>'}
+                                ${Number(projections.futureIncomeValue) > 0 ? `<li>Future Income Value (Pension/SS): ${formatRetirementCurrency(projections.futureIncomeValue, 0)}</li>` : ''}
                             </ul>
                         </div>
                         
                         <div style="margin: 1rem 0;">
                             <h5>Assumptions & Methodology</h5>
                             <ul style="margin: 0.5rem 0;">
-                                <li>Expected Annual Return: ${result.assumptions.expectedReturn}</li>
-                                <li>Return Volatility (Std Dev): ${result.assumptions.returnVolatility}</li>
-                                <li>Inflation Rate: ${result.assumptions.inflationRate}</li>
-                                <li>Annual Retirement Spending: $${result.assumptions.annualRetirementSpending.toLocaleString('en-US')}</li>
-                                <li>Years in Retirement: ${result.assumptions.yearsInRetirement}</li>
-                                ${result.assumptions.hasHistoricalGrowthData ? '<li>✅ Using historical growth data from your accounts (3+ months)</li>' : '<li>ℹ️ Using standard assumptions (add 3+ months of balance history for personalized projections)</li>'}
+                                <li>Expected Annual Return: ${escapeHtml(String(assumptions.expectedReturn || '—'))}</li>
+                                <li>Return Volatility (Std Dev): ${escapeHtml(String(assumptions.returnVolatility || '—'))}</li>
+                                <li>Inflation Rate: ${escapeHtml(String(assumptions.inflationRate || '—'))}</li>
+                                <li>Annual Retirement Spending: ${formatRetirementCurrency(assumptions.annualRetirementSpending, 0)}</li>
+                                <li>Years in Retirement: ${formatRetirementNumber(assumptions.yearsInRetirement)}</li>
+                                ${assumptions.hasHistoricalGrowthData ? '<li>✅ Using historical growth data from your accounts (3+ months)</li>' : '<li>ℹ️ Using standard assumptions (add 3+ months of balance history for personalized projections)</li>'}
                             </ul>
                         </div>
+
+                        ${calculationDetailsHtml}
                         
                         <div style="background: #fff; padding: 1rem; border-radius: 6px; margin-top: 1rem;">
                             <h5 style="margin-top: 0;">📊 Methodology</h5>
