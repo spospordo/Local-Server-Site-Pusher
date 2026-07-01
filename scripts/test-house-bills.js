@@ -198,7 +198,7 @@ function testChartHelpers() {
   const getHouseBillSortDateFn = extractFunction(dashboardContent, 'function getHouseBillSortDate\\s*\\([^)]*\\)\\s*');
   const formatHouseBillShortDateFn = extractFunction(dashboardContent, 'function formatHouseBillShortDate\\s*\\([^)]*\\)\\s*');
 
-  const sandbox = { console, escapeHtml: s => String(s) };
+  const sandbox = { console: { log: () => {}, warn: () => {}, error: () => {} }, escapeHtml: s => String(s) };
   vm.createContext(sandbox);
   vm.runInContext(parseHouseBillDateFn, sandbox);
   vm.runInContext(getHouseBillSortDateFn, sandbox);
