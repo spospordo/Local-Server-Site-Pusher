@@ -514,6 +514,20 @@ The retirement planning feature evaluates your financial readiness for retiremen
 - Otherwise: Standard assumptions based on risk tolerance
 **Future Income Treatment**: Present value calculation discounted to retirement date
 
+#### Calculation Transparency Payload
+
+Retirement evaluations now also return a `calculationDetails` object for UI/debugging use while preserving the existing `assumptions`, `projections`, and `methodology` fields.
+
+- `calculationDetails.expectedAnnualReturn`
+  - `source`: `historical_growth` or `risk_profile_assumption`
+  - `valuePercent`: numeric annual return used in the simulation
+  - Historical path includes `historyMonthsUsed`, `historicalAnnualizedGrowthPercent`, clamp bounds, and qualifying account count
+  - Fallback path includes `riskTolerance`, `configuredAssumptionReturnPercent`, and `configuredAssumptionVolatilityPercent`
+- `calculationDetails.projectedPortfolioAtRetirement`
+  - Numeric inputs used for the displayed projection, including `startingAssets`, `annualContribution`, `yearsUntilRetirement`, `numSimulations`, `returnMeanPercent`, `returnVolatilityPercent`, and `inflationRatePercent`
+  - `distributionStatistic` documents that the displayed figure comes from the deterministic future-value formula currently used by the feature
+  - `computedValueBeforeRounding` and `displayValueRounded` show the final rounding step used by the UI
+
 **Open Source Methodology**:
 This feature implements standard financial planning techniques used by industry professionals:
 - **Monte Carlo Simulation**: Widely used for retirement planning (similar to tools used by financial advisors)

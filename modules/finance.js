@@ -33,12 +33,48 @@ const AUTH_TAG_LENGTH = 16;
 const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
 const MAX_IMPORT_RULE_ENTRIES = 300; // Maximum admin import override/type-edit rules to keep
 const BALANCE_COMPARISON_TOLERANCE = 0.01; // Floating-point tolerance for balance equality checks
+const MIN_GROWTH_HISTORY_DAYS = 30;
+const HISTORICAL_GROWTH_FLOOR = -0.5;
+const HISTORICAL_GROWTH_CEILING = 2.0;
+const ZERO_RATE_EPSILON = 1e-9;
 
 // Initialize the finance module with config
 function init(serverConfig) {
   config = serverConfig;
   ensureFinanceDataFile();
   ensureEncryptionKey();
+}
+
+function roundToNumber(value, decimalPlaces = 2) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const factor = Math.pow(10, decimalPlaces);
+  return Math.round(value * factor) / factor;
+}
+
+function toPercentNumber(decimalValue, decimalPlaces = 2) {
+  if (!Number.isFinite(decimalValue)) {
+    return null;
+  }
+
+  return roundToNumber(decimalValue * 100, decimalPlaces);
+}
+
+function calculateProjectedPortfolioValue(startingAssets, annualContribution, annualReturn, years) {
+  const normalizedStartingAssets = Number.isFinite(startingAssets) ? startingAssets : 0;
+  const normalizedAnnualContribution = Number.isFinite(annualContribution) ? annualContribution : 0;
+  const normalizedYears = Number.isFinite(years) ? years : 0;
+  const normalizedAnnualReturn = Number.isFinite(annualReturn) ? annualReturn : 0;
+
+  if (Math.abs(normalizedAnnualReturn) < ZERO_RATE_EPSILON) {
+    return normalizedStartingAssets + (normalizedAnnualContribution * normalizedYears);
+  }
+
+  const growthFactor = Math.pow(1 + normalizedAnnualReturn, normalizedYears);
+  return normalizedStartingAssets * growthFactor +
+    (normalizedAnnualContribution * (growthFactor - 1) / normalizedAnnualReturn);
 }
 
 // Get or create encryption key for finance data
@@ -1542,6 +1578,8 @@ function evaluateRetirementPlan() {
   // Calculate historical growth rate if we have at least 3 months of data
   let annualGrowthRate = 0.07; // Default 7% nominal return
   let hasHistoricalData = false;
+  let averageHistoryDaysUsed = null;
+  let qualifyingHistoricalAccounts = 0;
   
   if (history.length >= 3) {
     const balanceUpdates = history.filter(h => h.type === 'balance_update');
@@ -1563,6 +1601,7 @@ function evaluateRetirementPlan() {
       // Calculate growth rate for accounts with multiple data points
       let totalGrowthRate = 0;
       let accountsWithGrowth = 0;
+      let totalHistoryDaysUsed = 0;
       
       Object.keys(accountGrowth).forEach(accountId => {
         const updates = accountGrowth[accountId].sort((a, b) => a.date - b.date);
@@ -1572,14 +1611,15 @@ function evaluateRetirementPlan() {
           const lastUpdate = updates[updates.length - 1];
           const daysDiff = (lastUpdate.date - firstUpdate.date) / (1000 * 60 * 60 * 24);
           
-          if (daysDiff > 30 && firstUpdate.balance > 0) {
+          if (daysDiff > MIN_GROWTH_HISTORY_DAYS && firstUpdate.balance > 0) {
             const growth = (lastUpdate.balance - firstUpdate.balance) / firstUpdate.balance;
             const annualizedGrowth = growth * (365 / daysDiff);
             
             // Cap extreme values
-            if (annualizedGrowth >= -0.5 && annualizedGrowth <= 2.0) {
+            if (annualizedGrowth >= HISTORICAL_GROWTH_FLOOR && annualizedGrowth <= HISTORICAL_GROWTH_CEILING) {
               totalGrowthRate += annualizedGrowth;
               accountsWithGrowth++;
+              totalHistoryDaysUsed += daysDiff;
             }
           }
         }
@@ -1588,6 +1628,8 @@ function evaluateRetirementPlan() {
       if (accountsWithGrowth > 0) {
         annualGrowthRate = totalGrowthRate / accountsWithGrowth;
         hasHistoricalData = true;
+        averageHistoryDaysUsed = totalHistoryDaysUsed / accountsWithGrowth;
+        qualifyingHistoricalAccounts = accountsWithGrowth;
       }
     }
   }
@@ -1597,19 +1639,24 @@ function evaluateRetirementPlan() {
   let returnVolatility = 0.15; // 15% standard deviation
   
   const riskTolerance = demographics.riskTolerance || 'moderate';
+  let configuredReturnAssumption = null;
+  let configuredVolatilityAssumption = null;
   
   if (!hasHistoricalData) {
     // Use standard assumptions if no historical data
     if (riskTolerance === 'conservative') {
-      expectedReturn = advancedSettings.conservativeReturn || 0.05; // 5%
-      returnVolatility = advancedSettings.conservativeVolatility || 0.10; // 10%
+      configuredReturnAssumption = advancedSettings.conservativeReturn || 0.05;
+      configuredVolatilityAssumption = advancedSettings.conservativeVolatility || 0.10;
     } else if (riskTolerance === 'moderate') {
-      expectedReturn = advancedSettings.moderateReturn || 0.07; // 7%
-      returnVolatility = advancedSettings.moderateVolatility || 0.15; // 15%
+      configuredReturnAssumption = advancedSettings.moderateReturn || 0.07;
+      configuredVolatilityAssumption = advancedSettings.moderateVolatility || 0.15;
     } else { // aggressive
-      expectedReturn = advancedSettings.aggressiveReturn || 0.09; // 9%
-      returnVolatility = advancedSettings.aggressiveVolatility || 0.20; // 20%
+      configuredReturnAssumption = advancedSettings.aggressiveReturn || 0.09;
+      configuredVolatilityAssumption = advancedSettings.aggressiveVolatility || 0.20;
     }
+
+    expectedReturn = configuredReturnAssumption;
+    returnVolatility = configuredVolatilityAssumption;
   } else {
     // Adjust volatility based on risk tolerance even with historical data
     if (riskTolerance === 'conservative') {
@@ -1683,11 +1730,45 @@ function evaluateRetirementPlan() {
   const successProbability = (successfulSimulations / numSimulations * 100).toFixed(1);
   
   // Calculate additional metrics
-  const projectedPortfolioAtRetirement = totalAssets * Math.pow(1 + expectedReturn, yearsUntilRetirement) + 
-    (annualContribution * (Math.pow(1 + expectedReturn, yearsUntilRetirement) - 1) / expectedReturn);
+  const projectedPortfolioAtRetirement = calculateProjectedPortfolioValue(
+    totalAssets,
+    annualContribution,
+    expectedReturn,
+    yearsUntilRetirement
+  );
   
   const totalNeeded = annualRetirementSpending * yearsInRetirement * Math.pow(1 + inflationRate, yearsUntilRetirement / 2);
   const shortfall = Math.max(0, totalNeeded - projectedPortfolioAtRetirement);
+  const roundedProjectedPortfolioAtRetirement = Math.round(projectedPortfolioAtRetirement);
+  const calculationDetails = {
+    expectedAnnualReturn: {
+      source: hasHistoricalData ? 'historical_growth' : 'risk_profile_assumption',
+      valuePercent: toPercentNumber(expectedReturn),
+      historyMonthsUsed: hasHistoricalData && averageHistoryDaysUsed !== null
+        ? roundToNumber(averageHistoryDaysUsed / 30.4375, 1)
+        : null,
+      historicalAnnualizedGrowthPercent: hasHistoricalData ? toPercentNumber(annualGrowthRate) : null,
+      growthFloorPercent: hasHistoricalData ? toPercentNumber(HISTORICAL_GROWTH_FLOOR) : null,
+      growthCeilingPercent: hasHistoricalData ? toPercentNumber(HISTORICAL_GROWTH_CEILING) : null,
+      minimumHistoryDaysRequired: hasHistoricalData ? MIN_GROWTH_HISTORY_DAYS : null,
+      qualifyingAccountsUsed: hasHistoricalData ? qualifyingHistoricalAccounts : null,
+      riskTolerance: !hasHistoricalData ? riskTolerance : null,
+      configuredAssumptionReturnPercent: !hasHistoricalData ? toPercentNumber(configuredReturnAssumption) : null,
+      configuredAssumptionVolatilityPercent: !hasHistoricalData ? toPercentNumber(configuredVolatilityAssumption) : null
+    },
+    projectedPortfolioAtRetirement: {
+      startingAssets: roundToNumber(totalAssets),
+      annualContribution: roundToNumber(annualContribution),
+      yearsUntilRetirement,
+      numSimulations,
+      returnMeanPercent: toPercentNumber(expectedReturn),
+      returnVolatilityPercent: toPercentNumber(returnVolatility),
+      inflationRatePercent: toPercentNumber(inflationRate),
+      distributionStatistic: 'deterministic_future_value_formula',
+      computedValueBeforeRounding: roundToNumber(projectedPortfolioAtRetirement),
+      displayValueRounded: roundedProjectedPortfolioAtRetirement
+    }
+  };
   
   // Generate recommendation based on success probability
   let recommendation = '';
@@ -1726,11 +1807,12 @@ function evaluateRetirementPlan() {
       hasHistoricalGrowthData: hasHistoricalData
     },
     projections: {
-      projectedPortfolioAtRetirement: Math.round(projectedPortfolioAtRetirement),
+      projectedPortfolioAtRetirement: roundedProjectedPortfolioAtRetirement,
       totalNeededForRetirement: Math.round(totalNeeded),
       shortfall: Math.round(shortfall),
       futureIncomeValue: Math.round(futureIncome)
     },
+    calculationDetails,
     methodology: 'Monte Carlo simulation with ' + numSimulations + ' iterations'
   };
 }
