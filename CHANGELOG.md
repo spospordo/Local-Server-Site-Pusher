@@ -9,6 +9,18 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.23.6] - 2026-07-01
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #646 from spospordo/copilot/fix-bills-trends-display-issues
+  - test: use no-op console mock in vm sandbox for chart helper tests
+  - fix: correct UTC date parsing and chart date field priority for bills trends/comparison
+  - wip: start bills display/aggregation fixes
+  - Initial plan
+
+
 ## [2.23.5] - 2026-06-28
 
 ### Patch Update
