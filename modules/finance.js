@@ -36,6 +36,7 @@ const BALANCE_COMPARISON_TOLERANCE = 0.01; // Floating-point tolerance for balan
 const MIN_GROWTH_HISTORY_DAYS = 30;
 const HISTORICAL_GROWTH_FLOOR = -0.5;
 const HISTORICAL_GROWTH_CEILING = 2.0;
+const AVERAGE_DAYS_PER_MONTH = 365.25 / 12;
 const ZERO_RATE_EPSILON = 1e-9;
 
 // Initialize the finance module with config
@@ -62,6 +63,12 @@ function toPercentNumber(decimalValue, decimalPlaces = 2) {
   return roundToNumber(decimalValue * 100, decimalPlaces);
 }
 
+/**
+ * Calculate the future value of a starting portfolio with end-of-year contributions.
+ * Uses the standard compound-growth future value formula when the annual return is
+ * materially non-zero, and falls back to linear accumulation when the return is
+ * effectively zero to avoid unstable division by very small values.
+ */
 function calculateProjectedPortfolioValue(startingAssets, annualContribution, annualReturn, years) {
   const normalizedStartingAssets = Number.isFinite(startingAssets) ? startingAssets : 0;
   const normalizedAnnualContribution = Number.isFinite(annualContribution) ? annualContribution : 0;
@@ -1745,7 +1752,7 @@ function evaluateRetirementPlan() {
       source: hasHistoricalData ? 'historical_growth' : 'risk_profile_assumption',
       valuePercent: toPercentNumber(expectedReturn),
       historyMonthsUsed: hasHistoricalData && averageHistoryDaysUsed !== null
-        ? roundToNumber(averageHistoryDaysUsed / 30.4375, 1)
+        ? roundToNumber(averageHistoryDaysUsed / AVERAGE_DAYS_PER_MONTH, 1)
         : null,
       historicalAnnualizedGrowthPercent: hasHistoricalData ? toPercentNumber(annualGrowthRate) : null,
       growthFloorPercent: hasHistoricalData ? toPercentNumber(HISTORICAL_GROWTH_FLOOR) : null,

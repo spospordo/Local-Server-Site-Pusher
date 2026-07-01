@@ -10,6 +10,8 @@ const repoRoot = path.join(__dirname, '..');
 const configDir = path.join(repoRoot, 'config');
 const financeDataPath = path.join(configDir, '.finance_data');
 const financeKeyPath = path.join(configDir, '.finance_key');
+const AVERAGE_DAYS_PER_MONTH = 365.25 / 12;
+const ZERO_RATE_EPSILON = 1e-9;
 const managedFiles = [financeDataPath, financeKeyPath];
 const originalFiles = new Map();
 
@@ -50,6 +52,10 @@ function assertApprox(actual, expected, tolerance, message) {
 }
 
 function futureValue(startingAssets, annualContribution, annualReturn, years) {
+  if (Math.abs(annualReturn) < ZERO_RATE_EPSILON) {
+    return startingAssets + (annualContribution * years);
+  }
+
   const growthFactor = Math.pow(1 + annualReturn, years);
   return startingAssets * growthFactor +
     (annualContribution * (growthFactor - 1) / annualReturn);
@@ -125,7 +131,7 @@ function runHistoricalGrowthScenario() {
   );
   assertApprox(
     result.calculationDetails.expectedAnnualReturn.historyMonthsUsed,
-    Math.round((212 / 30.4375) * 10) / 10,
+    Math.round((212 / AVERAGE_DAYS_PER_MONTH) * 10) / 10,
     0.01,
     'history months used should reflect the qualifying window'
   );
