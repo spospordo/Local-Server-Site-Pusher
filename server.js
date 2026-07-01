@@ -145,6 +145,93 @@ function ensureHouseBillUploadDir(billId) {
   return billDir;
 }
 
+function ensureHouseBillsStagingRootDir() {
+  const stagingRootDir = path.join(ensureHouseBillsUploadDir(), 'staging');
+  if (!fs.existsSync(stagingRootDir)) {
+    fs.mkdirSync(stagingRootDir, { recursive: true });
+  }
+  return stagingRootDir;
+}
+
+function ensureHouseBillsStagingDir(stagingDirId) {
+  const stagingDir = path.join(ensureHouseBillsStagingRootDir(), path.basename(String(stagingDirId || '')));
+  if (!fs.existsSync(stagingDir)) {
+    fs.mkdirSync(stagingDir, { recursive: true });
+  }
+  return stagingDir;
+}
+
+function getHouseBillsStagingDirPath(stagingDirId) {
+  return path.join(ensureHouseBillsStagingRootDir(), path.basename(String(stagingDirId || '')));
+}
+
+function getHouseBillsBatchManifestPath(stagingDirId) {
+  return path.join(getHouseBillsStagingDirPath(stagingDirId), 'batch-manifest.json');
+}
+
+function saveHouseBillsBatchManifest(stagingDirId, manifest) {
+  fs.writeFileSync(getHouseBillsBatchManifestPath(stagingDirId), JSON.stringify(manifest, null, 2));
+}
+
+function loadHouseBillsBatchManifest(stagingDirId) {
+  const manifestPath = getHouseBillsBatchManifestPath(stagingDirId);
+  if (!fs.existsSync(manifestPath)) {
+    return { bills: {} };
+  }
+  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+}
+
+function removeHouseBillUploadDir(billId) {
+  const billDir = path.join(ensureHouseBillsUploadDir(), path.basename(String(billId || '')));
+  fs.rmSync(billDir, { recursive: true, force: true });
+}
+
+function removeHouseBillsStagingDir(stagingDirId) {
+  const stagingDir = getHouseBillsStagingDirPath(stagingDirId);
+  fs.rmSync(stagingDir, { recursive: true, force: true });
+}
+
+function parseComparableHouseBillDate(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return null;
+  }
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return new Date(Date.UTC(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])));
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function findPotentialDuplicateHouseBills(extractedData) {
+  const existingBills = house.getBillsData().bills || [];
+  const newStart = parseComparableHouseBillDate(extractedData?.period?.startDate);
+  const newEnd = parseComparableHouseBillDate(extractedData?.period?.endDate);
+  const newStatementDate = parseComparableHouseBillDate(extractedData?.statementDate);
+  const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
+
+  return existingBills.filter(existingBill => {
+    const existingStart = parseComparableHouseBillDate(existingBill.periodStartDate);
+    const existingEnd = parseComparableHouseBillDate(existingBill.periodEndDate);
+    if (newStart && newEnd && existingStart && existingEnd) {
+      return newStart.getTime() <= existingEnd.getTime() && newEnd.getTime() >= existingStart.getTime();
+    }
+
+    const existingBillDate = parseComparableHouseBillDate(existingBill.billDate);
+    if (!newStatementDate || !existingBillDate) {
+      return false;
+    }
+
+    return Math.abs(newStatementDate.getTime() - existingBillDate.getTime()) <= fiveDaysMs;
+  }).map(existingBill => ({
+    id: existingBill.id,
+    billDate: existingBill.billDate || '',
+    periodStartDate: existingBill.periodStartDate || '',
+    periodEndDate: existingBill.periodEndDate || ''
+  }));
+}
+
 function flattenUploadedFiles(files) {
   return Object.values(files || {}).flat();
 }
@@ -10338,6 +10425,269 @@ app.post('/admin/api/house/bills/upload', requireAuth, requireSameOriginForAdmin
       res.status(500).json({ success: false, error: 'Failed to upload utility bill: ' + syncError.message });
     }
   });
+});
+
+// Upload one or more house utility bill PDFs to staging for duplicate review
+app.post('/admin/api/house/bills/upload-batch', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
+  const uploadFields = upload.fields([
+    { name: 'billFiles', maxCount: 20 }
+  ]);
+
+  uploadFields(req, res, async function (err) {
+    if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+
+    const uploadedFiles = req.files || {};
+    const billFiles = uploadedFiles.billFiles || [];
+
+    if (!billFiles.length) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'At least one PDF bill file is required' });
+    }
+
+    const invalidFile = billFiles.find(file => !isHouseBillPdf(file));
+    if (invalidFile) {
+      cleanupUploadedFiles(uploadedFiles);
+      return res.status(400).json({ success: false, error: 'All bill files must be PDFs' });
+    }
+
+    const stagingDirId = crypto.randomUUID();
+    const stagingDir = ensureHouseBillsStagingDir(stagingDirId);
+    const manifest = {
+      stagingDir: stagingDirId,
+      createdAt: new Date().toISOString(),
+      bills: {}
+    };
+
+    try {
+      const results = [];
+
+      for (const billFile of billFiles) {
+        const storedBillFile = moveUploadedFileToDirectory(billFile, stagingDir);
+        const stagedFilePath = path.join(stagingDir, storedBillFile.filename);
+
+        try {
+          const extractedData = await house.parseUtilityBillFromFile(stagedFilePath);
+          const duplicates = findPotentialDuplicateHouseBills(extractedData);
+
+          manifest.bills[storedBillFile.filename] = {
+            ...storedBillFile,
+            extractedData,
+            error: null
+          };
+
+          results.push({
+            originalName: storedBillFile.originalName,
+            storedFilename: storedBillFile.filename,
+            stagingDir: stagingDirId,
+            extractedData,
+            duplicates,
+            error: null
+          });
+        } catch (parseError) {
+          manifest.bills[storedBillFile.filename] = {
+            ...storedBillFile,
+            extractedData: null,
+            error: parseError.message
+          };
+
+          try {
+            if (fs.existsSync(stagedFilePath)) {
+              fs.unlinkSync(stagedFilePath);
+            }
+          } catch (cleanupError) {
+            console.warn('Failed to clean up staged bill after parse failure:', cleanupError.message);
+          }
+
+          results.push({
+            originalName: storedBillFile.originalName,
+            storedFilename: storedBillFile.filename,
+            stagingDir: stagingDirId,
+            extractedData: null,
+            duplicates: [],
+            error: parseError.message
+          });
+        }
+      }
+
+      saveHouseBillsBatchManifest(stagingDirId, manifest);
+      res.json({ success: true, results });
+    } catch (batchError) {
+      cleanupUploadedFiles(uploadedFiles);
+      removeHouseBillsStagingDir(stagingDirId);
+      console.error('❌ [House Bills] Batch staging error:', batchError.message);
+      res.status(500).json({ success: false, error: 'Failed to stage utility bills: ' + batchError.message });
+    }
+  });
+});
+
+// Confirm staged house utility bill upload decisions
+app.post('/admin/api/house/bills/upload-batch/confirm', requireAuth, requireSameOriginForAdminWrite, async (req, res) => {
+  const bills = Array.isArray(req.body?.bills) ? req.body.bills : null;
+  if (!bills) {
+    return res.status(400).json({ success: false, error: 'Request body must include a bills array' });
+  }
+
+  const manifestCache = new Map();
+  const stagingDirsToCleanup = new Set();
+  const summary = {
+    success: true,
+    saved: 0,
+    replaced: 0,
+    skipped: 0,
+    errors: []
+  };
+
+  for (const billDecision of bills) {
+    const stagingDirId = path.basename(String(billDecision?.stagingDir || '').trim());
+    const storedFilename = path.basename(String(billDecision?.storedFilename || '').trim());
+    const action = String(billDecision?.action || '').trim();
+    const replaceId = String(billDecision?.replaceId || '').trim();
+    const notes = String(billDecision?.notes || '').trim();
+    const billDateOverride = String(billDecision?.billDate || '').trim();
+
+    if (!stagingDirId || !storedFilename) {
+      summary.errors.push('Each bill decision must include stagingDir and storedFilename');
+      continue;
+    }
+
+    if (!['save', 'skip', 'replace'].includes(action)) {
+      summary.errors.push(`Invalid action for staged bill ${storedFilename}`);
+      continue;
+    }
+
+    if (billDateOverride && !/^\d{4}-\d{2}-\d{2}$/.test(billDateOverride)) {
+      summary.errors.push(`Bill date must use YYYY-MM-DD format for staged bill ${storedFilename}`);
+      continue;
+    }
+
+    if (action === 'replace' && !replaceId) {
+      summary.errors.push(`A replaceId is required when replacing staged bill ${storedFilename}`);
+      continue;
+    }
+
+    stagingDirsToCleanup.add(stagingDirId);
+
+    let manifest = manifestCache.get(stagingDirId);
+    if (!manifest) {
+      try {
+        manifest = loadHouseBillsBatchManifest(stagingDirId);
+      } catch (manifestError) {
+        summary.errors.push(`Failed to load staged batch ${stagingDirId}: ${manifestError.message}`);
+        continue;
+      }
+      manifestCache.set(stagingDirId, manifest);
+    }
+
+    const stagedBill = manifest?.bills?.[storedFilename];
+    if (!stagedBill) {
+      summary.errors.push(`Staged bill not found: ${storedFilename}`);
+      continue;
+    }
+
+    const stagedFilePath = path.join(getHouseBillsStagingDirPath(stagingDirId), storedFilename);
+
+    if (action === 'skip') {
+      try {
+        if (fs.existsSync(stagedFilePath)) {
+          fs.unlinkSync(stagedFilePath);
+        }
+      } catch (cleanupError) {
+        summary.errors.push(`Failed to discard staged bill ${storedFilename}: ${cleanupError.message}`);
+        continue;
+      }
+
+      summary.skipped += 1;
+      continue;
+    }
+
+    if (stagedBill.error || !stagedBill.extractedData) {
+      summary.errors.push(`Cannot save staged bill ${stagedBill.originalName || storedFilename}: ${stagedBill.error || 'parsed data is unavailable'}`);
+      continue;
+    }
+
+    if (!fs.existsSync(stagedFilePath)) {
+      summary.errors.push(`Staged bill file is missing: ${storedFilename}`);
+      continue;
+    }
+
+    try {
+      let replacedBillId = '';
+      if (action === 'replace') {
+        const deleteResult = house.deleteBill(replaceId);
+        if (!deleteResult.success) {
+          summary.errors.push(deleteResult.error || `Failed to replace bill ${replaceId}`);
+          continue;
+        }
+        replacedBillId = replaceId;
+      }
+
+      const billId = crypto.randomUUID();
+      const billDir = ensureHouseBillUploadDir(billId);
+      const storedBillFile = moveUploadedFileToDirectory({
+        filename: storedFilename,
+        path: stagedFilePath,
+        originalname: stagedBill.originalName,
+        size: stagedBill.size,
+        mimetype: stagedBill.mimeType
+      }, billDir);
+
+      const extractedData = stagedBill.extractedData;
+      const addResult = house.addBill({
+        id: billId,
+        billDate: billDateOverride || extractedData.statementDate || extractedData.period?.endDate || extractedData.period?.startDate || '',
+        periodStartDate: extractedData.period?.startDate || '',
+        periodEndDate: extractedData.period?.endDate || '',
+        notes,
+        billFile: storedBillFile,
+        attachments: [],
+        extractedData
+      });
+
+      if (!addResult.success) {
+        removeHouseBillUploadDir(billId);
+        summary.errors.push(addResult.error || `Failed to save staged bill ${storedFilename}`);
+        continue;
+      }
+
+      if (replacedBillId) {
+        removeHouseBillUploadDir(replacedBillId);
+      }
+
+      if (action === 'replace') {
+        summary.replaced += 1;
+      } else {
+        summary.saved += 1;
+      }
+    } catch (saveError) {
+      summary.errors.push(`Failed to process staged bill ${storedFilename}: ${saveError.message}`);
+    }
+  }
+
+  stagingDirsToCleanup.forEach(stagingDirId => {
+    try {
+      removeHouseBillsStagingDir(stagingDirId);
+    } catch (cleanupError) {
+      summary.errors.push(`Failed to clean staging directory ${stagingDirId}: ${cleanupError.message}`);
+    }
+  });
+
+  res.json(summary);
+});
+
+// Cancel staged house utility bill uploads
+app.post('/admin/api/house/bills/upload-batch/cancel', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
+  const stagingDirs = Array.isArray(req.body?.stagingDirs) ? req.body.stagingDirs : null;
+  if (!stagingDirs) {
+    return res.status(400).json({ success: false, error: 'Request body must include a stagingDirs array' });
+  }
+
+  stagingDirs.forEach(stagingDirId => {
+    removeHouseBillsStagingDir(stagingDirId);
+  });
+
+  res.json({ success: true });
 });
 
 // Download a stored house bill or attachment

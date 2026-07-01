@@ -4441,8 +4441,9 @@
                 <form id="houseBillsUploadForm" onsubmit="uploadHouseBill(event)" style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="houseBillFile">Utility Bill PDF</label>
-                            <input type="file" id="houseBillFile" accept="application/pdf,.pdf" required>
+                            <label for="houseBillFile">Select Bill PDF(s)</label>
+                            <input type="file" id="houseBillFile" name="billFiles" accept=".pdf,application/pdf" multiple required>
+                            <small>You can select multiple PDFs at once.</small>
                         </div>
                         <div class="form-group">
                             <label for="houseBillDate">Bill Date (optional)</label>
@@ -4457,10 +4458,25 @@
                     <div class="form-group">
                         <label for="houseBillAttachments">Attachments (optional)</label>
                         <input type="file" id="houseBillAttachments" accept=".pdf,image/*" multiple>
-                        <small>Attach scans, photos, or supporting PDFs to keep with this bill.</small>
+                        <small>Attach scans, photos, or supporting PDFs to keep with a single uploaded bill.</small>
                     </div>
                     <button type="submit" class="btn btn-success">📤 Upload Bill</button>
                 </form>
+
+                <div id="houseBillBatchReviewPanel" style="display:none; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin: 0;">Review Bill Batch</h3>
+                            <p style="margin: 0.35rem 0 0; color: #666;">Check extraction details, duplicate warnings, and choose what to save.</p>
+                        </div>
+                    </div>
+                    <div id="houseBillBatchReviewSummary" style="margin-top: 0.85rem;"></div>
+                    <div id="houseBillBatchReviewList" style="display: grid; gap: 0.85rem; margin-top: 1rem;"></div>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+                        <button type="button" id="houseBillBatchConfirmButton" class="btn btn-success" onclick="confirmHouseBillBatchReview()">✅ Confirm &amp; Save All</button>
+                        <button type="button" class="btn btn-danger" onclick="cancelHouseBillBatchReview()">Cancel</button>
+                    </div>
+                </div>
 
                 <div id="houseBillsAlert" class="alert"></div>
 
@@ -24146,6 +24162,7 @@
         let currentDocumentationData = null;
         let currentCarsData = { vehicles: [] };
         let currentHouseBillsData = { bills: [] };
+        let currentHouseBillBatchReview = null;
         let houseBillsTrendChart = null;
         let currentHouseLists = [];
         
@@ -27101,20 +27118,29 @@
             }
         }
 
-        async function uploadHouseBill(event) {
-            event.preventDefault();
+        function resetHouseBillBatchReviewState() {
+            currentHouseBillBatchReview = null;
+            const panel = document.getElementById('houseBillBatchReviewPanel');
+            const summary = document.getElementById('houseBillBatchReviewSummary');
+            const list = document.getElementById('houseBillBatchReviewList');
+            if (summary) summary.innerHTML = '';
+            if (list) list.innerHTML = '';
+            if (panel) panel.style.display = 'none';
+        }
 
+        function formatHouseBillReviewPeriod(period) {
+            if (!period?.startDate && !period?.endDate) {
+                return '—';
+            }
+            return `${formatHouseBillDate(period?.startDate)} → ${formatHouseBillDate(period?.endDate)}`;
+        }
+
+        async function submitLegacySingleHouseBillUpload() {
             const form = document.getElementById('houseBillsUploadForm');
             const billFileInput = document.getElementById('houseBillFile');
             const attachmentsInput = document.getElementById('houseBillAttachments');
             const submitButton = form.querySelector('button[type="submit"]');
             const billFile = billFileInput.files[0];
-
-            if (!billFile) {
-                showAlert('Please choose a PDF utility bill to upload.', 'error', 'houseBillsAlert');
-                return;
-            }
-
             const formData = new FormData();
             formData.append('billFile', billFile);
 
@@ -27140,6 +27166,7 @@
 
                 if (response.ok && result.success) {
                     form.reset();
+                    resetHouseBillBatchReviewState();
                     await loadHouseBills();
                     showAlert('✅ Utility bill uploaded successfully!', 'success', 'houseBillsAlert');
                 } else {
@@ -27147,6 +27174,282 @@
                 }
             } catch (err) {
                 showAlert('Failed to upload utility bill: ' + err.message, 'error', 'houseBillsAlert');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = originalLabel;
+            }
+        }
+
+        function renderHouseBillBatchReview(results) {
+            const panel = document.getElementById('houseBillBatchReviewPanel');
+            const summary = document.getElementById('houseBillBatchReviewSummary');
+            const list = document.getElementById('houseBillBatchReviewList');
+            const duplicateCount = results.filter(result => result.duplicates?.length).length;
+            const errorCount = results.filter(result => result.error).length;
+
+            currentHouseBillBatchReview = { results };
+
+            summary.innerHTML = `
+                <div class="alert alert-${errorCount ? 'error' : (duplicateCount ? 'warning' : 'success')}" style="display:block; margin: 0;">
+                    ${errorCount
+                        ? `${errorCount} bill(s) could not be parsed and will be skipped automatically.`
+                        : duplicateCount
+                            ? `${duplicateCount} bill(s) may duplicate an existing record. Review the options below before saving.`
+                            : 'All selected bills are ready to save.'}
+                    <div style="margin-top: 0.35rem; color: #4a5568;">Any Bill Date or Notes entered above will be applied to each saved bill in this batch.</div>
+                </div>
+            `;
+
+            list.innerHTML = results.map((result, index) => {
+                const extracted = result.extractedData || {};
+                const hasDuplicates = Array.isArray(result.duplicates) && result.duplicates.length > 0;
+                const hasError = Boolean(result.error);
+                const textQualityWarning = extracted.extractionMeta?.textQualityUsable === false;
+                const borderColor = hasError ? '#f5c2c7' : (hasDuplicates ? '#facc15' : '#bbf7d0');
+                const backgroundColor = hasError ? '#fff5f5' : (hasDuplicates ? '#fffbeb' : '#f0fdf4');
+                const statusLabel = hasError ? '⚠️ Extraction failed' : (hasDuplicates ? '⚠️ Potential duplicate found' : '✅ Ready to save');
+
+                return `
+                    <div style="border: 1px solid ${borderColor}; border-radius: 8px; padding: 1rem; background: ${backgroundColor};">
+                        <div style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 240px;">
+                                <div style="font-size: 1.05rem; font-weight: 700;">${escapeHtml(result.originalName || 'Uploaded bill')}</div>
+                                <div style="color: #4a5568; margin-top: 0.3rem;">${statusLabel}</div>
+                            </div>
+                        </div>
+
+                        ${hasError ? `
+                            <div class="alert alert-error" style="display:block; margin-top: 0.85rem;">
+                                ${escapeHtml(result.error)}
+                            </div>
+                        ` : `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem; margin-top: 0.85rem; color: #4a5568;">
+                                <div><strong>Statement Date:</strong> ${formatHouseBillDate(extracted.statementDate)}</div>
+                                <div><strong>Billing Period:</strong> ${formatHouseBillReviewPeriod(extracted.period)}</div>
+                                <div><strong>Electric Total:</strong> ${formatHouseBillCurrency(extracted.electric?.totalCost)}</div>
+                                <div><strong>Water Total:</strong> ${formatHouseBillCurrency(extracted.water?.totalCost)}</div>
+                                <div><strong>Sanitation Total:</strong> ${formatHouseBillCurrency(extracted.sanitation?.totalCost)}</div>
+                            </div>
+                            ${textQualityWarning ? `
+                                <div class="alert alert-warning" style="display:block; margin-top: 0.85rem;">
+                                    Extraction quality was low for this file. Please double-check the values before saving.
+                                </div>
+                            ` : ''}
+                        `}
+
+                        ${hasDuplicates ? `
+                            <div style="margin-top: 0.85rem; padding: 0.85rem; border-radius: 8px; background: #fffbeb; border: 1px solid #fde68a;">
+                                <div style="font-weight: 700; color: #92400e;">Possible matching bills already exist:</div>
+                                <ul style="margin: 0.5rem 0 0; padding-left: 1.2rem; color: #78350f;">
+                                    ${result.duplicates.map(duplicate => `
+                                        <li>
+                                            Bill Date: ${formatHouseBillDate(duplicate.billDate)}
+                                            — Period: ${duplicate.periodStartDate || duplicate.periodEndDate ? `${formatHouseBillDate(duplicate.periodStartDate)} → ${formatHouseBillDate(duplicate.periodEndDate)}` : '—'}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                                <div style="display: grid; gap: 0.5rem; margin-top: 0.85rem;">
+                                    <label><input type="radio" name="houseBillBatchAction_${index}" value="save" checked> Save anyway</label>
+                                    ${result.duplicates.map(duplicate => `
+                                        <label><input type="radio" name="houseBillBatchAction_${index}" value="replace:${escapeHtml(duplicate.id)}"> Replace ${escapeHtml(duplicate.billDate || duplicate.id)}</label>
+                                    `).join('')}
+                                    <label><input type="radio" name="houseBillBatchAction_${index}" value="skip"> Skip</label>
+                                </div>
+                            </div>
+                        ` : (!hasError ? `
+                            <div style="margin-top: 0.85rem;">
+                                <label><input type="checkbox" id="houseBillBatchSkip_${index}"> Skip this bill instead of saving it</label>
+                            </div>
+                        ` : '')}
+                    </div>
+                `;
+            }).join('');
+
+            panel.style.display = 'block';
+        }
+
+        async function confirmHouseBillBatchReview() {
+            if (!currentHouseBillBatchReview?.results?.length) {
+                return;
+            }
+
+            const form = document.getElementById('houseBillsUploadForm');
+            const confirmButton = document.getElementById('houseBillBatchConfirmButton');
+            const sharedBillDate = document.getElementById('houseBillDate').value;
+            const sharedNotes = document.getElementById('houseBillNotes').value.trim();
+            const decisions = currentHouseBillBatchReview.results.map((result, index) => {
+                if (result.error) {
+                    return {
+                        storedFilename: result.storedFilename,
+                        stagingDir: result.stagingDir,
+                        action: 'skip'
+                    };
+                }
+
+                if (Array.isArray(result.duplicates) && result.duplicates.length) {
+                    const selectedOption = document.querySelector(`input[name="houseBillBatchAction_${index}"]:checked`);
+                    const selectedValue = selectedOption ? selectedOption.value : 'save';
+                    if (selectedValue.startsWith('replace:')) {
+                        return {
+                            storedFilename: result.storedFilename,
+                            stagingDir: result.stagingDir,
+                            action: 'replace',
+                            replaceId: selectedValue.slice('replace:'.length),
+                            notes: sharedNotes,
+                            billDate: sharedBillDate || undefined
+                        };
+                    }
+                    return {
+                        storedFilename: result.storedFilename,
+                        stagingDir: result.stagingDir,
+                        action: selectedValue,
+                        notes: sharedNotes,
+                        billDate: sharedBillDate || undefined
+                    };
+                }
+
+                const skipCheckbox = document.getElementById(`houseBillBatchSkip_${index}`);
+                return {
+                    storedFilename: result.storedFilename,
+                    stagingDir: result.stagingDir,
+                    action: skipCheckbox?.checked ? 'skip' : 'save',
+                    notes: sharedNotes,
+                    billDate: sharedBillDate || undefined
+                };
+            });
+
+            confirmButton.disabled = true;
+            const originalLabel = confirmButton.textContent;
+            confirmButton.textContent = 'Saving...';
+
+            try {
+                const response = await fetch('/admin/api/house/bills/upload-batch/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bills: decisions })
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+                form.reset();
+                resetHouseBillBatchReviewState();
+                await loadHouseBills();
+
+                const summaryMessage = `Saved ${result.saved || 0}, replaced ${result.replaced || 0}, skipped ${result.skipped || 0} bill(s).`;
+                if (Array.isArray(result.errors) && result.errors.length) {
+                    showAlert(`${summaryMessage} ${result.errors.join(' | ')}`, 'warning', 'houseBillsAlert');
+                } else {
+                    showAlert(`✅ ${summaryMessage}`, 'success', 'houseBillsAlert');
+                }
+            } catch (err) {
+                showAlert('Failed to confirm utility bill batch: ' + err.message, 'error', 'houseBillsAlert');
+            } finally {
+                confirmButton.disabled = false;
+                confirmButton.textContent = originalLabel;
+            }
+        }
+
+        async function cancelHouseBillBatchReview() {
+            if (!currentHouseBillBatchReview?.results?.length) {
+                resetHouseBillBatchReviewState();
+                return;
+            }
+
+            const stagingDirs = [...new Set(currentHouseBillBatchReview.results.map(result => result.stagingDir).filter(Boolean))];
+            try {
+                if (stagingDirs.length) {
+                    await fetch('/admin/api/house/bills/upload-batch/cancel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stagingDirs })
+                    });
+                }
+            } catch (err) {
+                console.warn('Failed to cancel staged house bills:', err);
+            } finally {
+                resetHouseBillBatchReviewState();
+            }
+        }
+
+        async function uploadHouseBill(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('houseBillsUploadForm');
+            const billFileInput = document.getElementById('houseBillFile');
+            const attachmentsInput = document.getElementById('houseBillAttachments');
+            const submitButton = form.querySelector('button[type="submit"]');
+            const billFiles = Array.from(billFileInput.files || []);
+
+            if (!billFiles.length) {
+                showAlert('Please choose at least one PDF utility bill to upload.', 'error', 'houseBillsAlert');
+                return;
+            }
+
+            const invalidFile = billFiles.find(file => {
+                const name = String(file?.name || '').toLowerCase();
+                return file.type !== 'application/pdf' && !name.endsWith('.pdf');
+            });
+            if (invalidFile) {
+                showAlert('All selected bill files must be PDFs.', 'error', 'houseBillsAlert');
+                return;
+            }
+
+            if (billFiles.length > 1 && (attachmentsInput.files || []).length) {
+                showAlert('Attachments are only supported when uploading a single bill.', 'error', 'houseBillsAlert');
+                return;
+            }
+
+            if (billFiles.length === 1 && (attachmentsInput.files || []).length) {
+                if (currentHouseBillBatchReview?.results?.length) {
+                    await cancelHouseBillBatchReview();
+                }
+                await submitLegacySingleHouseBillUpload();
+                return;
+            }
+
+            if (currentHouseBillBatchReview?.results?.length) {
+                await cancelHouseBillBatchReview();
+            } else {
+                resetHouseBillBatchReviewState();
+            }
+
+            submitButton.disabled = true;
+            const originalLabel = submitButton.textContent;
+            submitButton.textContent = `Processing ${billFiles.length} bill(s)…`;
+
+            try {
+                const formData = new FormData();
+                billFiles.forEach(file => {
+                    formData.append('billFiles', file);
+                });
+
+                const response = await fetch('/admin/api/house/bills/upload-batch', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+                const results = Array.isArray(result.results) ? result.results : [];
+                const hasDuplicates = results.some(item => Array.isArray(item.duplicates) && item.duplicates.length);
+                const hasErrors = results.some(item => item.error);
+
+                if (!hasDuplicates && !hasErrors) {
+                    currentHouseBillBatchReview = { results };
+                    await confirmHouseBillBatchReview();
+                    return;
+                }
+
+                renderHouseBillBatchReview(results);
+                showAlert('Review the batch results before saving.', 'warning', 'houseBillsAlert');
+            } catch (err) {
+                showAlert('Failed to process utility bill batch: ' + err.message, 'error', 'houseBillsAlert');
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = originalLabel;

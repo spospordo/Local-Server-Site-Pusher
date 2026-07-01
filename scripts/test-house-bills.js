@@ -292,6 +292,9 @@ function testStaticIntegration() {
   [
     "/admin/api/house/bills",
     "/admin/api/house/bills/upload",
+    "/admin/api/house/bills/upload-batch",
+    "/admin/api/house/bills/upload-batch/confirm",
+    "/admin/api/house/bills/upload-batch/cancel",
     "/admin/api/house/bills/:billId/files/:filename",
     "/admin/api/house/bills/:id"
   ].forEach(route => {
@@ -305,6 +308,7 @@ function testStaticIntegration() {
     'id="houseBillsList"',
     'function loadHouseBills()',
     'function uploadHouseBill(event)',
+    'houseBillBatchReviewPanel',
     'function deleteHouseBill(id)',
     'function renderHouseBills()',
     'function renderHouseBillsTrendChart()',
