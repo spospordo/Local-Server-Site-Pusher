@@ -4536,6 +4536,10 @@
                             <input type="text" id="medicationDescription" placeholder="e.g., Blood pressure medication">
                         </div>
                         <div class="form-group">
+                            <label for="medicationUsage">Usage</label>
+                            <input type="text" id="medicationUsage" placeholder="e.g., Blood pressure support">
+                        </div>
+                        <div class="form-group">
                             <label for="medicationInstructions">Instructions</label>
                             <input type="text" id="medicationInstructions" placeholder="e.g., Take 1 pill once daily" title="Used to estimate daily usage and forecast refill date">
                             <small style="color: #666;">Used to estimate daily usage. E.g., &ldquo;Take 1 pill twice daily&rdquo; or &ldquo;1 tablet every 8 hours&rdquo;.</small>
@@ -4563,6 +4567,14 @@
 
                 <div id="medicationsList" style="margin-top: 1rem;">
                     <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medications...</div>
+                </div>
+
+                <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                    <h3 style="margin-top: 0;">Medication portal assignments</h3>
+                    <p style="margin-bottom: 0.75rem; color: #555;">Assign medications to usernames created in the user-facing medications portal.</p>
+                    <div id="medicationAssignmentsList">
+                        <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medication portal assignments...</div>
+                    </div>
                 </div>
 
                 <div id="medicationsAlert" class="alert"></div>
@@ -29467,6 +29479,7 @@
         // ── House Medications Functions ──────────────────────────────────────────
 
         let houseMedicationsData = [];
+        let medicationPortalUsers = [];
 
         async function loadHouseMedicationsData() {
             try {
@@ -29474,10 +29487,16 @@
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 houseMedicationsData = data.medications || [];
+                medicationPortalUsers = data.portalUsers || [];
                 renderMedications();
+                renderMedicationPortalAssignments();
             } catch (err) {
                 document.getElementById('medicationsList').innerHTML =
                     `<div class="alert alert-error">Failed to load medications: ${err.message}</div>`;
+                const assignmentsContainer = document.getElementById('medicationAssignmentsList');
+                if (assignmentsContainer) {
+                    assignmentsContainer.innerHTML = `<div class="alert alert-error">Failed to load medication assignments: ${err.message}</div>`;
+                }
             }
         }
 
@@ -29579,6 +29598,7 @@
             document.getElementById('medicationId').value = med ? med.id : '';
             document.getElementById('medicationName').value = med ? (med.name || '') : '';
             document.getElementById('medicationDescription').value = med ? (med.description || '') : '';
+            document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
             document.getElementById('medicationInstructions').value = med ? (med.instructions || '') : '';
             document.getElementById('medicationRefillDate').value = med ? (med.refillDate || '') : '';
             document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
@@ -29604,6 +29624,7 @@
             const payload = {
                 name: document.getElementById('medicationName').value.trim(),
                 description: document.getElementById('medicationDescription').value.trim(),
+                usage: document.getElementById('medicationUsage').value.trim(),
                 instructions: document.getElementById('medicationInstructions').value.trim(),
                 refillDate: document.getElementById('medicationRefillDate').value,
                 pillCount: document.getElementById('medicationPillCount').value,
@@ -29645,6 +29666,86 @@
                 }
             } catch (err) {
                 showAlert('Error deleting medication: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        function renderMedicationPortalAssignments() {
+            const container = document.getElementById('medicationAssignmentsList');
+            if (!container) return;
+
+            if (medicationPortalUsers.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users must create an account at <code>/medications</code> before assignments can be made.</div>';
+                return;
+            }
+
+            if (houseMedicationsData.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">Add a medication above before assigning it to portal users.</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="display: grid; gap: 0.75rem;">
+                    ${houseMedicationsData.map(med => `
+                        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.85rem; background: #fafcff;">
+                            <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                <div>
+                                    <strong>${escapeHtml(med.name)}</strong>
+                                    <div style="font-size: 0.9rem; color: #555; margin-top: 0.25rem;">
+                                        Assigned: ${med.assignedUsernames && med.assignedUsernames.length ? escapeHtml(med.assignedUsernames.join(', ')) : 'No users assigned'}
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary med-assign-toggle-btn" type="button" data-med-id="${escapeHtml(med.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Assign users</button>
+                            </div>
+                            <div id="med-assignment-editor-${escapeHtml(med.id)}" style="display: none; margin-top: 0.75rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem;">
+                                <div style="display: grid; gap: 0.5rem;">
+                                    ${medicationPortalUsers.map(user => `
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+                                            <input type="checkbox" class="med-assignment-checkbox" data-med-id="${escapeHtml(med.id)}" value="${escapeHtml(user.id)}" ${med.assignedUserIds && med.assignedUserIds.includes(user.id) ? 'checked' : ''}>
+                                            <span>${escapeHtml(user.username)}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                                <div style="margin-top: 0.75rem;">
+                                    <button class="btn btn-success med-assign-save-btn" type="button" data-med-id="${escapeHtml(med.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Save assignments</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+
+            container.querySelectorAll('.med-assign-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const editor = document.getElementById(`med-assignment-editor-${btn.dataset.medId}`);
+                    if (editor) {
+                        editor.style.display = editor.style.display === 'none' ? 'block' : 'none';
+                    }
+                });
+            });
+
+            container.querySelectorAll('.med-assign-save-btn').forEach(btn => {
+                btn.addEventListener('click', () => saveMedicationAssignments(btn.dataset.medId));
+            });
+        }
+
+        async function saveMedicationAssignments(medicationId) {
+            const selectedUserIds = Array.from(document.querySelectorAll(`.med-assignment-checkbox[data-med-id="${medicationId}"]:checked`))
+                .map(input => input.value);
+
+            try {
+                const response = await fetch(`/admin/api/house/medications/${medicationId}/assignments`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userIds: selectedUserIds })
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    await loadHouseMedicationsData();
+                    showAlert('Medication assignments updated.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to save medication assignments.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving medication assignments: ' + err.message, 'error', 'medicationsAlert');
             }
         }
     </script>

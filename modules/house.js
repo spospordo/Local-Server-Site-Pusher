@@ -53,7 +53,10 @@ function getDefaultHouseData() {
       lists: []
     },
     medications: {
-      medications: []
+      medications: [],
+      portalUsers: [],
+      assignments: [],
+      adherenceRecords: []
     }
   };
 }
@@ -1715,10 +1718,33 @@ function computeMedicationForecast(med) {
   return { dailyUsage, daysUntilEmpty, refillNeededDate, alertDate };
 }
 
+function normalizeMedicationPortalUsername(username) {
+  return String(username || '').trim();
+}
+
+function getMedicationPortalUsernameKey(username) {
+  return normalizeMedicationPortalUsername(username).toLowerCase();
+}
+
+function isValidMedicationStatusDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false;
+  const parsed = new Date(`${date}T00:00:00`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
+
 // Get medications data
 function getMedicationsData() {
   const data = loadHouseData();
-  return data.medications || getDefaultHouseData().medications;
+  const medications = data.medications || {};
+  const defaultMedications = getDefaultHouseData().medications;
+  return {
+    ...defaultMedications,
+    ...medications,
+    medications: Array.isArray(medications.medications) ? medications.medications : [],
+    portalUsers: Array.isArray(medications.portalUsers) ? medications.portalUsers : [],
+    assignments: Array.isArray(medications.assignments) ? medications.assignments : [],
+    adherenceRecords: Array.isArray(medications.adherenceRecords) ? medications.adherenceRecords : []
+  };
 }
 
 // Save medications data
@@ -1738,6 +1764,7 @@ function addMedication(medication) {
     id: generateId(),
     name: String(medication.name).trim(),
     description: String(medication.description || '').trim(),
+    usage: String(medication.usage || '').trim(),
     instructions: String(medication.instructions || '').trim(),
     refillDate: medication.refillDate || '',
     pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
@@ -1765,6 +1792,7 @@ function updateMedication(id, medication) {
     ...existing,
     name: medication.name !== undefined ? String(medication.name).trim() : existing.name,
     description: medication.description !== undefined ? String(medication.description).trim() : existing.description,
+    usage: medication.usage !== undefined ? String(medication.usage).trim() : (existing.usage || ''),
     instructions: medication.instructions !== undefined ? String(medication.instructions).trim() : existing.instructions,
     refillDate: medication.refillDate !== undefined ? medication.refillDate : existing.refillDate,
     pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
@@ -1787,7 +1815,175 @@ function deleteMedication(id) {
   if (medsData.medications.length === originalLength) {
     return { success: false, error: 'Medication not found' };
   }
+  medsData.assignments = medsData.assignments.filter(assignment => assignment.medicationId !== id);
+  medsData.adherenceRecords = medsData.adherenceRecords.filter(record => record.medicationId !== id);
   return saveMedicationsData(medsData);
+}
+
+function getMedicationPortalUsers() {
+  return getMedicationsData().portalUsers;
+}
+
+function getMedicationPortalUserById(id) {
+  return getMedicationPortalUsers().find(user => user.id === id) || null;
+}
+
+function getMedicationPortalUserByUsername(username) {
+  const usernameKey = getMedicationPortalUsernameKey(username);
+  if (!usernameKey) return null;
+  return getMedicationPortalUsers().find(user => user.usernameKey === usernameKey) || null;
+}
+
+function createMedicationPortalUser(user) {
+  const username = normalizeMedicationPortalUsername(user?.username);
+  const usernameKey = getMedicationPortalUsernameKey(username);
+  const passwordHash = String(user?.passwordHash || '');
+
+  if (!username) {
+    return { success: false, error: 'Username is required' };
+  }
+  if (!/^[A-Za-z0-9_.-]{3,64}$/.test(username)) {
+    return { success: false, error: 'Username must be 3-64 characters and use only letters, numbers, ., _, or -' };
+  }
+  if (!passwordHash) {
+    return { success: false, error: 'Password is required' };
+  }
+
+  const medsData = getMedicationsData();
+  if (medsData.portalUsers.some(existingUser => existingUser.usernameKey === usernameKey)) {
+    return { success: false, error: 'Username already exists' };
+  }
+
+  const portalUser = {
+    id: generateId(),
+    username,
+    usernameKey,
+    passwordHash,
+    createdAt: new Date().toISOString()
+  };
+
+  medsData.portalUsers.push(portalUser);
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success
+    ? { ...saveResult, user: { id: portalUser.id, username: portalUser.username, createdAt: portalUser.createdAt } }
+    : saveResult;
+}
+
+function getMedicationAssignments() {
+  return getMedicationsData().assignments;
+}
+
+function setMedicationAssignments(medicationId, userIds) {
+  const medsData = getMedicationsData();
+  const medication = medsData.medications.find(med => med.id === medicationId);
+  if (!medication) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const requestedUserIds = Array.isArray(userIds)
+    ? [...new Set(userIds.map(id => String(id || '').trim()).filter(Boolean))]
+    : [];
+  const validUserIds = new Set(medsData.portalUsers.map(user => user.id));
+
+  if (requestedUserIds.some(userId => !validUserIds.has(userId))) {
+    return { success: false, error: 'One or more medication portal users were not found' };
+  }
+
+  medsData.assignments = medsData.assignments.filter(assignment => assignment.medicationId !== medicationId);
+  const assignedAt = new Date().toISOString();
+  requestedUserIds.forEach(userId => {
+    medsData.assignments.push({
+      id: generateId(),
+      medicationId,
+      userId,
+      assignedAt
+    });
+  });
+
+  return saveMedicationsData(medsData);
+}
+
+function getAssignedMedicationsForUser(userId) {
+  const medsData = getMedicationsData();
+  const medicationIds = new Set(
+    medsData.assignments
+      .filter(assignment => assignment.userId === userId)
+      .map(assignment => assignment.medicationId)
+  );
+
+  return medsData.medications.filter(medication => medicationIds.has(medication.id));
+}
+
+function getMedicationAdherenceRecords() {
+  return getMedicationsData().adherenceRecords;
+}
+
+function recordMedicationAdherence(userId, medicationId, status, date) {
+  const medsData = getMedicationsData();
+  const portalUser = medsData.portalUsers.find(user => user.id === userId);
+  if (!portalUser) {
+    return { success: false, error: 'Medication portal user not found' };
+  }
+
+  const medication = medsData.medications.find(med => med.id === medicationId);
+  if (!medication) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const isAssigned = medsData.assignments.some(
+    assignment => assignment.userId === userId && assignment.medicationId === medicationId
+  );
+  if (!isAssigned) {
+    return { success: false, error: 'Medication is not assigned to this user' };
+  }
+
+  if (!['took', 'not_taken'].includes(status)) {
+    return { success: false, error: 'Status must be either "took" or "not_taken"' };
+  }
+
+  if (!isValidMedicationStatusDate(date)) {
+    return { success: false, error: 'A valid medication date is required' };
+  }
+
+  const recordedAt = new Date().toISOString();
+  const existingIndex = medsData.adherenceRecords.findIndex(record =>
+    record.userId === userId &&
+    record.medicationId === medicationId &&
+    record.date === date
+  );
+
+  let record;
+  if (existingIndex >= 0) {
+    record = {
+      ...medsData.adherenceRecords[existingIndex],
+      status,
+      recordedAt
+    };
+    medsData.adherenceRecords[existingIndex] = record;
+  } else {
+    record = {
+      id: generateId(),
+      userId,
+      medicationId,
+      date,
+      status,
+      recordedAt
+    };
+    medsData.adherenceRecords.push(record);
+  }
+
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success ? { ...saveResult, record } : saveResult;
+}
+
+function getMedicationAdherenceHistory(userId, medicationId) {
+  return getMedicationAdherenceRecords()
+    .filter(record => record.userId === userId && record.medicationId === medicationId)
+    .sort((a, b) => {
+      const dateCompare = String(b.date || '').localeCompare(String(a.date || ''));
+      if (dateCompare !== 0) return dateCompare;
+      return String(b.recordedAt || '').localeCompare(String(a.recordedAt || ''));
+    });
 }
 
 module.exports = {
@@ -1852,6 +2048,16 @@ module.exports = {
   addMedication,
   updateMedication,
   deleteMedication,
+  getMedicationPortalUsers,
+  getMedicationPortalUserById,
+  getMedicationPortalUserByUsername,
+  createMedicationPortalUser,
+  getMedicationAssignments,
+  setMedicationAssignments,
+  getAssignedMedicationsForUser,
+  getMedicationAdherenceRecords,
+  recordMedicationAdherence,
+  getMedicationAdherenceHistory,
   estimateDailyUsageFromInstructions,
   computeMedicationForecast
 };
