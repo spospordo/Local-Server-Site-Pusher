@@ -11,8 +11,12 @@
             --card: #ffffff;
             --primary: #2d6cdf;
             --primary-dark: #1f56b4;
-            --success: #2d9d62;
-            --danger: #d64545;
+            --success: #3a9e6f;
+            --success-soft: #d4eddf;
+            --success-text: #1e6644;
+            --danger: #c0392b;
+            --danger-soft: #fde8e6;
+            --danger-text: #7b1d15;
             --text: #1f2937;
             --muted: #6b7280;
             --border: #d8dee9;
@@ -25,9 +29,9 @@
             color: var(--text);
         }
         .page {
-            max-width: 980px;
+            max-width: 700px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 1rem;
         }
         .card {
             background: var(--card);
@@ -56,8 +60,18 @@
         .btn-primary { background: var(--primary); color: #fff; }
         .btn-primary:hover { background: var(--primary-dark); }
         .btn-secondary { background: #eef2ff; color: var(--primary-dark); }
-        .btn-success { background: var(--success); color: #fff; }
-        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-success {
+            background: var(--success-soft);
+            color: var(--success-text);
+            font-weight: 600;
+        }
+        .btn-success:hover { background: #c0e3d0; }
+        .btn-danger {
+            background: var(--danger-soft);
+            color: var(--danger-text);
+            font-weight: 600;
+        }
+        .btn-danger:hover { background: #f9cfc9; }
         .btn-link {
             background: transparent;
             color: var(--primary-dark);
@@ -101,6 +115,46 @@
             flex-wrap: wrap;
         }
         .topbar p { margin-bottom: 0; color: var(--muted); }
+
+        /* Day navigation */
+        .day-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(15,23,42,0.07);
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .day-nav button {
+            background: #eef2ff;
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .day-nav button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .day-nav-label {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            min-width: 9rem;
+            text-align: center;
+        }
+
+        /* Medication grid */
         .medication-grid {
             display: grid;
             gap: 1rem;
@@ -128,22 +182,55 @@
             flex-wrap: wrap;
             margin: 0.75rem 0;
         }
-        .history-list {
-            list-style: none;
-            padding: 0;
-            margin: 0.75rem 0 0;
-        }
-        .history-list li {
-            font-size: 0.9rem;
-            padding: 0.35rem 0;
-            border-top: 1px solid #eef2f7;
-        }
         .empty-state {
             text-align: center;
             color: var(--muted);
             padding: 2rem 1rem;
             font-size: 1.05rem;
         }
+
+        /* More options section */
+        .more-options-section {
+            background: #f0f4ff;
+            border: 1.5px solid #c6d4f7;
+            border-radius: 14px;
+            padding: 1.1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .more-options-section h3 {
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+            color: var(--primary-dark);
+        }
+        .more-options-section .action-row {
+            margin: 0;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .more-options-section .action-row button {
+            width: 100%;
+            text-align: left;
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-size: 0.97rem;
+        }
+        .more-options-section .action-row button:hover {
+            background: #e8edff;
+        }
+
+        /* Dashboard bottom section */
+        .dashboard-footer {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Modals */
         .details-modal {
             position: fixed;
             inset: 0;
@@ -152,6 +239,7 @@
             align-items: center;
             justify-content: center;
             padding: 1rem;
+            z-index: 100;
         }
         .details-panel {
             width: min(640px, 100%);
@@ -172,9 +260,114 @@
             display: block;
             margin-bottom: 0.35rem;
         }
+
+        /* Calendar */
+        .cal-container {
+            margin-top: 0.5rem;
+        }
+        .cal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .cal-header button {
+            background: #eef2ff;
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .cal-day-header {
+            text-align: center;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--muted);
+            padding: 0.25rem 0;
+        }
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.88rem;
+            cursor: default;
+            position: relative;
+        }
+        .cal-day.empty { cursor: default; }
+        .cal-day.selectable {
+            cursor: pointer;
+            background: #fde8e6;
+            color: var(--danger-text);
+            font-weight: 600;
+        }
+        .cal-day.selectable:hover { background: #f9cfc9; }
+        .cal-day.selected {
+            background: var(--primary);
+            color: #fff;
+        }
+        .cal-day.took {
+            background: var(--success-soft);
+            color: var(--success-text);
+        }
+        .cal-day.not-taken {
+            background: #fde8e6;
+            color: var(--danger-text);
+        }
+        .cal-day.today-marker {
+            outline: 2px solid var(--primary);
+        }
+        .cal-legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .cal-legend span {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .cal-legend .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .med-select-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+        .med-select {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.97rem;
+            margin-bottom: 1rem;
+        }
+        .record-actions {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
         @media (max-width: 640px) {
-            .page { padding: 1rem; }
+            .page { padding: 0.75rem; }
             .action-row button, form button, .auth-switch button { width: 100%; }
+            .medication-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -228,19 +421,39 @@
         </section>
 
         <section id="dashboardSection" class="hidden">
-            <div class="card topbar">
-                <div>
-                    <h2 style="margin-bottom: 0.25rem;">Your medication dashboard</h2>
-                    <p id="welcomeText">Welcome.</p>
-                </div>
-                <button id="logoutBtn" type="button" class="btn-secondary">Log out</button>
+            <!-- Day navigation -->
+            <div class="day-nav" id="dayNavBar">
+                <button type="button" id="prevDayBtn" aria-label="Previous day">&#8592;</button>
+                <div class="day-nav-label" id="dayNavLabel">Today</div>
+                <button type="button" id="nextDayBtn" aria-label="Next day" disabled>&#8594;</button>
             </div>
 
             <div id="dashboardMessage" class="status-message"></div>
             <div id="medicationsContainer"></div>
+
+            <!-- More options section -->
+            <div id="moreOptionsSection" class="more-options-section hidden">
+                <h3>More options</h3>
+                <div class="action-row">
+                    <button type="button" id="openRecordPrevBtn">&#128197; Record previous day</button>
+                    <button type="button" id="openDetailsPageBtn">&#128138; View medication details</button>
+                    <button type="button" id="openHistoryBtn">&#128203; View history</button>
+                </div>
+            </div>
+
+            <!-- Dashboard section at the bottom -->
+            <div id="dashboardFooter" class="dashboard-footer hidden">
+                <div class="topbar">
+                    <div>
+                        <strong id="welcomeText">Welcome.</strong>
+                    </div>
+                    <button id="logoutBtn" type="button" class="btn-secondary">Log out</button>
+                </div>
+            </div>
         </section>
     </div>
 
+    <!-- Medication details modal -->
     <div id="detailsModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" tabindex="-1">
         <div class="card details-panel">
             <div class="topbar">
@@ -251,10 +464,64 @@
         </div>
     </div>
 
+    <!-- Record previous day modal -->
+    <div id="recordPrevModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="recordPrevTitle" tabindex="-1">
+        <div class="card details-panel">
+            <div class="topbar">
+                <h2 id="recordPrevTitle" style="margin-bottom: 0;">Record previous day</h2>
+                <button id="closeRecordPrevBtn" type="button" class="btn-secondary">Close</button>
+            </div>
+            <p style="color: var(--muted); margin-bottom: 1rem;">Select a medication and tap a highlighted day to record your status for that date.</p>
+            <div class="med-select-label">Medication</div>
+            <select id="recordPrevMedSelect" class="med-select" aria-label="Select medication"></select>
+            <div id="recordPrevCalendar" class="cal-container"></div>
+            <div id="recordPrevSelected" class="hidden" style="margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:10px;">
+                <div id="recordPrevSelectedDate" style="font-weight:600; margin-bottom:0.5rem;"></div>
+                <div class="record-actions">
+                    <button type="button" class="btn-success" id="recordPrevTookBtn">I took it this day</button>
+                    <button type="button" class="btn-danger" id="recordPrevNotBtn">Not this day</button>
+                </div>
+                <div id="recordPrevMessage" class="status-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View medication details modal -->
+    <div id="medDetailsModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="medDetailsMedTitle" tabindex="-1">
+        <div class="card details-panel">
+            <div class="topbar">
+                <h2 id="medDetailsMedTitle" style="margin-bottom: 0;">Medication details</h2>
+                <button id="closeMedDetailsBtn" type="button" class="btn-secondary">Close</button>
+            </div>
+            <div class="med-select-label" style="margin-top:0.75rem;">Medication</div>
+            <select id="medDetailsMedSelect" class="med-select" aria-label="Select medication"></select>
+            <div id="medDetailsBody"></div>
+        </div>
+    </div>
+
+    <!-- View history modal -->
+    <div id="historyModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="historyTitle" tabindex="-1">
+        <div class="card details-panel">
+            <div class="topbar">
+                <h2 id="historyTitle" style="margin-bottom: 0;">Medication history</h2>
+                <button id="closeHistoryBtn" type="button" class="btn-secondary">Close</button>
+            </div>
+            <div class="med-select-label" style="margin-top:0.75rem;">Medication</div>
+            <select id="historyMedSelect" class="med-select" aria-label="Select medication"></select>
+            <div id="historyCalendar" class="cal-container"></div>
+            <div class="cal-legend">
+                <span><span class="dot" style="background:var(--success-soft); border:1px solid #a3d5bc;"></span> Took</span>
+                <span><span class="dot" style="background:var(--danger-soft); border:1px solid #f0b0a8;"></span> Not taken</span>
+            </div>
+        </div>
+    </div>
+
     <script>
         let dashboardData = null;
         let csrfToken = '';
         let lastFocusedElement = null;
+        let currentDayOffset = 0; // 0 = today, -1 = yesterday, etc.
+        let recordPrevSelectedDate = null;
 
         function escapeHtml(value) {
             return String(value ?? '')
@@ -283,6 +550,26 @@
         function showDashboard() {
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('dashboardSection').classList.remove('hidden');
+        }
+
+        function getDateForOffset(offset) {
+            const d = new Date();
+            d.setDate(d.getDate() + offset);
+            return d.toISOString().slice(0, 10);
+        }
+
+        function formatDateLabel(offset) {
+            if (offset === 0) return 'Today';
+            if (offset === -1) return 'Yesterday';
+            const d = new Date();
+            d.setDate(d.getDate() + offset);
+            return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+
+        function updateDayNav() {
+            document.getElementById('dayNavLabel').textContent = formatDateLabel(currentDayOffset);
+            document.getElementById('nextDayBtn').disabled = currentDayOffset >= 0;
+            document.getElementById('prevDayBtn').disabled = currentDayOffset <= MIN_DAY_OFFSET;
         }
 
         async function apiRequest(url, options = {}) {
@@ -314,19 +601,6 @@
             return data;
         }
 
-        function formatStatus(status) {
-            if (status === 'took') return 'I took today';
-            if (status === 'not_taken') return 'not today';
-            return 'No status recorded yet';
-        }
-
-        function formatRecord(record) {
-            if (!record) return '';
-            const statusText = record.status === 'took' ? 'took' : 'not today';
-            const timeText = record.recordedAt ? new Date(record.recordedAt).toLocaleString() : '';
-            return `${record.date}: ${statusText}${timeText ? ` (${timeText})` : ''}`;
-        }
-
         async function refreshSession() {
             const session = await apiRequest('/medications/api/session', { method: 'GET' });
             csrfToken = session.csrfToken || csrfToken;
@@ -342,7 +616,14 @@
             const data = await apiRequest('/medications/api/dashboard', { method: 'GET' });
             dashboardData = data;
             document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
+            document.getElementById('dashboardFooter').classList.remove('hidden');
+            document.getElementById('moreOptionsSection').classList.toggle('hidden', !data.medications || data.medications.length === 0);
+            updateDayNav();
             renderDashboard(data);
+        }
+
+        function getDisplayDate() {
+            return getDateForOffset(currentDayOffset);
         }
 
         function renderDashboard(data) {
@@ -352,38 +633,21 @@
                 return;
             }
 
-            const cards = data.medications.map(medication => {
-                const historyItems = (medication.adherenceHistory || [])
-                    .slice(0, 5)
-                    .map(record => `<li>${escapeHtml(formatRecord(record))}</li>`)
-                    .join('');
-                const todayLabel = medication.todayRecordedAt
-                    ? `${formatStatus(medication.todayStatus)} • ${new Date(medication.todayRecordedAt).toLocaleString()}`
-                    : 'No status recorded yet today';
+            const displayDate = getDisplayDate();
 
+            const isToday = currentDayOffset === 0;
+            const tookLabel = isToday ? 'I took today' : 'I took it';
+            const notTakenLabel = isToday ? 'Not today' : 'Not taken';
+
+            const cards = data.medications.map(medication => {
                 return `
                     <div class="card medication-card">
-                        <button type="button" class="medication-title" data-action="details" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(medication.name)}</button>
+                        <div class="medication-title">${escapeHtml(medication.name)}</div>
                         <div class="pill-meta">${escapeHtml(medication.description || medication.usage || 'Assigned medication')}</div>
-                        <div class="pill-meta">Today: ${escapeHtml(todayLabel)}</div>
                         <div class="action-row">
-                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">I took today</button>
-                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">not today</button>
+                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
+                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
                         </div>
-                        <div class="action-row">
-                            <button type="button" class="btn-secondary" data-action="toggle-options" data-medication-id="${escapeHtml(medication.id)}">More options</button>
-                            <button type="button" class="btn-link" data-action="details" data-medication-id="${escapeHtml(medication.id)}">View details</button>
-                        </div>
-                        <div id="options-${escapeHtml(medication.id)}" class="hidden" style="margin-top: 0.75rem; border-top: 1px solid #eef2f7; padding-top: 0.75rem;">
-                            <label for="date-${escapeHtml(medication.id)}">Record a previous day</label>
-                            <input id="date-${escapeHtml(medication.id)}" type="date" value="${escapeHtml(data.today)}" max="${escapeHtml(data.today)}">
-                            <div class="action-row" style="margin-bottom: 0;">
-                                <button type="button" class="btn-success" data-action="record-took-date" data-medication-id="${escapeHtml(medication.id)}">I took this day</button>
-                                <button type="button" class="btn-danger" data-action="record-not-taken-date" data-medication-id="${escapeHtml(medication.id)}">not this day</button>
-                            </div>
-                        </div>
-                        <h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Recent history</h3>
-                        <ul class="history-list">${historyItems || '<li>No medication history yet.</li>'}</ul>
                     </div>`;
             }).join('');
 
@@ -394,20 +658,13 @@
             return dashboardData?.medications?.find(medication => medication.id === medicationId) || null;
         }
 
+        // ---- Details modal (from card click – kept for backwards compat) ----
         function showMedicationDetails(medicationId) {
             const medication = getMedicationById(medicationId);
             if (!medication) return;
 
             document.getElementById('detailsTitle').textContent = medication.name;
-            document.getElementById('detailsBody').innerHTML = `
-                <div class="detail-grid">
-                    <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
-                    <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
-                    <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
-                    <div class="detail-box"><strong>Remaining pills</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
-                    <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
-                    <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
-                </div>`;
+            document.getElementById('detailsBody').innerHTML = buildMedDetailsHtml(medication);
             const detailsModal = document.getElementById('detailsModal');
             lastFocusedElement = document.activeElement;
             detailsModal.classList.remove('hidden');
@@ -424,10 +681,299 @@
             }
         }
 
-        function toggleMoreOptions(medicationId) {
-            const panel = document.getElementById(`options-${medicationId}`);
-            if (panel) panel.classList.toggle('hidden');
+        function buildMedDetailsHtml(medication) {
+            return `
+                <div class="detail-grid">
+                    <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
+                    <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
+                    <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
+                    <div class="detail-box"><strong>Remaining pills</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
+                    <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
+                    <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
+                </div>`;
         }
+
+        // ---- View medication details (More options) ----
+        function openMedDetailsModal() {
+            if (!dashboardData?.medications?.length) return;
+            const select = document.getElementById('medDetailsMedSelect');
+            select.innerHTML = dashboardData.medications.map(m =>
+                `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`
+            ).join('');
+            renderMedDetailsBody();
+            lastFocusedElement = document.activeElement;
+            const modal = document.getElementById('medDetailsModal');
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('closeMedDetailsBtn').focus();
+        }
+
+        function renderMedDetailsBody() {
+            const select = document.getElementById('medDetailsMedSelect');
+            const med = getMedicationById(select.value);
+            document.getElementById('medDetailsMedTitle').textContent = med ? med.name : 'Medication details';
+            document.getElementById('medDetailsBody').innerHTML = med ? buildMedDetailsHtml(med) : '';
+        }
+
+        function closeMedDetailsModal() {
+            const modal = document.getElementById('medDetailsModal');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            if (lastFocusedElement?.focus) lastFocusedElement.focus();
+        }
+
+        document.getElementById('medDetailsMedSelect').addEventListener('change', renderMedDetailsBody);
+        document.getElementById('closeMedDetailsBtn').addEventListener('click', closeMedDetailsModal);
+        document.getElementById('medDetailsModal').addEventListener('click', e => { if (e.target.id === 'medDetailsModal') closeMedDetailsModal(); });
+
+        // ---- Record previous day (More options) ----
+        function buildCalendar(containerId, year, month, selectableDates, markedDates, selectedDate, onDayClick) {
+            const container = document.getElementById(containerId);
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const dayHeaders = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayStr = getDateForOffset(0);
+
+            let html = `<div class="cal-header">
+                <button type="button" id="${containerId}-prev">&#8592;</button>
+                <strong>${monthNames[month]} ${year}</strong>
+                <button type="button" id="${containerId}-next">&#8594;</button>
+            </div>
+            <div class="cal-grid">`;
+
+            dayHeaders.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+
+            for (let i = 0; i < firstDay; i++) {
+                html += `<div class="cal-day empty"></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                let cls = 'cal-day';
+                const mark = markedDates ? markedDates[dateStr] : null;
+                if (mark === 'took') cls += ' took';
+                else if (mark === 'not_taken') cls += ' not-taken';
+                else if (selectableDates && selectableDates.has(dateStr)) cls += ' selectable';
+                if (dateStr === selectedDate) cls += ' selected';
+                if (dateStr === todayStr) cls += ' today-marker';
+                const clickable = (selectableDates && selectableDates.has(dateStr)) ? `data-date="${escapeHtml(dateStr)}"` : '';
+                html += `<div class="${cls}" ${clickable}>${day}</div>`;
+            }
+
+            html += `</div>`;
+            container.innerHTML = html;
+
+            document.getElementById(`${containerId}-prev`).addEventListener('click', () => {
+                let m = month - 1, y = year;
+                if (m < 0) { m = 11; y--; }
+                buildCalendar(containerId, y, m, selectableDates, markedDates, selectedDate, onDayClick);
+            });
+            document.getElementById(`${containerId}-next`).addEventListener('click', () => {
+                const today = new Date();
+                let m = month + 1, y = year;
+                if (m > 11) { m = 0; y++; }
+                // Don't navigate past current month
+                if (y > today.getFullYear() || (y === today.getFullYear() && m > today.getMonth())) return;
+                buildCalendar(containerId, y, m, selectableDates, markedDates, selectedDate, onDayClick);
+            });
+
+            if (onDayClick) {
+                container.querySelectorAll('[data-date]').forEach(el => {
+                    el.addEventListener('click', () => onDayClick(el.getAttribute('data-date')));
+                });
+            }
+        }
+
+        function getMissingDates(medication) {
+            const today = new Date();
+            const todayStr = getDateForOffset(0);
+            const recorded = new Set((medication.adherenceHistory || []).map(r => r.date));
+            const missing = new Set();
+            // Go back up to 90 days
+            for (let i = 1; i <= 90; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const ds = d.toISOString().slice(0, 10);
+                if (!recorded.has(ds)) missing.add(ds);
+            }
+            return missing;
+        }
+
+        function openRecordPrevModal() {
+            if (!dashboardData?.medications?.length) return;
+            const select = document.getElementById('recordPrevMedSelect');
+            select.innerHTML = dashboardData.medications.map(m =>
+                `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`
+            ).join('');
+            recordPrevSelectedDate = null;
+            document.getElementById('recordPrevSelected').classList.add('hidden');
+            setStatusMessage('recordPrevMessage', '');
+            renderRecordPrevCalendar();
+            lastFocusedElement = document.activeElement;
+            const modal = document.getElementById('recordPrevModal');
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('closeRecordPrevBtn').focus();
+        }
+
+        function renderRecordPrevCalendar() {
+            const select = document.getElementById('recordPrevMedSelect');
+            const med = getMedicationById(select.value);
+            if (!med) return;
+            const missing = getMissingDates(med);
+            const today = new Date();
+            buildCalendar('recordPrevCalendar', today.getFullYear(), today.getMonth(), missing, null, recordPrevSelectedDate, (dateStr) => {
+                recordPrevSelectedDate = dateStr;
+                document.getElementById('recordPrevSelectedDate').textContent = `Selected: ${dateStr}`;
+                document.getElementById('recordPrevSelected').classList.remove('hidden');
+                setStatusMessage('recordPrevMessage', '');
+                renderRecordPrevCalendar();
+            });
+        }
+
+        function closeRecordPrevModal() {
+            const modal = document.getElementById('recordPrevModal');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            if (lastFocusedElement?.focus) lastFocusedElement.focus();
+        }
+
+        document.getElementById('recordPrevMedSelect').addEventListener('change', () => {
+            recordPrevSelectedDate = null;
+            document.getElementById('recordPrevSelected').classList.add('hidden');
+            setStatusMessage('recordPrevMessage', '');
+            renderRecordPrevCalendar();
+        });
+
+        document.getElementById('closeRecordPrevBtn').addEventListener('click', closeRecordPrevModal);
+        document.getElementById('recordPrevModal').addEventListener('click', e => { if (e.target.id === 'recordPrevModal') closeRecordPrevModal(); });
+
+        document.getElementById('recordPrevTookBtn').addEventListener('click', async () => {
+            await submitRecordPrev('took');
+        });
+        document.getElementById('recordPrevNotBtn').addEventListener('click', async () => {
+            await submitRecordPrev('not_taken');
+        });
+
+        async function submitRecordPrev(status) {
+            if (!recordPrevSelectedDate) return;
+            const select = document.getElementById('recordPrevMedSelect');
+            const medicationId = select.value;
+            try {
+                await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
+                    method: 'POST',
+                    body: JSON.stringify({ status, date: recordPrevSelectedDate })
+                });
+                setStatusMessage('recordPrevMessage', 'Saved!', 'success');
+                await loadDashboard();
+                // Rebuild calendar to remove the now-recorded date
+                recordPrevSelectedDate = null;
+                document.getElementById('recordPrevSelected').classList.add('hidden');
+                renderRecordPrevCalendar();
+            } catch (err) {
+                setStatusMessage('recordPrevMessage', err.message, 'error');
+            }
+        }
+
+        // ---- View history (More options) ----
+        function openHistoryModal() {
+            if (!dashboardData?.medications?.length) return;
+            const select = document.getElementById('historyMedSelect');
+            select.innerHTML = dashboardData.medications.map(m =>
+                `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`
+            ).join('');
+            renderHistoryCalendar();
+            lastFocusedElement = document.activeElement;
+            const modal = document.getElementById('historyModal');
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('closeHistoryBtn').focus();
+        }
+
+        function renderHistoryCalendar() {
+            const select = document.getElementById('historyMedSelect');
+            const med = getMedicationById(select.value);
+            if (!med) return;
+            const markedDates = {};
+            (med.adherenceHistory || []).forEach(r => { markedDates[r.date] = r.status; });
+            const today = new Date();
+            buildCalendar('historyCalendar', today.getFullYear(), today.getMonth(), null, markedDates, null, null);
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('historyModal');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            if (lastFocusedElement?.focus) lastFocusedElement.focus();
+        }
+
+        document.getElementById('historyMedSelect').addEventListener('change', renderHistoryCalendar);
+        document.getElementById('closeHistoryBtn').addEventListener('click', closeHistoryModal);
+        document.getElementById('historyModal').addEventListener('click', e => { if (e.target.id === 'historyModal') closeHistoryModal(); });
+
+        // ---- More options button handlers ----
+        document.getElementById('openRecordPrevBtn').addEventListener('click', openRecordPrevModal);
+        document.getElementById('openDetailsPageBtn').addEventListener('click', openMedDetailsModal);
+        document.getElementById('openHistoryBtn').addEventListener('click', openHistoryModal);
+
+        const MIN_DAY_OFFSET = -90;
+
+        // ---- Day navigation ----
+        document.getElementById('prevDayBtn').addEventListener('click', () => {
+            if (currentDayOffset > MIN_DAY_OFFSET) {
+                currentDayOffset -= 1;
+                updateDayNav();
+                renderDashboard(dashboardData);
+            }
+        });
+        document.getElementById('nextDayBtn').addEventListener('click', () => {
+            if (currentDayOffset < 0) {
+                currentDayOffset += 1;
+                updateDayNav();
+                renderDashboard(dashboardData);
+            }
+        });
+
+        // ---- Auth ----
+        document.getElementById('loginTabBtn').addEventListener('click', () => {
+            setStatusMessage('authMessage', '');
+            showAuth('login');
+        });
+        document.getElementById('registerTabBtn').addEventListener('click', () => {
+            setStatusMessage('authMessage', '');
+            showAuth('register');
+        });
+        document.getElementById('loginForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/login'));
+        document.getElementById('registerForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/register'));
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await apiRequest('/medications/api/logout', { method: 'POST' });
+            dashboardData = null;
+            document.getElementById('medicationsContainer').innerHTML = '';
+            document.getElementById('moreOptionsSection').classList.add('hidden');
+            document.getElementById('dashboardFooter').classList.add('hidden');
+            setStatusMessage('dashboardMessage', '');
+            showAuth('login');
+        });
+
+        document.getElementById('medicationsContainer').addEventListener('click', async event => {
+            const button = event.target.closest('[data-action]');
+            if (!button) return;
+
+            const medicationId = button.getAttribute('data-medication-id');
+            const action = button.getAttribute('data-action');
+
+            try {
+                if (action === 'record-took') {
+                    await recordMedicationStatus(medicationId, 'took', getDisplayDate());
+                } else if (action === 'record-not-taken') {
+                    await recordMedicationStatus(medicationId, 'not_taken', getDisplayDate());
+                }
+            } catch (err) {
+                setStatusMessage('dashboardMessage', err.message, 'error');
+            }
+        });
 
         async function recordMedicationStatus(medicationId, status, date) {
             const selectedDate = date || dashboardData?.today;
@@ -463,49 +1009,7 @@
             }
         }
 
-        document.getElementById('loginTabBtn').addEventListener('click', () => {
-            setStatusMessage('authMessage', '');
-            showAuth('login');
-        });
-        document.getElementById('registerTabBtn').addEventListener('click', () => {
-            setStatusMessage('authMessage', '');
-            showAuth('register');
-        });
-        document.getElementById('loginForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/login'));
-        document.getElementById('registerForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/register'));
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await apiRequest('/medications/api/logout', { method: 'POST' });
-            dashboardData = null;
-            document.getElementById('medicationsContainer').innerHTML = '';
-            setStatusMessage('dashboardMessage', '');
-            showAuth('login');
-        });
-
-        document.getElementById('medicationsContainer').addEventListener('click', async event => {
-            const button = event.target.closest('[data-action]');
-            if (!button) return;
-
-            const medicationId = button.getAttribute('data-medication-id');
-            const action = button.getAttribute('data-action');
-
-            try {
-                if (action === 'details') {
-                    showMedicationDetails(medicationId);
-                } else if (action === 'toggle-options') {
-                    toggleMoreOptions(medicationId);
-                } else if (action === 'record-took') {
-                    await recordMedicationStatus(medicationId, 'took', dashboardData?.today);
-                } else if (action === 'record-not-taken') {
-                    await recordMedicationStatus(medicationId, 'not_taken', dashboardData?.today);
-                } else if (action === 'record-took-date' || action === 'record-not-taken-date') {
-                    const dateInput = document.getElementById(`date-${medicationId}`);
-                    await recordMedicationStatus(medicationId, action === 'record-took-date' ? 'took' : 'not_taken', dateInput?.value);
-                }
-            } catch (err) {
-                setStatusMessage('dashboardMessage', err.message, 'error');
-            }
-        });
-
+        // ---- Legacy details modal (direct access) ----
         document.getElementById('closeDetailsBtn').addEventListener('click', () => {
             closeMedicationDetails();
         });
@@ -514,29 +1018,34 @@
                 closeMedicationDetails();
             }
         });
-        document.getElementById('detailsModal').addEventListener('keydown', event => {
+
+        // ---- Modal keyboard trap helpers ----
+        const modalCloseHandlers = {
+            detailsModal: closeMedicationDetails,
+            recordPrevModal: closeRecordPrevModal,
+            medDetailsModal: closeMedDetailsModal,
+            historyModal: closeHistoryModal
+        };
+        function trapFocus(modalId, event) {
             if (event.key === 'Escape') {
-                closeMedicationDetails();
+                modalCloseHandlers[modalId]?.();
                 return;
             }
             if (event.key === 'Tab') {
-                const modal = document.getElementById('detailsModal');
+                const modal = document.getElementById(modalId);
                 const focusable = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
-                    .filter(element => !element.disabled && !element.classList.contains('hidden'));
-                if (focusable.length === 0) {
-                    event.preventDefault();
-                    return;
-                }
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
+                    .filter(el => !el.disabled && !el.classList.contains('hidden'));
+                if (!focusable.length) { event.preventDefault(); return; }
+                const first = focusable[0], last = focusable[focusable.length - 1];
                 if (event.shiftKey && document.activeElement === first) {
-                    event.preventDefault();
-                    last.focus();
+                    event.preventDefault(); last.focus();
                 } else if (!event.shiftKey && document.activeElement === last) {
-                    event.preventDefault();
-                    first.focus();
+                    event.preventDefault(); first.focus();
                 }
             }
+        }
+        ['detailsModal','recordPrevModal','medDetailsModal','historyModal'].forEach(id => {
+            document.getElementById(id).addEventListener('keydown', e => trapFocus(id, e));
         });
 
         refreshSession().catch(err => {
