@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medications Portal</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --primary: #2d6cdf;
+            --primary-dark: #1f56b4;
+            --success: #2d9d62;
+            --danger: #d64545;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #d8dee9;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .hidden { display: none !important; }
+        h1, h2, h3, p { margin-top: 0; }
+        .auth-switch {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .auth-switch button,
+        .action-row button,
+        .card button,
+        form button {
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: #eef2ff; color: var(--primary-dark); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-link {
+            background: transparent;
+            color: var(--primary-dark);
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .auth-switch button.active {
+            background: var(--primary);
+            color: #fff;
+        }
+        .form-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+        input {
+            width: 100%;
+            padding: 0.8rem 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+        .status-message {
+            min-height: 1.2rem;
+            margin-top: 0.75rem;
+            color: var(--muted);
+        }
+        .status-message.error { color: var(--danger); }
+        .status-message.success { color: var(--success); }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .topbar p { margin-bottom: 0; color: var(--muted); }
+        .medication-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        .medication-card {
+            border: 1px solid var(--border);
+        }
+        .medication-title {
+            background: transparent;
+            padding: 0;
+            text-align: left;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .pill-meta {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        .action-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin: 0.75rem 0;
+        }
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.75rem 0 0;
+        }
+        .history-list li {
+            font-size: 0.9rem;
+            padding: 0.35rem 0;
+            border-top: 1px solid #eef2f7;
+        }
+        .empty-state {
+            text-align: center;
+            color: var(--muted);
+            padding: 2rem 1rem;
+            font-size: 1.05rem;
+        }
+        .details-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .details-panel {
+            width: min(640px, 100%);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .detail-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        .detail-box {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+        .detail-box strong {
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+        @media (max-width: 640px) {
+            .page { padding: 1rem; }
+            .action-row button, form button, .auth-switch button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <h1>Medications</h1>
+            <p>A clean place to view your medications and record whether you took them.</p>
+        </div>
+
+        <section id="authSection" class="card hidden">
+            <div class="auth-switch">
+                <button id="loginTabBtn" class="active" type="button">Login</button>
+                <button id="registerTabBtn" type="button">Create account</button>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-grid">
+                    <div>
+                        <label for="loginUsername">Username</label>
+                        <input id="loginUsername" name="username" autocomplete="username" required>
+                    </div>
+                    <div>
+                        <label for="loginPassword">Password</label>
+                        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button type="submit" class="btn-primary">Login</button>
+                </div>
+            </form>
+
+            <form id="registerForm" class="hidden">
+                <div class="form-grid">
+                    <div>
+                        <label for="registerUsername">Username</label>
+                        <input id="registerUsername" name="username" autocomplete="username" required>
+                        <p style="color: var(--muted); margin: 0.5rem 0 0;">Use 3-64 characters with letters, numbers, periods, underscores, or dashes.</p>
+                    </div>
+                    <div>
+                        <label for="registerPassword">Password</label>
+                        <input id="registerPassword" name="password" type="password" autocomplete="new-password" required minlength="6">
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button type="submit" class="btn-primary">Create account</button>
+                </div>
+            </form>
+
+            <div id="authMessage" class="status-message"></div>
+        </section>
+
+        <section id="dashboardSection" class="hidden">
+            <div class="card topbar">
+                <div>
+                    <h2 style="margin-bottom: 0.25rem;">Your medication dashboard</h2>
+                    <p id="welcomeText">Welcome.</p>
+                </div>
+                <button id="logoutBtn" type="button" class="btn-secondary">Log out</button>
+            </div>
+
+            <div id="dashboardMessage" class="status-message"></div>
+            <div id="medicationsContainer"></div>
+        </section>
+    </div>
+
+    <div id="detailsModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" tabindex="-1">
+        <div class="card details-panel">
+            <div class="topbar">
+                <h2 id="detailsTitle" style="margin-bottom: 0;">Medication details</h2>
+                <button id="closeDetailsBtn" type="button" class="btn-secondary">Close</button>
+            </div>
+            <div id="detailsBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let dashboardData = null;
+        let csrfToken = '';
+        let lastFocusedElement = null;
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function setStatusMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message || '';
+            element.className = 'status-message' + (type ? ` ${type}` : '');
+        }
+
+        function showAuth(mode) {
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginForm').classList.toggle('hidden', mode !== 'login');
+            document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
+            document.getElementById('loginTabBtn').classList.toggle('active', mode === 'login');
+            document.getElementById('registerTabBtn').classList.toggle('active', mode === 'register');
+        }
+
+        function showDashboard() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+        }
+
+        async function apiRequest(url, options = {}) {
+            const method = (options.method || 'GET').toUpperCase();
+            const headers = { ...(options.headers || {}) };
+            if (options.body && !headers['Content-Type']) {
+                headers['Content-Type'] = 'application/json';
+            }
+            if (method !== 'GET' && csrfToken) {
+                headers['X-Medications-CSRF-Token'] = csrfToken;
+            }
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers,
+                ...options
+            });
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (err) {
+                data = {};
+            }
+            if (!response.ok) {
+                throw new Error(data.error || `Request failed (${response.status})`);
+            }
+            if (data.csrfToken) {
+                csrfToken = data.csrfToken;
+            }
+            return data;
+        }
+
+        function formatStatus(status) {
+            if (status === 'took') return 'I took today';
+            if (status === 'not_taken') return 'not today';
+            return 'No status recorded yet';
+        }
+
+        function formatRecord(record) {
+            if (!record) return '';
+            const statusText = record.status === 'took' ? 'took' : 'not today';
+            const timeText = record.recordedAt ? new Date(record.recordedAt).toLocaleString() : '';
+            return `${record.date}: ${statusText}${timeText ? ` (${timeText})` : ''}`;
+        }
+
+        async function refreshSession() {
+            const session = await apiRequest('/medications/api/session', { method: 'GET' });
+            csrfToken = session.csrfToken || csrfToken;
+            if (session.authenticated) {
+                await loadDashboard();
+                showDashboard();
+            } else {
+                showAuth('login');
+            }
+        }
+
+        async function loadDashboard() {
+            const data = await apiRequest('/medications/api/dashboard', { method: 'GET' });
+            dashboardData = data;
+            document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
+            renderDashboard(data);
+        }
+
+        function renderDashboard(data) {
+            const container = document.getElementById('medicationsContainer');
+            if (data.waitingForAdmin) {
+                container.innerHTML = `<div class="card empty-state">waiting for admin to add medications</div>`;
+                return;
+            }
+
+            const cards = data.medications.map(medication => {
+                const historyItems = (medication.adherenceHistory || [])
+                    .slice(0, 5)
+                    .map(record => `<li>${escapeHtml(formatRecord(record))}</li>`)
+                    .join('');
+                const todayLabel = medication.todayRecordedAt
+                    ? `${formatStatus(medication.todayStatus)} • ${new Date(medication.todayRecordedAt).toLocaleString()}`
+                    : 'No status recorded yet today';
+
+                return `
+                    <div class="card medication-card">
+                        <button type="button" class="medication-title" data-action="details" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(medication.name)}</button>
+                        <div class="pill-meta">${escapeHtml(medication.description || medication.usage || 'Assigned medication')}</div>
+                        <div class="pill-meta">Today: ${escapeHtml(todayLabel)}</div>
+                        <div class="action-row">
+                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">I took today</button>
+                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">not today</button>
+                        </div>
+                        <div class="action-row">
+                            <button type="button" class="btn-secondary" data-action="toggle-options" data-medication-id="${escapeHtml(medication.id)}">More options</button>
+                            <button type="button" class="btn-link" data-action="details" data-medication-id="${escapeHtml(medication.id)}">View details</button>
+                        </div>
+                        <div id="options-${escapeHtml(medication.id)}" class="hidden" style="margin-top: 0.75rem; border-top: 1px solid #eef2f7; padding-top: 0.75rem;">
+                            <label for="date-${escapeHtml(medication.id)}">Record a previous day</label>
+                            <input id="date-${escapeHtml(medication.id)}" type="date" value="${escapeHtml(data.today)}" max="${escapeHtml(data.today)}">
+                            <div class="action-row" style="margin-bottom: 0;">
+                                <button type="button" class="btn-success" data-action="record-took-date" data-medication-id="${escapeHtml(medication.id)}">I took this day</button>
+                                <button type="button" class="btn-danger" data-action="record-not-taken-date" data-medication-id="${escapeHtml(medication.id)}">not this day</button>
+                            </div>
+                        </div>
+                        <h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Recent history</h3>
+                        <ul class="history-list">${historyItems || '<li>No medication history yet.</li>'}</ul>
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `<div class="medication-grid">${cards}</div>`;
+        }
+
+        function getMedicationById(medicationId) {
+            return dashboardData?.medications?.find(medication => medication.id === medicationId) || null;
+        }
+
+        function showMedicationDetails(medicationId) {
+            const medication = getMedicationById(medicationId);
+            if (!medication) return;
+
+            document.getElementById('detailsTitle').textContent = medication.name;
+            document.getElementById('detailsBody').innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
+                    <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
+                    <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
+                    <div class="detail-box"><strong>Remaining pills</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
+                    <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
+                    <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
+                </div>`;
+            const detailsModal = document.getElementById('detailsModal');
+            lastFocusedElement = document.activeElement;
+            detailsModal.classList.remove('hidden');
+            detailsModal.setAttribute('aria-hidden', 'false');
+            document.getElementById('closeDetailsBtn').focus();
+        }
+
+        function closeMedicationDetails() {
+            const detailsModal = document.getElementById('detailsModal');
+            detailsModal.classList.add('hidden');
+            detailsModal.setAttribute('aria-hidden', 'true');
+            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                lastFocusedElement.focus();
+            }
+        }
+
+        function toggleMoreOptions(medicationId) {
+            const panel = document.getElementById(`options-${medicationId}`);
+            if (panel) panel.classList.toggle('hidden');
+        }
+
+        async function recordMedicationStatus(medicationId, status, date) {
+            const selectedDate = date || dashboardData?.today;
+            await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
+                method: 'POST',
+                body: JSON.stringify({ status, date: selectedDate })
+            });
+            setStatusMessage('dashboardMessage', 'Medication status saved.', 'success');
+            await loadDashboard();
+        }
+
+        async function handleAuthSubmit(event, endpoint) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            try {
+                const payload = {
+                    username: formData.get('username'),
+                    password: formData.get('password')
+                };
+                const data = await apiRequest(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                setStatusMessage('authMessage', endpoint.includes('register') ? 'Account created successfully.' : 'Login successful.', 'success');
+                dashboardData = null;
+                await loadDashboard();
+                showDashboard();
+                if (data.user?.username) {
+                    document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
+                }
+            } catch (err) {
+                setStatusMessage('authMessage', err.message, 'error');
+            }
+        }
+
+        document.getElementById('loginTabBtn').addEventListener('click', () => {
+            setStatusMessage('authMessage', '');
+            showAuth('login');
+        });
+        document.getElementById('registerTabBtn').addEventListener('click', () => {
+            setStatusMessage('authMessage', '');
+            showAuth('register');
+        });
+        document.getElementById('loginForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/login'));
+        document.getElementById('registerForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/register'));
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await apiRequest('/medications/api/logout', { method: 'POST' });
+            dashboardData = null;
+            document.getElementById('medicationsContainer').innerHTML = '';
+            setStatusMessage('dashboardMessage', '');
+            showAuth('login');
+        });
+
+        document.getElementById('medicationsContainer').addEventListener('click', async event => {
+            const button = event.target.closest('[data-action]');
+            if (!button) return;
+
+            const medicationId = button.getAttribute('data-medication-id');
+            const action = button.getAttribute('data-action');
+
+            try {
+                if (action === 'details') {
+                    showMedicationDetails(medicationId);
+                } else if (action === 'toggle-options') {
+                    toggleMoreOptions(medicationId);
+                } else if (action === 'record-took') {
+                    await recordMedicationStatus(medicationId, 'took', dashboardData?.today);
+                } else if (action === 'record-not-taken') {
+                    await recordMedicationStatus(medicationId, 'not_taken', dashboardData?.today);
+                } else if (action === 'record-took-date' || action === 'record-not-taken-date') {
+                    const dateInput = document.getElementById(`date-${medicationId}`);
+                    await recordMedicationStatus(medicationId, action === 'record-took-date' ? 'took' : 'not_taken', dateInput?.value);
+                }
+            } catch (err) {
+                setStatusMessage('dashboardMessage', err.message, 'error');
+            }
+        });
+
+        document.getElementById('closeDetailsBtn').addEventListener('click', () => {
+            closeMedicationDetails();
+        });
+        document.getElementById('detailsModal').addEventListener('click', event => {
+            if (event.target.id === 'detailsModal') {
+                closeMedicationDetails();
+            }
+        });
+        document.getElementById('detailsModal').addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closeMedicationDetails();
+                return;
+            }
+            if (event.key === 'Tab') {
+                const modal = document.getElementById('detailsModal');
+                const focusable = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                    .filter(element => !element.disabled && !element.classList.contains('hidden'));
+                if (focusable.length === 0) {
+                    event.preventDefault();
+                    return;
+                }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+
+        refreshSession().catch(err => {
+            setStatusMessage('authMessage', err.message || 'Failed to load medications portal.', 'error');
+            showAuth('login');
+        });
+    </script>
+</body>
+</html>

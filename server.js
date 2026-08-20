@@ -980,6 +980,7 @@ const sessionConfig = {
   saveUninitialized: false,
   cookie: { 
     secure: false,
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 };
@@ -1138,6 +1139,118 @@ const requireClientAuth = (req, res, next) => {
   next();
 };
 
+const requireMedicationPortalAuth = (req, res, next) => {
+  const medicationPortalUserId = req.session.medicationPortalUserId;
+  if (medicationPortalUserId) {
+    const portalUser = house.getMedicationPortalUserById(medicationPortalUserId);
+    if (portalUser) {
+      req.medicationPortalUser = portalUser;
+      return next();
+    }
+    delete req.session.medicationPortalUserId;
+    delete req.session.medicationPortalUsername;
+  }
+
+  if (req.path.startsWith('/medications/api/') ||
+      req.get('Accept')?.includes('application/json') ||
+      req.get('Content-Type')?.includes('application/json')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Medication portal login required',
+      code: 'UNAUTHORIZED'
+    });
+  }
+
+  return res.redirect('/medications');
+};
+
+function serializeMedicationPortalUser(portalUser) {
+  if (!portalUser) return null;
+  return {
+    id: portalUser.id,
+    username: portalUser.username,
+    createdAt: portalUser.createdAt
+  };
+}
+
+function getMedicationPortalToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function issueMedicationPortalCsrfToken(req) {
+  const token = crypto.randomBytes(32).toString('hex');
+  req.session.medicationPortalCsrfToken = token;
+  return token;
+}
+
+function ensureMedicationPortalCsrfToken(req) {
+  return req.session.medicationPortalCsrfToken || issueMedicationPortalCsrfToken(req);
+}
+
+function requireMedicationPortalCsrf(req, res, next) {
+  const expectedToken = ensureMedicationPortalCsrfToken(req);
+  const providedToken = req.get('x-medications-csrf-token');
+
+  if (!providedToken || providedToken !== expectedToken) {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid medication portal security token',
+      code: 'INVALID_CSRF_TOKEN'
+    });
+  }
+
+  return next();
+}
+
+function buildMedicationAdminPayload() {
+  const data = house.getMedicationsData();
+  const portalUsers = (data.portalUsers || []).map(serializeMedicationPortalUser);
+  const usernameById = new Map(portalUsers.map(user => [user.id, user.username]));
+  const assignmentsByMedicationId = new Map();
+
+  (data.assignments || []).forEach(assignment => {
+    if (!assignmentsByMedicationId.has(assignment.medicationId)) {
+      assignmentsByMedicationId.set(assignment.medicationId, []);
+    }
+    assignmentsByMedicationId.get(assignment.medicationId).push(assignment.userId);
+  });
+
+  const medications = (data.medications || []).map(medication => {
+    const assignedUserIds = assignmentsByMedicationId.get(medication.id) || [];
+    return {
+      ...medication,
+      ...house.computeMedicationForecast(medication),
+      assignedUserIds,
+      assignedUsernames: assignedUserIds
+        .map(userId => usernameById.get(userId))
+        .filter(Boolean)
+    };
+  });
+
+  return { medications, portalUsers };
+}
+
+function buildMedicationPortalDashboard(userId) {
+  const today = getMedicationPortalToday();
+  const medications = house.getAssignedMedicationsForUser(userId).map(medication => {
+    const adherenceHistory = house.getMedicationAdherenceHistory(userId, medication.id);
+    const todayRecord = adherenceHistory.find(record => record.date === today) || null;
+    return {
+      ...medication,
+      ...house.computeMedicationForecast(medication),
+      todayStatus: todayRecord ? todayRecord.status : null,
+      todayRecordedAt: todayRecord ? todayRecord.recordedAt : null,
+      adherenceHistory: adherenceHistory.slice(0, 14)
+    };
+  });
+
+  return {
+    today,
+    medications,
+    waitingForAdmin: medications.length === 0
+  };
+}
+
 // Admin dashboard
 app.get('/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));
@@ -1146,6 +1259,133 @@ app.get('/admin', requireAuth, (req, res) => {
 // Webhook management page
 app.get('/admin/webhooks', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'webhooks.html'));
+});
+
+app.get('/medications', (req, res) => {
+  ensureMedicationPortalCsrfToken(req);
+  res.sendFile(path.join(__dirname, 'public', 'medications.html'));
+});
+
+app.get('/medications/api/session', (req, res) => {
+  const portalUser = house.getMedicationPortalUserById(req.session.medicationPortalUserId);
+  if (!portalUser) {
+    delete req.session.medicationPortalUserId;
+    delete req.session.medicationPortalUsername;
+    return res.json({ authenticated: false, csrfToken: ensureMedicationPortalCsrfToken(req) });
+  }
+
+  return res.json({
+    authenticated: true,
+    user: serializeMedicationPortalUser(portalUser),
+    csrfToken: ensureMedicationPortalCsrfToken(req)
+  });
+});
+
+app.post('/medications/api/register', requireMedicationPortalCsrf, (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+  if (!username) {
+    return res.status(400).json({ success: false, error: 'Username is required' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+  }
+
+  const passwordSecurity = validatePasswordSecurity(password);
+  if (!passwordSecurity.valid) {
+    return res.status(400).json({ success: false, error: passwordSecurity.reason });
+  }
+
+  try {
+    const result = house.createMedicationPortalUser({
+      username,
+      passwordHash: hashPassword(password)
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+
+    req.session.medicationPortalUserId = result.user.id;
+    req.session.medicationPortalUsername = result.user.username;
+    logger.success(logger.categories.SYSTEM, `Medication portal account created for user: ${result.user.username}`);
+    return res.status(201).json({
+      success: true,
+      user: result.user,
+      csrfToken: issueMedicationPortalCsrfToken(req)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to create medication portal account: ' + err.message });
+  }
+});
+
+app.post('/medications/api/login', requireMedicationPortalCsrf, (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+  try {
+    const portalUser = house.getMedicationPortalUserByUsername(username);
+    if (!portalUser || !verifyPassword(password, portalUser.passwordHash)) {
+      logger.warning(logger.categories.SYSTEM, `Failed medication portal login attempt for user: ${username || '(blank)'}`);
+      return res.status(401).json({ success: false, error: 'Invalid username or password' });
+    }
+
+    req.session.medicationPortalUserId = portalUser.id;
+    req.session.medicationPortalUsername = portalUser.username;
+    logger.success(logger.categories.SYSTEM, `Medication portal login successful for user: ${portalUser.username}`);
+    return res.json({
+      success: true,
+      user: serializeMedicationPortalUser(portalUser),
+      csrfToken: issueMedicationPortalCsrfToken(req)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to log in: ' + err.message });
+  }
+});
+
+app.post('/medications/api/logout', requireMedicationPortalCsrf, (req, res) => {
+  logger.info(logger.categories.SYSTEM, `Medication portal logout for user: ${req.session.medicationPortalUsername || 'unknown'}`);
+  delete req.session.medicationPortalUserId;
+  delete req.session.medicationPortalUsername;
+  res.json({ success: true, csrfToken: issueMedicationPortalCsrfToken(req) });
+});
+
+app.get('/medications/api/dashboard', requireMedicationPortalAuth, (req, res) => {
+  try {
+    res.json({
+      success: true,
+      user: serializeMedicationPortalUser(req.medicationPortalUser),
+      ...buildMedicationPortalDashboard(req.medicationPortalUser.id)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to load medication dashboard: ' + err.message });
+  }
+});
+
+app.post('/medications/api/medications/:id/adherence', requireMedicationPortalAuth, requireMedicationPortalCsrf, (req, res) => {
+  const status = String(req.body?.status || '').trim();
+  const date = String(req.body?.date || getMedicationPortalToday()).trim();
+  const today = getMedicationPortalToday();
+
+  if (date > today) {
+    return res.status(400).json({ success: false, error: 'Medication status cannot be recorded for a future date' });
+  }
+
+  try {
+    const result = house.recordMedicationAdherence(req.medicationPortalUser.id, req.params.id, status, date);
+    if (!result.success) {
+      const statusCode = /not found|not assigned/i.test(result.error || '') ? 404 : 400;
+      return res.status(statusCode).json({ success: false, error: result.error });
+    }
+
+    return res.json({
+      success: true,
+      record: result.record
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to record medication status: ' + err.message });
+  }
 });
 
 // API to get current config
@@ -10875,12 +11115,7 @@ app.delete('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) =
 // Get all medications (with computed forecast fields)
 app.get('/admin/api/house/medications', requireAuth, (req, res) => {
   try {
-    const data = house.getMedicationsData();
-    const medications = (data.medications || []).map(med => ({
-      ...med,
-      ...house.computeMedicationForecast(med)
-    }));
-    res.json({ medications });
+    res.json(buildMedicationAdminPayload());
   } catch (err) {
     res.status(500).json({ error: 'Failed to load medications: ' + err.message });
   }
@@ -10925,6 +11160,21 @@ app.delete('/admin/api/house/medications/:id', requireAuth, (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete medication: ' + err.message });
+  }
+});
+
+// Update medication portal assignments for a medication
+app.put('/admin/api/house/medications/:id/assignments', requireAuth, (req, res) => {
+  try {
+    const result = house.setMedicationAssignments(req.params.id, req.body?.userIds);
+    if (!result.success) {
+      const statusCode = /not found/i.test(result.error || '') ? 404 : 400;
+      return res.status(statusCode).json({ error: result.error });
+    }
+
+    res.json({ success: true, message: 'Medication assignments updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update medication assignments: ' + err.message });
   }
 });
 
