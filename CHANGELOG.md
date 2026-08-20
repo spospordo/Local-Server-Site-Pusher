@@ -9,6 +9,17 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.25.1] - 2026-08-20
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #660 from spospordo/copilot/refine-medications-user-ui
+  - Address code review: fix button labels for non-today dates, cap day nav at -90, fix modal Escape handler
+  - Refine medications UI: day nav, simplified cards, softer buttons, More options section, record prev day calendar, med details modal, history calendar
+  - Initial plan
+
+
 ## [2.25.0] - 2026-08-20
 
 ### Minor Update
