@@ -569,6 +569,7 @@
         function updateDayNav() {
             document.getElementById('dayNavLabel').textContent = formatDateLabel(currentDayOffset);
             document.getElementById('nextDayBtn').disabled = currentDayOffset >= 0;
+            document.getElementById('prevDayBtn').disabled = currentDayOffset <= MIN_DAY_OFFSET;
         }
 
         async function apiRequest(url, options = {}) {
@@ -634,18 +635,18 @@
 
             const displayDate = getDisplayDate();
 
-            const cards = data.medications.map(medication => {
-                // Find the record for the current display date
-                const dayRecord = (medication.adherenceHistory || []).find(r => r.date === displayDate);
-                const todayStatus = displayDate === data.today ? medication.todayStatus : (dayRecord ? dayRecord.status : null);
+            const isToday = currentDayOffset === 0;
+            const tookLabel = isToday ? 'I took today' : 'I took it';
+            const notTakenLabel = isToday ? 'Not today' : 'Not taken';
 
+            const cards = data.medications.map(medication => {
                 return `
                     <div class="card medication-card">
                         <div class="medication-title">${escapeHtml(medication.name)}</div>
                         <div class="pill-meta">${escapeHtml(medication.description || medication.usage || 'Assigned medication')}</div>
                         <div class="action-row">
-                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">I took today</button>
-                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">not today</button>
+                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
+                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
                         </div>
                     </div>`;
             }).join('');
@@ -917,11 +918,15 @@
         document.getElementById('openDetailsPageBtn').addEventListener('click', openMedDetailsModal);
         document.getElementById('openHistoryBtn').addEventListener('click', openHistoryModal);
 
+        const MIN_DAY_OFFSET = -90;
+
         // ---- Day navigation ----
         document.getElementById('prevDayBtn').addEventListener('click', () => {
-            currentDayOffset -= 1;
-            updateDayNav();
-            renderDashboard(dashboardData);
+            if (currentDayOffset > MIN_DAY_OFFSET) {
+                currentDayOffset -= 1;
+                updateDayNav();
+                renderDashboard(dashboardData);
+            }
         });
         document.getElementById('nextDayBtn').addEventListener('click', () => {
             if (currentDayOffset < 0) {
@@ -1015,9 +1020,15 @@
         });
 
         // ---- Modal keyboard trap helpers ----
+        const modalCloseHandlers = {
+            detailsModal: closeMedicationDetails,
+            recordPrevModal: closeRecordPrevModal,
+            medDetailsModal: closeMedDetailsModal,
+            historyModal: closeHistoryModal
+        };
         function trapFocus(modalId, event) {
             if (event.key === 'Escape') {
-                document.getElementById(modalId).querySelector('[id^="close"]')?.click();
+                modalCloseHandlers[modalId]?.();
                 return;
             }
             if (event.key === 'Tab') {
