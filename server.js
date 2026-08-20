@@ -10869,6 +10869,66 @@ app.delete('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) =
 });
 
 // =============================================================================
+// House Medications API
+// =============================================================================
+
+// Get all medications (with computed forecast fields)
+app.get('/admin/api/house/medications', requireAuth, (req, res) => {
+  try {
+    const data = house.getMedicationsData();
+    const medications = (data.medications || []).map(med => ({
+      ...med,
+      ...house.computeMedicationForecast(med)
+    }));
+    res.json({ medications });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load medications: ' + err.message });
+  }
+});
+
+// Add a medication
+app.post('/admin/api/house/medications', requireAuth, (req, res) => {
+  try {
+    const result = house.addMedication(req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Medication added successfully' });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add medication: ' + err.message });
+  }
+});
+
+// Update a medication
+app.put('/admin/api/house/medications/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.updateMedication(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Medication updated successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update medication: ' + err.message });
+  }
+});
+
+// Delete a medication
+app.delete('/admin/api/house/medications/:id', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteMedication(req.params.id);
+    if (result.success) {
+      res.json({ success: true, message: 'Medication deleted successfully' });
+    } else {
+      res.status(404).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete medication: ' + err.message });
+  }
+});
+
+// =============================================================================
 // Remote Management API – admin routes (require admin session auth)
 // =============================================================================
 
