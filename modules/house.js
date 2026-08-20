@@ -51,6 +51,9 @@ function getDefaultHouseData() {
     lists: {
       categories: [],
       lists: []
+    },
+    medications: {
+      medications: []
     }
   };
 }
@@ -1629,6 +1632,160 @@ function deleteListItem(listId, itemId) {
   return saveListsData(listsData);
 }
 
+// ── Medications ───────────────────────────────────────────────────────────────
+
+/**
+ * Parse medication instructions to estimate daily pill usage.
+ * Supports common patterns like:
+ *   "Take 1 pill twice daily", "2 tablets once daily",
+ *   "1 capsule every 8 hours", "take 3 times a day"
+ * Returns null when usage cannot be determined.
+ */
+function estimateDailyUsageFromInstructions(instructions) {
+  if (!instructions || typeof instructions !== 'string') return null;
+  const text = instructions.toLowerCase();
+
+  // Determine dose count (e.g., "2 pills", "1 tablet", "take 2")
+  let dose = 1;
+  const unitDoseMatch = text.match(/(\d+(?:\.\d+)?)\s+(?:pills?|tablets?|capsules?|caps?|tabs?|doses?)/);
+  const takeDoseMatch = !unitDoseMatch && text.match(/take\s+(\d+(?:\.\d+)?)(?!\s*times?)/);
+  if (unitDoseMatch) {
+    dose = parseFloat(unitDoseMatch[1]) || 1;
+  } else if (takeDoseMatch) {
+    dose = parseFloat(takeDoseMatch[1]) || 1;
+  }
+
+  // Determine frequency per day
+  let frequency = null;
+
+  const everyHoursMatch = text.match(/every\s+(\d+(?:\.\d+)?)\s+hours?/);
+  if (everyHoursMatch) {
+    const hours = parseFloat(everyHoursMatch[1]);
+    if (hours > 0) frequency = 24 / hours;
+  }
+
+  if (frequency === null) {
+    if (/\bonce\s+(?:a\s+)?daily|\bone\s+time\s+(?:a\s+|per\s+)?day|\b1\s*x\s*(?:a\s+|per\s+)?day|\bonce\s+per\s+day/.test(text)) {
+      frequency = 1;
+    } else if (/\btwice\s+(?:a\s+)?daily|\b2\s+times?\s+(?:a\s+|per\s+)?day|\b2\s*x\s*(?:a\s+|per\s+)?day/.test(text)) {
+      frequency = 2;
+    } else if (/\bthree\s+times?\s+(?:a\s+|per\s+)?day|\b3\s+times?\s+(?:a\s+|per\s+)?day|\b3\s*x\s*(?:a\s+|per\s+)?day/.test(text)) {
+      frequency = 3;
+    } else if (/\bfour\s+times?\s+(?:a\s+|per\s+)?day|\b4\s+times?\s+(?:a\s+|per\s+)?day|\b4\s*x\s*(?:a\s+|per\s+)?day/.test(text)) {
+      frequency = 4;
+    } else {
+      const timesMatch = text.match(/(\d+)\s+times?\s+(?:a\s+|per\s+)?day/);
+      if (timesMatch) frequency = parseFloat(timesMatch[1]);
+    }
+  }
+
+  if (frequency === null || frequency <= 0) return null;
+  return dose * frequency;
+}
+
+/**
+ * Compute forecast fields for a medication entry.
+ * Returns an object with dailyUsage, daysUntilEmpty, refillNeededDate, alertDate.
+ */
+function computeMedicationForecast(med) {
+  const dailyUsage = estimateDailyUsageFromInstructions(med.instructions);
+  const pillCount = typeof med.pillCount === 'number' ? med.pillCount : parseFloat(med.pillCount);
+  const alertThresholdDays = typeof med.alertThresholdDays === 'number'
+    ? med.alertThresholdDays
+    : parseFloat(med.alertThresholdDays);
+
+  let daysUntilEmpty = null;
+  let refillNeededDate = null;
+  let alertDate = null;
+
+  if (dailyUsage !== null && Number.isFinite(pillCount) && pillCount >= 0 && dailyUsage > 0) {
+    daysUntilEmpty = Math.floor(pillCount / dailyUsage);
+    const neededDate = new Date();
+    neededDate.setDate(neededDate.getDate() + daysUntilEmpty);
+    refillNeededDate = neededDate.toISOString().slice(0, 10);
+
+    if (Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0) {
+      const alertDays = daysUntilEmpty - alertThresholdDays;
+      const aDate = new Date();
+      aDate.setDate(aDate.getDate() + alertDays);
+      alertDate = aDate.toISOString().slice(0, 10);
+    }
+  }
+
+  return { dailyUsage, daysUntilEmpty, refillNeededDate, alertDate };
+}
+
+// Get medications data
+function getMedicationsData() {
+  const data = loadHouseData();
+  return data.medications || getDefaultHouseData().medications;
+}
+
+// Save medications data
+function saveMedicationsData(medicationsData) {
+  const data = loadHouseData();
+  data.medications = medicationsData;
+  return saveHouseData(data);
+}
+
+// Add a medication
+function addMedication(medication) {
+  if (!medication.name || !String(medication.name).trim()) {
+    return { success: false, error: 'Medication name is required' };
+  }
+  const medsData = getMedicationsData();
+  const entry = {
+    id: generateId(),
+    name: String(medication.name).trim(),
+    description: String(medication.description || '').trim(),
+    instructions: String(medication.instructions || '').trim(),
+    refillDate: medication.refillDate || '',
+    pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
+      ? Number(medication.pillCount)
+      : null,
+    refillExpiration: medication.refillExpiration || '',
+    alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
+      ? Number(medication.alertThresholdDays)
+      : 7,
+    createdDate: new Date().toISOString()
+  };
+  medsData.medications.push(entry);
+  return saveMedicationsData(medsData);
+}
+
+// Update a medication
+function updateMedication(id, medication) {
+  const medsData = getMedicationsData();
+  const index = medsData.medications.findIndex(m => m.id === id);
+  if (index === -1) {
+    return { success: false, error: 'Medication not found' };
+  }
+  const existing = medsData.medications[index];
+  medsData.medications[index] = {
+    ...existing,
+    name: medication.name !== undefined ? String(medication.name).trim() : existing.name,
+    description: medication.description !== undefined ? String(medication.description).trim() : existing.description,
+    instructions: medication.instructions !== undefined ? String(medication.instructions).trim() : existing.instructions,
+    refillDate: medication.refillDate !== undefined ? medication.refillDate : existing.refillDate,
+    pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
+      ? Number(medication.pillCount)
+      : (medication.pillCount === '' ? null : existing.pillCount),
+    refillExpiration: medication.refillExpiration !== undefined ? medication.refillExpiration : existing.refillExpiration,
+    alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
+      ? Number(medication.alertThresholdDays)
+      : existing.alertThresholdDays,
+    id
+  };
+  return saveMedicationsData(medsData);
+}
+
+// Delete a medication
+function deleteMedication(id) {
+  const medsData = getMedicationsData();
+  medsData.medications = medsData.medications.filter(m => m.id !== id);
+  return saveMedicationsData(medsData);
+}
+
 module.exports = {
   init,
   getVacationData,
@@ -1685,5 +1842,12 @@ module.exports = {
   deleteList,
   addListItem,
   updateListItem,
-  deleteListItem
+  deleteListItem,
+  getMedicationsData,
+  saveMedicationsData,
+  addMedication,
+  updateMedication,
+  deleteMedication,
+  estimateDailyUsageFromInstructions,
+  computeMedicationForecast
 };

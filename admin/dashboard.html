@@ -2657,6 +2657,7 @@
                 <button class="sub-tab" onclick="showSubTab('house-cars')">🚗 Cars</button>
                 <button class="sub-tab" onclick="showSubTab('house-bills')">🧾 Bills</button>
                 <button class="sub-tab" onclick="showSubTab('house-lists')">Lists</button>
+                <button class="sub-tab" onclick="showSubTab('house-medications')">💊 Medications</button>
             </div>
             
             <!-- Sub-tabs for Party -->
@@ -4501,6 +4502,70 @@
                         <div id="houseBillsList">Loading bills...</div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- House Medications Section -->
+        <div class="card admin-section house-section house-medications-section hidden">
+            <div class="card-header">
+                <h2>💊 Medications</h2>
+            </div>
+            <div class="card-body">
+                <p>Track household medications, monitor pill counts, forecast refill dates, and receive alerts when supplies run low.</p>
+
+                <div id="medicationsAlertBanner" style="display: none; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem;"></div>
+
+                <button class="btn" onclick="showMedicationForm()">➕ Add Medication</button>
+
+                <div id="medicationFormContainer" style="display: none; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                    <h3 id="medicationFormTitle" style="margin-top: 0;">Add Medication</h3>
+                    <form id="medicationForm" onsubmit="saveMedicationForm(event)">
+                        <input type="hidden" id="medicationId">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="medicationName">Medication Name <span style="color: red;">*</span></label>
+                                <input type="text" id="medicationName" placeholder="e.g., Lisinopril 10mg" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="medicationPillCount">Current Pill Count</label>
+                                <input type="number" id="medicationPillCount" placeholder="e.g., 30" min="0" step="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="medicationDescription">Description</label>
+                            <input type="text" id="medicationDescription" placeholder="e.g., Blood pressure medication">
+                        </div>
+                        <div class="form-group">
+                            <label for="medicationInstructions">Instructions</label>
+                            <input type="text" id="medicationInstructions" placeholder="e.g., Take 1 pill once daily" title="Used to estimate daily usage and forecast refill date">
+                            <small style="color: #666;">Used to estimate daily usage. E.g., &ldquo;Take 1 pill twice daily&rdquo; or &ldquo;1 tablet every 8 hours&rdquo;.</small>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="medicationRefillDate">Refill Date</label>
+                                <input type="date" id="medicationRefillDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="medicationRefillExpiration">Refill Expiration</label>
+                                <input type="date" id="medicationRefillExpiration">
+                            </div>
+                        </div>
+                        <div class="form-group" style="max-width: 260px;">
+                            <label for="medicationAlertThresholdDays">Alert Threshold (days before empty)</label>
+                            <input type="number" id="medicationAlertThresholdDays" placeholder="7" min="0" step="1" value="7">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            <button type="submit" class="btn btn-success">💾 Save Medication</button>
+                            <button type="button" class="btn btn-secondary" onclick="hideMedicationForm()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="medicationsList" style="margin-top: 1rem;">
+                    <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medications...</div>
+                </div>
+
+                <div id="medicationsAlert" class="alert"></div>
             </div>
         </div>
 
@@ -12899,6 +12964,7 @@
                 else if (subTabName === 'house-cars') targetTabText = '🚗 Cars';
                 else if (subTabName === 'house-bills') targetTabText = '🧾 Bills';
                 else if (subTabName === 'house-lists') targetTabText = 'Lists';
+                else if (subTabName === 'house-medications') targetTabText = '💊 Medications';
                 else if (subTabName === 'party-links') targetTabText = 'Useful Links';
                 else if (subTabName === 'party-drinks') targetTabText = 'Drinks';
                 else if (subTabName === 'party-tournament') targetTabText = 'Tournament';
@@ -12979,6 +13045,13 @@
                 
                 if (shouldLoadData) {
                     loadHouseListsData();
+                }
+            } else if (subTabName === 'house-medications') {
+                const medicationsSections = document.querySelectorAll('.house-medications-section');
+                medicationsSections.forEach(section => section.classList.remove('hidden'));
+
+                if (shouldLoadData) {
+                    loadHouseMedicationsData();
                 }
             } else if (subTabName === 'party-links') {
                 const linksSections = document.querySelectorAll('.party-links-section');
@@ -29390,6 +29463,183 @@
                 setTimeout(() => errorDiv.remove(), 5000);
             }
         });
+
+        // ── House Medications Functions ──────────────────────────────────────────
+
+        let houseMedicationsData = [];
+
+        async function loadHouseMedicationsData() {
+            try {
+                const response = await fetch('/admin/api/house/medications');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+                houseMedicationsData = data.medications || [];
+                renderMedications();
+            } catch (err) {
+                document.getElementById('medicationsList').innerHTML =
+                    `<div class="alert alert-error">Failed to load medications: ${err.message}</div>`;
+            }
+        }
+
+        function renderMedications() {
+            const container = document.getElementById('medicationsList');
+            const alertBanner = document.getElementById('medicationsAlertBanner');
+            if (!container) return;
+
+            // Collect alerts
+            const alertItems = houseMedicationsData.filter(med => {
+                if (med.daysUntilEmpty === null || med.daysUntilEmpty === undefined) return false;
+                const threshold = (med.alertThresholdDays !== null && med.alertThresholdDays !== undefined)
+                    ? Number(med.alertThresholdDays) : 7;
+                return med.daysUntilEmpty <= threshold;
+            });
+
+            if (alertBanner) {
+                if (alertItems.length > 0) {
+                    const list = alertItems.map(m =>
+                        `<strong>${escapeHtml(m.name)}</strong> &mdash; ${m.daysUntilEmpty} day(s) remaining`
+                    ).join('<br>');
+                    alertBanner.innerHTML = `⚠️ <strong>Refill Alert${alertItems.length > 1 ? 's' : ''}:</strong><br>${list}`;
+                    alertBanner.style.display = 'block';
+                } else {
+                    alertBanner.style.display = 'none';
+                }
+            }
+
+            if (houseMedicationsData.length === 0) {
+                container.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 1rem;">No medications added yet.</div>';
+                return;
+            }
+
+            const rows = houseMedicationsData.map(med => {
+                const isAlert = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined &&
+                    med.daysUntilEmpty <= ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
+                const rowStyle = isAlert ? 'background: #fff8e1;' : '';
+                const daysText = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined
+                    ? `${med.daysUntilEmpty} day(s)` : '—';
+                const refillNeeded = med.refillNeededDate || '—';
+                const usageText = med.dailyUsage !== null && med.dailyUsage !== undefined
+                    ? `${med.dailyUsage}/day` : '—';
+                return `
+                    <tr style="${rowStyle}">
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-weight: 600;">
+                            ${isAlert ? '⚠️ ' : ''}${escapeHtml(med.name)}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; color: #555; font-size: 0.9rem;">
+                            ${escapeHtml(med.description || '')}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
+                            ${med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '—'}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
+                            ${usageText}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; ${isAlert ? 'color: #c0392b; font-weight: 600;' : ''}">
+                            ${daysText}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
+                            ${refillNeeded}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; white-space: nowrap;">
+                            <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;" onclick="editMedication('${med.id}')">✏️ Edit</button>
+                            <button class="btn btn-danger" style="font-size: 0.8rem; padding: 0.25rem 0.5rem; margin-left: 0.25rem;" onclick="deleteMedicationEntry('${med.id}', '${escapeHtml(med.name)}')">🗑️ Delete</button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: 640px;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Name</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Description</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Pills</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Usage</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Days Left</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Refill Needed</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function showMedicationForm(med) {
+            document.getElementById('medicationFormContainer').style.display = 'block';
+            document.getElementById('medicationFormTitle').textContent = med ? 'Edit Medication' : 'Add Medication';
+            document.getElementById('medicationId').value = med ? med.id : '';
+            document.getElementById('medicationName').value = med ? (med.name || '') : '';
+            document.getElementById('medicationDescription').value = med ? (med.description || '') : '';
+            document.getElementById('medicationInstructions').value = med ? (med.instructions || '') : '';
+            document.getElementById('medicationRefillDate').value = med ? (med.refillDate || '') : '';
+            document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
+            document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
+            document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
+            document.getElementById('medicationName').focus();
+        }
+
+        function hideMedicationForm() {
+            document.getElementById('medicationFormContainer').style.display = 'none';
+            document.getElementById('medicationForm').reset();
+            document.getElementById('medicationId').value = '';
+        }
+
+        function editMedication(id) {
+            const med = houseMedicationsData.find(m => m.id === id);
+            if (med) showMedicationForm(med);
+        }
+
+        async function saveMedicationForm(event) {
+            event.preventDefault();
+            const id = document.getElementById('medicationId').value;
+            const payload = {
+                name: document.getElementById('medicationName').value.trim(),
+                description: document.getElementById('medicationDescription').value.trim(),
+                instructions: document.getElementById('medicationInstructions').value.trim(),
+                refillDate: document.getElementById('medicationRefillDate').value,
+                pillCount: document.getElementById('medicationPillCount').value,
+                refillExpiration: document.getElementById('medicationRefillExpiration').value,
+                alertThresholdDays: document.getElementById('medicationAlertThresholdDays').value
+            };
+
+            try {
+                const url = id ? `/admin/api/house/medications/${id}` : '/admin/api/house/medications';
+                const method = id ? 'PUT' : 'POST';
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    hideMedicationForm();
+                    await loadHouseMedicationsData();
+                    showAlert(id ? 'Medication updated.' : 'Medication added.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to save medication.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving medication: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        async function deleteMedicationEntry(id, name) {
+            if (!confirm(`Delete medication "${name}"?`)) return;
+            try {
+                const response = await fetch(`/admin/api/house/medications/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    await loadHouseMedicationsData();
+                    showAlert('Medication deleted.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to delete medication.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error deleting medication: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
     </script>
 </body>
 </html>
