@@ -1705,7 +1705,7 @@ function computeMedicationForecast(med) {
     refillNeededDate = neededDate.toISOString().slice(0, 10);
 
     if (Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0) {
-      const alertDays = daysUntilEmpty - alertThresholdDays;
+      const alertDays = Math.max(0, daysUntilEmpty - alertThresholdDays);
       const aDate = new Date();
       aDate.setDate(aDate.getDate() + alertDays);
       alertDate = aDate.toISOString().slice(0, 10);
@@ -1782,7 +1782,11 @@ function updateMedication(id, medication) {
 // Delete a medication
 function deleteMedication(id) {
   const medsData = getMedicationsData();
+  const originalLength = medsData.medications.length;
   medsData.medications = medsData.medications.filter(m => m.id !== id);
+  if (medsData.medications.length === originalLength) {
+    return { success: false, error: 'Medication not found' };
+  }
   return saveMedicationsData(medsData);
 }
 

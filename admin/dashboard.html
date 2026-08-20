@@ -29541,8 +29541,8 @@
                             ${refillNeeded}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; white-space: nowrap;">
-                            <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;" onclick="editMedication('${med.id}')">✏️ Edit</button>
-                            <button class="btn btn-danger" style="font-size: 0.8rem; padding: 0.25rem 0.5rem; margin-left: 0.25rem;" onclick="deleteMedicationEntry('${med.id}', '${escapeHtml(med.name)}')">🗑️ Delete</button>
+                            <button class="btn btn-secondary med-edit-btn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;" data-med-id="${escapeHtml(med.id)}">✏️ Edit</button>
+                            <button class="btn btn-danger med-delete-btn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem; margin-left: 0.25rem;" data-med-id="${escapeHtml(med.id)}" data-med-name="${escapeHtml(med.name)}">🗑️ Delete</button>
                         </td>
                     </tr>`;
             }).join('');
@@ -29564,6 +29564,13 @@
                         <tbody>${rows}</tbody>
                     </table>
                 </div>`;
+
+            container.querySelectorAll('.med-edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => editMedication(btn.dataset.medId));
+            });
+            container.querySelectorAll('.med-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteMedicationEntry(btn.dataset.medId, btn.dataset.medName));
+            });
         }
 
         function showMedicationForm(med) {
