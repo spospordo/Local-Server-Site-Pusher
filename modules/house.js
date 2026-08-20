@@ -1774,6 +1774,7 @@ function addMedication(medication) {
     alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
       ? Number(medication.alertThresholdDays)
       : 7,
+    asNeeded: medication.asNeeded === true || medication.asNeeded === 'true',
     createdDate: new Date().toISOString()
   };
   medsData.medications.push(entry);
@@ -1802,6 +1803,7 @@ function updateMedication(id, medication) {
     alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
       ? Number(medication.alertThresholdDays)
       : existing.alertThresholdDays,
+    asNeeded: medication.asNeeded !== undefined ? (medication.asNeeded === true || medication.asNeeded === 'true') : (existing.asNeeded || false),
     id
   };
   return saveMedicationsData(medsData);

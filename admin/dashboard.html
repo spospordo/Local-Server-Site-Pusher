@@ -4558,6 +4558,12 @@
                             <label for="medicationAlertThresholdDays">Alert Threshold (days before empty)</label>
                             <input type="number" id="medicationAlertThresholdDays" placeholder="7" min="0" step="1" value="7">
                         </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="medicationAsNeeded">
+                                As needed (not a scheduled daily medication)
+                            </label>
+                        </div>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
                             <button type="submit" class="btn btn-success">💾 Save Medication</button>
                             <button type="button" class="btn btn-secondary" onclick="hideMedicationForm()">Cancel</button>
@@ -29604,6 +29610,7 @@
             document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
             document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
             document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
+            document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
             document.getElementById('medicationName').focus();
         }
 
@@ -29629,7 +29636,8 @@
                 refillDate: document.getElementById('medicationRefillDate').value,
                 pillCount: document.getElementById('medicationPillCount').value,
                 refillExpiration: document.getElementById('medicationRefillExpiration').value,
-                alertThresholdDays: document.getElementById('medicationAlertThresholdDays').value
+                alertThresholdDays: document.getElementById('medicationAlertThresholdDays').value,
+                asNeeded: document.getElementById('medicationAsNeeded').checked
             };
 
             try {

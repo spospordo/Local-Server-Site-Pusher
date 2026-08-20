@@ -197,10 +197,36 @@
             padding: 1.1rem 1.25rem;
             margin-bottom: 1rem;
         }
-        .more-options-section h3 {
-            margin-bottom: 0.75rem;
+        .more-options-toggle {
+            margin: 0;
             font-size: 1rem;
+            font-weight: 600;
             color: var(--primary-dark);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 100%;
+            text-align: left;
+        }
+        .more-options-toggle::after {
+            content: '▶';
+            font-size: 0.75rem;
+            transition: transform 0.2s;
+        }
+        .more-options-section.expanded .more-options-toggle::after {
+            transform: rotate(90deg);
+        }
+        .more-options-body {
+            display: none;
+            margin-top: 0.75rem;
+        }
+        .more-options-section.expanded .more-options-body {
+            display: block;
         }
         .more-options-section .action-row {
             margin: 0;
@@ -219,6 +245,21 @@
         }
         .more-options-section .action-row button:hover {
             background: #e8edff;
+        }
+        /* Daily guidance badge */
+        .pill-guidance {
+            display: inline-block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--success-text);
+            background: var(--success-soft);
+            border-radius: 8px;
+            padding: 0.2rem 0.55rem;
+            margin-top: 0.25rem;
+        }
+        .pill-guidance.as-needed {
+            color: #6b4c00;
+            background: #fff3cd;
         }
 
         /* Dashboard bottom section */
@@ -388,7 +429,7 @@
                 <div class="form-grid">
                     <div>
                         <label for="loginUsername">Username</label>
-                        <input id="loginUsername" name="username" autocomplete="username" required>
+                        <input id="loginUsername" type="text" name="username" autocomplete="username" required>
                     </div>
                     <div>
                         <label for="loginPassword">Password</label>
@@ -433,11 +474,13 @@
 
             <!-- More options section -->
             <div id="moreOptionsSection" class="more-options-section hidden">
-                <h3>More options</h3>
-                <div class="action-row">
-                    <button type="button" id="openRecordPrevBtn">&#128197; Record previous day</button>
-                    <button type="button" id="openDetailsPageBtn">&#128138; View medication details</button>
-                    <button type="button" id="openHistoryBtn">&#128203; View history</button>
+                <button type="button" id="moreOptionsToggle" class="more-options-toggle" aria-expanded="false" aria-controls="moreOptionsBody">More options</button>
+                <div id="moreOptionsBody" class="more-options-body">
+                    <div class="action-row">
+                        <button type="button" id="openRecordPrevBtn">&#128197; Record previous day</button>
+                        <button type="button" id="openDetailsPageBtn">&#128138; View medication details</button>
+                        <button type="button" id="openHistoryBtn">&#128203; View history</button>
+                    </div>
                 </div>
             </div>
 
@@ -486,15 +529,13 @@
         </div>
     </div>
 
-    <!-- View medication details modal -->
+    <!-- All medications details modal (More options > View medication details) -->
     <div id="medDetailsModal" class="details-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="medDetailsMedTitle" tabindex="-1">
         <div class="card details-panel">
             <div class="topbar">
-                <h2 id="medDetailsMedTitle" style="margin-bottom: 0;">Medication details</h2>
+                <h2 id="medDetailsMedTitle" style="margin-bottom: 0;">All medications</h2>
                 <button id="closeMedDetailsBtn" type="button" class="btn-secondary">Close</button>
             </div>
-            <div class="med-select-label" style="margin-top:0.75rem;">Medication</div>
-            <select id="medDetailsMedSelect" class="med-select" aria-label="Select medication"></select>
             <div id="medDetailsBody"></div>
         </div>
     </div>
@@ -618,12 +659,40 @@
             document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
             document.getElementById('dashboardFooter').classList.remove('hidden');
             document.getElementById('moreOptionsSection').classList.toggle('hidden', !data.medications || data.medications.length === 0);
+            document.getElementById('moreOptionsSection').classList.remove('expanded');
+            document.getElementById('moreOptionsToggle').setAttribute('aria-expanded', 'false');
             updateDayNav();
             renderDashboard(data);
         }
 
         function getDisplayDate() {
             return getDateForOffset(currentDayOffset);
+        }
+
+        function getDailyGuidance(medication) {
+            if (medication.asNeeded) return { text: 'as needed', cls: 'as-needed' };
+            const instructions = medication.instructions || '';
+            const text = instructions.toLowerCase();
+            // Count doses per day from instructions
+            let frequency = null;
+            const everyHoursMatch = text.match(/every\s+(\d+(?:\.\d+)?)\s+hours?/);
+            if (everyHoursMatch) {
+                frequency = Math.round(24 / parseFloat(everyHoursMatch[1]));
+            } else if (/\btwice\s+(?:a\s+)?daily|\b2\s+times?\s+(?:a\s+|per\s+)?day/.test(text)) {
+                frequency = 2;
+            } else if (/\bthree\s+times?\s+(?:a\s+|per\s+)?day|\b3\s+times?\s+(?:a\s+|per\s+)?day/.test(text)) {
+                frequency = 3;
+            } else if (/\bfour\s+times?\s+(?:a\s+|per\s+)?day|\b4\s+times?\s+(?:a\s+|per\s+)?day/.test(text)) {
+                frequency = 4;
+            } else if (/(\d+)\s+times?\s+(?:a\s+|per\s+)?day/.test(text)) {
+                frequency = parseInt(text.match(/(\d+)\s+times?\s+(?:a\s+|per\s+)?day/)[1], 10);
+            } else if (/\bonce\s+(?:a\s+)?daily|\bone\s+time\s+(?:a\s+|per\s+)?day|\b1\s*x\s*(?:a\s+|per\s+)?day|\bonce\s+per\s+day|\bdaily\b/.test(text)) {
+                frequency = 1;
+            }
+            if (frequency === null || frequency <= 0) return null;
+            if (frequency === 1) return { text: 'Take today', cls: '' };
+            if (frequency === 2) return { text: 'Take twice today', cls: '' };
+            return { text: `Take ${frequency}× today`, cls: '' };
         }
 
         function renderDashboard(data) {
@@ -640,10 +709,15 @@
             const notTakenLabel = isToday ? 'Not today' : 'Not taken';
 
             const cards = data.medications.map(medication => {
+                const guidance = getDailyGuidance(medication);
+                const guidanceHtml = guidance
+                    ? `<div class="pill-guidance${guidance.cls ? ' ' + guidance.cls : ''}">${escapeHtml(guidance.text)}</div>`
+                    : '';
                 return `
                     <div class="card medication-card">
-                        <div class="medication-title">${escapeHtml(medication.name)}</div>
+                        <div class="medication-title"><button type="button" class="btn-link" data-action="show-details" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(medication.name)}</button></div>
                         <div class="pill-meta">${escapeHtml(medication.description || medication.usage || 'Assigned medication')}</div>
+                        ${guidanceHtml}
                         <div class="action-row">
                             <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
                             <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
@@ -687,32 +761,24 @@
                     <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
                     <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
                     <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
+                    <div class="detail-box"><strong>As needed</strong>${medication.asNeeded ? 'Yes' : 'No'}</div>
                     <div class="detail-box"><strong>Remaining pills</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
                     <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
                 </div>`;
         }
 
-        // ---- View medication details (More options) ----
+        // ---- View all medication details (More options) ----
         function openMedDetailsModal() {
             if (!dashboardData?.medications?.length) return;
-            const select = document.getElementById('medDetailsMedSelect');
-            select.innerHTML = dashboardData.medications.map(m =>
-                `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`
-            ).join('');
-            renderMedDetailsBody();
+            document.getElementById('medDetailsBody').innerHTML = dashboardData.medications
+                .map(m => `<h3 style="margin:1rem 0 0.5rem;">${escapeHtml(m.name)}</h3>${buildMedDetailsHtml(m)}`)
+                .join('<hr style="margin:0.75rem 0; border:none; border-top:1px solid var(--border);">');
             lastFocusedElement = document.activeElement;
             const modal = document.getElementById('medDetailsModal');
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
             document.getElementById('closeMedDetailsBtn').focus();
-        }
-
-        function renderMedDetailsBody() {
-            const select = document.getElementById('medDetailsMedSelect');
-            const med = getMedicationById(select.value);
-            document.getElementById('medDetailsMedTitle').textContent = med ? med.name : 'Medication details';
-            document.getElementById('medDetailsBody').innerHTML = med ? buildMedDetailsHtml(med) : '';
         }
 
         function closeMedDetailsModal() {
@@ -722,7 +788,6 @@
             if (lastFocusedElement?.focus) lastFocusedElement.focus();
         }
 
-        document.getElementById('medDetailsMedSelect').addEventListener('change', renderMedDetailsBody);
         document.getElementById('closeMedDetailsBtn').addEventListener('click', closeMedDetailsModal);
         document.getElementById('medDetailsModal').addEventListener('click', e => { if (e.target.id === 'medDetailsModal') closeMedDetailsModal(); });
 
@@ -918,6 +983,15 @@
         document.getElementById('openDetailsPageBtn').addEventListener('click', openMedDetailsModal);
         document.getElementById('openHistoryBtn').addEventListener('click', openHistoryModal);
 
+        // ---- More options toggle ----
+        function toggleMoreOptions() {
+            const section = document.getElementById('moreOptionsSection');
+            const toggle = document.getElementById('moreOptionsToggle');
+            const expanded = section.classList.toggle('expanded');
+            toggle.setAttribute('aria-expanded', String(expanded));
+        }
+        document.getElementById('moreOptionsToggle').addEventListener('click', toggleMoreOptions);
+
         const MIN_DAY_OFFSET = -90;
 
         // ---- Day navigation ----
@@ -965,7 +1039,9 @@
             const action = button.getAttribute('data-action');
 
             try {
-                if (action === 'record-took') {
+                if (action === 'show-details') {
+                    showMedicationDetails(medicationId);
+                } else if (action === 'record-took') {
                     await recordMedicationStatus(medicationId, 'took', getDisplayDate());
                 } else if (action === 'record-not-taken') {
                     await recordMedicationStatus(medicationId, 'not_taken', getDisplayDate());
