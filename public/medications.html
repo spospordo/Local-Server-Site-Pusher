@@ -364,8 +364,8 @@
                             <label for="date-${escapeHtml(medication.id)}">Record a previous day</label>
                             <input id="date-${escapeHtml(medication.id)}" type="date" value="${escapeHtml(data.today)}" max="${escapeHtml(data.today)}">
                             <div class="action-row" style="margin-bottom: 0;">
-                                <button type="button" class="btn-success" data-action="record-took-date" data-medication-id="${escapeHtml(medication.id)}">I took today</button>
-                                <button type="button" class="btn-danger" data-action="record-not-taken-date" data-medication-id="${escapeHtml(medication.id)}">not today</button>
+                                <button type="button" class="btn-success" data-action="record-took-date" data-medication-id="${escapeHtml(medication.id)}">I took this day</button>
+                                <button type="button" class="btn-danger" data-action="record-not-taken-date" data-medication-id="${escapeHtml(medication.id)}">not this day</button>
                             </div>
                         </div>
                         <h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Recent history</h3>
@@ -394,7 +394,9 @@
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
                     <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
                 </div>`;
-            document.getElementById('detailsModal').classList.remove('hidden');
+            const detailsModal = document.getElementById('detailsModal');
+            detailsModal.classList.remove('hidden');
+            detailsModal.setAttribute('aria-hidden', 'false');
         }
 
         function toggleMoreOptions(medicationId) {
@@ -480,11 +482,15 @@
         });
 
         document.getElementById('closeDetailsBtn').addEventListener('click', () => {
-            document.getElementById('detailsModal').classList.add('hidden');
+            const detailsModal = document.getElementById('detailsModal');
+            detailsModal.classList.add('hidden');
+            detailsModal.setAttribute('aria-hidden', 'true');
         });
         document.getElementById('detailsModal').addEventListener('click', event => {
             if (event.target.id === 'detailsModal') {
-                document.getElementById('detailsModal').classList.add('hidden');
+                const detailsModal = document.getElementById('detailsModal');
+                detailsModal.classList.add('hidden');
+                detailsModal.setAttribute('aria-hidden', 'true');
             }
         });
 
