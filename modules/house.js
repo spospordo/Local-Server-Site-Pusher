@@ -1687,11 +1687,30 @@ function estimateDailyUsageFromInstructions(instructions) {
 }
 
 /**
+ * Compute daily pill usage from structured schedule fields.
+ * Returns null when structured fields are not set.
+ */
+function computeDailyUsageFromStructured(med) {
+  const pillsPerDose = (typeof med.pillsPerDose === 'number' && med.pillsPerDose > 0)
+    ? med.pillsPerDose
+    : (parseFloat(med.pillsPerDose) > 0 ? parseFloat(med.pillsPerDose) : 1);
+  switch (med.scheduleFrequency) {
+    case 'daily': return pillsPerDose * 1;
+    case 'twice daily': return pillsPerDose * 2;
+    case 'three times daily': return pillsPerDose * 3;
+    case 'four times daily': return pillsPerDose * 4;
+    case 'weekly': return pillsPerDose / 7;
+    default: return null;
+  }
+}
+
+/**
  * Compute forecast fields for a medication entry.
  * Returns an object with dailyUsage, daysUntilEmpty, refillNeededDate, alertDate.
  */
 function computeMedicationForecast(med) {
-  const dailyUsage = estimateDailyUsageFromInstructions(med.instructions);
+  const structuredUsage = computeDailyUsageFromStructured(med);
+  const dailyUsage = structuredUsage !== null ? structuredUsage : estimateDailyUsageFromInstructions(med.instructions);
   const pillCount = typeof med.pillCount === 'number' ? med.pillCount : parseFloat(med.pillCount);
   const alertThresholdDays = typeof med.alertThresholdDays === 'number'
     ? med.alertThresholdDays
@@ -1775,6 +1794,10 @@ function addMedication(medication) {
       ? Number(medication.alertThresholdDays)
       : 7,
     asNeeded: medication.asNeeded === true || medication.asNeeded === 'true',
+    scheduleFrequency: medication.scheduleFrequency || '',
+    pillsPerDose: medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
+      ? Number(medication.pillsPerDose)
+      : 1,
     createdDate: new Date().toISOString()
   };
   medsData.medications.push(entry);
@@ -1804,6 +1827,10 @@ function updateMedication(id, medication) {
       ? Number(medication.alertThresholdDays)
       : existing.alertThresholdDays,
     asNeeded: medication.asNeeded !== undefined ? (medication.asNeeded === true || medication.asNeeded === 'true') : (existing.asNeeded || false),
+    scheduleFrequency: medication.scheduleFrequency !== undefined ? (medication.scheduleFrequency || '') : (existing.scheduleFrequency || ''),
+    pillsPerDose: medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
+      ? Number(medication.pillsPerDose)
+      : (medication.pillsPerDose === '' ? 1 : (existing.pillsPerDose !== undefined ? existing.pillsPerDose : 1)),
     id
   };
   return saveMedicationsData(medsData);

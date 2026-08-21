@@ -168,8 +168,8 @@
             padding: 0;
             text-align: left;
             color: var(--text);
-            font-weight: 700;
-            font-size: 1.1rem;
+            font-weight: 800;
+            font-size: 1.3rem;
         }
         .pill-meta {
             color: var(--muted);
@@ -671,6 +671,16 @@
 
         function getDailyGuidance(medication) {
             if (medication.asNeeded) return { text: 'as needed', cls: 'as-needed' };
+
+            // Use structured scheduleFrequency field when available
+            const freq = medication.scheduleFrequency || '';
+            if (freq === 'daily') return { text: 'Take today', cls: '' };
+            if (freq === 'twice daily') return { text: 'Take twice today', cls: '' };
+            if (freq === 'three times daily') return { text: 'Take 3× today', cls: '' };
+            if (freq === 'four times daily') return { text: 'Take 4× today', cls: '' };
+            if (freq === 'weekly') return { text: 'Take this week', cls: '' };
+
+            // Fall back to parsing free-text instructions for backwards compatibility
             const instructions = medication.instructions || '';
             const text = instructions.toLowerCase();
             // Count doses per day from instructions
@@ -688,6 +698,8 @@
                 frequency = parseInt(text.match(/(\d+)\s+times?\s+(?:a\s+|per\s+)?day/)[1], 10);
             } else if (/\bonce\s+(?:a\s+)?daily|\bone\s+time\s+(?:a\s+|per\s+)?day|\b1\s*x\s*(?:a\s+|per\s+)?day|\bonce\s+per\s+day|\bdaily\b/.test(text)) {
                 frequency = 1;
+            } else if (/\bweekly\b|\bonce\s+a\s+week\b|\bper\s+week\b/.test(text)) {
+                return { text: 'Take this week', cls: '' };
             }
             if (frequency === null || frequency <= 0) return null;
             if (frequency === 1) return { text: 'Take today', cls: '' };
