@@ -4539,10 +4539,29 @@
                             <label for="medicationUsage">Usage</label>
                             <input type="text" id="medicationUsage" placeholder="e.g., Blood pressure support">
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="medicationScheduleFrequency">Schedule Frequency</label>
+                                <select id="medicationScheduleFrequency">
+                                    <option value="">— not specified —</option>
+                                    <option value="daily">Daily (once a day)</option>
+                                    <option value="twice daily">Twice daily (BID)</option>
+                                    <option value="three times daily">Three times daily (TID)</option>
+                                    <option value="four times daily">Four times daily (QID)</option>
+                                    <option value="weekly">Weekly</option>
+                                </select>
+                                <small style="color: #666;">Used for countdown and refill forecasting.</small>
+                            </div>
+                            <div class="form-group" style="max-width: 180px;">
+                                <label for="medicationPillsPerDose">Pills per dose</label>
+                                <input type="number" id="medicationPillsPerDose" placeholder="1" min="1" step="1" value="1">
+                                <small style="color: #666;">Number of pills taken per dose.</small>
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label for="medicationInstructions">Instructions</label>
-                            <input type="text" id="medicationInstructions" placeholder="e.g., Take 1 pill once daily" title="Used to estimate daily usage and forecast refill date">
-                            <small style="color: #666;">Used to estimate daily usage. E.g., &ldquo;Take 1 pill twice daily&rdquo; or &ldquo;1 tablet every 8 hours&rdquo;.</small>
+                            <input type="text" id="medicationInstructions" placeholder="e.g., Take 1 pill once daily" title="Human-readable instructions displayed to the user">
+                            <small style="color: #666;">Human-readable instructions for display only.</small>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -29606,6 +29625,8 @@
             document.getElementById('medicationDescription').value = med ? (med.description || '') : '';
             document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
             document.getElementById('medicationInstructions').value = med ? (med.instructions || '') : '';
+            document.getElementById('medicationScheduleFrequency').value = med ? (med.scheduleFrequency || '') : '';
+            document.getElementById('medicationPillsPerDose').value = med && med.pillsPerDose !== null && med.pillsPerDose !== undefined ? med.pillsPerDose : 1;
             document.getElementById('medicationRefillDate').value = med ? (med.refillDate || '') : '';
             document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
             document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
@@ -29633,6 +29654,8 @@
                 description: document.getElementById('medicationDescription').value.trim(),
                 usage: document.getElementById('medicationUsage').value.trim(),
                 instructions: document.getElementById('medicationInstructions').value.trim(),
+                scheduleFrequency: document.getElementById('medicationScheduleFrequency').value,
+                pillsPerDose: document.getElementById('medicationPillsPerDose').value,
                 refillDate: document.getElementById('medicationRefillDate').value,
                 pillCount: document.getElementById('medicationPillCount').value,
                 refillExpiration: document.getElementById('medicationRefillExpiration').value,
