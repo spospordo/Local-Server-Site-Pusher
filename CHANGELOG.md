@@ -9,6 +9,19 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.30.2] - 2026-09-01
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #695 from spospordo/copilot/add-estimated-remaining-pill-count-alerts
+  - Harden medication alert rendering
+  - Polish medication pill alert logic
+  - Refine medication pill threshold handling
+  - Add medication remaining pill alerts
+  - Initial plan
+
+
 ## [2.30.1] - 2026-09-01
 
 ### Patch Update
