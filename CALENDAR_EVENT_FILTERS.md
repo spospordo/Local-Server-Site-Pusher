@@ -15,6 +15,7 @@ The Calendar Event Filters feature allows administrators to define keyword-based
 
 1. **Hide Events**: Completely remove events from the calendar display when keywords match
 2. **Replace Content**: Replace event titles and/or descriptions with custom text while keeping the event visible
+3. **Group Similar Upcoming Events**: When multiple future events are replaced with the same display title, the Smart Mirror shows them as a single summarized entry with up to the next 3 dates
 
 ### Rule Configuration
 
@@ -91,6 +92,15 @@ Rule 2:
 ```
 Result: Work events are hidden, while birthday/party events are renamed to "Celebration".
 
+#### Example 4: Group Repeated Appointments
+```
+Keywords: doctor, dentist, therapy
+Action: Replace Title/Description
+Replacement Title: Doc Appointment
+Replacement Description: (leave blank to keep the next event's description)
+```
+Result: Multiple future matching events display as a single entry such as `Doc Appointment 1/1, 1/8, 1/15...`
+
 ## Technical Details
 
 ### Configuration Structure
@@ -124,12 +134,14 @@ The filter configuration is stored in the Smart Mirror config as:
 Filters are applied:
 1. **Server-side** during event fetching from calendar feeds
 2. **After parsing** iCal data but before caching
-3. **Before limiting** to the 10 most recent events
+3. **Before grouping** matching replacement-title events
+4. **Before limiting** to the 10 most recent events
 
 This ensures:
 - Filtered events don't consume API quota
 - Performance is optimized (filtering happens once, then cached)
 - Hidden events don't count toward the 10-event display limit
+- Grouped appointment summaries stay in chronological order based on the next upcoming matching event
 
 ### Matching Logic
 
@@ -141,6 +153,7 @@ For each event:
    - For "hide" action: skip the event entirely
    - For "replace" action: modify title/description as specified
 5. Continue checking remaining rules unless event was hidden
+6. After filtering, future events that were replaced to the same display title are combined into one entry showing up to the next 3 dates, with `...` appended when more matches exist
 
 ### Performance Considerations
 
