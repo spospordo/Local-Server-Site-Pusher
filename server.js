@@ -1442,7 +1442,6 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
   }
 
   logSecurityEvent('Medication access link issued', req, {
-    username: portalUser.username,
     reason: 'issued_access_link',
     path: req.originalUrl || req.path
   });

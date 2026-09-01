@@ -23,6 +23,7 @@ const BASE_HOST = 'localhost';
 let testsPassed = 0;
 let testsFailed = 0;
 let serverLogChunks = [];
+let serverLogText = '';
 
 function log(message, type = 'info') {
   const symbols = { success: '✅', error: '❌', info: 'ℹ️ ' };
@@ -43,12 +44,14 @@ async function test(description, testFn) {
 
 function appendServerLogs(chunk) {
   if (chunk) {
-    serverLogChunks.push(chunk.toString());
+    const text = chunk.toString();
+    serverLogChunks.push(text);
+    serverLogText += text;
   }
 }
 
 function getServerLogs() {
-  return serverLogChunks.join('');
+  return serverLogText;
 }
 
 async function waitForLog(snippet, options = {}) {
@@ -178,6 +181,7 @@ async function run() {
   const configBackupPaths = ['config.json', 'house-data.json'].map(name => path.join(repoRoot, 'config', name));
   const backups = configBackupPaths.map(p => (fs.existsSync(p) ? fs.readFileSync(p) : null));
   serverLogChunks = [];
+  serverLogText = '';
 
   const serverProcess = spawn(process.execPath, ['server.js'], {
     cwd: repoRoot,
