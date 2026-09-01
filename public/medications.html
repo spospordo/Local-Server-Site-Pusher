@@ -838,16 +838,21 @@
             return Number.isFinite(normalized) ? String(normalized) : '—';
         }
 
+        function getMedicationAlertThresholdPillCount(medication) {
+            const threshold = medication?.alertThresholdPillCount !== null && medication?.alertThresholdPillCount !== undefined
+                ? Number(medication.alertThresholdPillCount)
+                : (medication?.alertThresholdDays !== null && medication?.alertThresholdDays !== undefined
+                    ? Number(medication.alertThresholdDays)
+                    : 7);
+            return Number.isFinite(threshold) ? threshold : 7;
+        }
+
         function getLowSupplyMedications(data) {
             return (data?.medications || []).filter(medication => {
                 const estimatedRemaining = medication?.estimatedRemainingPillCount !== null && medication?.estimatedRemainingPillCount !== undefined
                     ? Number(medication.estimatedRemainingPillCount)
                     : NaN;
-                const threshold = medication?.alertThresholdPillCount !== null && medication?.alertThresholdPillCount !== undefined
-                    ? Number(medication.alertThresholdPillCount)
-                    : (medication?.alertThresholdDays !== null && medication?.alertThresholdDays !== undefined
-                        ? Number(medication.alertThresholdDays)
-                        : 7);
+                const threshold = getMedicationAlertThresholdPillCount(medication);
                 return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
             });
         }

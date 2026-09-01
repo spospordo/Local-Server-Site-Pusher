@@ -29777,9 +29777,13 @@
 
             if (alertBanner) {
                 if (alertItems.length > 0) {
-                    const list = alertItems.map(m =>
-                        `<strong>${escapeHtml(m.name)}</strong> &mdash; about ${escapeHtml(String(m.estimatedRemainingPillCount))} pill(s) remaining`
-                    ).join('<br>');
+                    const list = alertItems.map(m => {
+                        const alertState = getMedAlertState(m);
+                        const estimatedRemainingText = Number.isFinite(alertState.estimatedRemaining)
+                            ? String(alertState.estimatedRemaining)
+                            : '—';
+                        return `<strong>${escapeHtml(m.name)}</strong> &mdash; about ${escapeHtml(estimatedRemainingText)} pill(s) remaining`;
+                    }).join('<br>');
                     alertBanner.innerHTML = `⚠️ <strong>Refill Alert${alertItems.length > 1 ? 's' : ''}:</strong><br>${list}`;
                     alertBanner.style.display = 'block';
                 } else {
