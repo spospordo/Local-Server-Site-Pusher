@@ -1101,7 +1101,7 @@ function _applyEventFilters(events, filterConfig) {
   
   for (const event of events) {
     let shouldHide = false;
-    let modifiedEvent = { ...event, _originalOrder: originalOrder++ };
+    let modifiedEvent = { ...event, _originalOrder: originalOrder++, _wasModified: false };
     let groupingKey = null;
     
     // Check each filter rule
@@ -1129,11 +1129,13 @@ function _applyEventFilters(events, filterConfig) {
           // Replace title and/or description if provided
           if (rule.replacementTitle) {
             modifiedEvent.title = rule.replacementTitle;
-            groupingKey = rule.id || rule.replacementTitle;
+            groupingKey = rule.replacementTitle;
+            modifiedEvent._wasModified = true;
             logger.debug(logger.categories.SMART_MIRROR, `Replaced title: "${event.title}" -> "${rule.replacementTitle}"`);
           }
           if (rule.replacementDescription !== undefined) {
             modifiedEvent.description = rule.replacementDescription;
+            modifiedEvent._wasModified = true;
             logger.debug(logger.categories.SMART_MIRROR, `Replaced description for event: "${event.title}"`);
           }
           // Continue checking other rules in case we also want to hide
@@ -1197,14 +1199,15 @@ function _applyEventFilters(events, filterConfig) {
   });
 
   const cleanedEvents = filteredEvents.map(event => {
-    const { _originalOrder, ...cleanEvent } = event;
+    const { _originalOrder, _wasModified, ...cleanEvent } = event;
     return cleanEvent;
   });
+  const modifiedCount = filteredEvents.filter(event => event._wasModified).length;
 
-  if (hiddenCount > 0 || groupedCount > 0) {
+  if (hiddenCount > 0 || modifiedCount > 0 || groupedCount > 0) {
     logger.info(
       logger.categories.SMART_MIRROR,
-      `Event filtering: ${hiddenCount} event(s) hidden, ${groupedCount} grouped entr${groupedCount === 1 ? 'y' : 'ies'}, ${cleanedEvents.length} event(s) remaining`
+      `Event filtering: ${hiddenCount} event(s) hidden, ${modifiedCount} event(s) modified, ${groupedCount} grouped entr${groupedCount === 1 ? 'y' : 'ies'}, ${cleanedEvents.length} event(s) remaining`
     );
   }
   
