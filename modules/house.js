@@ -1902,10 +1902,14 @@ function issueMedicationAccessToken(userId, options = {}) {
 
   const scope = normalizeMedicationAccessScope(options.scope || 'medication:access');
   const ttlMs = Number.isFinite(Number(options.ttlMs)) ? Number(options.ttlMs) : 15 * 60 * 1000;
+  const explicitExpiresAt = String(options.expiresAt || '').trim();
+  const explicitExpiresAtTime = explicitExpiresAt ? new Date(explicitExpiresAt).getTime() : NaN;
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = hashMedicationAccessToken(rawToken);
   const createdAt = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  const expiresAt = Number.isFinite(explicitExpiresAtTime)
+    ? new Date(explicitExpiresAtTime).toISOString()
+    : new Date(Date.now() + ttlMs).toISOString();
   const record = {
     id: generateId(),
     userId: portalUser.id,
@@ -1913,6 +1917,8 @@ function issueMedicationAccessToken(userId, options = {}) {
     tokenHash,
     tokenPrefix: rawToken.slice(0, 12),
     createdAt,
+    expiration: String(options.expiration || '').trim(),
+    expirationLabel: String(options.expirationLabel || '').trim(),
     expiresAt,
     usedAt: null,
     revoked: false,

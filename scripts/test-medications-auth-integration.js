@@ -137,6 +137,20 @@ function requestJson(jar, method, urlPath, body, extraHeaders = {}) {
   });
 }
 
+function getDurationMs(startValue, endValue) {
+  const startTime = new Date(startValue).getTime();
+  const endTime = new Date(endValue).getTime();
+  assert.ok(Number.isFinite(startTime), `expected valid start time, received ${startValue}`);
+  assert.ok(Number.isFinite(endTime), `expected valid end time, received ${endValue}`);
+  return endTime - startTime;
+}
+
+function assertAccessLinkDurationRange(accessLink, minMs, maxMs, description) {
+  const durationMs = getDurationMs(accessLink.createdAt, accessLink.expiresAt);
+  assert.ok(durationMs >= minMs, `${description} should be at least ${minMs}ms, received ${durationMs}ms`);
+  assert.ok(durationMs <= maxMs, `${description} should be at most ${maxMs}ms, received ${durationMs}ms`);
+}
+
 function waitForServer(maxAttempts = 40) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
@@ -293,8 +307,18 @@ async function run() {
       const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userA.id });
       assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
       assert.strictEqual(accessLinkRes.json.link.startsWith(`http://${BASE_HOST}:${PORT}/medications/access/`), true, 'access link should preserve the current host and port');
+      assert.strictEqual(accessLinkRes.json.expiration, '1_day', 'default access-link expiration should be returned');
+      assert.strictEqual(accessLinkRes.json.expirationLabel, '1 day', 'default access-link expiration label should be returned');
       assert.strictEqual(accessLinkRes.json.accessLink.status, 'active', 'newly issued access link metadata should report an active status');
       assert.ok(accessLinkRes.json.accessLink.id, 'newly issued access link should include a record id for admin management');
+      assert.strictEqual(accessLinkRes.json.accessLink.expiration, '1_day', 'issued access-link metadata should include the selected expiration value');
+      assert.strictEqual(accessLinkRes.json.accessLink.expirationLabel, '1 day', 'issued access-link metadata should include the selected expiration label');
+      assertAccessLinkDurationRange(
+        accessLinkRes.json.accessLink,
+        23 * 60 * 60 * 1000,
+        25 * 60 * 60 * 1000,
+        'default medication access link'
+      );
 
       const accessJar = createJar();
       const verifyRes = await requestJson(accessJar, 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
@@ -306,6 +330,37 @@ async function run() {
       const dashboardRes = await requestJson(accessJar, 'GET', '/medications/api/dashboard');
       assert.strictEqual(dashboardRes.statusCode, 200, 'secure-link session should access the dashboard');
       assert.strictEqual(dashboardRes.json.user.id, userA.id);
+    });
+
+    await test('Admin can choose supported expiration windows and unsupported values are rejected', async () => {
+      const expectedOptions = [
+        { value: '1_day', label: '1 day', minMs: 23 * 60 * 60 * 1000, maxMs: 25 * 60 * 60 * 1000 },
+        { value: '1_month', label: '1 month', minMs: 28 * 24 * 60 * 60 * 1000, maxMs: 32 * 24 * 60 * 60 * 1000 },
+        { value: '3_months', label: '3 months', minMs: 85 * 24 * 60 * 60 * 1000, maxMs: 95 * 24 * 60 * 60 * 1000 },
+        { value: '6_months', label: '6 months', minMs: 175 * 24 * 60 * 60 * 1000, maxMs: 190 * 24 * 60 * 60 * 1000 },
+        { value: '1_year', label: '1 year', minMs: 360 * 24 * 60 * 60 * 1000, maxMs: 370 * 24 * 60 * 60 * 1000 }
+      ];
+
+      for (const option of expectedOptions) {
+        const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', {
+          userId: userB.id,
+          expiration: option.value
+        });
+        assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed for ${option.value}: ${accessLinkRes.body}`);
+        assert.strictEqual(accessLinkRes.json.expiration, option.value, `response should echo the selected expiration value for ${option.value}`);
+        assert.strictEqual(accessLinkRes.json.expirationLabel, option.label, `response should echo the selected expiration label for ${option.value}`);
+        assert.strictEqual(accessLinkRes.json.accessLink.expiration, option.value, `metadata should store the selected expiration value for ${option.value}`);
+        assert.strictEqual(accessLinkRes.json.accessLink.expirationLabel, option.label, `metadata should store the selected expiration label for ${option.value}`);
+        assertAccessLinkDurationRange(accessLinkRes.json.accessLink, option.minMs, option.maxMs, `medication access link (${option.value})`);
+      }
+
+      const invalidRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', {
+        userId: userB.id,
+        expiration: '20_minutes'
+      });
+      assert.strictEqual(invalidRes.statusCode, 400, 'unsupported access-link expiration should be rejected');
+      assert.strictEqual(invalidRes.json.success, false, 'unsupported expiration should fail');
+      assert.strictEqual(invalidRes.json.error, 'Unsupported medication access-link expiration value');
     });
 
     await test('Used access links return a specific recovery code', async () => {
@@ -326,7 +381,7 @@ async function run() {
     });
 
     await test('Admin medication payload exposes safe access-link metadata without raw tokens', async () => {
-      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userB.id });
+      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userB.id, expiration: '3_months' });
       assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
 
       const listRes = await requestJson(adminJar, 'GET', '/admin/api/house/medications');
@@ -335,6 +390,7 @@ async function run() {
       assert.ok(portalUser, 'admin medication listing should include medication portal users');
       assert.ok(Array.isArray(portalUser.accessLinks), 'admin medication listing should include access-link metadata');
       assert.ok(portalUser.accessLinks.some(link => link.id === accessLinkRes.json.accessLink.id && link.status === 'active'), 'admin medication listing should expose the issued access link');
+      assert.ok(portalUser.accessLinks.some(link => link.id === accessLinkRes.json.accessLink.id && link.expiration === '3_months' && link.expirationLabel === '3 months'), 'admin medication listing should expose selected expiration metadata');
       assert.ok(!JSON.stringify(portalUser).includes(accessLinkRes.json.token), 'admin medication listing must not expose raw access tokens');
     });
 
@@ -397,6 +453,13 @@ async function run() {
       assert.ok(publicHtml.includes('expired, revoked, already used, or unavailable'), 'public medications page should keep password fallback visible');
       assert.ok(adminHtml.includes('Medication portal access links'), 'admin dashboard should expose the secure access-link workflow');
       assert.ok(adminHtml.includes('Generate access link'), 'admin dashboard should expose secure-link generation controls');
+      assert.ok(adminHtml.includes('Expires after'), 'admin dashboard should expose expiration selection controls');
+      assert.ok(adminHtml.includes('1 day'), 'admin dashboard should include the 1 day access-link option');
+      assert.ok(adminHtml.includes('1 month'), 'admin dashboard should include the 1 month access-link option');
+      assert.ok(adminHtml.includes('3 months'), 'admin dashboard should include the 3 month access-link option');
+      assert.ok(adminHtml.includes('6 months'), 'admin dashboard should include the 6 month access-link option');
+      assert.ok(adminHtml.includes('1 year'), 'admin dashboard should include the 1 year access-link option');
+      assert.ok(adminHtml.includes('Access duration:'), 'admin dashboard should display the selected expiration after generation');
       assert.ok(adminHtml.includes('Copy link'), 'admin dashboard should expose copy controls for generated links');
       assert.ok(adminHtml.includes('Revoke'), 'admin dashboard should expose link revocation controls');
     });

@@ -29514,6 +29514,14 @@
         let houseMedicationsData = [];
         let medicationPortalUsers = [];
         let generatedMedicationAccessLinks = {};
+        const medicationAccessLinkExpirationOptions = [
+            { value: '1_day', label: '1 day' },
+            { value: '1_month', label: '1 month' },
+            { value: '3_months', label: '3 months' },
+            { value: '6_months', label: '6 months' },
+            { value: '1_year', label: '1 year' }
+        ];
+        let selectedMedicationAccessLinkExpirations = {};
 
         async function loadHouseMedicationsData() {
             try {
@@ -29820,6 +29828,10 @@
             return date.toLocaleString();
         }
 
+        function formatMedicationAccessLinkExpirationLabel(link) {
+            return link?.expirationLabel || 'Legacy default';
+        }
+
         function describeMedicationAccessLinkStatus(link) {
             switch (link?.status) {
                 case 'active':
@@ -29872,7 +29884,15 @@
                                             Assigned medications: ${assignedMedicationNames.length ? escapeHtml(assignedMedicationNames.join(', ')) : 'None yet'}
                                         </div>
                                     </div>
-                                    <button class="btn btn-secondary med-access-generate-btn" type="button" data-user-id="${escapeHtml(user.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Generate access link</button>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                        <label for="med-access-expiration-${escapeHtml(user.id)}" style="font-size: 0.85rem; color: #444;">Expires after</label>
+                                        <select id="med-access-expiration-${escapeHtml(user.id)}" class="med-access-expiration-select" data-user-id="${escapeHtml(user.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.55rem;">
+                                            ${medicationAccessLinkExpirationOptions.map(option => `
+                                                <option value="${escapeHtml(option.value)}"${(selectedMedicationAccessLinkExpirations[user.id] || '1_day') === option.value ? ' selected' : ''}>${escapeHtml(option.label)}</option>
+                                            `).join('')}
+                                        </select>
+                                        <button class="btn btn-secondary med-access-generate-btn" type="button" data-user-id="${escapeHtml(user.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Generate access link</button>
+                                    </div>
                                 </div>
                                 <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
                                     Password login at <code>/medications</code> remains available if the link expires, is revoked, or has already been used.
@@ -29896,7 +29916,8 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div style="font-size: 0.85rem; color: #22543d; margin-top: 0.5rem;">Expires: ${escapeHtml(formatMedicationAccessLinkDate(generated.expiresAt))}</div>
+                                        <div style="font-size: 0.85rem; color: #22543d; margin-top: 0.5rem;">Access duration: ${escapeHtml(formatMedicationAccessLinkExpirationLabel(generated))}</div>
+                                        <div style="font-size: 0.85rem; color: #22543d; margin-top: 0.25rem;">Expires: ${escapeHtml(formatMedicationAccessLinkDate(generated.expiresAt))}</div>
                                     </div>
                                 ` : ''}
                                 <div style="margin-top: 0.85rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem;">
@@ -29908,6 +29929,7 @@
                                                     <div style="font-size: 0.9rem; color: #333;">
                                                         <div><strong>${escapeHtml(describeMedicationAccessLinkStatus(link))}</strong> · token ${escapeHtml(link.tokenPrefix || 'unknown')}…</div>
                                                         <div style="color: #555; margin-top: 0.2rem;">Created: ${escapeHtml(formatMedicationAccessLinkDate(link.createdAt))}</div>
+                                                        <div style="color: #555;">Access duration: ${escapeHtml(formatMedicationAccessLinkExpirationLabel(link))}</div>
                                                         <div style="color: #555;">Expires: ${escapeHtml(formatMedicationAccessLinkDate(link.expiresAt))}</div>
                                                         ${link.usedAt ? `<div style="color: #555;">Used: ${escapeHtml(formatMedicationAccessLinkDate(link.usedAt))}</div>` : ''}
                                                         ${link.revokedAt ? `<div style="color: #555;">Revoked: ${escapeHtml(formatMedicationAccessLinkDate(link.revokedAt))}</div>` : ''}
@@ -29937,6 +29959,12 @@
                 });
             });
 
+            container.querySelectorAll('.med-access-expiration-select').forEach(select => {
+                select.addEventListener('change', () => {
+                    selectedMedicationAccessLinkExpirations[select.dataset.userId] = select.value || '1_day';
+                });
+            });
+
             container.querySelectorAll('.med-access-copy-btn').forEach(btn => {
                 btn.addEventListener('click', () => copyMedicationAccessLinkValue(btn.dataset.userId, btn.dataset.copyField));
             });
@@ -29948,10 +29976,13 @@
 
         async function generateMedicationAccessLink(userId) {
             try {
+                const expirationSelect = document.getElementById(`med-access-expiration-${userId}`);
+                const expiration = expirationSelect?.value || selectedMedicationAccessLinkExpirations[userId] || '1_day';
+                selectedMedicationAccessLinkExpirations[userId] = expiration;
                 const response = await fetch('/medications/api/access-link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ userId })
+                    body: JSON.stringify({ userId, expiration })
                 });
                 const result = await response.json();
                 if (response.ok && result.success) {
@@ -29959,13 +29990,15 @@
                         id: result.accessLink?.id || '',
                         link: result.link || '',
                         token: result.token || '',
+                        expiration: result.expiration || expiration,
+                        expirationLabel: result.expirationLabel || '',
                         expiresAt: result.expiresAt || ''
                     };
                     if (result.accessLink?.id) {
                         updateMedicationPortalUserAccessLink(userId, result.accessLink);
                     }
                     renderMedicationPortalAccessLinks();
-                    showAlert(`Secure access link generated for ${result.user?.username || 'portal user'}.`, 'success', 'medicationsAlert');
+                    showAlert(`Secure access link generated for ${result.user?.username || 'portal user'} with ${result.expirationLabel || 'the selected expiration'}.`, 'success', 'medicationsAlert');
                 } else {
                     showAlert(result.error || 'Failed to generate medication access link.', 'error', 'medicationsAlert');
                 }
