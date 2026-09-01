@@ -1408,13 +1408,128 @@ function serializeMedicationAccessRecord(record) {
   };
 }
 
+const MEDICATION_ADMIN_SUMMARY_DAY_COUNT = 7;
+
+function parseMedicationSummaryDate(dateString) {
+  const normalized = String(dateString || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return null;
+  }
+
+  const [year, month, day] = normalized.split('-').map(value => Number.parseInt(value, 10));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getMedicationAdminSummaryDateRange(dayCount = MEDICATION_ADMIN_SUMMARY_DAY_COUNT, endDate = getMedicationPortalToday()) {
+  const normalizedDayCount = Number.isFinite(Number(dayCount))
+    ? Math.max(1, Math.min(31, Number.parseInt(dayCount, 10)))
+    : MEDICATION_ADMIN_SUMMARY_DAY_COUNT;
+  const end = parseMedicationSummaryDate(endDate) || parseMedicationSummaryDate(getMedicationPortalToday());
+
+  if (!end) {
+    return [];
+  }
+
+  const days = [];
+  for (let index = 0; index < normalizedDayCount; index += 1) {
+    const current = new Date(end.getTime());
+    current.setUTCDate(end.getUTCDate() - index);
+    days.push(current.toISOString().slice(0, 10));
+  }
+
+  return days;
+}
+
+function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, medicationById, recordByKey, summaryDays }) {
+  const assignedMedications = userAssignments
+    .map(assignment => {
+      const medication = medicationById.get(assignment.medicationId);
+      if (!medication) {
+        return null;
+      }
+
+      return {
+        id: medication.id,
+        name: medication.name,
+        instructions: medication.instructions || '',
+        scheduleFrequency: medication.scheduleFrequency || '',
+        asNeeded: !!medication.asNeeded,
+        assignedAt: assignment.assignedAt || ''
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')));
+
+  const recentDays = summaryDays.map(date => {
+    const medications = assignedMedications.map(medication => {
+      const assignedAtDate = String(medication.assignedAt || '').slice(0, 10);
+      const expected = !medication.asNeeded && (!assignedAtDate || assignedAtDate <= date);
+      const record = recordByKey.get(`${portalUser.id}:${medication.id}:${date}`) || null;
+      const status = record
+        ? record.status
+        : (expected ? 'missing' : (medication.asNeeded ? 'as_needed' : 'not_assigned_yet'));
+
+      return {
+        id: medication.id,
+        name: medication.name,
+        instructions: medication.instructions,
+        scheduleFrequency: medication.scheduleFrequency,
+        asNeeded: medication.asNeeded,
+        assignedAt: medication.assignedAt,
+        expected,
+        status,
+        recordedAt: record ? record.recordedAt || null : null
+      };
+    });
+
+    const expectedMedications = medications.filter(medication => medication.expected);
+    const missingMedications = expectedMedications.filter(medication => medication.status === 'missing');
+    const recordedCount = expectedMedications.length - missingMedications.length;
+
+    let status = 'complete';
+    let alert = '';
+    if (expectedMedications.length === 0) {
+      status = 'not_scheduled';
+    } else if (recordedCount === 0) {
+      status = 'missing_day';
+      alert = 'No medication records for this day.';
+    } else if (missingMedications.length > 0) {
+      status = 'partial';
+      alert = `Missing ${missingMedications.length} medication ${missingMedications.length === 1 ? 'entry' : 'entries'}: ${missingMedications.map(medication => medication.name).join(', ')}`;
+    }
+
+    return {
+      date,
+      status,
+      alert,
+      expectedCount: expectedMedications.length,
+      recordedCount,
+      missingCount: missingMedications.length,
+      medications
+    };
+  });
+
+  return {
+    assignedMedications,
+    recentDays,
+    completeDayCount: recentDays.filter(day => day.status === 'complete').length,
+    partialDayCount: recentDays.filter(day => day.status === 'partial').length,
+    missingDayCount: recentDays.filter(day => day.status === 'missing_day').length
+  };
+}
+
 function buildMedicationAdminPayload() {
   const data = house.getMedicationsData();
+  const summaryDays = getMedicationAdminSummaryDateRange();
   const usernameById = new Map((data.portalUsers || []).map(user => [user.id, user.username]));
+  const medicationById = new Map((data.medications || []).map(medication => [medication.id, medication]));
   const medicationNameById = new Map((data.medications || []).map(medication => [medication.id, medication.name]));
   const assignmentsByMedicationId = new Map();
+  const assignmentsByUserId = new Map();
   const medicationNamesByUserId = new Map();
   const accessLinksByUserId = new Map();
+  const recordByKey = new Map();
 
   (data.assignments || []).forEach(assignment => {
     if (!assignmentsByMedicationId.has(assignment.medicationId)) {
@@ -1429,6 +1544,18 @@ function buildMedicationAdminPayload() {
       }
       medicationNamesByUserId.get(assignment.userId).push(medicationName);
     }
+
+    if (!assignmentsByUserId.has(assignment.userId)) {
+      assignmentsByUserId.set(assignment.userId, []);
+    }
+    assignmentsByUserId.get(assignment.userId).push(assignment);
+  });
+
+  (data.adherenceRecords || []).forEach(record => {
+    if (!record?.userId || !record?.medicationId || !record?.date) {
+      return;
+    }
+    recordByKey.set(`${record.userId}:${record.medicationId}:${record.date}`, record);
   });
 
   const medications = (data.medications || []).map(medication => {
@@ -1463,10 +1590,21 @@ function buildMedicationAdminPayload() {
   const portalUsers = (data.portalUsers || []).map(portalUser => ({
     ...serializeMedicationPortalUser(portalUser),
     assignedMedicationNames: medicationNamesByUserId.get(portalUser.id) || [],
-    accessLinks: accessLinksByUserId.get(portalUser.id) || []
+    accessLinks: accessLinksByUserId.get(portalUser.id) || [],
+    adherenceSummary: buildMedicationAdminAdherenceSummary({
+      portalUser,
+      userAssignments: assignmentsByUserId.get(portalUser.id) || [],
+      medicationById,
+      recordByKey,
+      summaryDays
+    })
   }));
 
-  return { medications, portalUsers };
+  return {
+    medications,
+    portalUsers,
+    adherenceSummaryWindowDays: summaryDays
+  };
 }
 
 function buildMedicationPortalDashboard(userId) {
