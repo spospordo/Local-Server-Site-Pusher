@@ -9,6 +9,23 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.26.0] - 2026-09-01
+
+### Minor Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #682 from spospordo/copilot/enhance-medication-page-authentication
+  - test: cache medication server log text
+  - test: tighten medication log wait deadline
+  - test: bound medication log wait loop
+  - test: harden medication log capture checks
+  - refactor: use structured log for access link issuance
+  - test: scope medication log assertions per request
+  - chore: drop unrelated lockfile version sync
+  - feat: log medication auth security events
+  - Initial plan
+
+
 ## [2.25.8] - 2026-09-01
 
 ### Patch Update
