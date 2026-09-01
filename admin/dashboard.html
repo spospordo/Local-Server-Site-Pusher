@@ -4602,6 +4602,14 @@
                     </div>
                 </div>
 
+                <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                    <h3 style="margin-top: 0;">Medication portal access links</h3>
+                    <p style="margin-bottom: 0.75rem; color: #555;">Generate one-time secure sign-in links for portal users, copy the link or token for handoff, and revoke links that should no longer work.</p>
+                    <div id="medicationPortalAccessLinks">
+                        <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medication portal access links...</div>
+                    </div>
+                </div>
+
                 <div id="medicationsAlert" class="alert"></div>
             </div>
         </div>
@@ -29505,6 +29513,7 @@
 
         let houseMedicationsData = [];
         let medicationPortalUsers = [];
+        let generatedMedicationAccessLinks = {};
 
         async function loadHouseMedicationsData() {
             try {
@@ -29513,14 +29522,20 @@
                 const data = await response.json();
                 houseMedicationsData = data.medications || [];
                 medicationPortalUsers = data.portalUsers || [];
+                pruneGeneratedMedicationAccessLinks();
                 renderMedications();
                 renderMedicationPortalAssignments();
+                renderMedicationPortalAccessLinks();
             } catch (err) {
                 document.getElementById('medicationsList').innerHTML =
                     `<div class="alert alert-error">Failed to load medications: ${err.message}</div>`;
                 const assignmentsContainer = document.getElementById('medicationAssignmentsList');
                 if (assignmentsContainer) {
                     assignmentsContainer.innerHTML = `<div class="alert alert-error">Failed to load medication assignments: ${err.message}</div>`;
+                }
+                const accessLinksContainer = document.getElementById('medicationPortalAccessLinks');
+                if (accessLinksContainer) {
+                    accessLinksContainer.innerHTML = `<div class="alert alert-error">Failed to load medication access links: ${err.message}</div>`;
                 }
             }
         }
@@ -29777,6 +29792,235 @@
                 }
             } catch (err) {
                 showAlert('Error saving medication assignments: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        function pruneGeneratedMedicationAccessLinks() {
+            const activeLinkIds = new Set();
+            medicationPortalUsers.forEach(user => {
+                (user.accessLinks || []).forEach(link => {
+                    if (link && link.status === 'active') {
+                        activeLinkIds.add(link.id);
+                    }
+                });
+            });
+
+            Object.keys(generatedMedicationAccessLinks).forEach(userId => {
+                const generated = generatedMedicationAccessLinks[userId];
+                if (!generated || !activeLinkIds.has(generated.id)) {
+                    delete generatedMedicationAccessLinks[userId];
+                }
+            });
+        }
+
+        function formatMedicationAccessLinkDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            if (Number.isNaN(date.getTime())) return '—';
+            return date.toLocaleString();
+        }
+
+        function describeMedicationAccessLinkStatus(link) {
+            switch (link?.status) {
+                case 'active':
+                    return 'Active';
+                case 'used':
+                    return 'Used';
+                case 'revoked':
+                    return 'Revoked';
+                case 'expired':
+                    return 'Expired';
+                default:
+                    return 'Unknown';
+            }
+        }
+
+        function updateMedicationPortalUserAccessLink(userId, updatedLink) {
+            medicationPortalUsers = medicationPortalUsers.map(user => {
+                if (user.id !== userId) return user;
+                const existingLinks = Array.isArray(user.accessLinks) ? user.accessLinks : [];
+                const filteredLinks = existingLinks.filter(link => link.id !== updatedLink.id);
+                return {
+                    ...user,
+                    accessLinks: [updatedLink, ...filteredLinks].slice(0, 5)
+                };
+            });
+        }
+
+        function renderMedicationPortalAccessLinks() {
+            const container = document.getElementById('medicationPortalAccessLinks');
+            if (!container) return;
+
+            if (medicationPortalUsers.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users can create an account at <code>/medications</code>, then admins can generate secure sign-in links here.</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="display: grid; gap: 0.75rem;">
+                    ${medicationPortalUsers.map(user => {
+                        const generated = generatedMedicationAccessLinks[user.id];
+                        const assignedMedicationNames = Array.isArray(user.assignedMedicationNames) ? user.assignedMedicationNames : [];
+                        const accessLinks = Array.isArray(user.accessLinks) ? user.accessLinks : [];
+
+                        return `
+                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.85rem; background: #fafcff;">
+                                <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                    <div>
+                                        <strong>${escapeHtml(user.username)}</strong>
+                                        <div style="font-size: 0.9rem; color: #555; margin-top: 0.25rem;">
+                                            Assigned medications: ${assignedMedicationNames.length ? escapeHtml(assignedMedicationNames.join(', ')) : 'None yet'}
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-secondary med-access-generate-btn" type="button" data-user-id="${escapeHtml(user.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Generate access link</button>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                                    Password login at <code>/medications</code> remains available if the link expires, is revoked, or has already been used.
+                                </div>
+                                ${generated ? `
+                                    <div style="margin-top: 0.85rem; padding: 0.85rem; background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 8px;">
+                                        <div style="font-weight: 600; color: #22543d; margin-bottom: 0.5rem;">Latest generated link — copy it now</div>
+                                        <div style="display: grid; gap: 0.5rem;">
+                                            <div>
+                                                <label for="med-access-link-${escapeHtml(user.id)}" style="display: block; font-size: 0.85rem; color: #22543d; margin-bottom: 0.25rem;">Full access link</label>
+                                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                    <input id="med-access-link-${escapeHtml(user.id)}" type="text" readonly value="${escapeHtml(generated.link)}" style="flex: 1; min-width: 240px;">
+                                                    <button class="btn btn-success med-access-copy-btn" type="button" data-user-id="${escapeHtml(user.id)}" data-copy-field="link" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Copy link</button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label for="med-access-token-${escapeHtml(user.id)}" style="display: block; font-size: 0.85rem; color: #22543d; margin-bottom: 0.25rem;">Token for manual paste</label>
+                                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                    <input id="med-access-token-${escapeHtml(user.id)}" type="text" readonly value="${escapeHtml(generated.token)}" style="flex: 1; min-width: 240px;">
+                                                    <button class="btn btn-secondary med-access-copy-btn" type="button" data-user-id="${escapeHtml(user.id)}" data-copy-field="token" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Copy token</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: #22543d; margin-top: 0.5rem;">Expires: ${escapeHtml(formatMedicationAccessLinkDate(generated.expiresAt))}</div>
+                                    </div>
+                                ` : ''}
+                                <div style="margin-top: 0.85rem; border-top: 1px solid #e2e8f0; padding-top: 0.75rem;">
+                                    <div style="font-weight: 600; margin-bottom: 0.5rem;">Recent access-link activity</div>
+                                    ${accessLinks.length ? `
+                                        <div style="display: grid; gap: 0.5rem;">
+                                            ${accessLinks.map(link => `
+                                                <div style="display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; padding: 0.65rem; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;">
+                                                    <div style="font-size: 0.9rem; color: #333;">
+                                                        <div><strong>${escapeHtml(describeMedicationAccessLinkStatus(link))}</strong> · token ${escapeHtml(link.tokenPrefix || 'unknown')}…</div>
+                                                        <div style="color: #555; margin-top: 0.2rem;">Created: ${escapeHtml(formatMedicationAccessLinkDate(link.createdAt))}</div>
+                                                        <div style="color: #555;">Expires: ${escapeHtml(formatMedicationAccessLinkDate(link.expiresAt))}</div>
+                                                        ${link.usedAt ? `<div style="color: #555;">Used: ${escapeHtml(formatMedicationAccessLinkDate(link.usedAt))}</div>` : ''}
+                                                        ${link.revokedAt ? `<div style="color: #555;">Revoked: ${escapeHtml(formatMedicationAccessLinkDate(link.revokedAt))}</div>` : ''}
+                                                    </div>
+                                                    ${link.status === 'active' ? `<button class="btn btn-danger med-access-revoke-btn" type="button" data-user-id="${escapeHtml(user.id)}" data-link-id="${escapeHtml(link.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Revoke</button>` : ''}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : '<div style="opacity: 0.75;">No secure access links generated yet for this user.</div>'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>`;
+
+            container.querySelectorAll('.med-access-generate-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    btn.disabled = true;
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Generating...';
+                    try {
+                        await generateMedicationAccessLink(btn.dataset.userId);
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                });
+            });
+
+            container.querySelectorAll('.med-access-copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => copyMedicationAccessLinkValue(btn.dataset.userId, btn.dataset.copyField));
+            });
+
+            container.querySelectorAll('.med-access-revoke-btn').forEach(btn => {
+                btn.addEventListener('click', () => revokeMedicationAccessLink(btn.dataset.userId, btn.dataset.linkId));
+            });
+        }
+
+        async function generateMedicationAccessLink(userId) {
+            try {
+                const response = await fetch('/medications/api/access-link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    generatedMedicationAccessLinks[userId] = {
+                        id: result.accessLink?.id || '',
+                        link: result.link || '',
+                        token: result.token || '',
+                        expiresAt: result.expiresAt || ''
+                    };
+                    if (result.accessLink?.id) {
+                        updateMedicationPortalUserAccessLink(userId, result.accessLink);
+                    }
+                    renderMedicationPortalAccessLinks();
+                    showAlert(`Secure access link generated for ${result.user?.username || 'portal user'}.`, 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to generate medication access link.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error generating medication access link: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        async function copyMedicationAccessLinkValue(userId, field) {
+            const generated = generatedMedicationAccessLinks[userId];
+            const value = field === 'token' ? generated?.token : generated?.link;
+            if (!value) {
+                showAlert('Generate a new access link before copying it again.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const inputId = field === 'token' ? `med-access-token-${userId}` : `med-access-link-${userId}`;
+            const input = document.getElementById(inputId);
+
+            try {
+                await navigator.clipboard.writeText(value);
+            } catch (error) {
+                if (input) {
+                    input.focus();
+                    input.select();
+                    document.execCommand('copy');
+                } else {
+                    throw error;
+                }
+            }
+
+            showAlert(`Medication access ${field} copied to clipboard.`, 'success', 'medicationsAlert');
+        }
+
+        async function revokeMedicationAccessLink(userId, linkId) {
+            if (!confirm('Revoke this secure access link? The user will need a new link or their password to sign in.')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/medications/access-links/${encodeURIComponent(linkId)}/revoke`, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const result = await response.json();
+                if (response.ok && result.success && result.record) {
+                    updateMedicationPortalUserAccessLink(userId, result.record);
+                    if (generatedMedicationAccessLinks[userId]?.id === linkId) {
+                        delete generatedMedicationAccessLinks[userId];
+                    }
+                    renderMedicationPortalAccessLinks();
+                    showAlert('Medication access link revoked.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to revoke medication access link.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error revoking medication access link: ' + err.message, 'error', 'medicationsAlert');
             }
         }
     </script>
