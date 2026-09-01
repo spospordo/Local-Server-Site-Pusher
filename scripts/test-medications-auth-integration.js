@@ -53,16 +53,17 @@ function getServerLogs() {
 
 async function waitForLog(snippet, options = {}) {
   const { timeoutMs = 5000, startIndex = 0 } = options;
-  const start = Date.now();
-  while (true) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
     if (getServerLogs().slice(startIndex).includes(snippet)) {
       return;
     }
-    if (Date.now() - start >= timeoutMs) {
-      throw new Error(`Timed out waiting for server log: ${snippet}`);
-    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
+  if (getServerLogs().slice(startIndex).includes(snippet)) {
+    return;
+  }
+  throw new Error(`Timed out waiting for server log: ${snippet}`);
 }
 
 // ---- Minimal cookie-jar aware HTTP client ----
@@ -176,6 +177,7 @@ async function registerPortalUser(username, password) {
 async function run() {
   const configBackupPaths = ['config.json', 'house-data.json'].map(name => path.join(repoRoot, 'config', name));
   const backups = configBackupPaths.map(p => (fs.existsSync(p) ? fs.readFileSync(p) : null));
+  serverLogChunks = [];
 
   const serverProcess = spawn(process.execPath, ['server.js'], {
     cwd: repoRoot,
