@@ -421,11 +421,23 @@
 
         <section id="authSection" class="card hidden">
             <div class="auth-switch">
-                <button id="loginTabBtn" class="active" type="button">Login</button>
+                <button id="accessLinkTabBtn" class="active" type="button">Use access link</button>
+                <button id="loginTabBtn" type="button">Use password</button>
                 <button id="registerTabBtn" type="button">Create account</button>
             </div>
 
-            <form id="loginForm">
+            <form id="accessLinkForm">
+                <p>Open your secure access link, or paste it here to sign in.</p>
+                <div>
+                    <label for="accessLink">Access link</label>
+                    <input id="accessLink" type="text" name="accessLink" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+                </div>
+                <div class="action-row">
+                    <button type="submit" class="btn-primary">Sign in with access link</button>
+                </div>
+            </form>
+
+            <form id="loginForm" class="hidden">
                 <div class="form-grid">
                     <div>
                         <label for="loginUsername">Username</label>
@@ -582,8 +594,10 @@
         function showAuth(mode) {
             document.getElementById('authSection').classList.remove('hidden');
             document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('accessLinkForm').classList.toggle('hidden', mode !== 'access-link');
             document.getElementById('loginForm').classList.toggle('hidden', mode !== 'login');
             document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
+            document.getElementById('accessLinkTabBtn').classList.toggle('active', mode === 'access-link');
             document.getElementById('loginTabBtn').classList.toggle('active', mode === 'login');
             document.getElementById('registerTabBtn').classList.toggle('active', mode === 'register');
         }
@@ -649,7 +663,15 @@
                 await loadDashboard();
                 showDashboard();
             } else {
-                showAuth('login');
+                const accessError = new URLSearchParams(window.location.search).get('error');
+                if (accessError) {
+                    const message = accessError === 'expired_token'
+                        ? 'This access link has expired. Use your password or request a new link.'
+                        : 'This access link is invalid or has already been used. Use your password or request a new link.';
+                    window.history.replaceState({}, document.title, '/medications');
+                    setStatusMessage('authMessage', message, 'error');
+                }
+                showAuth('access-link');
             }
         }
 
@@ -1023,6 +1045,10 @@
         });
 
         // ---- Auth ----
+        document.getElementById('accessLinkTabBtn').addEventListener('click', () => {
+            setStatusMessage('authMessage', '');
+            showAuth('access-link');
+        });
         document.getElementById('loginTabBtn').addEventListener('click', () => {
             setStatusMessage('authMessage', '');
             showAuth('login');
@@ -1031,6 +1057,7 @@
             setStatusMessage('authMessage', '');
             showAuth('register');
         });
+        document.getElementById('accessLinkForm').addEventListener('submit', handleAccessLinkSubmit);
         document.getElementById('loginForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/login'));
         document.getElementById('registerForm').addEventListener('submit', event => handleAuthSubmit(event, '/medications/api/register'));
         document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -1097,6 +1124,34 @@
             }
         }
 
+        async function handleAccessLinkSubmit(event) {
+            event.preventDefault();
+            const value = new FormData(event.target).get('accessLink').trim();
+            let token = value;
+            try {
+                const url = new URL(value);
+                const match = url.pathname.match(/^\/medications\/access\/([^/]+)$/);
+                if (match) token = match[1];
+            } catch (err) {
+                // A copied token is accepted as an alternative to the full link.
+            }
+
+            try {
+                const data = await apiRequest('/medications/api/access/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ token })
+                });
+                dashboardData = null;
+                await loadDashboard();
+                showDashboard();
+                if (data.user?.username) {
+                    document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
+                }
+            } catch (err) {
+                setStatusMessage('authMessage', err.message, 'error');
+            }
+        }
+
         // ---- Legacy details modal (direct access) ----
         document.getElementById('closeDetailsBtn').addEventListener('click', () => {
             closeMedicationDetails();
@@ -1138,7 +1193,7 @@
 
         refreshSession().catch(err => {
             setStatusMessage('authMessage', err.message || 'Failed to load medications portal.', 'error');
-            showAuth('login');
+            showAuth('access-link');
         });
     </script>
 </body>

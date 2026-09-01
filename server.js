@@ -1326,19 +1326,22 @@ app.post('/medications/api/access/verify', medicationAccessTokenRateLimiter, (re
   const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
 
   if (!validation.valid) {
+    const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
     return res.status(401).json({
       success: false,
-      error: validation.reason || 'Invalid medication access token',
-      code: validation.reason || 'INVALID_ACCESS_TOKEN'
+      error: code === 'EXPIRED_ACCESS_LINK'
+        ? 'This access link has expired. Use your password or request a new link.'
+        : 'This access link is invalid or has already been used. Use your password or request a new link.',
+      code
     });
   }
 
+  req.session.medicationPortalUserId = validation.user.id;
+  req.session.medicationPortalUsername = validation.user.username;
   return res.json({
     success: true,
     user: serializeMedicationPortalUser(validation.user),
-    tokenId: validation.tokenId,
-    expiresAt: validation.expiresAt,
-    usedAt: validation.usedAt
+    csrfToken: issueMedicationPortalCsrfToken(req)
   });
 });
 
