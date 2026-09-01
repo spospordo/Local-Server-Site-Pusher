@@ -54,7 +54,7 @@ function getServerLogs() {
 async function waitForLog(snippet, options = {}) {
   const { timeoutMs = 5000, startIndex = 0 } = options;
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() <= deadline) {
+  while (Date.now() < deadline) {
     if (getServerLogs().slice(startIndex).includes(snippet)) {
       return;
     }
