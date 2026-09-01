@@ -1082,10 +1082,26 @@ function _applyEventFilters(events, filterConfig) {
   logger.debug(logger.categories.SMART_MIRROR, `Applying ${filterConfig.rules.length} event filter rules`);
   
   const filteredEvents = [];
+  const groupedEvents = new Map();
+  let originalOrder = 0;
+  const MAX_GROUPED_EVENT_DATES = 3;
+
+  function formatGroupedEventDate(dateValue) {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric'
+    });
+  }
   
   for (const event of events) {
     let shouldHide = false;
-    let modifiedEvent = { ...event };
+    let modifiedEvent = { ...event, _originalOrder: originalOrder++ };
+    let groupingKey = null;
     
     // Check each filter rule
     for (const rule of filterConfig.rules) {
@@ -1111,6 +1127,7 @@ function _applyEventFilters(events, filterConfig) {
           // Replace title and/or description if provided
           if (rule.replacementTitle) {
             modifiedEvent.title = rule.replacementTitle;
+            groupingKey = rule.id || rule.replacementTitle;
             logger.debug(logger.categories.SMART_MIRROR, `Replaced title: "${event.title}" -> "${rule.replacementTitle}"`);
           }
           if (rule.replacementDescription !== undefined) {
@@ -1124,16 +1141,64 @@ function _applyEventFilters(events, filterConfig) {
     
     // Add event to result if not hidden
     if (!shouldHide) {
-      filteredEvents.push(modifiedEvent);
+      if (groupingKey) {
+        if (!groupedEvents.has(groupingKey)) {
+          groupedEvents.set(groupingKey, []);
+        }
+        groupedEvents.get(groupingKey).push(modifiedEvent);
+      } else {
+        filteredEvents.push(modifiedEvent);
+      }
     }
   }
   
+  let groupedCount = 0;
+  for (const groupedMatches of groupedEvents.values()) {
+    if (groupedMatches.length === 1) {
+      filteredEvents.push(groupedMatches[0]);
+      continue;
+    }
+
+    groupedCount++;
+
+    const summaryDates = groupedMatches
+      .slice(0, MAX_GROUPED_EVENT_DATES)
+      .map(groupedEvent => formatGroupedEventDate(groupedEvent.start))
+      .filter(Boolean);
+    const earliestEvent = groupedMatches[0];
+    const groupedTitle = summaryDates.length > 0
+      ? `${earliestEvent.title} ${summaryDates.join(', ')}${groupedMatches.length > MAX_GROUPED_EVENT_DATES ? '...' : ''}`
+      : earliestEvent.title;
+
+    filteredEvents.push({
+      ...earliestEvent,
+      title: groupedTitle
+    });
+  }
+
+  filteredEvents.sort((a, b) => {
+    const startDiff = new Date(a.start) - new Date(b.start);
+    if (startDiff !== 0) {
+      return startDiff;
+    }
+
+    return (a._originalOrder || 0) - (b._originalOrder || 0);
+  });
+
+  const cleanedEvents = filteredEvents.map(event => {
+    const { _originalOrder, ...cleanEvent } = event;
+    return cleanEvent;
+  });
+
   const removedCount = events.length - filteredEvents.length;
-  if (removedCount > 0) {
-    logger.info(logger.categories.SMART_MIRROR, `Event filtering: ${removedCount} event(s) hidden, ${filteredEvents.length} event(s) remaining`);
+  if (removedCount > 0 || groupedCount > 0) {
+    logger.info(
+      logger.categories.SMART_MIRROR,
+      `Event filtering: ${removedCount} event(s) hidden, ${groupedCount} grouped entr${groupedCount === 1 ? 'y' : 'ies'}, ${cleanedEvents.length} event(s) remaining`
+    );
   }
   
-  return filteredEvents;
+  return cleanedEvents;
 }
 
 // Fetch calendar events from ICS feed with server-side caching
