@@ -1310,9 +1310,9 @@ app.get('/medications/access/:token', medicationAccessTokenRateLimiter, (req, re
   const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
 
   if (!validation.valid) {
-    const reason = validation.reason || 'invalid_access_link';
-    logger.warning(logger.categories.SYSTEM, `Rejected medication access link token: ${reason}`);
-    return res.redirect(`/medications?error=${encodeURIComponent(reason)}`);
+    const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
+    logger.warning(logger.categories.SYSTEM, `Rejected medication access link: ${code}`);
+    return res.redirect(`/medications?error=${encodeURIComponent(code)}`);
   }
 
   req.session.medicationPortalUserId = validation.user.id;

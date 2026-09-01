@@ -195,6 +195,12 @@ async function run() {
       assert.ok(!res.body.includes('not-a-real-token'), 'access token must not be returned in an error response');
     });
 
+    await test('Invalid access link redirects to a safe recovery state', async () => {
+      const res = await requestJson(createJar(), 'GET', '/medications/access/not-a-real-token');
+      assert.strictEqual(res.statusCode, 302);
+      assert.strictEqual(res.headers.location, '/medications?error=INVALID_ACCESS_LINK');
+    });
+
     await test('Portal login/register without CSRF token is rejected with 403', async () => {
       const jar = createJar();
       await fetchCsrfToken(jar); // establishes a session with a csrf token, but we won't send it

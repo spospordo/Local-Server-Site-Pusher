@@ -665,7 +665,7 @@
             } else {
                 const accessError = new URLSearchParams(window.location.search).get('error');
                 if (accessError) {
-                    const message = accessError === 'expired_token'
+                    const message = accessError === 'EXPIRED_ACCESS_LINK'
                         ? 'This access link has expired. Use your password or request a new link.'
                         : 'This access link is invalid or has already been used. Use your password or request a new link.';
                     window.history.replaceState({}, document.title, '/medications');
@@ -1116,9 +1116,6 @@
                 dashboardData = null;
                 await loadDashboard();
                 showDashboard();
-                if (data.user?.username) {
-                    document.getElementById('welcomeText').textContent = `Logged in as ${data.user.username}`;
-                }
             } catch (err) {
                 setStatusMessage('authMessage', err.message, 'error');
             }
