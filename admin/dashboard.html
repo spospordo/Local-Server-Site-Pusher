@@ -4603,6 +4603,15 @@
                 </div>
 
                 <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                    <h3 style="margin-top: 0;">Medication adherence summary</h3>
+                    <p style="margin-bottom: 0.75rem; color: #555;">Review each portal user’s recent medication history and quickly spot complete, partial, and fully missing days.</p>
+                    <div id="medicationAdherenceSummaryOverview" class="alert" style="display: none; margin-top: 0; margin-bottom: 0.75rem;"></div>
+                    <div id="medicationAdherenceSummary">
+                        <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medication adherence summary...</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
                     <h3 style="margin-top: 0;">Medication portal access links</h3>
                     <p style="margin-bottom: 0.75rem; color: #555;">Generate one-time secure sign-in links for portal users, copy the link or token for handoff, and revoke links that should no longer work.</p>
                     <div id="medicationPortalAccessLinks">
@@ -29514,6 +29523,7 @@
         let houseMedicationsData = [];
         let medicationPortalUsers = [];
         let generatedMedicationAccessLinks = {};
+        let medicationAdherenceSummaryWindowDays = [];
         const medicationAccessLinkExpirationOptions = [
             { value: '1_day', label: '1 day' },
             { value: '1_month', label: '1 month' },
@@ -29530,9 +29540,11 @@
                 const data = await response.json();
                 houseMedicationsData = data.medications || [];
                 medicationPortalUsers = data.portalUsers || [];
+                medicationAdherenceSummaryWindowDays = data.adherenceSummaryWindowDays || [];
                 pruneGeneratedMedicationAccessLinks();
                 renderMedications();
                 renderMedicationPortalAssignments();
+                renderMedicationAdherenceSummary();
                 renderMedicationPortalAccessLinks();
             } catch (err) {
                 document.getElementById('medicationsList').innerHTML =
@@ -29544,6 +29556,10 @@
                 const accessLinksContainer = document.getElementById('medicationPortalAccessLinks');
                 if (accessLinksContainer) {
                     accessLinksContainer.innerHTML = `<div class="alert alert-error">Failed to load medication access links: ${err.message}</div>`;
+                }
+                const summaryContainer = document.getElementById('medicationAdherenceSummary');
+                if (summaryContainer) {
+                    summaryContainer.innerHTML = `<div class="alert alert-error">Failed to load medication adherence summary: ${err.message}</div>`;
                 }
             }
         }
@@ -29801,6 +29817,152 @@
             } catch (err) {
                 showAlert('Error saving medication assignments: ' + err.message, 'error', 'medicationsAlert');
             }
+        }
+
+        function formatMedicationAdherenceSummaryDate(dateString) {
+            if (!dateString) return 'Unknown date';
+            const date = new Date(`${dateString}T12:00:00Z`);
+            if (Number.isNaN(date.getTime())) return dateString;
+            return date.toLocaleDateString(undefined, {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function getMedicationAdherenceSummaryStatusMeta(status) {
+            switch (status) {
+                case 'complete':
+                    return { label: 'Complete', badgeClass: 'badge-success', icon: '✅' };
+                case 'partial':
+                    return { label: 'Partial', badgeClass: 'badge-warning', icon: '⚠️' };
+                case 'missing_day':
+                    return { label: 'Missing day', badgeClass: 'badge-danger', icon: '🚨' };
+                default:
+                    return { label: 'No scheduled meds', badgeClass: '', icon: '➖' };
+            }
+        }
+
+        function getMedicationAdherenceEntryStatusMeta(entry) {
+            switch (entry?.status) {
+                case 'took':
+                    return { label: 'Took', badgeClass: 'badge-success' };
+                case 'not_taken':
+                    return { label: 'Not taken', badgeClass: 'badge-warning' };
+                case 'missing':
+                    return { label: 'Missing', badgeClass: 'badge-danger' };
+                case 'as_needed':
+                    return { label: 'As needed', badgeClass: '' };
+                default:
+                    return { label: 'Starts later', badgeClass: '' };
+            }
+        }
+
+        function renderMedicationAdherenceSummary() {
+            const container = document.getElementById('medicationAdherenceSummary');
+            const overview = document.getElementById('medicationAdherenceSummaryOverview');
+            if (!container) return;
+
+            if (overview) {
+                overview.style.display = 'none';
+                overview.textContent = '';
+                overview.className = 'alert';
+            }
+
+            if (medicationPortalUsers.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users must create an account at <code>/medications</code> before an adherence summary can be shown.</div>';
+                return;
+            }
+
+            const usersWithAssignments = medicationPortalUsers.filter(user => (user.adherenceSummary?.assignedMedications || []).length > 0);
+            if (usersWithAssignments.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">Assign medications to portal users above to start tracking adherence in the summary.</div>';
+                return;
+            }
+
+            const recentDaysCount = medicationAdherenceSummaryWindowDays.length || usersWithAssignments[0]?.adherenceSummary?.recentDays?.length || 0;
+            const totalMissingDays = usersWithAssignments.reduce((sum, user) => sum + Number(user.adherenceSummary?.missingDayCount || 0), 0);
+            const totalPartialDays = usersWithAssignments.reduce((sum, user) => sum + Number(user.adherenceSummary?.partialDayCount || 0), 0);
+
+            if (overview) {
+                if (totalMissingDays > 0 || totalPartialDays > 0) {
+                    overview.className = 'alert alert-warning';
+                    overview.innerHTML = `⚠️ <strong>Adherence follow-up needed:</strong> ${totalMissingDays} missing day${totalMissingDays === 1 ? '' : 's'} and ${totalPartialDays} partial day${totalPartialDays === 1 ? '' : 's'} in the last ${recentDaysCount} day${recentDaysCount === 1 ? '' : 's'}.`;
+                } else {
+                    overview.className = 'alert alert-success';
+                    overview.innerHTML = `✅ <strong>All scheduled medication days are complete</strong> for the last ${recentDaysCount} day${recentDaysCount === 1 ? '' : 's'}.`;
+                }
+                overview.style.display = 'block';
+            }
+
+            container.innerHTML = `
+                <div style="display: grid; gap: 1rem;">
+                    ${usersWithAssignments.map(user => {
+                        const summary = user.adherenceSummary || {};
+                        const assignedMedications = summary.assignedMedications || [];
+                        const recentDays = summary.recentDays || [];
+                        return `
+                            <div style="border: 1px solid #e2e8f0; border-radius: 10px; background: #fafcff; overflow: hidden;">
+                                <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                                    <div>
+                                        <h4 style="margin: 0 0 0.35rem 0;">${escapeHtml(user.username)}</h4>
+                                        <div style="font-size: 0.92rem; color: #555;">
+                                            Assigned medications: ${assignedMedications.map(medication => escapeHtml(medication.name)).join(', ')}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                        <span class="badge badge-success">Complete ${Number(summary.completeDayCount || 0)}</span>
+                                        <span class="badge badge-warning">Partial ${Number(summary.partialDayCount || 0)}</span>
+                                        <span class="badge badge-danger">Missing ${Number(summary.missingDayCount || 0)}</span>
+                                    </div>
+                                </div>
+                                <div style="padding: 1rem; display: grid; gap: 0.85rem;">
+                                    ${recentDays.map(day => {
+                                        const statusMeta = getMedicationAdherenceSummaryStatusMeta(day.status);
+                                        const statusBadgeStyle = statusMeta.badgeClass ? '' : 'background: #e2e8f0; color: #334155;';
+                                        return `
+                                            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.85rem; background: #fff;">
+                                                <div style="display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                                                    <div>
+                                                        <strong>${escapeHtml(formatMedicationAdherenceSummaryDate(day.date))}</strong>
+                                                        <div style="font-size: 0.88rem; color: #666; margin-top: 0.2rem;">
+                                                            ${Number(day.recordedCount || 0)} of ${Number(day.expectedCount || 0)} scheduled medication ${Number(day.expectedCount || 0) === 1 ? 'entry' : 'entries'} recorded
+                                                        </div>
+                                                    </div>
+                                                    <span class="badge ${statusMeta.badgeClass}" style="${statusBadgeStyle}">${statusMeta.icon} ${statusMeta.label}</span>
+                                                </div>
+                                                ${day.alert ? `
+                                                    <div class="alert ${day.status === 'missing_day' ? 'alert-error' : 'alert-warning'}" style="display: block; margin-bottom: 0; margin-top: 0.75rem;">
+                                                        ${escapeHtml(day.alert)}
+                                                    </div>
+                                                ` : ''}
+                                                <div style="display: grid; gap: 0.5rem; margin-top: 0.75rem;">
+                                                    ${(day.medications || []).map(entry => {
+                                                        const entryStatusMeta = getMedicationAdherenceEntryStatusMeta(entry);
+                                                        const entryBadgeStyle = entryStatusMeta.badgeClass ? '' : 'background: #e2e8f0; color: #334155;';
+                                                        const details = [];
+                                                        if (entry.scheduleFrequency) details.push(entry.scheduleFrequency);
+                                                        if (entry.asNeeded) details.push('as needed');
+                                                        if (entry.instructions) details.push(entry.instructions);
+                                                        return `
+                                                            <div style="display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: center; padding: 0.65rem 0.75rem; border-radius: 6px; background: ${entry.status === 'missing' ? '#fff5f5' : '#f8fafc'};">
+                                                                <div>
+                                                                    <div style="font-weight: 600;">${escapeHtml(entry.name)}</div>
+                                                                    ${details.length ? `<div style="font-size: 0.85rem; color: #666; margin-top: 0.2rem;">${escapeHtml(details.join(' • '))}</div>` : ''}
+                                                                </div>
+                                                                <span class="badge ${entryStatusMeta.badgeClass}" style="${entryBadgeStyle}">${escapeHtml(entryStatusMeta.label)}</span>
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>`;
         }
 
         function pruneGeneratedMedicationAccessLinks() {
