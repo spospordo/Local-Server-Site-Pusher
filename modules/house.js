@@ -7,6 +7,7 @@ const pdfParse = require('pdf-parse');
 
 let config = null;
 let medicationAccessTokenSecret = '';
+const MAX_MEDICATION_FORECAST_DAYS = 36525;
 
 function generateId() {
   return randomUUID();
@@ -1695,10 +1696,8 @@ function estimateDailyUsageFromInstructions(instructions) {
  * Returns null when structured fields are not set.
  */
 function computeDailyUsageFromStructured(med) {
-  const pillsPerDose = (typeof med.pillsPerDose === 'number' && med.pillsPerDose > 0)
-    ? med.pillsPerDose
-    : (parseFloat(med.pillsPerDose) > 0 ? parseFloat(med.pillsPerDose) : 1);
-  switch (med.scheduleFrequency) {
+  const pillsPerDose = normalizeMedicationPillsPerDose(med?.pillsPerDose, 1);
+  switch (normalizeMedicationScheduleFrequency(med?.scheduleFrequency)) {
     case 'daily': return pillsPerDose * 1;
     case 'twice daily': return pillsPerDose * 2;
     case 'three times daily': return pillsPerDose * 3;
@@ -1712,9 +1711,15 @@ function computeDailyUsageFromStructured(med) {
  * Compute forecast fields for a medication entry.
  * Returns an object with dailyUsage, estimatedRemainingPillCount, daysUntilEmpty, refillNeededDate, alertDate.
  */
-function computeMedicationForecast(med) {
-  const structuredUsage = computeDailyUsageFromStructured(med);
-  const dailyUsage = structuredUsage !== null ? structuredUsage : estimateDailyUsageFromInstructions(med.instructions);
+function computeMedicationForecast(med, options = {}) {
+  const asOfDate = options?.asOfDate && isValidMedicationStatusDate(options.asOfDate)
+    ? options.asOfDate
+    : getMedicationTodayDate();
+  const adherenceRecords = Array.isArray(options?.adherenceRecords)
+    ? options.adherenceRecords
+    : getMedicationAdherenceRecords().filter(record => record?.medicationId === med?.id);
+  const regimenHistory = normalizeMedicationRegimenHistory(med);
+  const dailyUsage = getMedicationDailyUsageForDateFromHistory(med, asOfDate, regimenHistory);
   const pillCount = typeof med.pillCount === 'number' ? med.pillCount : parseFloat(med.pillCount);
   const alertThresholdDays = typeof med.alertThresholdDays === 'number'
     ? med.alertThresholdDays
@@ -1723,32 +1728,124 @@ function computeMedicationForecast(med) {
     ? alertThresholdDays
     : null;
   const refillDateText = String(med.refillDate || '').trim().slice(0, 10);
-  const refillDate = /^\d{4}-\d{2}-\d{2}$/.test(refillDateText) ? new Date(`${refillDateText}T00:00:00`) : null;
+  const refillDate = parseMedicationDate(refillDateText);
 
   let estimatedRemainingPillCount = Number.isFinite(pillCount) && pillCount >= 0 ? pillCount : null;
   let daysUntilEmpty = null;
   let refillNeededDate = null;
   let alertDate = null;
   let belowAlertThreshold = false;
+  const adherenceRecordsByDate = adherenceRecords.reduce((map, record) => {
+    if (!record?.date) return map;
+    if (!map.has(record.date)) {
+      map.set(record.date, []);
+    }
+    map.get(record.date).push(record);
+    return map;
+  }, new Map());
 
-  if (dailyUsage !== null && Number.isFinite(pillCount) && pillCount >= 0 && dailyUsage > 0) {
-    if (refillDate && !Number.isNaN(refillDate.getTime())) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const elapsedDays = Math.max(0, Math.floor((today.getTime() - refillDate.getTime()) / 86400000));
-      estimatedRemainingPillCount = Math.max(0, Math.floor(pillCount - (elapsedDays * dailyUsage)));
+  if (Number.isFinite(pillCount) && pillCount >= 0) {
+    if (refillDate) {
+      const targetDate = parseMedicationDate(asOfDate);
+      let cursor = new Date(refillDate.getTime());
+      const futureRegimenDates = regimenHistory
+        .map(entry => entry.effectiveDate)
+        .filter(date => date > refillDateText && date <= asOfDate)
+        .sort((left, right) => left.localeCompare(right));
+      const adherenceDates = Array.from(adherenceRecordsByDate.keys())
+        .filter(date => date >= refillDateText && date < asOfDate)
+        .sort((left, right) => left.localeCompare(right));
+      let nextRegimenDateIndex = 0;
+      let nextAdherenceDateIndex = 0;
+
+      while (targetDate && cursor < targetDate) {
+        const cursorDate = cursor.toISOString().slice(0, 10);
+        while (futureRegimenDates[nextRegimenDateIndex] && futureRegimenDates[nextRegimenDateIndex] <= cursorDate) {
+          nextRegimenDateIndex += 1;
+        }
+        while (adherenceDates[nextAdherenceDateIndex] && adherenceDates[nextAdherenceDateIndex] < cursorDate) {
+          nextAdherenceDateIndex += 1;
+        }
+
+        const nextRegimenDate = futureRegimenDates[nextRegimenDateIndex] || asOfDate;
+        const nextAdherenceDate = adherenceDates[nextAdherenceDateIndex] || asOfDate;
+
+        if (!adherenceRecordsByDate.has(cursorDate)) {
+          const nextBoundaryDate = [nextRegimenDate, nextAdherenceDate, asOfDate]
+            .filter(date => date > cursorDate)
+            .sort((left, right) => left.localeCompare(right))[0] || asOfDate;
+          const nextBoundary = parseMedicationDate(nextBoundaryDate) || targetDate;
+          const usage = getMedicationDailyUsageForDateFromHistory(med, cursorDate, regimenHistory);
+          const segmentDays = getMedicationDateDiffInDays(cursor, nextBoundary);
+          if (usage !== null && Number.isFinite(usage) && usage > 0 && segmentDays > 0) {
+            estimatedRemainingPillCount = Math.max(0, estimatedRemainingPillCount - (segmentDays * usage));
+          }
+          cursor = nextBoundary;
+          continue;
+        }
+
+        const usage = getMedicationForecastUsageForDate(med, cursorDate, adherenceRecordsByDate, regimenHistory);
+        if (usage !== null && Number.isFinite(usage) && usage > 0) {
+          estimatedRemainingPillCount = Math.max(0, estimatedRemainingPillCount - usage);
+        }
+        cursor = addMedicationDays(cursor, 1);
+      }
+    }
+    estimatedRemainingPillCount = estimatedRemainingPillCount !== null ? Math.max(0, Math.floor(estimatedRemainingPillCount)) : null;
+  }
+
+  if (estimatedRemainingPillCount !== null) {
+    if (alertThresholdPillCount !== null && estimatedRemainingPillCount <= alertThresholdPillCount) {
+      alertDate = asOfDate;
     }
 
-    daysUntilEmpty = Math.floor(estimatedRemainingPillCount / dailyUsage);
-    const neededDate = new Date();
-    neededDate.setDate(neededDate.getDate() + daysUntilEmpty);
-    refillNeededDate = neededDate.toISOString().slice(0, 10);
+    if (dailyUsage !== null && dailyUsage > 0) {
+      let remaining = estimatedRemainingPillCount;
+      let cursor = parseMedicationDate(asOfDate) || new Date();
+      let dayCount = 0;
+      const futureRegimenDates = regimenHistory
+        .map(entry => entry.effectiveDate)
+        .filter(date => date > asOfDate)
+        .sort((left, right) => left.localeCompare(right));
+      let nextRegimenDateIndex = 0;
 
-    if (alertThresholdPillCount !== null) {
-      const alertDays = Math.max(0, Math.floor((estimatedRemainingPillCount - alertThresholdPillCount) / dailyUsage));
-      const aDate = new Date();
-      aDate.setDate(aDate.getDate() + alertDays);
-      alertDate = aDate.toISOString().slice(0, 10);
+      while (remaining > 0 && dayCount < MAX_MEDICATION_FORECAST_DAYS) {
+        const cursorDate = cursor.toISOString().slice(0, 10);
+        while (futureRegimenDates[nextRegimenDateIndex] && futureRegimenDates[nextRegimenDateIndex] <= cursorDate) {
+          nextRegimenDateIndex += 1;
+        }
+
+        const usage = getMedicationDailyUsageForDateFromHistory(med, cursorDate, regimenHistory);
+        if (usage === null || !Number.isFinite(usage) || usage <= 0) {
+          dayCount = null;
+          break;
+        }
+
+        const nextRegimenDate = futureRegimenDates[nextRegimenDateIndex] || null;
+        const nextRegimenBoundary = nextRegimenDate
+          ? (parseMedicationDate(nextRegimenDate) || addMedicationDays(cursor, MAX_MEDICATION_FORECAST_DAYS - dayCount))
+          : addMedicationDays(cursor, MAX_MEDICATION_FORECAST_DAYS - dayCount);
+        const daysUntilRegimenChange = Math.max(1, getMedicationDateDiffInDays(cursor, nextRegimenBoundary));
+        const daysUntilEmptyInSegment = Math.max(1, Math.ceil(remaining / usage));
+        const segmentDays = Math.min(daysUntilRegimenChange, daysUntilEmptyInSegment);
+
+        if (!alertDate && alertThresholdPillCount !== null && remaining > alertThresholdPillCount) {
+          const pillsToThreshold = remaining - alertThresholdPillCount;
+          const daysUntilAlert = Math.max(1, Math.ceil(pillsToThreshold / usage));
+          if (daysUntilAlert <= segmentDays) {
+            alertDate = addMedicationDays(cursor, daysUntilAlert).toISOString().slice(0, 10);
+          }
+        }
+
+        remaining -= usage * segmentDays;
+        dayCount += segmentDays;
+        cursor = addMedicationDays(cursor, segmentDays);
+      }
+
+      if (dayCount !== null) {
+        daysUntilEmpty = dayCount;
+        refillNeededDate = cursor.toISOString().slice(0, 10);
+      }
     }
   }
 
@@ -1779,6 +1876,149 @@ function isValidMedicationStatusDate(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false;
   const parsed = new Date(`${date}T00:00:00`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
+
+function getMedicationTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function parseMedicationDate(date) {
+  if (!isValidMedicationStatusDate(date)) return null;
+  const parsed = new Date(`${date}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function addMedicationDays(date, days) {
+  const nextDate = new Date(date.getTime());
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function getMedicationDateDiffInDays(startDate, endDate) {
+  return Math.max(0, Math.floor((endDate.getTime() - startDate.getTime()) / 86400000));
+}
+
+function normalizeMedicationScheduleFrequency(value) {
+  return String(value || '').trim();
+}
+
+function normalizeMedicationPillsPerDose(value, fallback = 1) {
+  const normalized = typeof value === 'number' ? value : parseFloat(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : fallback;
+}
+
+function getMedicationInitialRegimenEffectiveDate(medication) {
+  const refillDate = String(medication?.refillDate || '').trim().slice(0, 10);
+  if (isValidMedicationStatusDate(refillDate)) {
+    return refillDate;
+  }
+
+  const createdDate = String(medication?.createdDate || '').trim().slice(0, 10);
+  if (isValidMedicationStatusDate(createdDate)) {
+    return createdDate;
+  }
+
+  return getMedicationTodayDate();
+}
+
+function createMedicationRegimenEntry(medication, effectiveDate, overrides = {}) {
+  const createdAt = String(overrides.createdAt || medication?.createdDate || new Date().toISOString()).trim();
+  return {
+    id: String(overrides.id || generateId()),
+    effectiveDate,
+    scheduleFrequency: normalizeMedicationScheduleFrequency(
+      overrides.scheduleFrequency !== undefined ? overrides.scheduleFrequency : medication?.scheduleFrequency
+    ),
+    pillsPerDose: normalizeMedicationPillsPerDose(
+      overrides.pillsPerDose !== undefined ? overrides.pillsPerDose : medication?.pillsPerDose,
+      1
+    ),
+    createdAt
+  };
+}
+
+function normalizeMedicationRegimenHistory(medication) {
+  const rawHistory = Array.isArray(medication?.regimenHistory) ? medication.regimenHistory : [];
+  const normalizedHistory = rawHistory
+    .map(entry => {
+      const effectiveDate = String(entry?.effectiveDate || '').trim().slice(0, 10);
+      if (!isValidMedicationStatusDate(effectiveDate)) {
+        return null;
+      }
+
+      return createMedicationRegimenEntry(medication, effectiveDate, entry);
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
+      if (dateCompare !== 0) return dateCompare;
+      return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
+    });
+
+  if (normalizedHistory.length > 0) {
+    return normalizedHistory;
+  }
+
+  return [createMedicationRegimenEntry(medication, getMedicationInitialRegimenEffectiveDate(medication))];
+}
+
+function getMedicationRegimenForDateFromHistory(medication, date, history) {
+  const targetDate = isValidMedicationStatusDate(date) ? date : getMedicationTodayDate();
+  const normalizedHistory = Array.isArray(history) && history.length > 0
+    ? history
+    : normalizeMedicationRegimenHistory(medication);
+  let regimen = normalizedHistory[0] || null;
+
+  normalizedHistory.forEach(entry => {
+    if (entry.effectiveDate <= targetDate) {
+      regimen = entry;
+    }
+  });
+
+  return regimen || createMedicationRegimenEntry(medication, getMedicationInitialRegimenEffectiveDate(medication));
+}
+
+function getMedicationRegimenForDate(medication, date) {
+  return getMedicationRegimenForDateFromHistory(medication, date, normalizeMedicationRegimenHistory(medication));
+}
+
+function getMedicationDailyUsageForDateFromHistory(medication, date, history) {
+  const regimen = getMedicationRegimenForDateFromHistory(medication, date, history);
+  const structuredUsage = computeDailyUsageFromStructured(regimen);
+  return structuredUsage !== null ? structuredUsage : estimateDailyUsageFromInstructions(medication?.instructions);
+}
+
+function getMedicationDailyUsageForDate(medication, date) {
+  return getMedicationDailyUsageForDateFromHistory(medication, date, normalizeMedicationRegimenHistory(medication));
+}
+
+function getMedicationForecastUsageForDate(medication, date, adherenceRecordsByDate = new Map(), history = null) {
+  const matchingRecords = adherenceRecordsByDate.get(date) || [];
+  const scheduledDailyUsage = getMedicationDailyUsageForDateFromHistory(medication, date, history);
+  if (matchingRecords.length === 0) {
+    return scheduledDailyUsage;
+  }
+
+  const tookRecords = matchingRecords.filter(record => record?.status === 'took');
+  if (tookRecords.length === 0) {
+    return 0;
+  }
+
+  const explicitPillsTaken = tookRecords
+    .map(record => (typeof record?.pillsTaken === 'number' ? record.pillsTaken : parseFloat(record?.pillsTaken)))
+    .filter(value => Number.isFinite(value) && value >= 0);
+
+  if (explicitPillsTaken.length === 0) {
+    return scheduledDailyUsage;
+  }
+
+  let usage = explicitPillsTaken.reduce((sum, value) => sum + value, 0);
+  const missingExplicitCount = tookRecords.length - explicitPillsTaken.length;
+  if (missingExplicitCount > 0 && scheduledDailyUsage !== null && scheduledDailyUsage > 0) {
+    usage += scheduledDailyUsage * missingExplicitCount;
+  }
+
+  return usage;
 }
 
 // Get medications data
@@ -1815,6 +2055,7 @@ function addMedication(medication) {
     return { success: false, error: 'Medication name is required' };
   }
   const medsData = getMedicationsData();
+  const createdDate = new Date().toISOString();
   const entry = {
     id: generateId(),
     name: String(medication.name).trim(),
@@ -1830,12 +2071,19 @@ function addMedication(medication) {
       ? Number(medication.alertThresholdDays)
       : 7,
     asNeeded: medication.asNeeded === true || medication.asNeeded === 'true',
-    scheduleFrequency: medication.scheduleFrequency || '',
+    scheduleFrequency: normalizeMedicationScheduleFrequency(medication.scheduleFrequency),
     pillsPerDose: medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
-      ? Number(medication.pillsPerDose)
+      ? normalizeMedicationPillsPerDose(medication.pillsPerDose, 1)
       : 1,
-    createdDate: new Date().toISOString()
+    createdDate
   };
+  entry.regimenHistory = [createMedicationRegimenEntry(
+    entry,
+    isValidMedicationStatusDate(medication.regimenEffectiveDate)
+      ? medication.regimenEffectiveDate
+      : getMedicationInitialRegimenEffectiveDate(entry),
+    { createdAt: createdDate }
+  )];
   medsData.medications.push(entry);
   return saveMedicationsData(medsData);
 }
@@ -1848,6 +2096,46 @@ function updateMedication(id, medication) {
     return { success: false, error: 'Medication not found' };
   }
   const existing = medsData.medications[index];
+  const nextScheduleFrequency = medication.scheduleFrequency !== undefined
+    ? normalizeMedicationScheduleFrequency(medication.scheduleFrequency)
+    : normalizeMedicationScheduleFrequency(existing.scheduleFrequency);
+  const nextPillsPerDose = medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
+    ? normalizeMedicationPillsPerDose(medication.pillsPerDose, 1)
+    : (medication.pillsPerDose === '' ? 1 : normalizeMedicationPillsPerDose(existing.pillsPerDose, 1));
+  const scheduleChanged = nextScheduleFrequency !== normalizeMedicationScheduleFrequency(existing.scheduleFrequency);
+  const pillsChanged = nextPillsPerDose !== normalizeMedicationPillsPerDose(existing.pillsPerDose, 1);
+  let regimenHistory = normalizeMedicationRegimenHistory(existing);
+
+  if (scheduleChanged || pillsChanged) {
+    const effectiveDate = String(medication.regimenEffectiveDate || '').trim() || getMedicationTodayDate();
+    if (!isValidMedicationStatusDate(effectiveDate)) {
+      return { success: false, error: 'A valid regimen effective date is required' };
+    }
+
+    const matchingEntryIndex = regimenHistory.findIndex(entry => entry.effectiveDate === effectiveDate);
+    const nextEntry = createMedicationRegimenEntry(existing, effectiveDate, {
+      id: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].id : generateId(),
+      scheduleFrequency: nextScheduleFrequency,
+      pillsPerDose: nextPillsPerDose,
+      createdAt: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].createdAt : new Date().toISOString()
+    });
+
+    if (matchingEntryIndex >= 0) {
+      regimenHistory[matchingEntryIndex] = nextEntry;
+    } else {
+      regimenHistory.push(nextEntry);
+      regimenHistory = regimenHistory.sort((left, right) => {
+        const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
+        if (dateCompare !== 0) return dateCompare;
+        return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
+      });
+    }
+  }
+
+  const currentRegimen = getMedicationRegimenForDate({
+    ...existing,
+    regimenHistory
+  }, getMedicationTodayDate());
   medsData.medications[index] = {
     ...existing,
     name: medication.name !== undefined ? String(medication.name).trim() : existing.name,
@@ -1863,10 +2151,9 @@ function updateMedication(id, medication) {
       ? Number(medication.alertThresholdDays)
       : existing.alertThresholdDays,
     asNeeded: medication.asNeeded !== undefined ? (medication.asNeeded === true || medication.asNeeded === 'true') : (existing.asNeeded || false),
-    scheduleFrequency: medication.scheduleFrequency !== undefined ? (medication.scheduleFrequency || '') : (existing.scheduleFrequency || ''),
-    pillsPerDose: medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
-      ? Number(medication.pillsPerDose)
-      : (medication.pillsPerDose === '' ? 1 : (existing.pillsPerDose !== undefined ? existing.pillsPerDose : 1)),
+    scheduleFrequency: currentRegimen.scheduleFrequency,
+    pillsPerDose: currentRegimen.pillsPerDose,
+    regimenHistory,
     id
   };
   return saveMedicationsData(medsData);
@@ -2188,7 +2475,7 @@ function getMedicationAdherenceRecords() {
   return getMedicationsData().adherenceRecords;
 }
 
-function recordMedicationAdherence(userId, medicationId, status, date) {
+function recordMedicationAdherence(userId, medicationId, status, date, options = {}) {
   const medsData = getMedicationsData();
   const portalUser = medsData.portalUsers.find(user => user.id === userId);
   if (!portalUser) {
@@ -2215,6 +2502,16 @@ function recordMedicationAdherence(userId, medicationId, status, date) {
     return { success: false, error: 'A valid medication date is required' };
   }
 
+  const scheduledPillsTaken = getMedicationDailyUsageForDate(medication, date);
+  const submittedPillsTaken = options?.pillsTaken;
+  const normalizedSubmittedPillsTaken = submittedPillsTaken === undefined || submittedPillsTaken === null || submittedPillsTaken === ''
+    ? null
+    : (typeof submittedPillsTaken === 'number' ? submittedPillsTaken : parseFloat(submittedPillsTaken));
+
+  if (normalizedSubmittedPillsTaken !== null && (!Number.isFinite(normalizedSubmittedPillsTaken) || normalizedSubmittedPillsTaken < 0)) {
+    return { success: false, error: 'Pills taken must be a valid non-negative number' };
+  }
+
   const recordedAt = new Date().toISOString();
   const existingIndex = medsData.adherenceRecords.findIndex(record =>
     record.userId === userId &&
@@ -2222,11 +2519,24 @@ function recordMedicationAdherence(userId, medicationId, status, date) {
     record.date === date
   );
 
+  const existingRecord = existingIndex >= 0 ? medsData.adherenceRecords[existingIndex] : null;
+  const normalizedExistingPillsTaken = existingRecord && existingRecord.pillsTaken !== undefined && existingRecord.pillsTaken !== null && existingRecord.pillsTaken !== ''
+    ? parseFloat(existingRecord.pillsTaken)
+    : null;
+  const pillsTaken = status === 'took'
+    ? (normalizedSubmittedPillsTaken !== null
+      ? normalizedSubmittedPillsTaken
+      : (existingRecord && existingRecord.status === 'took' && Number.isFinite(normalizedExistingPillsTaken)
+        ? normalizedExistingPillsTaken
+        : scheduledPillsTaken))
+    : null;
+
   let record;
   if (existingIndex >= 0) {
     record = {
-      ...medsData.adherenceRecords[existingIndex],
+      ...existingRecord,
       status,
+      pillsTaken,
       recordedAt
     };
     medsData.adherenceRecords[existingIndex] = record;
@@ -2237,6 +2547,7 @@ function recordMedicationAdherence(userId, medicationId, status, date) {
       medicationId,
       date,
       status,
+      pillsTaken,
       recordedAt
     };
     medsData.adherenceRecords.push(record);
@@ -2247,8 +2558,24 @@ function recordMedicationAdherence(userId, medicationId, status, date) {
 }
 
 function getMedicationAdherenceHistory(userId, medicationId) {
+  const medication = getMedicationsData().medications.find(entry => entry.id === medicationId) || null;
+  const regimenHistory = medication ? normalizeMedicationRegimenHistory(medication) : [];
   return getMedicationAdherenceRecords()
     .filter(record => record.userId === userId && record.medicationId === medicationId)
+    .map(record => {
+      const regimen = medication ? getMedicationRegimenForDateFromHistory(medication, record.date, regimenHistory) : null;
+      const scheduledDailyPillCount = medication ? getMedicationDailyUsageForDateFromHistory(medication, record.date, regimenHistory) : null;
+      const normalizedPillsTaken = typeof record?.pillsTaken === 'number' ? record.pillsTaken : parseFloat(record?.pillsTaken);
+      return {
+        ...record,
+        pillsTaken: record.status === 'took'
+          ? (Number.isFinite(normalizedPillsTaken) ? normalizedPillsTaken : scheduledDailyPillCount)
+          : null,
+        scheduledDailyPillCount,
+        scheduledPillsPerDose: regimen ? regimen.pillsPerDose : null,
+        scheduleFrequency: regimen ? regimen.scheduleFrequency : ''
+      };
+    })
     .sort((a, b) => {
       const dateCompare = String(b.date || '').localeCompare(String(a.date || ''));
       if (dateCompare !== 0) return dateCompare;
@@ -2333,6 +2660,8 @@ module.exports = {
   getMedicationAdherenceRecords,
   recordMedicationAdherence,
   getMedicationAdherenceHistory,
+  getMedicationRegimenForDate,
+  getMedicationDailyUsageForDate,
   estimateDailyUsageFromInstructions,
   computeMedicationForecast
 };

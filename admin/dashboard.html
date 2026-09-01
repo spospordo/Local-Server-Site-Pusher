@@ -4554,8 +4554,21 @@
                             </div>
                             <div class="form-group" style="max-width: 180px;">
                                 <label for="medicationPillsPerDose">Pills per dose</label>
-                                <input type="number" id="medicationPillsPerDose" placeholder="1" min="1" step="1" value="1">
+                                <input type="number" id="medicationPillsPerDose" placeholder="1" min="0.25" step="0.25" value="1">
                                 <small style="color: #666;">Number of pills taken per dose.</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="max-width: 220px;">
+                                <label for="medicationRegimenEffectiveDate">Regimen change effective date</label>
+                                <input type="date" id="medicationRegimenEffectiveDate">
+                                <small style="color: #666;">When editing frequency or pills per dose, leave blank to apply starting today.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Regimen history</label>
+                                <div id="medicationRegimenHistory" style="min-height: 42px; padding: 0.75rem; background: #fff; border: 1px solid #d7dde5; border-radius: 6px; color: #555;">
+                                    New medications will start a regimen history when you save them.
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -29750,6 +29763,37 @@
             });
         }
 
+        function formatMedicationRegimenSummary(regimen) {
+            const frequency = String(regimen?.scheduleFrequency || '').trim();
+            const pillsPerDose = regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined && regimen?.pillsPerDose !== ''
+                ? Number(regimen.pillsPerDose)
+                : 1;
+            const formattedPillsPerDose = Number.isFinite(pillsPerDose) ? pillsPerDose : 1;
+            if (!frequency) {
+                return 'Not scheduled';
+            }
+            return `${formattedPillsPerDose} pill${formattedPillsPerDose === 1 ? '' : 's'} per dose • ${frequency}`;
+        }
+
+        function renderMedicationRegimenHistory(med) {
+            const container = document.getElementById('medicationRegimenHistory');
+            if (!container) return;
+
+            const history = Array.isArray(med?.regimenHistory) ? [...med.regimenHistory] : [];
+            if (history.length === 0) {
+                container.textContent = med ? 'No saved regimen changes yet for this medication.' : 'New medications will start a regimen history when you save them.';
+                return;
+            }
+
+            history.sort((left, right) => String(right.effectiveDate || '').localeCompare(String(left.effectiveDate || '')));
+            container.innerHTML = history
+                .map(entry => `<div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.25rem 0;">
+                    <strong>${escapeHtml(entry.effectiveDate || 'Unknown date')}</strong>
+                    <span>${escapeHtml(formatMedicationRegimenSummary(entry))}</span>
+                </div>`)
+                .join('');
+        }
+
         function renderMedications() {
             const container = document.getElementById('medicationsList');
             const alertBanner = document.getElementById('medicationsAlertBanner');
@@ -29809,6 +29853,8 @@
                 const refillNeeded = med.refillNeededDate || '—';
                 const usageText = med.dailyUsage !== null && med.dailyUsage !== undefined
                     ? `${med.dailyUsage}/day` : '—';
+                const regimenHistoryCount = Array.isArray(med.regimenHistory) ? med.regimenHistory.length : 0;
+                const regimenHistoryLabel = regimenHistoryCount > 1 ? ` (${regimenHistoryCount} dated entries)` : '';
                 return `
                     <tr style="${rowStyle}">
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-weight: 600;">
@@ -29825,6 +29871,9 @@
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
                             ${usageText}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
+                            ${escapeHtml(formatMedicationRegimenSummary(med))}${escapeHtml(regimenHistoryLabel)}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; ${isAlert ? 'color: #c0392b; font-weight: 600;' : ''}">
                             ${daysText}
@@ -29849,6 +29898,7 @@
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Pills</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Est. Remaining</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Usage</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Regimen</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Days Left</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Refill Needed</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Actions</th>
@@ -29880,7 +29930,9 @@
             document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
             document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
             document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
+            document.getElementById('medicationRegimenEffectiveDate').value = '';
             document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
+            renderMedicationRegimenHistory(med || null);
             document.getElementById('medicationName').focus();
         }
 
@@ -29888,6 +29940,8 @@
             document.getElementById('medicationFormContainer').style.display = 'none';
             document.getElementById('medicationForm').reset();
             document.getElementById('medicationId').value = '';
+            document.getElementById('medicationRegimenEffectiveDate').value = '';
+            renderMedicationRegimenHistory(null);
         }
 
         function editMedication(id) {
@@ -29905,6 +29959,7 @@
                 instructions: document.getElementById('medicationInstructions').value.trim(),
                 scheduleFrequency: document.getElementById('medicationScheduleFrequency').value,
                 pillsPerDose: document.getElementById('medicationPillsPerDose').value,
+                regimenEffectiveDate: document.getElementById('medicationRegimenEffectiveDate').value,
                 refillDate: document.getElementById('medicationRefillDate').value,
                 pillCount: document.getElementById('medicationPillCount').value,
                 refillExpiration: document.getElementById('medicationRefillExpiration').value,

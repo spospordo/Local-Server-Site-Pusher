@@ -1454,7 +1454,7 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
         id: medication.id,
         name: medication.name,
         instructions: medication.instructions || '',
-        scheduleFrequency: medication.scheduleFrequency || '',
+        scheduleFrequency: house.getMedicationRegimenForDate(medication, getMedicationPortalToday()).scheduleFrequency || '',
         asNeeded: !!medication.asNeeded,
         assignedAt: assignment.assignedAt || ''
       };
@@ -1475,12 +1475,14 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
         id: medication.id,
         name: medication.name,
         instructions: medication.instructions,
-        scheduleFrequency: medication.scheduleFrequency,
+        scheduleFrequency: house.getMedicationRegimenForDate(medication, date).scheduleFrequency,
         asNeeded: medication.asNeeded,
         assignedAt: medication.assignedAt,
         expected,
         status,
-        recordedAt: record ? record.recordedAt || null : null
+        recordedAt: record ? record.recordedAt || null : null,
+        pillsTaken: record ? record.pillsTaken ?? null : null,
+        scheduledDailyPillCount: record ? record.scheduledDailyPillCount ?? null : null
       };
     });
 
@@ -1560,9 +1562,16 @@ function buildMedicationAdminPayload() {
 
   const medications = (data.medications || []).map(medication => {
     const assignedUserIds = assignmentsByMedicationId.get(medication.id) || [];
+    const currentRegimen = house.getMedicationRegimenForDate(medication, getMedicationPortalToday());
+    const adherenceRecords = (data.adherenceRecords || []).filter(record => record?.medicationId === medication.id);
     return {
       ...medication,
-      ...house.computeMedicationForecast(medication),
+      ...currentRegimen,
+      regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
+      ...house.computeMedicationForecast(medication, {
+        asOfDate: getMedicationPortalToday(),
+        adherenceRecords
+      }),
       assignedUserIds,
       assignedUsernames: assignedUserIds
         .map(userId => usernameById.get(userId))
@@ -1655,11 +1664,15 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
   }
 
   const lowSupplyMedicationIds = new Set();
+  const medicationPayloadById = new Map((medicationPayload.medications || []).map(medication => [medication.id, medication]));
   selectedUsers.forEach(user => {
     house.getAssignedMedicationsForUser(user.id).forEach(medication => {
-      const medicationWithForecast = {
+      const medicationWithForecast = medicationPayloadById.get(medication.id) || {
         ...medication,
-        ...house.computeMedicationForecast(medication)
+        ...house.computeMedicationForecast(medication, {
+          asOfDate: getMedicationPortalToday(),
+          adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record?.medicationId === medication.id)
+        })
       };
       if (medicationWithForecast.belowAlertThreshold) {
         lowSupplyMedicationIds.add(String(medicationWithForecast.id || ''));
@@ -1698,11 +1711,18 @@ function buildMedicationPortalDashboard(userId) {
   const medications = house.getAssignedMedicationsForUser(userId).map(medication => {
     const adherenceHistory = house.getMedicationAdherenceHistory(userId, medication.id);
     const todayRecord = adherenceHistory.find(record => record.date === today) || null;
+    const currentRegimen = house.getMedicationRegimenForDate(medication, today);
     return {
       ...medication,
-      ...house.computeMedicationForecast(medication),
+      ...currentRegimen,
+      regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
+      ...house.computeMedicationForecast(medication, {
+        asOfDate: today,
+        adherenceRecords: adherenceHistory
+      }),
       todayStatus: todayRecord ? todayRecord.status : null,
       todayRecordedAt: todayRecord ? todayRecord.recordedAt : null,
+      todayPillsTaken: todayRecord ? todayRecord.pillsTaken ?? null : null,
       adherenceHistory: adherenceHistory.slice(0, 14)
     };
   });
@@ -1920,6 +1940,7 @@ app.get('/medications/api/dashboard', requireMedicationPortalAuth, (req, res) =>
 app.post('/medications/api/medications/:id/adherence', requireMedicationPortalAuth, requireMedicationPortalCsrf, (req, res) => {
   const status = String(req.body?.status || '').trim();
   const date = String(req.body?.date || getMedicationPortalToday()).trim();
+  const pillsTaken = req.body?.pillsTaken;
   const today = getMedicationPortalToday();
 
   if (date > today) {
@@ -1927,7 +1948,7 @@ app.post('/medications/api/medications/:id/adherence', requireMedicationPortalAu
   }
 
   try {
-    const result = house.recordMedicationAdherence(req.medicationPortalUser.id, req.params.id, status, date);
+    const result = house.recordMedicationAdherence(req.medicationPortalUser.id, req.params.id, status, date, { pillsTaken });
     if (!result.success) {
       const statusCode = /not found|not assigned/i.test(result.error || '') ? 404 : 400;
       return res.status(statusCode).json({ success: false, error: result.error });
