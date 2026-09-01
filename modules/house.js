@@ -1736,7 +1736,7 @@ function computeMedicationForecast(med) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const elapsedDays = Math.max(0, Math.floor((today.getTime() - refillDate.getTime()) / 86400000));
-      estimatedRemainingPillCount = Math.max(0, Math.round((pillCount - (elapsedDays * dailyUsage)) * 100) / 100);
+      estimatedRemainingPillCount = Math.max(0, Math.floor(pillCount - (elapsedDays * dailyUsage)));
     }
 
     daysUntilEmpty = Math.floor(estimatedRemainingPillCount / dailyUsage);

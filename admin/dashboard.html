@@ -29755,15 +29755,24 @@
             const alertBanner = document.getElementById('medicationsAlertBanner');
             if (!container) return;
 
-            // Collect alerts
-            const alertItems = houseMedicationsData.filter(med => {
+            function getMedAlertState(med) {
                 const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
                     ? Number(med.estimatedRemainingPillCount)
                     : NaN;
                 const threshold = (med.alertThresholdPillCount !== null && med.alertThresholdPillCount !== undefined)
                     ? Number(med.alertThresholdPillCount)
                     : ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
-                return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
+                return {
+                    estimatedRemaining,
+                    threshold,
+                    isAlert: med.belowAlertThreshold === true || (Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold)
+                };
+            }
+
+            // Collect alerts
+            const alertItems = houseMedicationsData.filter(med => {
+                const alertState = getMedAlertState(med);
+                return alertState.isAlert;
             });
 
             if (alertBanner) {
@@ -29784,16 +29793,9 @@
             }
 
             const rows = houseMedicationsData.map(med => {
-                const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
-                    ? Number(med.estimatedRemainingPillCount)
-                    : NaN;
-                const threshold = (med.alertThresholdPillCount !== null && med.alertThresholdPillCount !== undefined)
-                    ? Number(med.alertThresholdPillCount)
-                    : ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
-                const isAlert = med.belowAlertThreshold === true || (
-                    Number.isFinite(estimatedRemaining) &&
-                    estimatedRemaining <= threshold
-                );
+                const alertState = getMedAlertState(med);
+                const estimatedRemaining = alertState.estimatedRemaining;
+                const isAlert = alertState.isAlert;
                 const rowStyle = isAlert ? 'background: #fff8e1;' : '';
                 const daysText = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined
                     ? `${med.daysUntilEmpty} day(s)` : '—';
