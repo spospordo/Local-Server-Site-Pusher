@@ -29988,12 +29988,15 @@
             try {
                 await navigator.clipboard.writeText(value);
             } catch (error) {
+                let copied = false;
                 if (input) {
                     input.focus();
                     input.select();
-                    document.execCommand('copy');
-                } else {
-                    throw error;
+                    copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+                }
+                if (!copied) {
+                    showAlert('Clipboard access is unavailable. The access ' + field + ' has been selected so you can copy it manually.', 'error', 'medicationsAlert');
+                    return;
                 }
             }
 
