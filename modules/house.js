@@ -6,6 +6,7 @@ const Tesseract = require('tesseract.js');
 const pdfParse = require('pdf-parse');
 
 let config = null;
+let medicationAccessTokenSecret = '';
 
 function generateId() {
   return randomUUID();
@@ -14,6 +15,7 @@ function generateId() {
 // Initialize the house module with config
 function init(serverConfig) {
   config = serverConfig;
+  medicationAccessTokenSecret = '';
   
   // Ensure house data file exists
   ensureHouseDataFile();
@@ -57,7 +59,8 @@ function getDefaultHouseData() {
       portalUsers: [],
       assignments: [],
       adherenceRecords: [],
-      accessTokens: []
+      accessTokens: [],
+      accessTokenSecret: ""
     }
   };
 }
@@ -1764,14 +1767,19 @@ function getMedicationsData() {
     portalUsers: Array.isArray(medications.portalUsers) ? medications.portalUsers : [],
     assignments: Array.isArray(medications.assignments) ? medications.assignments : [],
     adherenceRecords: Array.isArray(medications.adherenceRecords) ? medications.adherenceRecords : [],
-    accessTokens: Array.isArray(medications.accessTokens) ? medications.accessTokens : []
+    accessTokens: Array.isArray(medications.accessTokens) ? medications.accessTokens : [],
+    accessTokenSecret: String(medications.accessTokenSecret || '').trim()
   };
 }
 
 // Save medications data
 function saveMedicationsData(medicationsData) {
   const data = loadHouseData();
-  data.medications = medicationsData;
+  const persistedAccessTokenSecret = String(data.medications?.accessTokenSecret || '').trim();
+  data.medications = {
+    ...medicationsData,
+    accessTokenSecret: String(medicationsData?.accessTokenSecret || '').trim() || persistedAccessTokenSecret
+  };
   return saveHouseData(data);
 }
 
@@ -1871,13 +1879,42 @@ function normalizeMedicationAccessScope(scope) {
 }
 
 function getMedicationAccessTokenSecret() {
-  const secret = process.env.MEDICATION_ACCESS_TOKEN_SECRET;
-  if (!secret || !secret.trim()) {
-    const generatedSecret = randomBytes(32).toString('hex');
-    process.env.MEDICATION_ACCESS_TOKEN_SECRET = generatedSecret;
-    console.warn('[House] MEDICATION_ACCESS_TOKEN_SECRET missing; generated an ephemeral secret for this process. Set it in the environment to keep access links valid across restarts.');
+  if (medicationAccessTokenSecret) {
+    return medicationAccessTokenSecret;
   }
-  return String(process.env.MEDICATION_ACCESS_TOKEN_SECRET || '').trim();
+
+  const medsData = getMedicationsData();
+  const storedSecret = String(medsData.accessTokenSecret || '').trim();
+  if (storedSecret) {
+    const envSecret = String(process.env.MEDICATION_ACCESS_TOKEN_SECRET || '').trim();
+    if (envSecret && envSecret !== storedSecret) {
+      console.warn('[House] Ignoring MEDICATION_ACCESS_TOKEN_SECRET because a persisted medication access token secret already exists.');
+    }
+    medicationAccessTokenSecret = storedSecret;
+    return storedSecret;
+  }
+
+  const envSecret = String(process.env.MEDICATION_ACCESS_TOKEN_SECRET || '').trim();
+  if (envSecret) {
+    medsData.accessTokenSecret = envSecret;
+    const saveResult = saveMedicationsData(medsData);
+    if (!saveResult.success) {
+      console.warn('[House] Failed to persist MEDICATION_ACCESS_TOKEN_SECRET; medication access links may not survive restarts:', saveResult.error);
+    }
+    medicationAccessTokenSecret = envSecret;
+    return envSecret;
+  }
+
+  const generatedSecret = randomBytes(32).toString('hex');
+  medsData.accessTokenSecret = generatedSecret;
+  const saveResult = saveMedicationsData(medsData);
+  if (!saveResult.success) {
+    console.warn('[House] Failed to persist generated medication access token secret; access links may not survive restarts:', saveResult.error);
+  } else {
+    console.log('[House] MEDICATION_ACCESS_TOKEN_SECRET missing; generated and persisted a medication access token secret so access links remain valid across restarts.');
+  }
+  medicationAccessTokenSecret = generatedSecret;
+  return generatedSecret;
 }
 
 function hashMedicationAccessToken(rawToken) {
