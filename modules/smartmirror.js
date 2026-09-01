@@ -1084,6 +1084,7 @@ function _applyEventFilters(events, filterConfig) {
   const filteredEvents = [];
   const groupedEvents = new Map();
   let originalOrder = 0;
+  let hiddenCount = 0;
   const MAX_GROUPED_EVENT_DATES = 3;
 
   function formatGroupedEventDate(dateValue) {
@@ -1121,6 +1122,7 @@ function _applyEventFilters(events, filterConfig) {
         
         if (rule.action === 'hide') {
           shouldHide = true;
+          hiddenCount++;
           logger.debug(logger.categories.SMART_MIRROR, `Hiding event: "${event.title}"`);
           break; // No need to check more rules if we're hiding
         } else if (rule.action === 'replace') {
@@ -1154,6 +1156,15 @@ function _applyEventFilters(events, filterConfig) {
   
   let groupedCount = 0;
   for (const groupedMatches of groupedEvents.values()) {
+    groupedMatches.sort((a, b) => {
+      const startDiff = new Date(a.start) - new Date(b.start);
+      if (startDiff !== 0) {
+        return startDiff;
+      }
+
+      return (a._originalOrder || 0) - (b._originalOrder || 0);
+    });
+
     if (groupedMatches.length === 1) {
       filteredEvents.push(groupedMatches[0]);
       continue;
@@ -1190,11 +1201,10 @@ function _applyEventFilters(events, filterConfig) {
     return cleanEvent;
   });
 
-  const removedCount = events.length - filteredEvents.length;
-  if (removedCount > 0 || groupedCount > 0) {
+  if (hiddenCount > 0 || groupedCount > 0) {
     logger.info(
       logger.categories.SMART_MIRROR,
-      `Event filtering: ${removedCount} event(s) hidden, ${groupedCount} grouped entr${groupedCount === 1 ? 'y' : 'ies'}, ${cleanedEvents.length} event(s) remaining`
+      `Event filtering: ${hiddenCount} event(s) hidden, ${groupedCount} grouped entr${groupedCount === 1 ? 'y' : 'ies'}, ${cleanedEvents.length} event(s) remaining`
     );
   }
   

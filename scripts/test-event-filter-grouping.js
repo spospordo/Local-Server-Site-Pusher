@@ -109,9 +109,9 @@ console.log('\n📅 Calendar event grouping regression tests\n');
 
 test('groups matching replacement-title events into one summarized entry', () => {
   const result = _applyEventFilters([
-    createEvent('Doctor Visit', 1, 'Annual physical'),
-    createEvent('Doctor Visit', 8, 'Follow-up'),
     createEvent('Doctor Visit', 15, 'Lab review'),
+    createEvent('Doctor Visit', 8, 'Follow-up'),
+    createEvent('Doctor Visit', 1, 'Annual physical'),
     createEvent('Doctor Visit', 22, 'Extra appointment')
   ], createFilterConfig());
 
@@ -120,6 +120,27 @@ test('groups matching replacement-title events into one summarized entry', () =>
     result[0].title,
     `Doc Appointment ${groupedDateLabel(1)}, ${groupedDateLabel(8)}, ${groupedDateLabel(15)}...`
   );
+});
+
+test('applies hide rules independently from grouped replacement entries', () => {
+  const result = _applyEventFilters([
+    createEvent('Private Meeting', 1, 'Hidden'),
+    createEvent('Doctor Visit', 6, 'Follow-up'),
+    createEvent('Doctor Visit', 2, 'Checkup')
+  ], {
+    enabled: true,
+    rules: [
+      {
+        id: 'hide-private',
+        keywords: ['private'],
+        action: 'hide'
+      },
+      ...createFilterConfig().rules
+    ]
+  });
+
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].title, `Doc Appointment ${groupedDateLabel(2)}, ${groupedDateLabel(6)}`);
 });
 
 test('keeps the next upcoming event description on grouped entries', () => {
