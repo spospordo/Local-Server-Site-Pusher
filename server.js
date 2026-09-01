@@ -1409,6 +1409,7 @@ function serializeMedicationAccessRecord(record) {
 }
 
 const MEDICATION_ADMIN_SUMMARY_DAY_COUNT = 7;
+const MEDICATION_ADMIN_SUMMARY_MAX_DAY_COUNT = 31;
 
 function parseMedicationSummaryDate(dateString) {
   const normalized = String(dateString || '').trim();
@@ -1423,7 +1424,7 @@ function parseMedicationSummaryDate(dateString) {
 
 function getMedicationAdminSummaryDateRange(dayCount = MEDICATION_ADMIN_SUMMARY_DAY_COUNT, endDate = getMedicationPortalToday()) {
   const normalizedDayCount = Number.isFinite(Number(dayCount))
-    ? Math.max(1, Math.min(31, Number.parseInt(dayCount, 10)))
+    ? Math.max(1, Math.min(MEDICATION_ADMIN_SUMMARY_MAX_DAY_COUNT, Number.parseInt(dayCount, 10)))
     : MEDICATION_ADMIN_SUMMARY_DAY_COUNT;
   const end = parseMedicationSummaryDate(endDate) || parseMedicationSummaryDate(getMedicationPortalToday());
 
