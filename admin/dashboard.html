@@ -4527,8 +4527,9 @@
                                 <input type="text" id="medicationName" placeholder="e.g., Lisinopril 10mg" required>
                             </div>
                             <div class="form-group">
-                                <label for="medicationPillCount">Current Pill Count</label>
+                                <label for="medicationPillCount">Regimen Pill Count</label>
                                 <input type="number" id="medicationPillCount" placeholder="e.g., 30" min="0" step="1">
+                                <small style="color: #666;">Use Save Regimen Change to record a dated pill-count update.</small>
                             </div>
                         </div>
                         <div class="form-group">
@@ -4538,6 +4539,13 @@
                         <div class="form-group">
                             <label for="medicationUsage">Usage</label>
                             <input type="text" id="medicationUsage" placeholder="e.g., Blood pressure support">
+                        </div>
+                        <div style="margin: 0.25rem 0 0.75rem; padding: 0.75rem; background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 6px;">
+                            <div style="font-weight: 600; color: #1d4f91;">Medication details vs. regimen changes</div>
+                            <div style="margin-top: 0.35rem; color: #345; font-size: 0.92rem;">
+                                Use <strong>Save Medication</strong> for medication details like name, description, usage, refill, and alert settings.
+                                Use <strong>Save Regimen Change</strong> to create a dated change for pill count, instructions, frequency, or pills per dose.
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -4599,8 +4607,10 @@
                         </div>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
                             <button type="submit" class="btn btn-success">💾 Save Medication</button>
+                            <button type="button" id="saveMedicationRegimenButton" class="btn btn-primary" style="display: none;" onclick="saveMedicationRegimenChange()">🗓️ Save Regimen Change</button>
                             <button type="button" class="btn btn-secondary" onclick="hideMedicationForm()">Cancel</button>
                         </div>
+                        <div id="medicationRegimenActionHint" style="display: none; margin-top: 0.5rem; color: #555; font-size: 0.9rem;"></div>
                     </form>
                 </div>
 
@@ -29623,6 +29633,7 @@
         let medicationPortalUsers = [];
         let generatedMedicationAccessLinks = {};
         let medicationAdherenceSummaryWindowDays = [];
+        let currentMedicationFormSnapshot = null;
         const medicationAccessLinkExpirationOptions = [
             { value: '1_day', label: '1 day' },
             { value: '1_month', label: '1 month' },
@@ -29788,10 +29799,33 @@
             return history.length > 0 ? history[history.length - 1] : med;
         }
 
+        function getCurrentMedicationRegimenEntry(med) {
+            const today = new Date().toISOString().slice(0, 10);
+            const history = Array.isArray(med?.regimenHistory) ? sortMedicationRegimenHistory(med.regimenHistory) : [];
+            let currentEntry = null;
+            history.forEach(entry => {
+                if (String(entry?.effectiveDate || '') <= today) {
+                   currentEntry = entry;
+                }
+            });
+            return currentEntry || (history.length > 0 ? history[0] : med);
+        }
+
         function getUpcomingMedicationRegimenEntry(med) {
             const today = new Date().toISOString().slice(0, 10);
             const history = Array.isArray(med?.regimenHistory) ? sortMedicationRegimenHistory(med.regimenHistory) : [];
             return history.find(entry => String(entry?.effectiveDate || '') > today) || null;
+        }
+
+        function formatMedicationRegimenChangeDetails(regimen) {
+            const parts = [];
+            if (regimen?.pillCount !== null && regimen?.pillCount !== undefined && regimen?.pillCount !== '') {
+                parts.push(`Pill count ${regimen.pillCount}`);
+            }
+            if (String(regimen?.instructions || '').trim()) {
+                parts.push(String(regimen.instructions).trim());
+            }
+            return parts.join(' • ');
         }
 
         function renderMedicationRegimenHistory(med) {
@@ -29804,13 +29838,81 @@
                 return;
             }
 
+            const today = new Date().toISOString().slice(0, 10);
+            const currentEntry = getCurrentMedicationRegimenEntry(med);
             history.reverse();
             container.innerHTML = history
-                .map(entry => `<div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.25rem 0;">
-                    <strong>${escapeHtml(entry.effectiveDate || 'Unknown date')}</strong>
-                    <span>${escapeHtml(formatMedicationRegimenSummary(entry))}</span>
-                </div>`)
+                .map(entry => {
+                   const statusLabel = String(entry?.effectiveDate || '') > today
+                       ? 'Upcoming'
+                       : (currentEntry && entry.id === currentEntry.id ? 'Current' : 'Past');
+                   const extraDetails = formatMedicationRegimenChangeDetails(entry);
+                   return `<div style="padding:0.45rem 0; border-bottom: 1px solid #eef2f7;">
+                   <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap;">
+                       <strong>${escapeHtml(entry.effectiveDate || 'Unknown date')}</strong>
+                       <span style="font-size: 0.78rem; color: #4a5568; text-transform: uppercase; letter-spacing: 0.03em;">${escapeHtml(statusLabel)}</span>
+                   </div>
+                   <div style="margin-top: 0.2rem;">${escapeHtml(formatMedicationRegimenSummary(entry))}</div>
+                   ${extraDetails ? `<div style="margin-top: 0.2rem; color: #555; font-size: 0.86rem;">${escapeHtml(extraDetails)}</div>` : ''}
+                </div>`;
+                })
                 .join('');
+        }
+
+        function setMedicationRegimenActionState(med) {
+            const button = document.getElementById('saveMedicationRegimenButton');
+            const hint = document.getElementById('medicationRegimenActionHint');
+            if (!button || !hint) return;
+
+            if (med && med.id) {
+                button.style.display = 'inline-flex';
+                hint.style.display = 'block';
+                hint.textContent = 'Editing regimen history? Choose an effective date, then use Save Regimen Change.';
+            } else {
+                button.style.display = 'none';
+                hint.style.display = 'block';
+                hint.textContent = 'Save the medication first, then add separate dated regimen changes.';
+            }
+        }
+
+        function getMedicationFormMedicationPayload() {
+            return {
+                name: document.getElementById('medicationName').value.trim(),
+                description: document.getElementById('medicationDescription').value.trim(),
+                usage: document.getElementById('medicationUsage').value.trim(),
+                refillDate: document.getElementById('medicationRefillDate').value,
+                refillExpiration: document.getElementById('medicationRefillExpiration').value,
+                alertThresholdDays: document.getElementById('medicationAlertThresholdDays').value,
+                asNeeded: document.getElementById('medicationAsNeeded').checked
+            };
+        }
+
+        function getMedicationFormRegimenPayload() {
+            return {
+                instructions: document.getElementById('medicationInstructions').value.trim(),
+                scheduleFrequency: document.getElementById('medicationScheduleFrequency').value,
+                pillsPerDose: document.getElementById('medicationPillsPerDose').value,
+                regimenEffectiveDate: document.getElementById('medicationRegimenEffectiveDate').value,
+                pillCount: document.getElementById('medicationPillCount').value
+            };
+        }
+
+        function normalizeMedicationFormPillCount(value) {
+            return value === '' || value === null || value === undefined ? '' : String(value);
+        }
+
+        function hasUnsavedRegimenFormChanges() {
+            if (!currentMedicationFormSnapshot || !currentMedicationFormSnapshot.id) {
+                return false;
+            }
+
+            const currentRegimen = getCurrentMedicationRegimenEntry(currentMedicationFormSnapshot) || currentMedicationFormSnapshot;
+            const regimenPayload = getMedicationFormRegimenPayload();
+            return String(regimenPayload.instructions || '').trim() !== String(currentRegimen.instructions || '').trim()
+                || String(regimenPayload.scheduleFrequency || '') !== String(currentRegimen.scheduleFrequency || '')
+                || String(regimenPayload.pillsPerDose || '') !== String(currentRegimen.pillsPerDose ?? 1)
+                || normalizeMedicationFormPillCount(regimenPayload.pillCount) !== normalizeMedicationFormPillCount(currentRegimen.pillCount)
+                || String(regimenPayload.regimenEffectiveDate || '').trim() !== '';
         }
 
         function renderMedications() {
@@ -29875,8 +29977,10 @@
                 const regimenHistoryCount = Array.isArray(med.regimenHistory) ? med.regimenHistory.length : 0;
                 const upcomingRegimen = getUpcomingMedicationRegimenEntry(med);
                 const regimenHistoryLabel = regimenHistoryCount > 1 ? `${regimenHistoryCount} dated entries saved` : '';
+                const currentRegimenDetails = formatMedicationRegimenChangeDetails(med);
+                const upcomingRegimenDetails = formatMedicationRegimenChangeDetails(upcomingRegimen);
                 const regimenDetail = upcomingRegimen
-                    ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">Saved change ${escapeHtml(upcomingRegimen.effectiveDate || '')}: ${escapeHtml(formatMedicationRegimenSummary(upcomingRegimen))}</div>`
+                    ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">Saved change ${escapeHtml(upcomingRegimen.effectiveDate || '')}: ${escapeHtml(formatMedicationRegimenSummary(upcomingRegimen))}${upcomingRegimenDetails ? ` • ${escapeHtml(upcomingRegimenDetails)}` : ''}</div>`
                     : (regimenHistoryLabel ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">${escapeHtml(regimenHistoryLabel)}</div>` : '');
                 return `
                     <tr style="${rowStyle}">
@@ -29897,6 +30001,7 @@
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
                             <div>${escapeHtml(formatMedicationRegimenSummary(med))}</div>
+                            ${currentRegimenDetails ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">${escapeHtml(currentRegimenDetails)}</div>` : ''}
                             ${regimenDetail}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; ${isAlert ? 'color: #c0392b; font-weight: 600;' : ''}">
@@ -29941,23 +30046,25 @@
         }
 
         function showMedicationForm(med) {
-            const latestRegimen = med ? getLatestMedicationRegimenEntry(med) : null;
+            const currentRegimen = med ? getCurrentMedicationRegimenEntry(med) : null;
+            currentMedicationFormSnapshot = med ? JSON.parse(JSON.stringify(med)) : null;
             document.getElementById('medicationFormContainer').style.display = 'block';
             document.getElementById('medicationFormTitle').textContent = med ? 'Edit Medication' : 'Add Medication';
             document.getElementById('medicationId').value = med ? med.id : '';
             document.getElementById('medicationName').value = med ? (med.name || '') : '';
             document.getElementById('medicationDescription').value = med ? (med.description || '') : '';
             document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
-            document.getElementById('medicationInstructions').value = med ? (med.instructions || '') : '';
-            document.getElementById('medicationScheduleFrequency').value = latestRegimen ? (latestRegimen.scheduleFrequency || '') : '';
-            document.getElementById('medicationPillsPerDose').value = latestRegimen && latestRegimen.pillsPerDose !== null && latestRegimen.pillsPerDose !== undefined ? latestRegimen.pillsPerDose : 1;
+            document.getElementById('medicationInstructions').value = currentRegimen ? (currentRegimen.instructions || '') : (med ? (med.instructions || '') : '');
+            document.getElementById('medicationScheduleFrequency').value = currentRegimen ? (currentRegimen.scheduleFrequency || '') : '';
+            document.getElementById('medicationPillsPerDose').value = currentRegimen && currentRegimen.pillsPerDose !== null && currentRegimen.pillsPerDose !== undefined ? currentRegimen.pillsPerDose : 1;
             document.getElementById('medicationRefillDate').value = med ? (med.refillDate || '') : '';
-            document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
+            document.getElementById('medicationPillCount').value = currentRegimen && currentRegimen.pillCount !== null && currentRegimen.pillCount !== undefined ? currentRegimen.pillCount : '';
             document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
             document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
             document.getElementById('medicationRegimenEffectiveDate').value = '';
             document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
             renderMedicationRegimenHistory(med || null);
+            setMedicationRegimenActionState(med || null);
             document.getElementById('medicationName').focus();
         }
 
@@ -29966,6 +30073,8 @@
             document.getElementById('medicationForm').reset();
             document.getElementById('medicationId').value = '';
             document.getElementById('medicationRegimenEffectiveDate').value = '';
+            currentMedicationFormSnapshot = null;
+            setMedicationRegimenActionState(null);
             renderMedicationRegimenHistory(null);
         }
 
@@ -29977,20 +30086,14 @@
         async function saveMedicationForm(event) {
             event.preventDefault();
             const id = document.getElementById('medicationId').value;
-            const payload = {
-                name: document.getElementById('medicationName').value.trim(),
-                description: document.getElementById('medicationDescription').value.trim(),
-                usage: document.getElementById('medicationUsage').value.trim(),
-                instructions: document.getElementById('medicationInstructions').value.trim(),
-                scheduleFrequency: document.getElementById('medicationScheduleFrequency').value,
-                pillsPerDose: document.getElementById('medicationPillsPerDose').value,
-                regimenEffectiveDate: document.getElementById('medicationRegimenEffectiveDate').value,
-                refillDate: document.getElementById('medicationRefillDate').value,
-                pillCount: document.getElementById('medicationPillCount').value,
-                refillExpiration: document.getElementById('medicationRefillExpiration').value,
-                alertThresholdDays: document.getElementById('medicationAlertThresholdDays').value,
-                asNeeded: document.getElementById('medicationAsNeeded').checked
-            };
+            const medicationPayload = getMedicationFormMedicationPayload();
+            const regimenPayload = getMedicationFormRegimenPayload();
+            const payload = id ? medicationPayload : { ...medicationPayload, ...regimenPayload };
+
+            if (id && hasUnsavedRegimenFormChanges()) {
+                showAlert('Regimen fields changed. Use Save Regimen Change to save pill count, instructions, frequency, and effective date history.', 'error', 'medicationsAlert');
+                return;
+            }
 
             try {
                 const url = id ? `/admin/api/house/medications/${id}` : '/admin/api/house/medications';
@@ -30010,6 +30113,41 @@
                 }
             } catch (err) {
                 showAlert('Error saving medication: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        async function saveMedicationRegimenChange() {
+            const id = document.getElementById('medicationId').value;
+            if (!id) {
+                showAlert('Save the medication first before adding a separate regimen change.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const payload = getMedicationFormRegimenPayload();
+            if (!String(payload.regimenEffectiveDate || '').trim()) {
+                showAlert('Regimen effective date is required to save a regimen change.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/house/medications/${id}/regimen`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    await loadHouseMedicationsData();
+                    const updatedMedication = houseMedicationsData.find(med => med.id === id) || null;
+                    if (updatedMedication) {
+                        showMedicationForm(updatedMedication);
+                    }
+                    showAlert('Regimen change saved.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to save regimen change.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error saving regimen change: ' + err.message, 'error', 'medicationsAlert');
             }
         }
 

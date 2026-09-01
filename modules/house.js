@@ -1923,6 +1923,10 @@ function getMedicationInitialRegimenEffectiveDate(medication) {
 
 function createMedicationRegimenEntry(medication, effectiveDate, overrides = {}) {
   const createdAt = String(overrides.createdAt || medication?.createdDate || new Date().toISOString()).trim();
+  const pillCountValue = overrides.pillCount !== undefined ? overrides.pillCount : medication?.pillCount;
+  const normalizedPillCount = pillCountValue === '' || pillCountValue === null || pillCountValue === undefined
+    ? null
+    : Number(pillCountValue);
   return {
     id: String(overrides.id || generateId()),
     effectiveDate,
@@ -1933,8 +1937,22 @@ function createMedicationRegimenEntry(medication, effectiveDate, overrides = {})
       overrides.pillsPerDose !== undefined ? overrides.pillsPerDose : medication?.pillsPerDose,
       1
     ),
+    instructions: String(
+      overrides.instructions !== undefined
+        ? overrides.instructions
+        : (medication?.instructions || '')
+    ).trim(),
+    pillCount: Number.isFinite(normalizedPillCount) ? normalizedPillCount : null,
     createdAt
   };
+}
+
+function sortMedicationRegimenHistoryEntries(history) {
+  return history.sort((left, right) => {
+    const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
+    if (dateCompare !== 0) return dateCompare;
+    return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
+  });
 }
 
 function normalizeMedicationRegimenHistory(medication) {
@@ -1948,12 +1966,9 @@ function normalizeMedicationRegimenHistory(medication) {
 
       return createMedicationRegimenEntry(medication, effectiveDate, entry);
     })
-    .filter(Boolean)
-    .sort((left, right) => {
-      const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
-      if (dateCompare !== 0) return dateCompare;
-      return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
-    });
+    .filter(Boolean);
+
+  sortMedicationRegimenHistoryEntries(normalizedHistory);
 
   if (normalizedHistory.length > 0) {
     return normalizedHistory;
@@ -1985,7 +2000,68 @@ function getMedicationRegimenForDate(medication, date) {
 function getMedicationDailyUsageForDateFromHistory(medication, date, history) {
   const regimen = getMedicationRegimenForDateFromHistory(medication, date, history);
   const structuredUsage = computeDailyUsageFromStructured(regimen);
-  return structuredUsage !== null ? structuredUsage : estimateDailyUsageFromInstructions(medication?.instructions);
+  return structuredUsage !== null
+    ? structuredUsage
+    : estimateDailyUsageFromInstructions(regimen?.instructions ?? medication?.instructions);
+}
+
+function saveMedicationWithRegimenHistory(medsData, index, existing, nextMedicationFields, regimenHistory) {
+  const currentRegimen = getMedicationRegimenForDate({
+    ...existing,
+    ...nextMedicationFields,
+    regimenHistory
+  }, getMedicationTodayDate());
+  medsData.medications[index] = {
+    ...existing,
+    ...nextMedicationFields,
+    scheduleFrequency: currentRegimen.scheduleFrequency,
+    pillsPerDose: currentRegimen.pillsPerDose,
+    instructions: currentRegimen.instructions !== undefined ? currentRegimen.instructions : existing.instructions,
+    pillCount: currentRegimen.pillCount !== undefined ? currentRegimen.pillCount : existing.pillCount,
+    regimenHistory,
+    id: existing.id
+  };
+  return saveMedicationsData(medsData);
+}
+
+function upsertMedicationRegimenHistory(existing, medication, options = {}) {
+  const requireEffectiveDate = options.requireEffectiveDate === true;
+  const defaultEffectiveDate = String(options.defaultEffectiveDate || getMedicationTodayDate()).trim();
+  const effectiveDateInput = String(medication.regimenEffectiveDate || '').trim();
+  const effectiveDate = effectiveDateInput || defaultEffectiveDate;
+
+  if (requireEffectiveDate && !effectiveDateInput) {
+    return { success: false, error: 'A regimen effective date is required' };
+  }
+  if (!isValidMedicationStatusDate(effectiveDate)) {
+    return { success: false, error: 'A valid regimen effective date is required' };
+  }
+
+  let regimenHistory = normalizeMedicationRegimenHistory(existing);
+  const matchingEntryIndex = regimenHistory.findIndex(entry => entry.effectiveDate === effectiveDate);
+  const fallbackRegimen = matchingEntryIndex >= 0
+    ? regimenHistory[matchingEntryIndex]
+    : getMedicationRegimenForDate(existing, effectiveDate);
+  const nextEntry = createMedicationRegimenEntry({
+    ...existing,
+    ...fallbackRegimen
+  }, effectiveDate, {
+    ...(medication.scheduleFrequency !== undefined ? { scheduleFrequency: medication.scheduleFrequency } : {}),
+    ...(medication.pillsPerDose !== undefined ? { pillsPerDose: medication.pillsPerDose } : {}),
+    ...(medication.instructions !== undefined ? { instructions: medication.instructions } : {}),
+    ...(medication.pillCount !== undefined ? { pillCount: medication.pillCount } : {}),
+    id: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].id : generateId(),
+    createdAt: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].createdAt : new Date().toISOString()
+  });
+
+  if (matchingEntryIndex >= 0) {
+    regimenHistory[matchingEntryIndex] = nextEntry;
+  } else {
+    regimenHistory.push(nextEntry);
+  }
+  sortMedicationRegimenHistoryEntries(regimenHistory);
+
+  return { success: true, regimenHistory };
 }
 
 function getMedicationDailyUsageForDate(medication, date) {
@@ -2102,61 +2178,60 @@ function updateMedication(id, medication) {
   const nextPillsPerDose = medication.pillsPerDose !== undefined && medication.pillsPerDose !== ''
     ? normalizeMedicationPillsPerDose(medication.pillsPerDose, 1)
     : (medication.pillsPerDose === '' ? 1 : normalizeMedicationPillsPerDose(existing.pillsPerDose, 1));
-  const scheduleChanged = nextScheduleFrequency !== normalizeMedicationScheduleFrequency(existing.scheduleFrequency);
-  const pillsChanged = nextPillsPerDose !== normalizeMedicationPillsPerDose(existing.pillsPerDose, 1);
+  const currentRegimen = getMedicationRegimenForDate(existing, getMedicationTodayDate());
+  const nextInstructions = medication.instructions !== undefined ? String(medication.instructions).trim() : currentRegimen.instructions;
+  const currentInstructions = String(currentRegimen.instructions || '').trim();
+  const nextPillCount = medication.pillCount !== undefined && medication.pillCount !== ''
+    ? Number(medication.pillCount)
+    : (medication.pillCount === '' ? null : currentRegimen.pillCount);
+  const currentPillCount = currentRegimen.pillCount !== undefined && currentRegimen.pillCount !== null
+    ? Number(currentRegimen.pillCount)
+    : null;
+  const scheduleChanged = nextScheduleFrequency !== normalizeMedicationScheduleFrequency(currentRegimen.scheduleFrequency);
+  const pillsChanged = nextPillsPerDose !== normalizeMedicationPillsPerDose(currentRegimen.pillsPerDose, 1);
+  const instructionsChanged = nextInstructions !== currentInstructions;
+  const pillCountChanged = nextPillCount !== currentPillCount;
   let regimenHistory = normalizeMedicationRegimenHistory(existing);
 
-  if (scheduleChanged || pillsChanged) {
-    const effectiveDate = String(medication.regimenEffectiveDate || '').trim() || getMedicationTodayDate();
-    if (!isValidMedicationStatusDate(effectiveDate)) {
-      return { success: false, error: 'A valid regimen effective date is required' };
-    }
-
-    const matchingEntryIndex = regimenHistory.findIndex(entry => entry.effectiveDate === effectiveDate);
-    const nextEntry = createMedicationRegimenEntry(existing, effectiveDate, {
-      id: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].id : generateId(),
-      scheduleFrequency: nextScheduleFrequency,
-      pillsPerDose: nextPillsPerDose,
-      createdAt: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].createdAt : new Date().toISOString()
+  if (scheduleChanged || pillsChanged || instructionsChanged || pillCountChanged) {
+    const regimenResult = upsertMedicationRegimenHistory(existing, medication, {
+      defaultEffectiveDate: getMedicationTodayDate()
     });
-
-    if (matchingEntryIndex >= 0) {
-      regimenHistory[matchingEntryIndex] = nextEntry;
-    } else {
-      regimenHistory.push(nextEntry);
-      regimenHistory = regimenHistory.sort((left, right) => {
-        const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
-        if (dateCompare !== 0) return dateCompare;
-        return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
-      });
+    if (!regimenResult.success) {
+      return regimenResult;
     }
+    regimenHistory = regimenResult.regimenHistory;
   }
 
-  const currentRegimen = getMedicationRegimenForDate({
-    ...existing,
-    regimenHistory
-  }, getMedicationTodayDate());
-  medsData.medications[index] = {
-    ...existing,
+  return saveMedicationWithRegimenHistory(medsData, index, existing, {
     name: medication.name !== undefined ? String(medication.name).trim() : existing.name,
     description: medication.description !== undefined ? String(medication.description).trim() : existing.description,
     usage: medication.usage !== undefined ? String(medication.usage).trim() : (existing.usage || ''),
-    instructions: medication.instructions !== undefined ? String(medication.instructions).trim() : existing.instructions,
     refillDate: medication.refillDate !== undefined ? medication.refillDate : existing.refillDate,
-    pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
-      ? Number(medication.pillCount)
-      : (medication.pillCount === '' ? null : existing.pillCount),
     refillExpiration: medication.refillExpiration !== undefined ? medication.refillExpiration : existing.refillExpiration,
     alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
       ? Number(medication.alertThresholdDays)
       : existing.alertThresholdDays,
-    asNeeded: medication.asNeeded !== undefined ? (medication.asNeeded === true || medication.asNeeded === 'true') : (existing.asNeeded || false),
-    scheduleFrequency: currentRegimen.scheduleFrequency,
-    pillsPerDose: currentRegimen.pillsPerDose,
-    regimenHistory,
-    id
-  };
-  return saveMedicationsData(medsData);
+    asNeeded: medication.asNeeded !== undefined ? (medication.asNeeded === true || medication.asNeeded === 'true') : (existing.asNeeded || false)
+  }, regimenHistory);
+}
+
+function saveMedicationRegimen(id, medication) {
+  const medsData = getMedicationsData();
+  const index = medsData.medications.findIndex(m => m.id === id);
+  if (index === -1) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const existing = medsData.medications[index];
+  const regimenResult = upsertMedicationRegimenHistory(existing, medication, {
+    requireEffectiveDate: true
+  });
+  if (!regimenResult.success) {
+    return regimenResult;
+  }
+
+  return saveMedicationWithRegimenHistory(medsData, index, existing, {}, regimenResult.regimenHistory);
 }
 
 // Delete a medication
@@ -2644,6 +2719,7 @@ module.exports = {
   saveMedicationsData,
   addMedication,
   updateMedication,
+  saveMedicationRegimen,
   deleteMedication,
   getMedicationPortalUsers,
   getMedicationPortalUserById,
