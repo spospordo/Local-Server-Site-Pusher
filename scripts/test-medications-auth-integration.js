@@ -267,8 +267,20 @@ async function run() {
     });
 
   } finally {
-    serverProcess.kill('SIGTERM');
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      serverProcess.once('exit', finish);
+      serverProcess.kill('SIGTERM');
+      setTimeout(() => {
+        if (!settled) serverProcess.kill('SIGKILL');
+        setTimeout(finish, 200);
+      }, 3000);
+    });
 
     configBackupPaths.forEach((p, idx) => {
       if (backups[idx] === null) {
