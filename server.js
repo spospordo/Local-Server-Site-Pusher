@@ -1227,6 +1227,11 @@ const requireMedicationPortalAuth = (req, res, next) => {
     delete req.session.medicationPortalUsername;
   }
 
+  logSecurityEvent('Rejected unauthenticated medication portal access', req, {
+    reason: 'unauthenticated',
+    path: req.originalUrl || req.path
+  });
+
   if (req.path.startsWith('/medications/api/') ||
       req.get('Accept')?.includes('application/json') ||
       req.get('Content-Type')?.includes('application/json')) {
@@ -1268,6 +1273,10 @@ function requireMedicationPortalCsrf(req, res, next) {
   const providedToken = req.get('x-medications-csrf-token');
 
   if (!providedToken || providedToken !== expectedToken) {
+    logSecurityEvent('Rejected medication portal request with invalid CSRF token', req, {
+      reason: 'invalid_csrf_token',
+      path: req.originalUrl || req.path
+    });
     return res.status(403).json({
       success: false,
       error: 'Invalid medication portal security token',
@@ -1375,7 +1384,10 @@ app.get('/medications/access/:token', medicationAccessTokenRateLimiter, (req, re
 
   if (!validation.valid) {
     const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
-    logger.warning(logger.categories.SYSTEM, `Rejected medication access link: ${code}`);
+    logSecurityEvent('Rejected medication access link', req, {
+      reason: validation.reason || code,
+      path: req.originalUrl || req.path
+    });
     return res.redirect(`/medications?error=${encodeURIComponent(code)}`);
   }
 
@@ -1428,6 +1440,8 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
   if (!tokenResult.success) {
     return res.status(400).json({ success: false, error: tokenResult.error || 'Failed to issue medication access token' });
   }
+
+  logger.info(logger.categories.SYSTEM, `Medication access link issued for user: ${portalUser.username}`);
 
   return res.json({
     success: true,

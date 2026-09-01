@@ -22,6 +22,7 @@ const BASE_HOST = 'localhost';
 
 let testsPassed = 0;
 let testsFailed = 0;
+let serverLogs = '';
 
 function log(message, type = 'info') {
   const symbols = { success: '✅', error: '❌', info: 'ℹ️ ' };
@@ -37,6 +38,22 @@ async function test(description, testFn) {
     log(`FAIL: ${description}`, 'error');
     log(`  ${err.message}`, 'error');
     testsFailed++;
+  }
+}
+
+function appendServerLogs(chunk) {
+  if (chunk) {
+    serverLogs += chunk.toString();
+  }
+}
+
+async function waitForLog(snippet, timeoutMs = 5000) {
+  const start = Date.now();
+  while (!serverLogs.includes(snippet)) {
+    if (Date.now() - start >= timeoutMs) {
+      throw new Error(`Timed out waiting for server log: ${snippet}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 }
 
@@ -155,11 +172,13 @@ async function run() {
   const serverProcess = spawn(process.execPath, ['server.js'], {
     cwd: repoRoot,
     env: Object.assign({}, process.env, { NODE_ENV: 'test' }),
-    stdio: 'ignore'
+    stdio: ['ignore', 'pipe', 'pipe']
   });
 
   let serverExitedEarly = false;
   serverProcess.on('exit', () => { serverExitedEarly = true; });
+  serverProcess.stdout.on('data', appendServerLogs);
+  serverProcess.stderr.on('data', appendServerLogs);
 
   try {
     await waitForServer();
@@ -173,6 +192,7 @@ async function run() {
       assert.strictEqual(res.statusCode, 401);
       assert.strictEqual(res.json.success, false);
       assert.strictEqual(res.json.code, 'UNAUTHORIZED');
+      await waitForLog('Rejected unauthenticated medication portal access');
     });
 
     await test('Unauthenticated adherence recording is rejected with 401', async () => {
@@ -199,6 +219,7 @@ async function run() {
       const res = await requestJson(createJar(), 'GET', '/medications/access/not-a-real-token');
       assert.strictEqual(res.statusCode, 302);
       assert.strictEqual(res.headers.location, '/medications?error=INVALID_ACCESS_LINK');
+      await waitForLog('Rejected medication access link');
     });
 
     await test('Portal login/register without CSRF token is rejected with 403', async () => {
@@ -207,6 +228,7 @@ async function run() {
       const res = await requestJson(jar, 'POST', '/medications/api/login', { username: 'nobody', password: 'irrelevant' });
       assert.strictEqual(res.statusCode, 403);
       assert.strictEqual(res.json.code, 'INVALID_CSRF_TOKEN');
+      await waitForLog('Rejected medication portal request with invalid CSRF token');
     });
 
     await test('Password login is throttled after repeated failures', async () => {
