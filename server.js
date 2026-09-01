@@ -1667,7 +1667,13 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
   const medicationPayloadById = new Map((medicationPayload.medications || []).map(medication => [medication.id, medication]));
   selectedUsers.forEach(user => {
     house.getAssignedMedicationsForUser(user.id).forEach(medication => {
-      const medicationWithForecast = medicationPayloadById.get(medication.id) || medication;
+      const medicationWithForecast = medicationPayloadById.get(medication.id) || {
+        ...medication,
+        ...house.computeMedicationForecast(medication, {
+          asOfDate: getMedicationPortalToday(),
+          adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record?.medicationId === medication.id)
+        })
+      };
       if (medicationWithForecast.belowAlertThreshold) {
         lowSupplyMedicationIds.add(String(medicationWithForecast.id || ''));
       }

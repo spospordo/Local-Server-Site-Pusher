@@ -1022,6 +1022,12 @@
                 const showFeedback = showRecordedState && hasActiveMedicationFeedback(medication.id);
                 const scheduledPills = getMedicationScheduledPillsForDate(medication, displayDate);
                 const regimen = getMedicationRegimenForDate(medication, displayDate);
+                const recordedPills = getMedicationRecordedPills(displayRecord, medication, displayDate);
+                const defaultPillsTaken = displayRecord?.status === 'took' && recordedPills !== null && recordedPills !== undefined
+                    ? recordedPills
+                    : (scheduledPills !== null && scheduledPills !== undefined
+                        ? scheduledPills
+                        : (medication.pillsPerDose !== null && medication.pillsPerDose !== undefined ? medication.pillsPerDose : 1));
                 const plannedDoseHtml = !medication.asNeeded
                     ? `<div class="pill-meta">Planned regimen: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</div>`
                     : '';
@@ -1030,14 +1036,14 @@
                             <div class="medication-status-label">${showFeedback ? 'good job!' : `recorded for ${escapeHtml(isToday ? 'today' : displayDate)}`}</div>
                             <button type="button" class="btn-secondary mini-action-btn" data-action="edit-record" data-medication-id="${escapeHtml(medication.id)}">edit</button>
                        </div>
-                       <div class="pill-meta">${displayRecord.status === 'took'
-                            ? `Recorded: ${escapeHtml(formatMedicationNumber(getMedicationRecordedPills(displayRecord, medication, displayDate)))} pill(s)`
+                       <div class="pill-meta">${displayRecord?.status === 'took'
+                            ? `Recorded: ${escapeHtml(formatMedicationNumber(recordedPills))} pill(s)`
                             : 'Recorded: not taken'}</div>
                        ${plannedDoseHtml}`
                     : `<div class="action-row">
                             <label style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem; margin-right:auto;">
                                 <span style="font-size:0.82rem; color:var(--muted);">Pills taken</span>
-                                <input type="number" min="0" step="0.25" value="${escapeHtml(formatMedicationNumber(getMedicationRecordedPills(displayRecord, medication, displayDate) || scheduledPills || medication.pillsPerDose || 1))}" data-pill-input-for="${escapeHtml(medication.id)}" style="width:96px;">
+                                <input type="number" min="0" step="0.25" value="${escapeHtml(formatMedicationNumber(defaultPillsTaken))}" data-pill-input-for="${escapeHtml(medication.id)}" style="width:96px;">
                             </label>
                             <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
                             <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
@@ -1263,13 +1269,14 @@
             if (!recordPrevSelectedDate) return;
             const select = document.getElementById('recordPrevMedSelect');
             const medicationId = select.value;
+            const pillInputValue = Number(document.getElementById('recordPrevPillsTaken').value);
             try {
                 await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
                     method: 'POST',
                     body: JSON.stringify({
                         status,
                         date: recordPrevSelectedDate,
-                        pillsTaken: status === 'took' ? document.getElementById('recordPrevPillsTaken').value : undefined
+                        pillsTaken: status === 'took' && Number.isFinite(pillInputValue) ? pillInputValue : undefined
                     })
                 });
                 setStatusMessage('recordPrevMessage', 'Saved!', 'success');
@@ -1421,13 +1428,13 @@
         async function recordMedicationStatus(medicationId, status, date) {
             const selectedDate = date || dashboardData?.today;
             const pillInput = document.querySelector(`[data-pill-input-for="${medicationId}"]`);
-            const pillsTaken = pillInput ? pillInput.value : undefined;
+            const pillsTakenValue = pillInput ? Number(pillInput.value) : NaN;
             await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
                 method: 'POST',
                 body: JSON.stringify({
                     status,
                     date: selectedDate,
-                    pillsTaken: status === 'took' ? pillsTaken : undefined
+                    pillsTaken: status === 'took' && Number.isFinite(pillsTakenValue) ? pillsTakenValue : undefined
                 })
             });
             medicationEditState.delete(medicationId);
