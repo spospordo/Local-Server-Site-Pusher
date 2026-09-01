@@ -104,6 +104,37 @@ function run() {
     assert.strictEqual(forecast.belowAlertThreshold, true, 'forecast should flag medications at or below the configured threshold');
     log('✅ Medication entries store the new usage field');
 
+    assert.ok(Array.isArray(medication.regimenHistory), 'medications should persist regimen history');
+    assert.strictEqual(medication.regimenHistory.length, 1, 'new medications should start with one regimen history entry');
+
+    const retroMedicationResult = house.addMedication({
+      name: 'Transition Med',
+      instructions: 'Take 1 pill once daily',
+      scheduleFrequency: 'daily',
+      pillsPerDose: 1,
+      pillCount: 20,
+      refillDate: getDateOffset(-4),
+      alertThresholdDays: 5
+    });
+    assert.strictEqual(retroMedicationResult.success, true, 'retro medication should be created');
+    const retroMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Transition Med');
+    const regimenUpdateResult = house.updateMedication(retroMedication.id, {
+      scheduleFrequency: 'twice daily',
+      pillsPerDose: 2,
+      regimenEffectiveDate: getDateOffset(-2)
+    });
+    assert.strictEqual(regimenUpdateResult.success, true, 'dated regimen updates should succeed');
+    const updatedRetroMedication = house.getMedicationsData().medications.find(entry => entry.id === retroMedication.id);
+    assert.strictEqual(updatedRetroMedication.regimenHistory.length, 2, 'dated regimen changes should append to history');
+    assert.strictEqual(house.getMedicationRegimenForDate(updatedRetroMedication, getDateOffset(-3)).scheduleFrequency, 'daily', 'historical dates should keep the prior regimen');
+    assert.strictEqual(house.getMedicationRegimenForDate(updatedRetroMedication, getDateOffset(-1)).scheduleFrequency, 'twice daily', 'later dates should use the updated regimen');
+    assert.strictEqual(
+      house.computeMedicationForecast(updatedRetroMedication, { asOfDate: today }).estimatedRemainingPillCount,
+      10,
+      'forecasting should apply the correct regimen for each historical date range'
+    );
+    log('✅ Medication regimen history supports dated historical changes');
+
     const createUserResult = house.createMedicationPortalUser({
       username: 'Casey',
       passwordHash: 'salt:hash'
@@ -148,12 +179,51 @@ function run() {
     assert.strictEqual(history.length, 2, 'updating a day should not create duplicate records');
     assert.strictEqual(history[0].date, today, 'history should be sorted newest-first');
     assert.strictEqual(history[0].status, 'took', 'updated adherence status should be stored');
+    assert.strictEqual(history[0].pillsTaken, 1, 'took records should default to the scheduled pill count');
     log('✅ Medication adherence supports today and previous-day updates with timestamps');
+
+    const doseEditMedicationResult = house.addMedication({
+      name: 'Dose Edit Med',
+      instructions: 'Take 1 pill once daily',
+      scheduleFrequency: 'daily',
+      pillsPerDose: 1,
+      pillCount: 10,
+      refillDate: yesterday
+    });
+    assert.strictEqual(doseEditMedicationResult.success, true, 'dose edit medication should be created');
+    const doseEditMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Dose Edit Med');
+    assert.strictEqual(house.setMedicationAssignments(doseEditMedication.id, [createUserResult.user.id]).success, true, 'dose edit medication should be assigned');
+    const customDoseRecord = house.recordMedicationAdherence(createUserResult.user.id, doseEditMedication.id, 'took', yesterday, { pillsTaken: 3 });
+    assert.strictEqual(customDoseRecord.success, true, 'custom pill counts should be accepted');
+    assert.strictEqual(customDoseRecord.record.pillsTaken, 3, 'custom pill counts should be persisted on the adherence record');
+    const updatedDoseRecord = house.recordMedicationAdherence(createUserResult.user.id, doseEditMedication.id, 'took', yesterday, { pillsTaken: 1.5 });
+    assert.strictEqual(updatedDoseRecord.success, true, 'existing adherence records should support pill-count edits');
+    assert.strictEqual(updatedDoseRecord.record.pillsTaken, 1.5, 'edited pill counts should overwrite the saved quantity');
+    const doseEditHistory = house.getMedicationAdherenceHistory(createUserResult.user.id, doseEditMedication.id);
+    assert.strictEqual(doseEditHistory.length, 1, 'editing a pill count should reuse the existing daily record');
+    assert.strictEqual(doseEditHistory[0].pillsTaken, 1.5, 'adherence history should expose the edited pill count');
+    assert.strictEqual(
+      house.computeMedicationForecast(doseEditMedication, {
+        asOfDate: today,
+        adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record.medicationId === doseEditMedication.id)
+      }).estimatedRemainingPillCount,
+      8,
+      'forecasts should use actual recorded pill counts when they are available'
+    );
+    log('✅ Medication adherence records keep editable actual pill counts');
 
     const deleteMedicationResult = house.deleteMedication(medication.id);
     assert.strictEqual(deleteMedicationResult.success, true, 'deleteMedication should succeed');
-    assert.strictEqual(house.getMedicationAssignments().length, 0, 'deleting medication should remove assignments');
-    assert.strictEqual(house.getMedicationAdherenceRecords().length, 0, 'deleting medication should remove adherence records');
+    assert.strictEqual(
+      house.getMedicationAssignments().filter(assignment => assignment.medicationId === medication.id).length,
+      0,
+      'deleting medication should remove assignments for that medication'
+    );
+    assert.strictEqual(
+      house.getMedicationAdherenceRecords().filter(record => record.medicationId === medication.id).length,
+      0,
+      'deleting medication should remove adherence records for that medication'
+    );
     log('✅ Deleting a medication cleans up linked portal data');
 
     const accessUserResult = house.createMedicationPortalUser({

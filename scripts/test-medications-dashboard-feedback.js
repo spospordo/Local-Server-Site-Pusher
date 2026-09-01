@@ -62,15 +62,22 @@ async function createDom(initialDashboardData) {
           }
 
           const existingRecord = (medication.adherenceHistory || []).find(record => record.date === body.date);
+          const pillsTaken = body.status === 'took'
+            ? Number(body.pillsTaken ?? existingRecord?.pillsTaken ?? medication.pillsPerDose ?? 1)
+            : 0;
           const record = {
             id: existingRecord?.id || `record-${medicationId}-${body.date}`,
             date: body.date,
             status: body.status,
+            pillsTaken,
+            scheduledDailyPillCount: Number(medication.dailyUsage ?? medication.pillsPerDose ?? 1),
+            scheduleFrequency: medication.scheduleFrequency || '',
             recordedAt: new Date().toISOString()
           };
 
           medication.todayStatus = body.date === dashboardPayload.today ? body.status : medication.todayStatus;
           medication.todayRecordedAt = body.date === dashboardPayload.today ? record.recordedAt : medication.todayRecordedAt;
+          medication.todayPillsTaken = body.date === dashboardPayload.today ? pillsTaken : medication.todayPillsTaken;
           medication.adherenceHistory = [
             record,
             ...(medication.adherenceHistory || []).filter(item => item.date !== body.date)
@@ -108,6 +115,9 @@ async function run() {
         description: 'Blood pressure support',
         instructions: 'Take 1 pill once daily',
         pillCount: 30,
+        pillsPerDose: 1,
+        scheduleFrequency: 'daily',
+        regimenHistory: [{ effectiveDate: today, scheduleFrequency: 'daily', pillsPerDose: 1 }],
         estimatedRemainingPillCount: 2,
         alertThresholdDays: 3,
         todayStatus: null,
@@ -120,13 +130,17 @@ async function run() {
         description: 'Night support',
         instructions: 'Take 1 pill once daily',
         pillCount: 30,
+        pillsPerDose: 1,
+        scheduleFrequency: 'daily',
+        regimenHistory: [{ effectiveDate: today, scheduleFrequency: 'daily', pillsPerDose: 1 }],
         estimatedRemainingPillCount: 12,
         alertThresholdDays: 3,
         todayStatus: 'took',
+        todayPillsTaken: 3,
         todayRecordedAt: `${today}T08:30:00.000Z`,
         adherenceHistory: [
-          { id: 'yesterday-b', date: yesterday, status: 'took', recordedAt: `${yesterday}T08:30:00.000Z` },
-          { id: 'today-b', date: today, status: 'took', recordedAt: `${today}T08:30:00.000Z` }
+          { id: 'yesterday-b', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1, scheduleFrequency: 'daily', recordedAt: `${yesterday}T08:30:00.000Z` },
+          { id: 'today-b', date: today, status: 'took', pillsTaken: 3, scheduledDailyPillCount: 1, scheduleFrequency: 'daily', recordedAt: `${today}T08:30:00.000Z` }
         ]
       }
     ]
@@ -147,16 +161,19 @@ async function run() {
   assert.ok(recordedCard, 'recorded medication card should render');
   assert.ok(recordedCard.textContent.includes('recorded for today'), 'recorded medication should show the persistent recorded state');
   assert.ok(recordedCard.textContent.includes('edit'), 'recorded medication should keep an edit button visible');
+  assert.ok(recordedCard.textContent.includes('Recorded: 3 pill(s)'), 'recorded medication should show the saved pill count');
   assert.ok(!recordedCard.textContent.includes('I took today'), 'recorded medication should hide the main action buttons');
 
   const pendingCard = getMedicationCard(document, 'med-a');
   assert.ok(pendingCard, 'pending medication card should render');
+  pendingCard.querySelector('[data-pill-input-for="med-a"]').value = '1.5';
   pendingCard.querySelector('[data-action="record-took"]').click();
   await wait(25);
 
   const updatedPendingCard = getMedicationCard(document, 'med-a');
   assert.ok(updatedPendingCard.textContent.includes('good job!'), 'recording today should briefly show the confirmation state');
   assert.ok(updatedPendingCard.textContent.includes('edit'), 'confirmation state should still offer edit');
+  assert.ok(updatedPendingCard.textContent.includes('Recorded: 1.5 pill(s)'), 'recording should preserve the entered pill count');
   assert.ok(!updatedPendingCard.textContent.includes('I took today'), 'confirmation state should hide the record buttons');
 
   await wait(1300);

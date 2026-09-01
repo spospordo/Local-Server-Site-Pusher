@@ -286,7 +286,7 @@ async function run() {
       instructions: 'Take with breakfast',
       scheduleFrequency: 'daily',
       pillCount: 30,
-      refillDate: yesterday,
+      refillDate: getDateOffset(-4),
       alertThresholdDays: 5
     });
     const eveningMedResult = house.addMedication({
@@ -321,6 +321,16 @@ async function run() {
     const vitamin = medsData.medications.find(item => item.name === 'Vitamin D');
     assert.ok(morningMed && eveningMed && vitamin, 'seed medications should be present');
 
+    const regimenChangeDate = getDateOffset(-2);
+    assert.strictEqual(house.updateMedication(morningMed.id, {
+      scheduleFrequency: 'twice daily',
+      pillsPerDose: 2,
+      regimenEffectiveDate: regimenChangeDate
+    }).success, true, 'morning medication should support dated regimen changes');
+    const updatedMorningMed = house.getMedicationsData().medications.find(item => item.id === morningMed.id);
+    assert.ok(updatedMorningMed, 'updated morning medication should still exist');
+    assert.strictEqual(updatedMorningMed.regimenHistory.length, 2, 'dated regimen changes should be retained in medication history');
+
     assert.strictEqual(house.setMedicationAssignments(morningMed.id, [portalUserA.user.id, portalUserB.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(eveningMed.id, [portalUserA.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(vitamin.id, [portalUserB.user.id]).success, true);
@@ -333,7 +343,7 @@ async function run() {
     }));
     assert.strictEqual(house.saveMedicationsData(seededData).success, true, 'seed assignments should be backdated into the summary window');
 
-    assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, morningMed.id, 'took', today).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, morningMed.id, 'took', today, { pillsTaken: 3 }).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, morningMed.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, vitamin.id, 'not_taken', today).success, true);
 
@@ -369,10 +379,16 @@ async function run() {
     assert.strictEqual(summaryPayload.adherenceSummaryWindowDays.length, 7, 'summary window should default to seven days');
     assert.strictEqual(summaryPayload.adherenceSummaryWindowDays[0], today, 'summary window should start with today');
     const eveningMedicationSummary = summaryPayload.medications.find(medication => medication.name === 'Evening Med');
+    const morningMedicationSummary = summaryPayload.medications.find(medication => medication.name === 'Morning Med');
     assert.ok(eveningMedicationSummary, 'medications payload should include the evening medication');
+    assert.ok(morningMedicationSummary, 'medications payload should include the morning medication');
     assert.strictEqual(eveningMedicationSummary.alertThresholdPillCount, 5, 'admin medications payload should expose the pill-count alert threshold explicitly');
     assert.strictEqual(eveningMedicationSummary.estimatedRemainingPillCount, 4, 'admin medications payload should expose estimated remaining pill counts');
     assert.strictEqual(eveningMedicationSummary.belowAlertThreshold, true, 'admin medications payload should flag medications that are below the threshold');
+    assert.strictEqual(morningMedicationSummary.scheduleFrequency, 'twice daily', 'admin medications payload should expose the current effective regimen');
+    assert.strictEqual(morningMedicationSummary.pillsPerDose, 2, 'admin medications payload should expose the current effective pills per dose');
+    assert.strictEqual(morningMedicationSummary.regimenHistory.length, 2, 'admin medications payload should include dated regimen history');
+    assert.strictEqual(morningMedicationSummary.estimatedRemainingPillCount, 20, 'admin medications payload should forecast across dated regimen changes');
 
     const casey = summaryPayload.portalUsers.find(user => user.username === 'Casey');
     const morgan = summaryPayload.portalUsers.find(user => user.username === 'Morgan');
@@ -390,6 +406,8 @@ async function run() {
     const caseyTodayStatuses = new Map(caseyToday.medications.map(entry => [entry.name, entry.status]));
     assert.strictEqual(caseyTodayStatuses.get('Morning Med'), 'took', 'Casey should show the recorded medication status');
     assert.strictEqual(caseyTodayStatuses.get('Evening Med'), 'missing', 'Casey should show the missing medication status');
+    const caseyMorningEntry = caseyToday.medications.find(entry => entry.name === 'Morning Med');
+    assert.strictEqual(caseyMorningEntry.pillsTaken, 3, 'admin adherence summaries should expose recorded pill counts');
 
     assert.strictEqual(caseyYesterday.status, 'missing_day', 'Casey should show a missing-day alert when no medications were recorded');
     assert.strictEqual(caseyYesterday.recordedCount, 0, 'Casey missing day should have zero recorded entries');
@@ -447,6 +465,7 @@ async function run() {
     });
     medicationsDom.window.eval(`
       ${extractFunctionSource(adminDashboardHtml, 'function escapeHtml(text)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenSummary(regimen)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedications()')}
       var houseMedicationsData = [];
       function editMedication() {}
@@ -463,6 +482,8 @@ async function run() {
     assert.ok(alertBannerText.includes('Evening Med'), 'admin medications banner should mention low-supply medications by name');
     assert.ok(alertBannerText.includes('4 pill(s) remaining'), 'admin medications banner should show estimated remaining pill counts');
     assert.ok(renderedTableText.includes('Est. Remaining'), 'admin medications table should include the estimated remaining pill count column');
+    assert.ok(renderedTableText.includes('Regimen'), 'admin medications table should show the regimen column');
+    assert.ok(renderedTableText.includes('dated entries'), 'admin medications table should note when medications have dated regimen history');
     assert.ok(highlightedRow && String(highlightedRow.getAttribute('style') || '').includes('#fff8e1'), 'admin medications table should visually highlight low-supply medications');
 
     medicationsDom.window.close();

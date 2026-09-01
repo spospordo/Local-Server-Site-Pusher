@@ -592,6 +592,10 @@
             <div id="recordPrevCalendar" class="cal-container"></div>
             <div id="recordPrevSelected" class="hidden" style="margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:10px;">
                 <div id="recordPrevSelectedDate" style="font-weight:600; margin-bottom:0.5rem;"></div>
+                <label style="display:block; margin-bottom:0.75rem;">
+                    <span style="display:block; font-size:0.85rem; color:var(--muted); margin-bottom:0.25rem;">Pills taken</span>
+                    <input type="number" id="recordPrevPillsTaken" min="0" step="0.25" value="1" style="width:120px;">
+                </label>
                 <div class="record-actions">
                     <button type="button" class="btn-success" id="recordPrevTookBtn">I took it this day</button>
                     <button type="button" class="btn-danger" id="recordPrevNotBtn">Not this day</button>
@@ -626,6 +630,7 @@
                 <span><span class="dot" style="background:var(--success-soft); border:1px solid #a3d5bc;"></span> Took</span>
                 <span><span class="dot" style="background:var(--danger-soft); border:1px solid #f0b0a8;"></span> Not taken</span>
             </div>
+            <div id="historyDetails" style="margin-top:0.75rem;"></div>
         </div>
     </div>
 
@@ -782,6 +787,85 @@
             return (medication?.adherenceHistory || []).find(record => record.date === date) || null;
         }
 
+        function getMedicationRegimenForDate(medication, date) {
+            const history = Array.isArray(medication?.regimenHistory) ? [...medication.regimenHistory] : [];
+            if (history.length === 0) {
+                return {
+                    scheduleFrequency: medication?.scheduleFrequency || '',
+                    pillsPerDose: medication?.pillsPerDose !== null && medication?.pillsPerDose !== undefined ? Number(medication.pillsPerDose) : 1,
+                    effectiveDate: ''
+                };
+            }
+
+            history.sort((left, right) => String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || '')));
+            let regimen = history[0];
+            history.forEach(entry => {
+                if (String(entry?.effectiveDate || '') <= String(date || '')) {
+                    regimen = entry;
+                }
+            });
+
+            return {
+                ...regimen,
+                pillsPerDose: regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined ? Number(regimen.pillsPerDose) : 1
+            };
+        }
+
+        function getMedicationScheduledPillsForDate(medication, date) {
+            const record = getMedicationRecordForDate(medication, date);
+            if (record?.scheduledDailyPillCount !== null && record?.scheduledDailyPillCount !== undefined) {
+                const scheduledFromRecord = Number(record.scheduledDailyPillCount);
+                return Number.isFinite(scheduledFromRecord) ? scheduledFromRecord : null;
+            }
+
+            const regimen = getMedicationRegimenForDate(medication, date);
+            const pillsPerDose = regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined
+                ? Number(regimen.pillsPerDose)
+                : 1;
+            const normalizedPillsPerDose = Number.isFinite(pillsPerDose) && pillsPerDose > 0 ? pillsPerDose : 1;
+            switch (String(regimen?.scheduleFrequency || '').trim()) {
+                case 'daily': return normalizedPillsPerDose;
+                case 'twice daily': return normalizedPillsPerDose * 2;
+                case 'three times daily': return normalizedPillsPerDose * 3;
+                case 'four times daily': return normalizedPillsPerDose * 4;
+                case 'weekly': return normalizedPillsPerDose / 7;
+                default:
+                    return medication?.dailyUsage !== null && medication?.dailyUsage !== undefined
+                        ? Number(medication.dailyUsage)
+                        : null;
+            }
+        }
+
+        function formatMedicationNumber(value) {
+            const normalized = Number(value);
+            if (!Number.isFinite(normalized)) return '—';
+            return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        function formatMedicationRegimen(regimen, scheduledPills) {
+            const frequency = String(regimen?.scheduleFrequency || '').trim();
+            const pillsPerDose = regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined
+                ? Number(regimen.pillsPerDose)
+                : 1;
+            if (!frequency) {
+                return 'Not scheduled';
+            }
+            const parts = [`${formatMedicationNumber(pillsPerDose)} pill${Number(pillsPerDose) === 1 ? '' : 's'} per dose`, frequency];
+            if (scheduledPills !== null && scheduledPills !== undefined) {
+                parts.push(`${formatMedicationNumber(scheduledPills)} planned per day`);
+            }
+            return parts.join(' • ');
+        }
+
+        function getMedicationRecordedPills(record, medication, date) {
+            if (!record || record.status !== 'took') return 0;
+            const explicit = record?.pillsTaken !== null && record?.pillsTaken !== undefined ? Number(record.pillsTaken) : NaN;
+            if (Number.isFinite(explicit)) {
+                return explicit;
+            }
+            return getMedicationScheduledPillsForDate(medication, date);
+        }
+
         function hasActiveMedicationFeedback(medicationId) {
             const expiresAt = medicationFeedbackState.get(medicationId);
             if (!expiresAt) return false;
@@ -878,7 +962,7 @@
             if (medication.asNeeded) return { text: 'as needed', cls: 'as-needed' };
 
             // Use structured scheduleFrequency field when available
-            const freq = medication.scheduleFrequency || '';
+            const freq = getMedicationRegimenForDate(medication, getDisplayDate()).scheduleFrequency || '';
             if (freq === 'daily') return { text: 'Take today', cls: '' };
             if (freq === 'twice daily') return { text: 'Take twice today', cls: '' };
             if (freq === 'three times daily') return { text: 'Take 3× today', cls: '' };
@@ -933,17 +1017,32 @@
                 const guidanceHtml = guidance
                     ? `<div class="pill-guidance${guidance.cls ? ' ' + guidance.cls : ''}">${escapeHtml(guidance.text)}</div>`
                     : '';
-                const showRecordedState = isToday && Boolean(medication.todayStatus) && !medicationEditState.has(medication.id);
+                const displayRecord = getMedicationRecordForDate(medication, displayDate);
+                const showRecordedState = Boolean(displayRecord?.status) && !medicationEditState.has(medication.id);
                 const showFeedback = showRecordedState && hasActiveMedicationFeedback(medication.id);
+                const scheduledPills = getMedicationScheduledPillsForDate(medication, displayDate);
+                const regimen = getMedicationRegimenForDate(medication, displayDate);
+                const plannedDoseHtml = !medication.asNeeded
+                    ? `<div class="pill-meta">Planned regimen: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</div>`
+                    : '';
                 const statusHtml = showRecordedState
                     ? `<div class="medication-status-row${showFeedback ? ' feedback' : ''}">
-                            <div class="medication-status-label">${showFeedback ? 'good job!' : 'recorded for today'}</div>
+                            <div class="medication-status-label">${showFeedback ? 'good job!' : `recorded for ${escapeHtml(isToday ? 'today' : displayDate)}`}</div>
                             <button type="button" class="btn-secondary mini-action-btn" data-action="edit-record" data-medication-id="${escapeHtml(medication.id)}">edit</button>
-                       </div>`
+                       </div>
+                       <div class="pill-meta">${displayRecord.status === 'took'
+                            ? `Recorded: ${escapeHtml(formatMedicationNumber(getMedicationRecordedPills(displayRecord, medication, displayDate)))} pill(s)`
+                            : 'Recorded: not taken'}</div>
+                       ${plannedDoseHtml}`
                     : `<div class="action-row">
+                            <label style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem; margin-right:auto;">
+                                <span style="font-size:0.82rem; color:var(--muted);">Pills taken</span>
+                                <input type="number" min="0" step="0.25" value="${escapeHtml(formatMedicationNumber(getMedicationRecordedPills(displayRecord, medication, displayDate) || scheduledPills || medication.pillsPerDose || 1))}" data-pill-input-for="${escapeHtml(medication.id)}" style="width:96px;">
+                            </label>
                             <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
                             <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
-                       </div>`;
+                       </div>
+                       ${plannedDoseHtml}`;
                 return `
                     <div class="card medication-card">
                         <div class="medication-title"><button type="button" class="btn-link" data-action="show-details" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(medication.name)}</button></div>
@@ -967,7 +1066,7 @@
             if (!medication) return;
 
             document.getElementById('detailsTitle').textContent = medication.name;
-            document.getElementById('detailsBody').innerHTML = buildMedDetailsHtml(medication);
+            document.getElementById('detailsBody').innerHTML = buildMedDetailsHtml(medication, getDisplayDate());
             const detailsModal = document.getElementById('detailsModal');
             lastFocusedElement = document.activeElement;
             detailsModal.classList.remove('hidden');
@@ -984,13 +1083,19 @@
             }
         }
 
-        function buildMedDetailsHtml(medication) {
+        function buildMedDetailsHtml(medication, selectedDate = getDisplayDate()) {
+            const regimen = getMedicationRegimenForDate(medication, selectedDate);
+            const record = getMedicationRecordForDate(medication, selectedDate);
+            const scheduledPills = getMedicationScheduledPillsForDate(medication, selectedDate);
+            const recordedPills = getMedicationRecordedPills(record, medication, selectedDate);
             return `
                 <div class="detail-grid">
                     <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
                     <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
                     <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
                     <div class="detail-box"><strong>As needed</strong>${medication.asNeeded ? 'Yes' : 'No'}</div>
+                    <div class="detail-box"><strong>Regimen for ${escapeHtml(selectedDate)}</strong>${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</div>
+                    <div class="detail-box"><strong>Recorded pills for ${escapeHtml(selectedDate)}</strong>${record ? escapeHtml(record.status === 'took' ? formatMedicationNumber(recordedPills) : 'Not taken') : 'No record'}</div>
                     <div class="detail-box"><strong>Estimated remaining pills</strong>${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))}</div>
                     <div class="detail-box"><strong>Recorded pill count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
@@ -1002,7 +1107,7 @@
         function openMedDetailsModal() {
             if (!dashboardData?.medications?.length) return;
             document.getElementById('medDetailsBody').innerHTML = dashboardData.medications
-                .map(m => `<h3 style="margin:1rem 0 0.5rem;">${escapeHtml(m.name)}</h3>${buildMedDetailsHtml(m)}`)
+                .map(m => `<h3 style="margin:1rem 0 0.5rem;">${escapeHtml(m.name)}</h3>${buildMedDetailsHtml(m, getDisplayDate())}`)
                 .join('<hr style="margin:0.75rem 0; border:none; border-top:1px solid var(--border);">');
             lastFocusedElement = document.activeElement;
             const modal = document.getElementById('medDetailsModal');
@@ -1122,6 +1227,8 @@
             buildCalendar('recordPrevCalendar', today.getFullYear(), today.getMonth(), missing, null, recordPrevSelectedDate, (dateStr) => {
                 recordPrevSelectedDate = dateStr;
                 document.getElementById('recordPrevSelectedDate').textContent = `Selected: ${dateStr}`;
+                const plannedPills = getMedicationScheduledPillsForDate(med, dateStr);
+                document.getElementById('recordPrevPillsTaken').value = formatMedicationNumber(plannedPills || med.pillsPerDose || 1);
                 document.getElementById('recordPrevSelected').classList.remove('hidden');
                 setStatusMessage('recordPrevMessage', '');
                 renderRecordPrevCalendar();
@@ -1159,7 +1266,11 @@
             try {
                 await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
                     method: 'POST',
-                    body: JSON.stringify({ status, date: recordPrevSelectedDate })
+                    body: JSON.stringify({
+                        status,
+                        date: recordPrevSelectedDate,
+                        pillsTaken: status === 'took' ? document.getElementById('recordPrevPillsTaken').value : undefined
+                    })
                 });
                 setStatusMessage('recordPrevMessage', 'Saved!', 'success');
                 await loadDashboard();
@@ -1195,6 +1306,24 @@
             (med.adherenceHistory || []).forEach(r => { markedDates[r.date] = r.status; });
             const today = new Date();
             buildCalendar('historyCalendar', today.getFullYear(), today.getMonth(), null, markedDates, null, null);
+            const historyDetails = document.getElementById('historyDetails');
+            if (historyDetails) {
+                const entries = (med.adherenceHistory || [])
+                    .slice(0, 10)
+                    .map(record => {
+                        const regimen = getMedicationRegimenForDate(med, record.date);
+                        const scheduledPills = getMedicationScheduledPillsForDate(med, record.date);
+                        const recordedPills = getMedicationRecordedPills(record, med, record.date);
+                        return `<div class="detail-box" style="margin-top:0.5rem;">
+                            <strong>${escapeHtml(record.date)}</strong><br>
+                            ${escapeHtml(record.status === 'took' ? `Recorded ${formatMedicationNumber(recordedPills)} pill(s)` : 'Recorded not taken')}<br>
+                            <span style="color:var(--muted);">Configured: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</span>
+                        </div>`;
+                    });
+                historyDetails.innerHTML = entries.length
+                    ? entries.join('')
+                    : '<div class="detail-box">No medication history recorded yet.</div>';
+            }
         }
 
         function closeHistoryModal() {
@@ -1291,12 +1420,18 @@
 
         async function recordMedicationStatus(medicationId, status, date) {
             const selectedDate = date || dashboardData?.today;
+            const pillInput = document.querySelector(`[data-pill-input-for="${medicationId}"]`);
+            const pillsTaken = pillInput ? pillInput.value : undefined;
             await apiRequest(`/medications/api/medications/${encodeURIComponent(medicationId)}/adherence`, {
                 method: 'POST',
-                body: JSON.stringify({ status, date: selectedDate })
+                body: JSON.stringify({
+                    status,
+                    date: selectedDate,
+                    pillsTaken: status === 'took' ? pillsTaken : undefined
+                })
             });
             medicationEditState.delete(medicationId);
-            if (currentDayOffset === 0 && selectedDate === dashboardData?.today) {
+            if (currentDayOffset === 0 && selectedDate === dashboardData?.today && status === 'took') {
                 startMedicationFeedback(medicationId);
             }
             setStatusMessage('dashboardMessage', '', '');
