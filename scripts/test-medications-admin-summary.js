@@ -369,6 +369,36 @@ async function run() {
     });
     assert.ok([200, 302].includes(loginResponse.statusCode), `admin login should succeed: ${loginResponse.body || serverLogs.join('')}`);
 
+    const adminRegimenSaveDate = getDateOffset(3);
+    const adminSaveResponse = await requestJson(adminJar, 'PUT', `/admin/api/house/medications/${vitamin.id}`, {
+      name: vitamin.name,
+      description: vitamin.description,
+      usage: vitamin.usage,
+      instructions: 'Take with dinner',
+      scheduleFrequency: 'twice daily',
+      pillsPerDose: 1.5,
+      regimenEffectiveDate: adminRegimenSaveDate,
+      refillDate: vitamin.refillDate,
+      pillCount: 18,
+      refillExpiration: vitamin.refillExpiration,
+      alertThresholdDays: vitamin.alertThresholdDays,
+      asNeeded: false
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(adminSaveResponse.statusCode, 200, `admin medication update should succeed: ${adminSaveResponse.body}`);
+    assert.strictEqual(adminSaveResponse.json.success, true, `admin medication update should report success: ${adminSaveResponse.body}`);
+
+    const invalidRegimenResponse = await requestJson(adminJar, 'PUT', `/admin/api/house/medications/${vitamin.id}`, {
+      scheduleFrequency: 'three times daily',
+      pillsPerDose: 2,
+      regimenEffectiveDate: 'invalid-date'
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(invalidRegimenResponse.statusCode, 400, `invalid regimen effective dates should be rejected as validation errors: ${invalidRegimenResponse.body}`);
+    assert.strictEqual(invalidRegimenResponse.json.error, 'A valid regimen effective date is required', 'invalid regimen saves should return the validation message shown in the admin UI');
+
     const summaryResponse = await requestJson(adminJar, 'GET', '/admin/api/house/medications', undefined, {
       Accept: 'application/json'
     });
@@ -389,6 +419,15 @@ async function run() {
     assert.strictEqual(morningMedicationSummary.pillsPerDose, 2, 'admin medications payload should expose the current effective pills per dose');
     assert.strictEqual(morningMedicationSummary.regimenHistory.length, 2, 'admin medications payload should include dated regimen history');
     assert.strictEqual(morningMedicationSummary.estimatedRemainingPillCount, 20, 'admin medications payload should forecast across dated regimen changes');
+    const vitaminMedicationSummary = summaryPayload.medications.find(medication => medication.name === 'Vitamin D');
+    assert.ok(vitaminMedicationSummary, 'admin medications payload should include the updated vitamin medication');
+    assert.strictEqual(vitaminMedicationSummary.instructions, 'Take with dinner', 'admin medication saves should persist updated instructions');
+    assert.strictEqual(vitaminMedicationSummary.pillCount, 18, 'admin medication saves should persist updated pill counts');
+    assert.strictEqual(vitaminMedicationSummary.regimenHistory.length, 2, 'admin medication saves should append future-dated regimen entries');
+    assert.ok(
+      vitaminMedicationSummary.regimenHistory.some(entry => entry.effectiveDate === adminRegimenSaveDate && entry.scheduleFrequency === 'twice daily' && Number(entry.pillsPerDose) === 1.5),
+      'admin medication saves should persist the dated regimen change in regimen history'
+    );
 
     const casey = summaryPayload.portalUsers.find(user => user.username === 'Casey');
     const morgan = summaryPayload.portalUsers.find(user => user.username === 'Morgan');
@@ -466,6 +505,8 @@ async function run() {
     medicationsDom.window.eval(`
       ${extractFunctionSource(adminDashboardHtml, 'function escapeHtml(text)')}
       ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenSummary(regimen)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRegimenHistory(history)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getUpcomingMedicationRegimenEntry(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedications()')}
       var houseMedicationsData = [];
       function editMedication() {}
@@ -478,14 +519,84 @@ async function run() {
     const renderedTableText = medicationsDom.window.document.getElementById('medicationsList').textContent;
     const highlightedRow = Array.from(medicationsDom.window.document.querySelectorAll('tbody tr'))
       .find(row => row.textContent.includes('Evening Med'));
+    const vitaminRow = Array.from(medicationsDom.window.document.querySelectorAll('tbody tr'))
+      .find(row => row.textContent.includes('Vitamin D'));
 
     assert.ok(alertBannerText.includes('Evening Med'), 'admin medications banner should mention low-supply medications by name');
     assert.ok(alertBannerText.includes('4 pill(s) remaining'), 'admin medications banner should show estimated remaining pill counts');
     assert.ok(renderedTableText.includes('Est. Remaining'), 'admin medications table should include the estimated remaining pill count column');
     assert.ok(renderedTableText.includes('Regimen'), 'admin medications table should show the regimen column');
     assert.ok(renderedTableText.includes('dated entries'), 'admin medications table should note when medications have dated regimen history');
+    assert.ok(vitaminRow && vitaminRow.textContent.includes(adminRegimenSaveDate), 'admin medications table should surface the saved effective date for future regimen changes');
+    assert.ok(vitaminRow && vitaminRow.textContent.includes('twice daily'), 'admin medications table should surface the saved future regimen details after refresh');
     assert.ok(highlightedRow && String(highlightedRow.getAttribute('style') || '').includes('#fff8e1'), 'admin medications table should visually highlight low-supply medications');
 
+    const editDom = new JSDOM(`
+      <!DOCTYPE html>
+      <div id="medicationFormContainer" style="display:none;"></div>
+      <h3 id="medicationFormTitle"></h3>
+      <form id="medicationForm"></form>
+      <input id="medicationId">
+      <input id="medicationName">
+      <input id="medicationDescription">
+      <input id="medicationUsage">
+      <input id="medicationInstructions">
+      <select id="medicationScheduleFrequency">
+        <option value=""></option>
+        <option value="daily">daily</option>
+        <option value="twice daily">twice daily</option>
+        <option value="three times daily">three times daily</option>
+      </select>
+      <input id="medicationPillsPerDose">
+      <input id="medicationRefillDate">
+      <input id="medicationPillCount">
+      <input id="medicationRefillExpiration">
+      <input id="medicationAlertThresholdDays">
+      <input id="medicationRegimenEffectiveDate">
+      <input id="medicationAsNeeded" type="checkbox">
+      <div id="medicationRegimenHistory"></div>
+      <div id="medicationsAlert" class="alert" style="display:none;"></div>
+    `, {
+      url: 'http://localhost/admin',
+      runScripts: 'dangerously',
+      pretendToBeVisual: true
+    });
+    editDom.window.eval(`
+      ${extractFunctionSource(adminDashboardHtml, 'function escapeHtml(text)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function showAlert(message, type, containerId)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenSummary(regimen)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRegimenHistory(history)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getLatestMedicationRegimenEntry(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRegimenHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function showMedicationForm(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationForm(event)')}
+      async function loadHouseMedicationsData() {}
+      function hideMedicationForm() {}
+      window.fetchCalls = [];
+      window.fetch = async (url, options = {}) => {
+        window.fetchCalls.push({ url, options });
+        return {
+          ok: false,
+          json: async () => ({ error: 'A valid regimen effective date is required' })
+        };
+      };
+    `);
+    editDom.window.showMedicationForm(vitaminMedicationSummary);
+    assert.strictEqual(editDom.window.document.getElementById('medicationInstructions').value, 'Take with dinner', 'edit form should retain saved instructions after refresh');
+    assert.strictEqual(editDom.window.document.getElementById('medicationPillCount').value, '18', 'edit form should retain the saved pill count after refresh');
+    assert.strictEqual(editDom.window.document.getElementById('medicationScheduleFrequency').value, 'twice daily', 'edit form should preload the latest saved regimen frequency');
+    assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
+    assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes(adminRegimenSaveDate), 'edit form should show the persisted effective date in regimen history');
+
+    editDom.window.document.getElementById('medicationScheduleFrequency').value = 'three times daily';
+    editDom.window.document.getElementById('medicationPillsPerDose').value = '2';
+    editDom.window.document.getElementById('medicationRegimenEffectiveDate').value = 'invalid-date';
+    await editDom.window.saveMedicationForm({ preventDefault() {} });
+    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'save form should submit one request');
+    assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'PUT', 'editing a medication should use the update route');
+    assert.ok(editDom.window.document.getElementById('medicationsAlert').textContent.includes('A valid regimen effective date is required'), 'failed admin saves should show a visible validation alert');
+
+    editDom.window.close();
     medicationsDom.window.close();
     dom.window.close();
     console.log('✅ Medication admin summary payload and UI test passed');
