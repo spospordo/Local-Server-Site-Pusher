@@ -4,11 +4,31 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-
-process.env.MEDICATION_ACCESS_TOKEN_SECRET = process.env.MEDICATION_ACCESS_TOKEN_SECRET || 'medications-test-secret';
+const vm = require('vm');
 
 const repoRoot = path.join(__dirname, '..');
-const house = require(path.join(repoRoot, 'modules', 'house.js'));
+const houseModulePath = path.join(repoRoot, 'modules', 'house.js');
+const publicMedicationsHtml = fs.readFileSync(path.join(repoRoot, 'public', 'medications.html'), 'utf8');
+
+function loadHouse() {
+  delete require.cache[require.resolve(houseModulePath)];
+  return require(houseModulePath);
+}
+
+function extractAccessLinkToken(value, origin = 'https://portal.example') {
+  const match = publicMedicationsHtml.match(/function extractAccessLinkToken\(value\) \{[\s\S]*?\n        \}/);
+  if (!match) {
+    throw new Error('Unable to locate extractAccessLinkToken in public/medications.html');
+  }
+
+  const context = {
+    URL,
+    window: { location: { origin } }
+  };
+  vm.createContext(context);
+  vm.runInContext(`${match[0]}\nthis.extractAccessLinkToken = extractAccessLinkToken;`, context);
+  return context.extractAccessLinkToken(value);
+}
 
 function cleanup(targetPath) {
   if (fs.existsSync(targetPath)) {
@@ -29,8 +49,10 @@ function getDateOffset(daysOffset) {
 function run() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'medications-portal-test-'));
   const dataFilePath = path.join(tempDir, 'house-data.json');
+  let house = loadHouse();
 
   try {
+    delete process.env.MEDICATION_ACCESS_TOKEN_SECRET;
     house.init({ house: { dataFilePath } });
 
     const initialData = house.getMedicationsData();
@@ -138,6 +160,33 @@ function run() {
     assert.strictEqual(explicitExpirationResult.record.expiresAt, explicitExpirationTime, 'explicit expiration timestamps should be preserved');
     assert.strictEqual(explicitExpirationResult.record.expiration, '1_day', 'selected expiration value should be stored in metadata');
     assert.strictEqual(explicitExpirationResult.record.expirationLabel, '1 day', 'selected expiration label should be stored in metadata');
+
+    const restartSafeTokenResult = house.issueMedicationAccessToken(accessUserResult.user.id, {
+      scope: 'medication:access',
+      ttlMs: 60 * 1000
+    });
+    assert.strictEqual(restartSafeTokenResult.success, true, 'restart-safe token should be created');
+    assert.ok(house.getMedicationsData().accessTokenSecret, 'medication access token secret should be persisted with medication data');
+
+    delete process.env.MEDICATION_ACCESS_TOKEN_SECRET;
+    house = loadHouse();
+    house.init({ house: { dataFilePath } });
+
+    const rawTokenValidation = house.validateMedicationAccessToken(restartSafeTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(rawTokenValidation.valid, true, 'raw token should remain valid after module reload');
+
+    const pathTokenValidation = house.validateMedicationAccessToken(
+      extractAccessLinkToken(`/medications/access/${restartSafeTokenResult.token}`),
+      { scope: 'medication:access' }
+    );
+    assert.strictEqual(pathTokenValidation.valid, true, 'route-path token input should remain valid after module reload');
+
+    const urlTokenValidation = house.validateMedicationAccessToken(
+      extractAccessLinkToken(`https://portal.example/medications/access/${restartSafeTokenResult.token}`),
+      { scope: 'medication:access' }
+    );
+    assert.strictEqual(urlTokenValidation.valid, true, 'full URL token input should remain valid after module reload');
+    log('✅ Medication access links remain valid across module reloads for raw, path, and full URL inputs');
 
     const validResult = house.verifyMedicationAccessToken(accessTokenResult.token, { scope: 'medication:access' });
     assert.strictEqual(validResult.valid, true, 'valid medication access token should authenticate the intended user');
