@@ -1441,7 +1441,11 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
     return res.status(400).json({ success: false, error: tokenResult.error || 'Failed to issue medication access token' });
   }
 
-  logger.info(logger.categories.SYSTEM, `Medication access link issued for user: ${portalUser.username}`);
+  logSecurityEvent('Medication access link issued', req, {
+    username: portalUser.username,
+    reason: 'issued_access_link',
+    path: req.originalUrl || req.path
+  });
 
   return res.json({
     success: true,
