@@ -5488,7 +5488,8 @@
         // Render medications sub-widget
         function renderMedications(data) {
             const userAlerts = Array.isArray(data?.userAlerts) ? data.userAlerts : [];
-            if (userAlerts.length === 0) {
+            const lowSupplyAlertCount = Number(data?.lowSupplyAlertCount || 0);
+            if (userAlerts.length === 0 && lowSupplyAlertCount === 0) {
                 return null;
             }
 
@@ -5510,44 +5511,60 @@
             summary.style.color = '#d6ccff';
             summary.style.marginBottom = '10px';
             const totalMissingDays = Number(data.totalMissingDays || 0);
-            summary.textContent = `${totalMissingDays} missing day${totalMissingDays === 1 ? '' : 's'} need follow-up`;
+            summary.textContent = totalMissingDays > 0
+                ? `${totalMissingDays} missing day${totalMissingDays === 1 ? '' : 's'} need follow-up`
+                : `${lowSupplyAlertCount} low-supply medication alert${lowSupplyAlertCount === 1 ? '' : 's'}`;
             container.appendChild(summary);
 
-            const list = document.createElement('div');
-            list.style.display = 'flex';
-            list.style.flexDirection = 'column';
-            list.style.gap = '8px';
+            if (lowSupplyAlertCount > 0) {
+                const supplyAlert = document.createElement('div');
+                supplyAlert.style.background = 'rgba(255, 193, 7, 0.14)';
+                supplyAlert.style.border = '1px solid rgba(255, 193, 7, 0.35)';
+                supplyAlert.style.borderRadius = '8px';
+                supplyAlert.style.padding = '8px 10px';
+                supplyAlert.style.marginBottom = userAlerts.length > 0 ? '10px' : '0';
+                supplyAlert.style.lineHeight = '1.4';
+                supplyAlert.textContent = `${lowSupplyAlertCount} medication${lowSupplyAlertCount === 1 ? ' is' : 's are'} below the configured alert threshold.`;
+                container.appendChild(supplyAlert);
+            }
 
-            userAlerts.forEach(userAlert => {
-                const card = document.createElement('div');
-                card.style.background = 'rgba(255, 255, 255, 0.08)';
-                card.style.border = '1px solid rgba(214, 204, 255, 0.28)';
-                card.style.borderRadius = '8px';
-                card.style.padding = '8px 10px';
+            if (userAlerts.length > 0) {
+                const list = document.createElement('div');
+                list.style.display = 'flex';
+                list.style.flexDirection = 'column';
+                list.style.gap = '8px';
 
-                const nameLine = document.createElement('div');
-                nameLine.style.fontWeight = '700';
-                nameLine.style.marginBottom = '4px';
-                nameLine.textContent = userAlert.username || 'Medication User';
-                card.appendChild(nameLine);
+                userAlerts.forEach(userAlert => {
+                    const card = document.createElement('div');
+                    card.style.background = 'rgba(255, 255, 255, 0.08)';
+                    card.style.border = '1px solid rgba(214, 204, 255, 0.28)';
+                    card.style.borderRadius = '8px';
+                    card.style.padding = '8px 10px';
 
-                const missingDaysLine = document.createElement('div');
-                missingDaysLine.style.fontSize = '0.9rem';
-                missingDaysLine.style.lineHeight = '1.4';
-                const formattedDays = (userAlert.missingDays || []).map(day => {
-                    const date = new Date(`${day.date}T00:00:00`);
-                    if (Number.isNaN(date.getTime())) {
-                        return day.date;
-                    }
-                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const nameLine = document.createElement('div');
+                    nameLine.style.fontWeight = '700';
+                    nameLine.style.marginBottom = '4px';
+                    nameLine.textContent = userAlert.username || 'Medication User';
+                    card.appendChild(nameLine);
+
+                    const missingDaysLine = document.createElement('div');
+                    missingDaysLine.style.fontSize = '0.9rem';
+                    missingDaysLine.style.lineHeight = '1.4';
+                    const formattedDays = (userAlert.missingDays || []).map(day => {
+                        const date = new Date(`${day.date}T00:00:00`);
+                        if (Number.isNaN(date.getTime())) {
+                            return day.date;
+                        }
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    });
+                    missingDaysLine.textContent = `Missing day${formattedDays.length === 1 ? '' : 's'}: ${formattedDays.join(', ')}`;
+                    card.appendChild(missingDaysLine);
+
+                    list.appendChild(card);
                 });
-                missingDaysLine.textContent = `Missing day${formattedDays.length === 1 ? '' : 's'}: ${formattedDays.join(', ')}`;
-                card.appendChild(missingDaysLine);
 
-                list.appendChild(card);
-            });
-
-            container.appendChild(list);
+                container.appendChild(list);
+            }
             return container;
         }
 

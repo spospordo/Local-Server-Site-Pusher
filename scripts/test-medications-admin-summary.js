@@ -278,21 +278,32 @@ async function run() {
 
     const house = loadHouse();
     house.init(testConfig);
+    const today = getDateOffset(0);
+    const yesterday = getDateOffset(-1);
 
     const morningMedResult = house.addMedication({
       name: 'Morning Med',
       instructions: 'Take with breakfast',
-      scheduleFrequency: 'daily'
+      scheduleFrequency: 'daily',
+      pillCount: 30,
+      refillDate: yesterday,
+      alertThresholdDays: 5
     });
     const eveningMedResult = house.addMedication({
       name: 'Evening Med',
       instructions: 'Take before bed',
-      scheduleFrequency: 'daily'
+      scheduleFrequency: 'daily',
+      pillCount: 4,
+      refillDate: today,
+      alertThresholdDays: 5
     });
     const vitaminResult = house.addMedication({
       name: 'Vitamin D',
       instructions: 'Take with lunch',
-      scheduleFrequency: 'daily'
+      scheduleFrequency: 'daily',
+      pillCount: 20,
+      refillDate: today,
+      alertThresholdDays: 3
     });
 
     assert.strictEqual(morningMedResult.success, true, 'morning medication should be created');
@@ -321,9 +332,6 @@ async function run() {
       assignedAt: assignedBeforeWindow
     }));
     assert.strictEqual(house.saveMedicationsData(seededData).success, true, 'seed assignments should be backdated into the summary window');
-
-    const today = getDateOffset(0);
-    const yesterday = getDateOffset(-1);
 
     assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, morningMed.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, morningMed.id, 'took', today).success, true);
@@ -360,6 +368,11 @@ async function run() {
     assert.ok(Array.isArray(summaryPayload.adherenceSummaryWindowDays), 'summary payload should include the adherence window');
     assert.strictEqual(summaryPayload.adherenceSummaryWindowDays.length, 7, 'summary window should default to seven days');
     assert.strictEqual(summaryPayload.adherenceSummaryWindowDays[0], today, 'summary window should start with today');
+    const eveningMedicationSummary = summaryPayload.medications.find(medication => medication.name === 'Evening Med');
+    assert.ok(eveningMedicationSummary, 'medications payload should include the evening medication');
+    assert.strictEqual(eveningMedicationSummary.alertThresholdPillCount, 5, 'admin medications payload should expose the pill-count alert threshold explicitly');
+    assert.strictEqual(eveningMedicationSummary.estimatedRemainingPillCount, 4, 'admin medications payload should expose estimated remaining pill counts');
+    assert.strictEqual(eveningMedicationSummary.belowAlertThreshold, true, 'admin medications payload should flag medications that are below the threshold');
 
     const casey = summaryPayload.portalUsers.find(user => user.username === 'Casey');
     const morgan = summaryPayload.portalUsers.find(user => user.username === 'Morgan');
@@ -424,6 +437,35 @@ async function run() {
     assert.ok(summaryText.includes('Missing 1 medication entry: Evening Med'), 'summary UI should render partial-day medication alerts');
     assert.ok(summaryText.includes('Morgan'), 'summary UI should keep complete users visible for scanning');
 
+    const medicationsDom = new JSDOM(`
+      <!DOCTYPE html>
+      <div id="medicationsAlertBanner"></div>
+      <div id="medicationsList"></div>
+    `, {
+      url: 'http://localhost/admin',
+      runScripts: 'dangerously'
+    });
+    medicationsDom.window.eval(`
+      ${extractFunctionSource(adminDashboardHtml, 'function escapeHtml(text)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedications()')}
+      var houseMedicationsData = [];
+      function editMedication() {}
+      function deleteMedicationEntry() {}
+    `);
+    medicationsDom.window.houseMedicationsData = summaryPayload.medications;
+    medicationsDom.window.renderMedications();
+
+    const alertBannerText = medicationsDom.window.document.getElementById('medicationsAlertBanner').textContent;
+    const renderedTableText = medicationsDom.window.document.getElementById('medicationsList').textContent;
+    const highlightedRow = Array.from(medicationsDom.window.document.querySelectorAll('tbody tr'))
+      .find(row => row.textContent.includes('Evening Med'));
+
+    assert.ok(alertBannerText.includes('Evening Med'), 'admin medications banner should mention low-supply medications by name');
+    assert.ok(alertBannerText.includes('4 pill(s) remaining'), 'admin medications banner should show estimated remaining pill counts');
+    assert.ok(renderedTableText.includes('Est. Remaining'), 'admin medications table should include the estimated remaining pill count column');
+    assert.ok(highlightedRow && String(highlightedRow.getAttribute('style') || '').includes('#fff8e1'), 'admin medications table should visually highlight low-supply medications');
+
+    medicationsDom.window.close();
     dom.window.close();
     console.log('✅ Medication admin summary payload and UI test passed');
   } finally {

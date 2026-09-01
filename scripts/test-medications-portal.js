@@ -73,6 +73,8 @@ function run() {
   try {
     delete process.env.MEDICATION_ACCESS_TOKEN_SECRET;
     house.init({ house: { dataFilePath } });
+    const yesterday = getDateOffset(-1);
+    const today = getDateOffset(0);
 
     const initialData = house.getMedicationsData();
     assert.deepStrictEqual(initialData.medications, [], 'default medications list should exist');
@@ -87,13 +89,19 @@ function run() {
       usage: 'Blood pressure support',
       instructions: 'Take 1 pill once daily',
       pillCount: 30,
-      refillDate: '2026-08-01',
+      refillDate: yesterday,
+      alertThresholdDays: 29,
       refillExpiration: '2026-12-31'
     });
     assert.strictEqual(addMedicationResult.success, true, 'addMedication should succeed');
 
     const medication = house.getMedicationsData().medications[0];
     assert.strictEqual(medication.usage, 'Blood pressure support', 'medication usage should be stored');
+    const forecast = house.computeMedicationForecast(medication);
+    assert.strictEqual(forecast.alertThresholdPillCount, 29, 'forecast should expose the configured pill-count threshold explicitly');
+    assert.strictEqual(forecast.estimatedRemainingPillCount, 29, 'forecast should estimate remaining pills from refill date and daily usage');
+    assert.strictEqual(forecast.daysUntilEmpty, 29, 'forecast should update remaining days based on estimated pills');
+    assert.strictEqual(forecast.belowAlertThreshold, true, 'forecast should flag medications at or below the configured threshold');
     log('✅ Medication entries store the new usage field');
 
     const createUserResult = house.createMedicationPortalUser({
@@ -124,9 +132,6 @@ function run() {
     assert.strictEqual(assignmentResult.success, true, 'setMedicationAssignments should succeed');
     assert.strictEqual(house.getAssignedMedicationsForUser(createUserResult.user.id).length, 1, 'assigned user should receive the medication');
     log('✅ Admin assignment data maps medications to portal users');
-
-    const yesterday = getDateOffset(-1);
-    const today = getDateOffset(0);
 
     const recordYesterday = house.recordMedicationAdherence(createUserResult.user.id, medication.id, 'took', yesterday);
     assert.strictEqual(recordYesterday.success, true, 'backdated adherence should be recorded');
