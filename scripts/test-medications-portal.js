@@ -127,6 +127,18 @@ function run() {
     assert.strictEqual(accessTokenResult.record.scope, 'medication:access', 'access token should be scoped to medication access');
     assert.strictEqual(house.getMedicationAccessTokens().length >= 1, true, 'issued access token should be persisted');
 
+    const explicitExpirationTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const explicitExpirationResult = house.issueMedicationAccessToken(accessUserResult.user.id, {
+      scope: 'medication:access',
+      expiresAt: explicitExpirationTime,
+      expiration: '1_day',
+      expirationLabel: '1 day'
+    });
+    assert.strictEqual(explicitExpirationResult.success, true, 'issueMedicationAccessToken should support explicit expiration timestamps');
+    assert.strictEqual(explicitExpirationResult.record.expiresAt, explicitExpirationTime, 'explicit expiration timestamps should be preserved');
+    assert.strictEqual(explicitExpirationResult.record.expiration, '1_day', 'selected expiration value should be stored in metadata');
+    assert.strictEqual(explicitExpirationResult.record.expirationLabel, '1 day', 'selected expiration label should be stored in metadata');
+
     const validResult = house.verifyMedicationAccessToken(accessTokenResult.token, { scope: 'medication:access' });
     assert.strictEqual(validResult.valid, true, 'valid medication access token should authenticate the intended user');
     assert.strictEqual(validResult.user.id, accessUserResult.user.id, 'token should resolve to the intended portal user');

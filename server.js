@@ -1299,6 +1299,60 @@ function buildMedicationAccessLink(req, token) {
   return `${protocol}://${host}/medications/access/${encodeURIComponent(token)}`;
 }
 
+const MEDICATION_ACCESS_LINK_EXPIRATION_OPTIONS = Object.freeze([
+  { value: '1_day', label: '1 day' },
+  { value: '1_month', label: '1 month' },
+  { value: '3_months', label: '3 months' },
+  { value: '6_months', label: '6 months' },
+  { value: '1_year', label: '1 year' }
+]);
+
+function addMedicationAccessLinkCalendarMonths(baseDate, monthCount) {
+  const nextDate = new Date(baseDate.getTime());
+  const originalDay = nextDate.getDate();
+  nextDate.setDate(1);
+  nextDate.setMonth(nextDate.getMonth() + monthCount);
+  const lastDayOfMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+  nextDate.setDate(Math.min(originalDay, lastDayOfMonth));
+  return nextDate;
+}
+
+function getMedicationAccessLinkExpirationSelection(rawValue) {
+  const normalizedValue = String(rawValue || '').trim() || '1_day';
+  const option = MEDICATION_ACCESS_LINK_EXPIRATION_OPTIONS.find(candidate => candidate.value === normalizedValue);
+  if (!option) {
+    return null;
+  }
+
+  const createdAt = new Date();
+  let expiresAt = new Date(createdAt.getTime());
+
+  switch (option.value) {
+    case '1_month':
+      expiresAt = addMedicationAccessLinkCalendarMonths(createdAt, 1);
+      break;
+    case '3_months':
+      expiresAt = addMedicationAccessLinkCalendarMonths(createdAt, 3);
+      break;
+    case '6_months':
+      expiresAt = addMedicationAccessLinkCalendarMonths(createdAt, 6);
+      break;
+    case '1_year':
+      expiresAt = addMedicationAccessLinkCalendarMonths(createdAt, 12);
+      break;
+    case '1_day':
+    default:
+      expiresAt.setDate(expiresAt.getDate() + 1);
+      break;
+  }
+
+  return {
+    value: option.value,
+    label: option.label,
+    expiresAt: expiresAt.toISOString()
+  };
+}
+
 function getMedicationAccessErrorCode(reason) {
   switch (reason) {
     case 'expired_token':
@@ -1343,6 +1397,8 @@ function serializeMedicationAccessRecord(record) {
     id: record.id,
     tokenPrefix: record.tokenPrefix,
     createdAt: record.createdAt,
+    expiration: record.expiration || '',
+    expirationLabel: record.expirationLabel || '',
     expiresAt: record.expiresAt,
     usedAt: record.usedAt,
     revoked: !!record.revoked,
@@ -1519,7 +1575,20 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
     return res.status(404).json({ success: false, error: 'Medication portal user not found' });
   }
 
-  const tokenResult = house.issueMedicationAccessToken(userId, { scope: 'medication:access', ttlMs: 15 * 60 * 1000 });
+  const expirationSelection = getMedicationAccessLinkExpirationSelection(req.body?.expiration);
+  if (!expirationSelection) {
+    return res.status(400).json({
+      success: false,
+      error: 'Unsupported medication access-link expiration value'
+    });
+  }
+
+  const tokenResult = house.issueMedicationAccessToken(userId, {
+    scope: 'medication:access',
+    expiresAt: expirationSelection.expiresAt,
+    expiration: expirationSelection.value,
+    expirationLabel: expirationSelection.label
+  });
   if (!tokenResult.success) {
     return res.status(400).json({ success: false, error: tokenResult.error || 'Failed to issue medication access token' });
   }
@@ -1534,6 +1603,8 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
     user: serializeMedicationPortalUser(portalUser),
     token: tokenResult.token,
     link: buildMedicationAccessLink(req, tokenResult.token),
+    expiration: tokenResult.record.expiration || expirationSelection.value,
+    expirationLabel: tokenResult.record.expirationLabel || expirationSelection.label,
     expiresAt: tokenResult.record.expiresAt,
     accessLink: serializeMedicationAccessRecord(tokenResult.record)
   });

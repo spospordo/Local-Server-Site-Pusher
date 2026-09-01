@@ -18,7 +18,8 @@ When an admin generates a link for a user, the server creates a random 32-byte t
 - `token` is returned once to the admin UI or API caller
 - `tokenHash` is persisted in the medication data store
 - the token is scoped to `medication:access`
-- the token expires after a short TTL (default: 15 minutes)
+- admins can choose one of these expiration windows when issuing a link: 1 day, 1 month, 3 months, 6 months, or 1 year
+- if no expiration is specified, the secure-link API defaults to 1 day
 - the token is invalid after a single successful verification
 
 The token validation logic is implemented in `modules/house.js` because the medication portal data and its access-token registry are persisted alongside the rest of the house data in `config/house-data.json`. That shared module enforces:
@@ -32,7 +33,7 @@ The token validation logic is implemented in `modules/house.js` because the medi
 
 ## User flow
 
-1. The admin selects a medication portal user and requests a secure access link.
+1. The admin selects a medication portal user, chooses an expiration window, and requests a secure access link.
 2. The server creates a link and responds with a URL such as:
    `http://localhost:3000/medications/access/<token>`
 3. The user opens the link.
