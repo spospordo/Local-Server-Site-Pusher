@@ -191,6 +191,14 @@ async function run() {
       const res = await requestJson(createJar(), 'POST', '/medications/api/access/verify', { token: 'not-a-real-token' });
       assert.strictEqual(res.statusCode, 401);
       assert.strictEqual(res.json.success, false);
+      assert.strictEqual(res.json.code, 'INVALID_ACCESS_LINK');
+      assert.ok(!res.body.includes('not-a-real-token'), 'access token must not be returned in an error response');
+    });
+
+    await test('Invalid access link redirects to a safe recovery state', async () => {
+      const res = await requestJson(createJar(), 'GET', '/medications/access/not-a-real-token');
+      assert.strictEqual(res.statusCode, 302);
+      assert.strictEqual(res.headers.location, '/medications?error=INVALID_ACCESS_LINK');
     });
 
     await test('Portal login/register without CSRF token is rejected with 403', async () => {
@@ -213,6 +221,22 @@ async function run() {
     await test('Admin login succeeds with configured credentials', async () => {
       const res = await requestJson(adminJar, 'POST', '/admin/login', { username: 'admin', password: 'admin123' }, { Accept: 'application/json' });
       assert.ok([200, 302].includes(res.statusCode), `unexpected admin login status ${res.statusCode}`);
+    });
+
+    await test('Secure access link verification establishes a portal session', async () => {
+      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userA.id });
+      assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
+
+      const accessJar = createJar();
+      const verifyRes = await requestJson(accessJar, 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
+      assert.strictEqual(verifyRes.statusCode, 200, `access link verification failed: ${verifyRes.body}`);
+      assert.strictEqual(verifyRes.json.success, true);
+      assert.ok(verifyRes.json.csrfToken, 'secure-link login should issue a CSRF token for the new session');
+      assert.ok(!Object.prototype.hasOwnProperty.call(verifyRes.json, 'tokenId'), 'verification must not return token metadata');
+
+      const dashboardRes = await requestJson(accessJar, 'GET', '/medications/api/dashboard');
+      assert.strictEqual(dashboardRes.statusCode, 200, 'secure-link session should access the dashboard');
+      assert.strictEqual(dashboardRes.json.user.id, userA.id);
     });
 
     await test('Admin can create a medication and assign it to a single user', async () => {
