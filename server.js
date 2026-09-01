@@ -27,6 +27,8 @@ const remoteMgmt = require('./modules/remote-management');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+const trustProxy = Number.parseInt(process.env.TRUST_PROXY || '0', 10);
+app.set('trust proxy', Number.isFinite(trustProxy) && trustProxy >= 0 ? trustProxy : 0);
 const configDir = path.join(__dirname, 'config');
 const configPath = path.join(configDir, 'config.json');
 const clientPasswordPath = path.join(configDir, '.client_auth');
@@ -985,15 +987,76 @@ const sessionConfig = {
   }
 };
 
+function getRequestClientIp(req) {
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function logSecurityEvent(event, req, details = {}) {
+  const ip = getRequestClientIp(req);
+  const username = details.username || req.body?.username || req.session?.medicationPortalUsername || '';
+  const detailParts = [];
+  if (ip) detailParts.push(`ip=${ip}`);
+  if (username) detailParts.push(`user=${username}`);
+  if (details.reason) detailParts.push(`reason=${details.reason}`);
+  if (details.path) detailParts.push(`path=${details.path}`);
+  logger.warning(logger.categories.SYSTEM, `${event}${detailParts.length ? ` | ${detailParts.join(' | ')}` : ''}`);
+}
+
+function setNoStoreHeaders(req, res, next) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+}
+
+const adminLoginRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: getRequestClientIp,
+  handler: (req, res) => {
+    logSecurityEvent('Admin login rate limit exceeded', req, { path: req.originalUrl || req.path, reason: 'rate_limited' });
+    res.status(429).json({
+      success: false,
+      error: 'Too many admin login attempts. Please try again later.',
+      code: 'RATE_LIMITED'
+    });
+  }
+});
+
+const medicationPasswordLoginRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: getRequestClientIp,
+  handler: (req, res) => {
+    logSecurityEvent('Medication portal login rate limit exceeded', req, { username: req.body?.username, path: req.originalUrl || req.path, reason: 'rate_limited' });
+    res.status(429).json({
+      success: false,
+      error: 'Too many medication login attempts. Please try again later.',
+      code: 'RATE_LIMITED'
+    });
+  }
+});
+
 const medicationAccessTokenRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    error: 'Too many medication access verification attempts. Please try again later.',
-    code: 'RATE_LIMITED'
+  keyGenerator: getRequestClientIp,
+  skipSuccessfulRequests: true,
+  handler: (req, res) => {
+    logSecurityEvent('Medication access verification rate limit exceeded', req, { path: req.originalUrl || req.path, reason: 'rate_limited' });
+    res.status(429).json({
+      success: false,
+      error: 'Too many medication access verification attempts. Please try again later.',
+      code: 'RATE_LIMITED'
+    });
   }
 });
 
@@ -1051,6 +1114,7 @@ if (isProduction && !suppressWarnings) {
 
 // Static files for public web content
 app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/medications', setNoStoreHeaders);
 
 // Authentication middleware
 const requireAuth = (req, res, next) => {
@@ -1092,7 +1156,7 @@ app.get('/admin/api/default-credentials-status', (req, res) => {
 });
 
 // Admin login POST
-app.post('/admin/login', (req, res) => {
+app.post('/admin/login', adminLoginRateLimiter, (req, res) => {
   const { username, password } = req.body;
   
   if (username === config.server.admin.username && password === config.server.admin.password) {
@@ -1105,7 +1169,7 @@ app.post('/admin/login', (req, res) => {
     }
     res.redirect('/admin');
   } else {
-    logger.warning(logger.categories.SYSTEM, `Failed login attempt for user: ${username}`);
+    logSecurityEvent('Failed admin login attempt', req, { username, reason: 'invalid_credentials' });
     res.redirect('/admin/login?error=1');
   }
 });
@@ -1327,6 +1391,10 @@ app.post('/medications/api/access/verify', medicationAccessTokenRateLimiter, (re
 
   if (!validation.valid) {
     const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
+    logSecurityEvent('Rejected medication access token verification', req, {
+      reason: code,
+      username: req.body?.username || req.session?.medicationPortalUsername || ''
+    });
     return res.status(401).json({
       success: false,
       error: code === 'EXPIRED_ACCESS_LINK'
@@ -1409,14 +1477,14 @@ app.post('/medications/api/register', requireMedicationPortalCsrf, (req, res) =>
   }
 });
 
-app.post('/medications/api/login', requireMedicationPortalCsrf, (req, res) => {
+app.post('/medications/api/login', medicationPasswordLoginRateLimiter, requireMedicationPortalCsrf, (req, res) => {
   const username = String(req.body?.username || '').trim();
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
   try {
     const portalUser = house.getMedicationPortalUserByUsername(username);
     if (!portalUser || !verifyPassword(password, portalUser.passwordHash)) {
-      logger.warning(logger.categories.SYSTEM, `Failed medication portal login attempt for user: ${username || '(blank)'}`);
+      logSecurityEvent('Failed medication portal login attempt', req, { username, reason: 'invalid_credentials' });
       return res.status(401).json({ success: false, error: 'Invalid username or password' });
     }
 

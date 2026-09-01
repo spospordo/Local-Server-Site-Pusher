@@ -209,6 +209,29 @@ async function run() {
       assert.strictEqual(res.json.code, 'INVALID_CSRF_TOKEN');
     });
 
+    await test('Password login is throttled after repeated failures', async () => {
+      const jar = createJar();
+      const csrfToken = await fetchCsrfToken(jar);
+      let lastStatus = 401;
+      for (let i = 0; i < 11; i++) {
+        const res = await requestJson(jar, 'POST', '/medications/api/login', { username: 'rate-limit-user', password: 'wrong-password' }, {
+          'x-medications-csrf-token': csrfToken
+        });
+        lastStatus = res.statusCode;
+      }
+      assert.strictEqual(lastStatus, 429, 'repeated failed password logins should trigger a rate limit response');
+    });
+
+    await test('Medication pages set non-cacheable headers for sensitive responses', async () => {
+      const res = await requestJson(createJar(), 'GET', '/medications');
+      assert.strictEqual(res.statusCode, 200);
+      assert.ok((res.headers['cache-control'] || '').includes('no-store'));
+
+      const sessionRes = await requestJson(createJar(), 'GET', '/medications/api/session');
+      assert.strictEqual(sessionRes.statusCode, 200);
+      assert.ok((sessionRes.headers['cache-control'] || '').includes('no-store'));
+    });
+
     // ---- Set up two portal users and an admin session ----
     const userAName = `AuthTestUserA${Date.now()}`;
     const userBName = `AuthTestUserB${Date.now()}`;
