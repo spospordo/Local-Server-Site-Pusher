@@ -1127,10 +1127,15 @@
             let token = value;
             try {
                 const url = new URL(value);
-                const match = url.pathname.match(/^\/medications\/access\/([^/]+)$/);
+                const match = url.pathname.match(/^\/medications\/access\/([a-f0-9]{64})$/i);
                 if (match) token = match[1];
             } catch (err) {
                 // A copied token is accepted as an alternative to the full link.
+            }
+
+            if (!/^[a-f0-9]{64}$/i.test(token)) {
+                setStatusMessage('authMessage', 'This access link is invalid or has already been used. Use your password or request a new link.', 'error');
+                return;
             }
 
             try {
