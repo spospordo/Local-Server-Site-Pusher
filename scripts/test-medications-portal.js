@@ -15,18 +15,36 @@ function loadHouse() {
   return require(houseModulePath);
 }
 
-function extractAccessLinkToken(value, origin = 'https://portal.example') {
-  const match = publicMedicationsHtml.match(/function extractAccessLinkToken\(value\) \{[\s\S]*?\n        \}/);
-  if (!match) {
-    throw new Error('Unable to locate extractAccessLinkToken in public/medications.html');
+function extractFunctionSource(source, signature) {
+  const startIndex = source.indexOf(signature);
+  if (startIndex === -1) {
+    throw new Error(`Unable to locate ${signature} in public/medications.html`);
   }
 
+  const bodyStartIndex = source.indexOf('{', startIndex);
+  let depth = 0;
+  for (let index = bodyStartIndex; index < source.length; index++) {
+    const char = source[index];
+    if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  throw new Error(`Unable to parse ${signature} in public/medications.html`);
+}
+
+function extractAccessLinkToken(value, origin = 'https://portal.example') {
   const context = {
     URL,
     window: { location: { origin } }
   };
   vm.createContext(context);
-  vm.runInContext(`${match[0]}\nthis.extractAccessLinkToken = extractAccessLinkToken;`, context);
+  vm.runInContext(`${extractFunctionSource(publicMedicationsHtml, 'function extractAccessLinkToken(value)')}\nthis.extractAccessLinkToken = extractAccessLinkToken;`, context);
   return context.extractAccessLinkToken(value);
 }
 
@@ -49,6 +67,7 @@ function getDateOffset(daysOffset) {
 function run() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'medications-portal-test-'));
   const dataFilePath = path.join(tempDir, 'house-data.json');
+  const originalMedicationAccessTokenSecret = process.env.MEDICATION_ACCESS_TOKEN_SECRET;
   let house = loadHouse();
 
   try {
@@ -219,6 +238,11 @@ function run() {
     assert.strictEqual(missingResult.reason, 'invalid_token', 'invalid tokens should fail with invalid_token');
     log('✅ Medication access links are secure, scoped, expiring, single-use, and hashed');
   } finally {
+    if (originalMedicationAccessTokenSecret === undefined) {
+      delete process.env.MEDICATION_ACCESS_TOKEN_SECRET;
+    } else {
+      process.env.MEDICATION_ACCESS_TOKEN_SECRET = originalMedicationAccessTokenSecret;
+    }
     cleanup(tempDir);
   }
 }

@@ -6,6 +6,7 @@ const Tesseract = require('tesseract.js');
 const pdfParse = require('pdf-parse');
 
 let config = null;
+let medicationAccessTokenSecret = '';
 
 function generateId() {
   return randomUUID();
@@ -14,6 +15,7 @@ function generateId() {
 // Initialize the house module with config
 function init(serverConfig) {
   config = serverConfig;
+  medicationAccessTokenSecret = '';
   
   // Ensure house data file exists
   ensureHouseDataFile();
@@ -1877,15 +1879,18 @@ function normalizeMedicationAccessScope(scope) {
 }
 
 function getMedicationAccessTokenSecret() {
+  if (medicationAccessTokenSecret) {
+    return medicationAccessTokenSecret;
+  }
+
   const medsData = getMedicationsData();
   const storedSecret = String(medsData.accessTokenSecret || '').trim();
   if (storedSecret) {
     const envSecret = String(process.env.MEDICATION_ACCESS_TOKEN_SECRET || '').trim();
-    if (!envSecret) {
-      process.env.MEDICATION_ACCESS_TOKEN_SECRET = storedSecret;
-    } else if (envSecret !== storedSecret) {
+    if (envSecret && envSecret !== storedSecret) {
       console.warn('[House] Ignoring MEDICATION_ACCESS_TOKEN_SECRET because a persisted medication access token secret already exists.');
     }
+    medicationAccessTokenSecret = storedSecret;
     return storedSecret;
   }
 
@@ -1896,6 +1901,7 @@ function getMedicationAccessTokenSecret() {
     if (!saveResult.success) {
       console.warn('[House] Failed to persist MEDICATION_ACCESS_TOKEN_SECRET; medication access links may not survive restarts:', saveResult.error);
     }
+    medicationAccessTokenSecret = envSecret;
     return envSecret;
   }
 
@@ -1905,9 +1911,9 @@ function getMedicationAccessTokenSecret() {
   if (!saveResult.success) {
     console.warn('[House] Failed to persist generated medication access token secret; access links may not survive restarts:', saveResult.error);
   } else {
-    console.warn('[House] MEDICATION_ACCESS_TOKEN_SECRET missing; generated and persisted a medication access token secret so access links remain valid across restarts.');
+    console.log('[House] MEDICATION_ACCESS_TOKEN_SECRET missing; generated and persisted a medication access token secret so access links remain valid across restarts.');
   }
-  process.env.MEDICATION_ACCESS_TOKEN_SECRET = generatedSecret;
+  medicationAccessTokenSecret = generatedSecret;
   return generatedSecret;
 }
 
