@@ -1607,6 +1607,78 @@ function buildMedicationAdminPayload() {
   };
 }
 
+function hasActiveSmartMirrorPartyToday() {
+  migrateToMultiParty();
+  const today = getMedicationPortalToday();
+
+  if (Array.isArray(config.parties)) {
+    return config.parties.some(party =>
+      party &&
+      party.status !== 'archived' &&
+      typeof party.dateTime?.date === 'string' &&
+      party.dateTime.date === today
+    );
+  }
+
+  return typeof config.partyScheduling?.dateTime?.date === 'string' &&
+    config.partyScheduling.dateTime.date === today;
+}
+
+function hasActiveSmartMirrorVacationToday() {
+  const today = parseMedicationSummaryDate(getMedicationPortalToday());
+  if (!today) {
+    return false;
+  }
+
+  const vacationDates = house.getVacationData()?.dates || [];
+  return vacationDates.some(vacation => {
+    const startDate = parseMedicationSummaryDate(vacation?.startDate);
+    const endDate = parseMedicationSummaryDate(vacation?.endDate);
+    return startDate && endDate && startDate <= today && endDate >= today;
+  });
+}
+
+function buildMedicationSmartWidgetSummary(selectedUserIds) {
+  const normalizedUserIds = Array.isArray(selectedUserIds)
+    ? selectedUserIds.map(userId => String(userId || '').trim()).filter(Boolean)
+    : [];
+  if (normalizedUserIds.length === 0) {
+    return null;
+  }
+
+  const selectedUserIdSet = new Set(normalizedUserIds);
+  const medicationPayload = buildMedicationAdminPayload();
+  const selectedUsers = (medicationPayload.portalUsers || []).filter(user => selectedUserIdSet.has(String(user.id || '')));
+
+  if (selectedUsers.length === 0) {
+    return null;
+  }
+
+  const userAlerts = selectedUsers
+    .map(user => ({
+      userId: user.id,
+      username: user.username,
+      missingDays: (user.adherenceSummary?.recentDays || [])
+        .filter(day => day.status === 'missing_day')
+        .map(day => ({
+          date: day.date,
+          alert: 'No medication records for this day.'
+        }))
+    }))
+    .filter(user => user.missingDays.length > 0);
+
+  if (userAlerts.length === 0) {
+    return null;
+  }
+
+  return {
+    selectedUserCount: selectedUsers.length,
+    totalMissingDays: userAlerts.reduce((sum, user) => sum + user.missingDays.length, 0),
+    summaryWindowDays: medicationPayload.adherenceSummaryWindowDays || [],
+    userAlerts
+  };
+}
+
 function buildMedicationPortalDashboard(userId) {
   const today = getMedicationPortalToday();
   const medications = house.getAssignedMedicationsForUser(userId).map(medication => {
@@ -9242,7 +9314,10 @@ function estimateContentSize(subWidgetData) {
     case 'homeAssistantBattery':
       // Battery widget size depends on number of visible devices
       return (data.devices || []).length > 3 ? 'medium' : 'small';
-      
+
+    case 'medications':
+      return (data.userAlerts || []).length > 2 || (data.totalMissingDays || 0) > 3 ? 'medium' : 'small';
+
     case 'qrCodes':
       // QR code widget grows with the number of cards shown
       return ((data.wifiCodes || []).length + (data.linkCodes || []).length) > 2 ? 'medium' : 'small';
@@ -10187,6 +10262,37 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
               }
             }
             break;
+
+          case 'medications': {
+            if (subWidget.hideDuringParties && hasActiveSmartMirrorPartyToday()) {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Medications sub-widget hidden because a party is active today');
+              break;
+            }
+
+            if (subWidget.hideDuringVacations && hasActiveSmartMirrorVacationToday()) {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Medications sub-widget hidden because a vacation is active today');
+              break;
+            }
+
+            const medicationSummary = buildMedicationSmartWidgetSummary(subWidget.selectedUserIds);
+            if (medicationSummary) {
+              logger.success(logger.categories.SMART_MIRROR,
+                `Medications sub-widget: ${medicationSummary.totalMissingDays} missing day(s) across ${medicationSummary.userAlerts.length} user(s)`);
+              subWidgetData = {
+                type: 'medications',
+                priority: subWidget.priority,
+                cycleTime: subWidget.cycleTime || 12,
+                hasContent: true,
+                data: medicationSummary
+              };
+            } else {
+              logger.debug(logger.categories.SMART_MIRROR,
+                'Medications sub-widget: no selected users with missing-day alerts');
+            }
+            break;
+          }
             
           case 'driveTime': {
             // Get drive times for calendar events with addresses in the next 2 days

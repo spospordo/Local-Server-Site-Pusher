@@ -6672,6 +6672,70 @@
                                     </div>
                                 </div>
 
+                                <!-- Medications (nested level 2, collapsed by default) -->
+                                <div class="collapsible-section collapsible-nested-l2">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span class="collapsible-title">
+                                            <span class="collapsible-icon">▶</span>
+                                            💊 Medications
+                                        </span>
+                                    </div>
+                                    <div class="collapsible-content collapsed">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetMedicationsEnabled">Enabled</label>
+                                                <select id="smartWidgetMedicationsEnabled">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMedicationsPriority">Priority</label>
+                                                <input type="number" id="smartWidgetMedicationsPriority" min="1" max="10" value="4">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    Lower numbers = higher priority
+                                                </small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMedicationsCycleTime">Cycle Time (seconds)</label>
+                                                <input type="number" id="smartWidgetMedicationsCycleTime" min="5" max="60" value="12">
+                                                <small style="color: #666; display: block; margin-top: 4px;">
+                                                    How long to display in cycle mode
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="smartWidgetMedicationsHideDuringParties">Hide During Parties</label>
+                                                <select id="smartWidgetMedicationsHideDuringParties">
+                                                    <option value="false">No</option>
+                                                    <option value="true">Yes</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="smartWidgetMedicationsHideDuringVacations">Hide During Vacations</label>
+                                                <select id="smartWidgetMedicationsHideDuringVacations">
+                                                    <option value="false">No</option>
+                                                    <option value="true">Yes</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Users to Monitor</label>
+                                            <div id="smartWidgetMedicationUsersList" style="border: 1px solid #dee2e6; border-radius: 6px; padding: 10px; background: #fafafa; max-height: 220px; overflow-y: auto;">
+                                                <div style="opacity: 0.75;">Loading medication portal users…</div>
+                                            </div>
+                                            <input type="hidden" id="smartWidgetMedicationsSelectedUserIds" value="[]">
+                                            <small style="color: #666; display: block; margin-top: 4px;">
+                                                The mirror will only show selected users who have at least one fully missing medication day in the recent adherence window.
+                                            </small>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                                            Displays concise missing-day follow-up alerts from the Medications portal without exposing medication details.
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <!-- Home Assistant Media (nested level 2, collapsed by default) -->
                                 <div class="collapsible-section collapsible-nested-l2">
                                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -15314,6 +15378,7 @@
                         { type: 'homeAssistantMedia', enabled: true, priority: 3, cycleTime: 10, pauseTimeout: 15 },
                         { type: 'homeAssistantBattery', enabled: true, priority: 3, cycleTime: 15, trackedDevices: [], haRefreshInterval: 60000 },
                         { type: 'party', enabled: true, priority: 4, cycleTime: 10 },
+                        { type: 'medications', enabled: false, priority: 4, cycleTime: 12, selectedUserIds: [], hideDuringParties: false, hideDuringVacations: false },
                         { type: 'spacexLaunch', enabled: true, priority: 5, cycleTime: 12, displayThresholdDays: 7, highlightThresholdHours: 24 },
                         { type: 'qrCodes', enabled: false, priority: 6, cycleTime: 30, wifi1Label: '', wifi1Ssid: '', wifi1Password: '', wifi1Security: 'WPA', wifi2Label: '', wifi2Ssid: '', wifi2Password: '', wifi2Security: 'WPA', link1Label: '', link1Url: '', link2Label: '', link2Url: '' }
                     ];
@@ -15350,6 +15415,16 @@
                     document.getElementById('smartWidgetPartyEnabled').value = partySubWidget.enabled ? 'true' : 'false';
                     document.getElementById('smartWidgetPartyPriority').value = partySubWidget.priority || 4;
                     document.getElementById('smartWidgetPartyCycleTime').value = partySubWidget.cycleTime || 10;
+
+                    const medicationsSubWidget = subWidgets.find(sw => sw.type === 'medications') || { enabled: false, priority: 4, cycleTime: 12, selectedUserIds: [], hideDuringParties: false, hideDuringVacations: false };
+                    document.getElementById('smartWidgetMedicationsEnabled').value = medicationsSubWidget.enabled ? 'true' : 'false';
+                    document.getElementById('smartWidgetMedicationsPriority').value = medicationsSubWidget.priority || 4;
+                    document.getElementById('smartWidgetMedicationsCycleTime').value = medicationsSubWidget.cycleTime || 12;
+                    document.getElementById('smartWidgetMedicationsHideDuringParties').value = medicationsSubWidget.hideDuringParties ? 'true' : 'false';
+                    document.getElementById('smartWidgetMedicationsHideDuringVacations').value = medicationsSubWidget.hideDuringVacations ? 'true' : 'false';
+                    setSmartWidgetMedicationSelectedUserIds(medicationsSubWidget.selectedUserIds || []);
+                    await ensureSmartWidgetMedicationUsersLoaded();
+                    renderSmartWidgetMedicationUserOptions();
                     
                     const driveTimeSubWidget = subWidgets.find(sw => sw.type === 'driveTime') || { enabled: true, priority: 2, cycleTime: 15 };
                     document.getElementById('smartWidgetDriveTimeEnabled').value = driveTimeSubWidget.enabled ? 'true' : 'false';
@@ -15834,6 +15909,15 @@
                                     enabled: document.getElementById('smartWidgetPartyEnabled').value === 'true',
                                     priority: parseInt(document.getElementById('smartWidgetPartyPriority').value),
                                     cycleTime: parseInt(document.getElementById('smartWidgetPartyCycleTime').value)
+                                },
+                                {
+                                    type: 'medications',
+                                    enabled: document.getElementById('smartWidgetMedicationsEnabled').value === 'true',
+                                    priority: parseInt(document.getElementById('smartWidgetMedicationsPriority').value),
+                                    cycleTime: parseInt(document.getElementById('smartWidgetMedicationsCycleTime').value),
+                                    selectedUserIds: getSmartWidgetMedicationSelectedUserIds(),
+                                    hideDuringParties: document.getElementById('smartWidgetMedicationsHideDuringParties').value === 'true',
+                                    hideDuringVacations: document.getElementById('smartWidgetMedicationsHideDuringVacations').value === 'true'
                                 },
                                 {
                                     type: 'driveTime',
@@ -17809,6 +17893,7 @@
             { id: 'smartWidgetTempChangeEnabled', icon: '🌡️', name: 'Temp Change' },
             { id: 'smartWidgetVacationEnabled', icon: '✈️', name: 'Vacation' },
             { id: 'smartWidgetPartyEnabled',    icon: '🎉', name: 'Party' },
+            { id: 'smartWidgetMedicationsEnabled', icon: '💊', name: 'Medications' },
             { id: 'smartWidgetMediaEnabled',    icon: '🎵', name: 'HA Media' },
             { id: 'smartWidgetDriveTimeEnabled', icon: '🚗', name: 'Drive-Time' },
             { id: 'smartWidgetSpacexEnabled',   icon: '🚀', name: 'SpaceX Launch' },
@@ -29546,6 +29631,7 @@
                 renderMedicationPortalAssignments();
                 renderMedicationAdherenceSummary();
                 renderMedicationPortalAccessLinks();
+                renderSmartWidgetMedicationUserOptions();
             } catch (err) {
                 document.getElementById('medicationsList').innerHTML =
                     `<div class="alert alert-error">Failed to load medications: ${err.message}</div>`;
@@ -29562,6 +29648,105 @@
                     summaryContainer.innerHTML = `<div class="alert alert-error">Failed to load medication adherence summary: ${err.message}</div>`;
                 }
             }
+        }
+
+        async function ensureSmartWidgetMedicationUsersLoaded() {
+            if (medicationPortalUsers.length > 0) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/api/house/medications');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+                houseMedicationsData = data.medications || houseMedicationsData;
+                medicationPortalUsers = data.portalUsers || [];
+                medicationAdherenceSummaryWindowDays = data.adherenceSummaryWindowDays || medicationAdherenceSummaryWindowDays;
+            } catch (err) {
+                console.error('Failed to load medication portal users for smart widget:', err);
+            }
+        }
+
+        function getSmartWidgetMedicationSelectedUserIds() {
+            try {
+                return JSON.parse(document.getElementById('smartWidgetMedicationsSelectedUserIds').value || '[]');
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function setSmartWidgetMedicationSelectedUserIds(userIds) {
+            document.getElementById('smartWidgetMedicationsSelectedUserIds').value = JSON.stringify(
+                Array.isArray(userIds)
+                    ? userIds.map(userId => String(userId || '').trim()).filter(Boolean)
+                    : []
+            );
+        }
+
+        function updateSmartWidgetMedicationUserSelection(userId, checked) {
+            const normalizedUserId = String(userId || '').trim();
+            const selectedUserIds = new Set(getSmartWidgetMedicationSelectedUserIds());
+            if (checked) {
+                selectedUserIds.add(normalizedUserId);
+            } else {
+                selectedUserIds.delete(normalizedUserId);
+            }
+            setSmartWidgetMedicationSelectedUserIds(Array.from(selectedUserIds));
+        }
+
+        function renderSmartWidgetMedicationUserOptions() {
+            const container = document.getElementById('smartWidgetMedicationUsersList');
+            if (!container) return;
+
+            const selectedUserIds = new Set(getSmartWidgetMedicationSelectedUserIds());
+            if (medicationPortalUsers.length === 0) {
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users available yet. Users can create an account at <code>/medications</code> first.</div>';
+                return;
+            }
+
+            const assignmentCounts = new Map();
+            medicationPortalUsers.forEach(user => {
+                const assignedCount = user.adherenceSummary?.assignedMedications?.length || 0;
+                assignmentCounts.set(String(user.id), assignedCount);
+            });
+
+            container.innerHTML = '';
+            medicationPortalUsers.forEach(user => {
+                const normalizedUserId = String(user.id || '');
+                const row = document.createElement('label');
+                row.style.display = 'flex';
+                row.style.alignItems = 'flex-start';
+                row.style.gap = '10px';
+                row.style.padding = '8px 4px';
+                row.style.cursor = 'pointer';
+                row.style.borderBottom = '1px solid #eee';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = selectedUserIds.has(normalizedUserId);
+                checkbox.addEventListener('change', () => updateSmartWidgetMedicationUserSelection(normalizedUserId, checkbox.checked));
+                row.appendChild(checkbox);
+
+                const textWrap = document.createElement('div');
+                textWrap.style.minWidth = '0';
+
+                const nameLine = document.createElement('div');
+                nameLine.style.fontWeight = '600';
+                nameLine.textContent = user.username || 'Medication User';
+                textWrap.appendChild(nameLine);
+
+                const detailLine = document.createElement('div');
+                detailLine.style.fontSize = '0.85rem';
+                detailLine.style.color = '#666';
+                const assignedCount = assignmentCounts.get(normalizedUserId) || 0;
+                detailLine.textContent = assignedCount > 0
+                    ? `${assignedCount} assigned medication${assignedCount === 1 ? '' : 's'}`
+                    : 'No assigned medications yet';
+                textWrap.appendChild(detailLine);
+
+                row.appendChild(textWrap);
+                container.appendChild(row);
+            });
         }
 
         function renderMedications() {
