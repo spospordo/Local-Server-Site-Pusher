@@ -47,9 +47,10 @@ function appendServerLogs(chunk) {
   }
 }
 
-async function waitForLog(snippet, timeoutMs = 5000) {
+async function waitForLog(snippet, options = {}) {
+  const { timeoutMs = 5000, startIndex = 0 } = options;
   const start = Date.now();
-  while (!serverLogs.includes(snippet)) {
+  while (!serverLogs.slice(startIndex).includes(snippet)) {
     if (Date.now() - start >= timeoutMs) {
       throw new Error(`Timed out waiting for server log: ${snippet}`);
     }
@@ -188,11 +189,12 @@ async function run() {
 
     // ---- No anonymous access to medication APIs ----
     await test('Unauthenticated dashboard request is rejected with 401', async () => {
+      const logStart = serverLogs.length;
       const res = await requestJson(createJar(), 'GET', '/medications/api/dashboard');
       assert.strictEqual(res.statusCode, 401);
       assert.strictEqual(res.json.success, false);
       assert.strictEqual(res.json.code, 'UNAUTHORIZED');
-      await waitForLog('Rejected unauthenticated medication portal access');
+      await waitForLog('Rejected unauthenticated medication portal access', { startIndex: logStart });
     });
 
     await test('Unauthenticated adherence recording is rejected with 401', async () => {
@@ -216,19 +218,21 @@ async function run() {
     });
 
     await test('Invalid access link redirects to a safe recovery state', async () => {
+      const logStart = serverLogs.length;
       const res = await requestJson(createJar(), 'GET', '/medications/access/not-a-real-token');
       assert.strictEqual(res.statusCode, 302);
       assert.strictEqual(res.headers.location, '/medications?error=INVALID_ACCESS_LINK');
-      await waitForLog('Rejected medication access link');
+      await waitForLog('Rejected medication access link', { startIndex: logStart });
     });
 
     await test('Portal login/register without CSRF token is rejected with 403', async () => {
       const jar = createJar();
       await fetchCsrfToken(jar); // establishes a session with a csrf token, but we won't send it
+      const logStart = serverLogs.length;
       const res = await requestJson(jar, 'POST', '/medications/api/login', { username: 'nobody', password: 'irrelevant' });
       assert.strictEqual(res.statusCode, 403);
       assert.strictEqual(res.json.code, 'INVALID_CSRF_TOKEN');
-      await waitForLog('Rejected medication portal request with invalid CSRF token');
+      await waitForLog('Rejected medication portal request with invalid CSRF token', { startIndex: logStart });
     });
 
     await test('Password login is throttled after repeated failures', async () => {
