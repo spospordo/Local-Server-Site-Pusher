@@ -107,6 +107,29 @@
         }
         .status-message.error { color: var(--danger); }
         .status-message.success { color: var(--success); }
+        .daily-feedback-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .daily-feedback-card {
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+            padding: 0.9rem 1rem;
+            font-weight: 600;
+        }
+        .daily-feedback-card.alert {
+            background: #fff3cd;
+            color: #6b4c00;
+            border: 1px solid #f3d98b;
+        }
+        .daily-feedback-card.success {
+            background: var(--success-soft);
+            color: var(--success-text);
+            border: 1px solid #b7dec8;
+        }
         .topbar {
             display: flex;
             justify-content: space-between;
@@ -182,11 +205,45 @@
             flex-wrap: wrap;
             margin: 0.75rem 0;
         }
+        .medication-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            padding: 0.75rem 0.85rem;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+        }
+        .medication-status-row.feedback {
+            background: var(--success-soft);
+            border-color: #b7dec8;
+            animation: recordedPulse 1.2s ease-out;
+        }
+        .medication-status-label {
+            font-weight: 700;
+            color: var(--text);
+        }
+        .medication-status-row.feedback .medication-status-label {
+            color: var(--success-text);
+        }
+        .mini-action-btn {
+            padding: 0.45rem 0.75rem !important;
+            font-size: 0.84rem !important;
+            border-radius: 999px !important;
+            white-space: nowrap;
+        }
         .empty-state {
             text-align: center;
             color: var(--muted);
             padding: 2rem 1rem;
             font-size: 1.05rem;
+        }
+        @keyframes recordedPulse {
+            0% { transform: scale(0.98); opacity: 0.65; }
+            45% { transform: scale(1.01); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
         /* More options section */
@@ -483,6 +540,7 @@
             </div>
 
             <div id="dashboardMessage" class="status-message"></div>
+            <div id="dashboardFeedback" class="daily-feedback-stack"></div>
             <div id="medicationsContainer"></div>
 
             <!-- More options section -->
@@ -576,6 +634,10 @@
         let lastFocusedElement = null;
         let currentDayOffset = 0; // 0 = today, -1 = yesterday, etc.
         let recordPrevSelectedDate = null;
+        const medicationFeedbackTimers = new Map();
+        const medicationFeedbackState = new Map();
+        const medicationEditState = new Set();
+        const POST_RECORD_FEEDBACK_MS = 1200;
         const ACCESS_LINK_ERROR_MESSAGES = {
             EXPIRED_ACCESS_LINK: 'This access link has expired. Use your password or request a new link.',
             REVOKED_ACCESS_LINK: 'This access link has been revoked. Use your password or request a new link.',
@@ -715,6 +777,60 @@
             return getDateForOffset(currentDayOffset);
         }
 
+        function getMedicationRecordForDate(medication, date) {
+            return (medication?.adherenceHistory || []).find(record => record.date === date) || null;
+        }
+
+        function hasActiveMedicationFeedback(medicationId) {
+            const expiresAt = medicationFeedbackState.get(medicationId);
+            if (!expiresAt) return false;
+            if (expiresAt <= Date.now()) {
+                medicationFeedbackState.delete(medicationId);
+                return false;
+            }
+            return true;
+        }
+
+        function startMedicationFeedback(medicationId) {
+            const existingTimer = medicationFeedbackTimers.get(medicationId);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+            medicationFeedbackState.set(medicationId, Date.now() + POST_RECORD_FEEDBACK_MS);
+            const timerId = window.setTimeout(() => {
+                medicationFeedbackState.delete(medicationId);
+                medicationFeedbackTimers.delete(medicationId);
+                if (dashboardData) {
+                    renderDashboard(dashboardData);
+                }
+            }, POST_RECORD_FEEDBACK_MS);
+            medicationFeedbackTimers.set(medicationId, timerId);
+        }
+
+        function buildDashboardFeedback(data) {
+            const feedback = document.getElementById('dashboardFeedback');
+            if (!feedback) return;
+            if (currentDayOffset !== 0 || !data?.medications?.length) {
+                feedback.innerHTML = '';
+                return;
+            }
+
+            const yesterday = getDateForOffset(-1);
+            const missingPreviousDayCount = data.medications.filter(medication => !getMedicationRecordForDate(medication, yesterday)).length;
+            const allDoneToday = data.medications.every(medication => Boolean(medication.todayStatus));
+            const parts = [];
+
+            if (missingPreviousDayCount > 0) {
+                parts.push(`<div class="daily-feedback-card alert">Yesterday still needs ${missingPreviousDayCount} ${missingPreviousDayCount === 1 ? 'medication' : 'medications'}.</div>`);
+            }
+
+            if (allDoneToday) {
+                parts.push('<div class="daily-feedback-card success">all done for today</div>');
+            }
+
+            feedback.innerHTML = parts.join('');
+        }
+
         function getDailyGuidance(medication) {
             if (medication.asNeeded) return { text: 'as needed', cls: 'as-needed' };
 
@@ -756,6 +872,7 @@
         function renderDashboard(data) {
             const container = document.getElementById('medicationsContainer');
             if (data.waitingForAdmin) {
+                buildDashboardFeedback(data);
                 container.innerHTML = `<div class="card empty-state">waiting for admin to add medications</div>`;
                 return;
             }
@@ -765,21 +882,30 @@
             const isToday = currentDayOffset === 0;
             const tookLabel = isToday ? 'I took today' : 'I took it';
             const notTakenLabel = isToday ? 'Not today' : 'Not taken';
+            buildDashboardFeedback(data);
 
             const cards = data.medications.map(medication => {
                 const guidance = getDailyGuidance(medication);
                 const guidanceHtml = guidance
                     ? `<div class="pill-guidance${guidance.cls ? ' ' + guidance.cls : ''}">${escapeHtml(guidance.text)}</div>`
                     : '';
+                const showRecordedState = isToday && Boolean(medication.todayStatus) && !medicationEditState.has(medication.id);
+                const showFeedback = showRecordedState && hasActiveMedicationFeedback(medication.id);
+                const statusHtml = showRecordedState
+                    ? `<div class="medication-status-row${showFeedback ? ' feedback' : ''}">
+                            <div class="medication-status-label">${showFeedback ? 'good job!' : 'recorded for today'}</div>
+                            <button type="button" class="btn-secondary mini-action-btn" data-action="edit-record" data-medication-id="${escapeHtml(medication.id)}">edit</button>
+                       </div>`
+                    : `<div class="action-row">
+                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
+                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
+                       </div>`;
                 return `
                     <div class="card medication-card">
                         <div class="medication-title"><button type="button" class="btn-link" data-action="show-details" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(medication.name)}</button></div>
                         <div class="pill-meta">${escapeHtml(medication.description || medication.usage || 'Assigned medication')}</div>
                         ${guidanceHtml}
-                        <div class="action-row">
-                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
-                            <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
-                        </div>
+                        ${statusHtml}
                     </div>`;
             }).join('');
 
@@ -1104,6 +1230,9 @@
             try {
                 if (action === 'show-details') {
                     showMedicationDetails(medicationId);
+                } else if (action === 'edit-record') {
+                    medicationEditState.add(medicationId);
+                    renderDashboard(dashboardData);
                 } else if (action === 'record-took') {
                     await recordMedicationStatus(medicationId, 'took', getDisplayDate());
                 } else if (action === 'record-not-taken') {
@@ -1120,7 +1249,11 @@
                 method: 'POST',
                 body: JSON.stringify({ status, date: selectedDate })
             });
-            setStatusMessage('dashboardMessage', 'Medication status saved.', 'success');
+            medicationEditState.delete(medicationId);
+            if (currentDayOffset === 0 && selectedDate === dashboardData?.today) {
+                startMedicationFeedback(medicationId);
+            }
+            setStatusMessage('dashboardMessage', '', '');
             await loadDashboard();
         }
 
