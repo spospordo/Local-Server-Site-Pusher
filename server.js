@@ -1318,8 +1318,9 @@ function addMedicationAccessLinkCalendarMonths(baseDate, monthCount) {
 }
 
 function getMedicationAccessLinkExpirationSelection(rawValue) {
-  const normalizedValue = String(rawValue || '').trim() || '1_day';
-  const option = MEDICATION_ACCESS_LINK_EXPIRATION_OPTIONS.find(candidate => candidate.value === normalizedValue);
+  const normalizedValue = String(rawValue ?? '').trim();
+  const selectedValue = normalizedValue || '1_day';
+  const option = MEDICATION_ACCESS_LINK_EXPIRATION_OPTIONS.find(candidate => candidate.value === selectedValue);
   if (!option) {
     return null;
   }
