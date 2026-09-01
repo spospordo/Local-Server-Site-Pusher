@@ -107,6 +107,9 @@ async function run() {
         name: 'Morning Med',
         description: 'Blood pressure support',
         instructions: 'Take 1 pill once daily',
+        pillCount: 30,
+        estimatedRemainingPillCount: 2,
+        alertThresholdDays: 3,
         todayStatus: null,
         todayRecordedAt: null,
         adherenceHistory: []
@@ -116,6 +119,9 @@ async function run() {
         name: 'Evening Med',
         description: 'Night support',
         instructions: 'Take 1 pill once daily',
+        pillCount: 30,
+        estimatedRemainingPillCount: 12,
+        alertThresholdDays: 3,
         todayStatus: 'took',
         todayRecordedAt: `${today}T08:30:00.000Z`,
         adherenceHistory: [
@@ -133,6 +139,9 @@ async function run() {
 
   const feedbackText = document.getElementById('dashboardFeedback').textContent;
   assert.ok(feedbackText.includes('Yesterday still needs 1 medication.'), 'dashboard should alert when the previous day is missing a record');
+  const supplyAlertText = document.getElementById('dashboardSupplyAlert').textContent;
+  assert.ok(supplyAlertText.includes('Refill alert'), 'dashboard should render a low-supply alert below the medications list');
+  assert.ok(supplyAlertText.includes('Morning Med (2 pills remaining)'), 'dashboard should show the estimated remaining pill count for low-supply medications');
 
   const recordedCard = getMedicationCard(document, 'med-b');
   assert.ok(recordedCard, 'recorded medication card should render');

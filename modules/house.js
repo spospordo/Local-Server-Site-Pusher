@@ -1710,7 +1710,7 @@ function computeDailyUsageFromStructured(med) {
 
 /**
  * Compute forecast fields for a medication entry.
- * Returns an object with dailyUsage, daysUntilEmpty, refillNeededDate, alertDate.
+ * Returns an object with dailyUsage, estimatedRemainingPillCount, daysUntilEmpty, refillNeededDate, alertDate.
  */
 function computeMedicationForecast(med) {
   const structuredUsage = computeDailyUsageFromStructured(med);
@@ -1719,13 +1719,24 @@ function computeMedicationForecast(med) {
   const alertThresholdDays = typeof med.alertThresholdDays === 'number'
     ? med.alertThresholdDays
     : parseFloat(med.alertThresholdDays);
+  const refillDateText = String(med.refillDate || '').trim().slice(0, 10);
+  const refillDate = /^\d{4}-\d{2}-\d{2}$/.test(refillDateText) ? new Date(`${refillDateText}T00:00:00`) : null;
 
+  let estimatedRemainingPillCount = Number.isFinite(pillCount) && pillCount >= 0 ? pillCount : null;
   let daysUntilEmpty = null;
   let refillNeededDate = null;
   let alertDate = null;
+  let belowAlertThreshold = false;
 
   if (dailyUsage !== null && Number.isFinite(pillCount) && pillCount >= 0 && dailyUsage > 0) {
-    daysUntilEmpty = Math.floor(pillCount / dailyUsage);
+    if (refillDate && !Number.isNaN(refillDate.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const elapsedDays = Math.max(0, Math.floor((today.getTime() - refillDate.getTime()) / 86400000));
+      estimatedRemainingPillCount = Math.max(0, Math.round((pillCount - (elapsedDays * dailyUsage)) * 100) / 100);
+    }
+
+    daysUntilEmpty = Math.floor(estimatedRemainingPillCount / dailyUsage);
     const neededDate = new Date();
     neededDate.setDate(neededDate.getDate() + daysUntilEmpty);
     refillNeededDate = neededDate.toISOString().slice(0, 10);
@@ -1738,7 +1749,18 @@ function computeMedicationForecast(med) {
     }
   }
 
-  return { dailyUsage, daysUntilEmpty, refillNeededDate, alertDate };
+  if (estimatedRemainingPillCount !== null && Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0) {
+    belowAlertThreshold = estimatedRemainingPillCount <= alertThresholdDays;
+  }
+
+  return {
+    dailyUsage,
+    estimatedRemainingPillCount,
+    daysUntilEmpty,
+    refillNeededDate,
+    alertDate,
+    belowAlertThreshold
+  };
 }
 
 function normalizeMedicationPortalUsername(username) {

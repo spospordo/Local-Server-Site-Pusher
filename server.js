@@ -1654,6 +1654,16 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
     return null;
   }
 
+  const lowSupplyMedicationIds = new Set();
+  selectedUsers.forEach(user => {
+    const dashboard = buildMedicationPortalDashboard(user.id);
+    (dashboard.medications || []).forEach(medication => {
+      if (medication.belowAlertThreshold) {
+        lowSupplyMedicationIds.add(String(medication.id || ''));
+      }
+    });
+  });
+
   const userAlerts = selectedUsers
     .map(user => ({
       userId: user.id,
@@ -1667,12 +1677,13 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
     }))
     .filter(user => user.missingDays.length > 0);
 
-  if (userAlerts.length === 0) {
+  if (userAlerts.length === 0 && lowSupplyMedicationIds.size === 0) {
     return null;
   }
 
   return {
     selectedUserCount: selectedUsers.length,
+    lowSupplyAlertCount: lowSupplyMedicationIds.size,
     totalMissingDays: userAlerts.reduce((sum, user) => sum + user.missingDays.length, 0),
     summaryWindowDays: medicationPayload.adherenceSummaryWindowDays || [],
     userAlerts
@@ -10279,7 +10290,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             const medicationSummary = buildMedicationSmartWidgetSummary(subWidget.selectedUserIds);
             if (medicationSummary) {
               logger.success(logger.categories.SMART_MIRROR,
-                `Medications sub-widget: ${medicationSummary.totalMissingDays} missing day(s) across ${medicationSummary.userAlerts.length} user(s)`);
+                `Medications sub-widget: ${medicationSummary.totalMissingDays} missing day(s) and ${medicationSummary.lowSupplyAlertCount || 0} low-supply alert(s)`);
               subWidgetData = {
                 type: 'medications',
                 priority: subWidget.priority,

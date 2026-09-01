@@ -542,6 +542,7 @@
             <div id="dashboardMessage" class="status-message"></div>
             <div id="dashboardFeedback" class="daily-feedback-stack"></div>
             <div id="medicationsContainer"></div>
+            <div id="dashboardSupplyAlert" class="daily-feedback-stack"></div>
 
             <!-- More options section -->
             <div id="moreOptionsSection" class="more-options-section hidden">
@@ -831,6 +832,41 @@
             feedback.innerHTML = parts.join('');
         }
 
+        function getMedicationEstimatedRemainingPillCountText(medication) {
+            const value = medication?.estimatedRemainingPillCount;
+            const normalized = value !== null && value !== undefined ? Number(value) : NaN;
+            return Number.isFinite(normalized) ? String(normalized) : '—';
+        }
+
+        function getLowSupplyMedications(data) {
+            return (data?.medications || []).filter(medication => {
+                const estimatedRemaining = medication?.estimatedRemainingPillCount !== null && medication?.estimatedRemainingPillCount !== undefined
+                    ? Number(medication.estimatedRemainingPillCount)
+                    : NaN;
+                const threshold = medication?.alertThresholdDays !== null && medication?.alertThresholdDays !== undefined
+                    ? Number(medication.alertThresholdDays)
+                    : 7;
+                return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
+            });
+        }
+
+        function renderDashboardSupplyAlert(data) {
+            const alertContainer = document.getElementById('dashboardSupplyAlert');
+            if (!alertContainer) return;
+
+            const lowSupplyMedications = getLowSupplyMedications(data);
+            if (!lowSupplyMedications.length) {
+                alertContainer.innerHTML = '';
+                return;
+            }
+
+            alertContainer.innerHTML = `
+                <div class="daily-feedback-card alert">
+                    ⚠️ Refill alert${lowSupplyMedications.length === 1 ? '' : 's'}:
+                    ${lowSupplyMedications.map(medication => `${escapeHtml(medication.name)} (${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))} pill${Number(medication.estimatedRemainingPillCount) === 1 ? '' : 's'} remaining)`).join(', ')}
+                </div>`;
+        }
+
         function getDailyGuidance(medication) {
             if (medication.asNeeded) return { text: 'as needed', cls: 'as-needed' };
 
@@ -873,6 +909,7 @@
             const container = document.getElementById('medicationsContainer');
             if (data.waitingForAdmin) {
                 buildDashboardFeedback(data);
+                renderDashboardSupplyAlert({ medications: [] });
                 container.innerHTML = `<div class="card empty-state">waiting for admin to add medications</div>`;
                 return;
             }
@@ -910,6 +947,7 @@
             }).join('');
 
             container.innerHTML = `<div class="medication-grid">${cards}</div>`;
+            renderDashboardSupplyAlert(data);
         }
 
         function getMedicationById(medicationId) {
@@ -946,7 +984,8 @@
                     <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
                     <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
                     <div class="detail-box"><strong>As needed</strong>${medication.asNeeded ? 'Yes' : 'No'}</div>
-                    <div class="detail-box"><strong>Remaining pills</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
+                    <div class="detail-box"><strong>Estimated remaining pills</strong>${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))}</div>
+                    <div class="detail-box"><strong>Recorded pill count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
                     <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
                 </div>`;

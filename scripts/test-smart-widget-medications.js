@@ -372,9 +372,9 @@ async function run() {
     const house = loadHouse();
     house.init(testConfig);
 
-    const morningMedResult = house.addMedication({ name: 'Morning Med', instructions: 'Take with breakfast', scheduleFrequency: 'daily' });
-    const eveningMedResult = house.addMedication({ name: 'Evening Med', instructions: 'Take before bed', scheduleFrequency: 'daily' });
-    const vitaminResult = house.addMedication({ name: 'Vitamin D', instructions: 'Take with lunch', scheduleFrequency: 'daily' });
+    const morningMedResult = house.addMedication({ name: 'Morning Med', instructions: 'Take with breakfast', scheduleFrequency: 'daily', pillCount: 30, refillDate: yesterday, alertThresholdDays: 5 });
+    const eveningMedResult = house.addMedication({ name: 'Evening Med', instructions: 'Take before bed', scheduleFrequency: 'daily', pillCount: 4, refillDate: today, alertThresholdDays: 5 });
+    const vitaminResult = house.addMedication({ name: 'Vitamin D', instructions: 'Take with lunch', scheduleFrequency: 'daily', pillCount: 20, refillDate: today, alertThresholdDays: 3 });
     assert.strictEqual(morningMedResult.success, true);
     assert.strictEqual(eveningMedResult.success, true);
     assert.strictEqual(vitaminResult.success, true);
@@ -445,6 +445,7 @@ async function run() {
     assert.ok(medicationsWidget, 'medications sub-widget should be returned when selected users have missing days');
     assert.strictEqual(medicationsWidget.data.userAlerts.length, 2, 'multiple selected users should remain grouped in one medications sub-widget');
     assert.strictEqual(medicationsWidget.data.totalMissingDays, 3, 'multiple missing days should be aggregated inside the same medications sub-widget');
+    assert.strictEqual(medicationsWidget.data.lowSupplyAlertCount, 1, 'medications sub-widget should include privacy-safe low-supply alert counts');
     assert.ok(medicationsWidget.data.userAlerts.find(user => user.username === 'Casey' && user.missingDays.length === 2), 'Casey should include both missing days');
     assert.ok(medicationsWidget.data.userAlerts.find(user => user.username === 'Morgan' && user.missingDays.length === 1), 'Morgan should include one missing day');
     assert.ok(!JSON.stringify(medicationsWidget.data).includes('Evening Med'), 'medications smart widget should not expose medication names');
@@ -500,6 +501,7 @@ async function run() {
     assert.ok(mirrorText.includes('Medications'), 'mirror renderer should label the medications widget');
     assert.ok(mirrorText.includes('Casey'), 'mirror renderer should include selected user names');
     assert.ok(mirrorText.includes('Missing days') || mirrorText.includes('Missing day'), 'mirror renderer should only describe missing-day follow-up');
+    assert.ok(mirrorText.includes('below the configured alert threshold'), 'mirror renderer should show a privacy-safe low-supply alert');
     assert.ok(!mirrorText.includes('Evening Med'), 'mirror renderer should not reveal medication names');
     mirrorDom.window.close();
 
@@ -516,6 +518,40 @@ async function run() {
     const hiddenDuringVacationResponse = await requestJson('GET', '/api/smart-mirror/smart-widget');
     assert.strictEqual(hiddenDuringVacationResponse.statusCode, 200, 'smart widget endpoint should still succeed when widget is hidden during a vacation');
     assert.ok(!hiddenDuringVacationResponse.json.subWidgets.find(subWidget => subWidget.type === 'medications'), 'medications widget should hide during active vacations when configured to do so');
+
+    const lowSupplyOnlyData = house.getMedicationsData();
+    lowSupplyOnlyData.assignments = lowSupplyOnlyData.assignments.map(assignment => ({
+      ...assignment,
+      assignedAt: `${today}T08:00:00.000Z`
+    }));
+    assert.strictEqual(house.saveMedicationsData(lowSupplyOnlyData).success, true, 'assignment window should be reset for the low-supply-only scenario');
+    assert.strictEqual(house.recordMedicationAdherence(caseyPortalUser.user.id, morningMed.id, 'took', today).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(caseyPortalUser.user.id, eveningMed.id, 'took', today).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(morganPortalUser.user.id, vitamin.id, 'took', today).success, true);
+
+    const lowSupplyOnlyConfig = configuredSmartMirror.loadConfig();
+    updateMedicationSubWidget(lowSupplyOnlyConfig, { hideDuringParties: false, hideDuringVacations: false });
+    configuredSmartMirror.saveConfig(lowSupplyOnlyConfig);
+    const lowSupplyOnlyResponse = await requestJson('GET', '/api/smart-mirror/smart-widget');
+    assert.strictEqual(lowSupplyOnlyResponse.statusCode, 200, 'smart widget endpoint should succeed for low-supply-only medication alerts');
+    const lowSupplyOnlyWidget = lowSupplyOnlyResponse.json.subWidgets.find(subWidget => subWidget.type === 'medications');
+    assert.ok(lowSupplyOnlyWidget, 'medications widget should render when only low-supply alerts remain');
+    assert.strictEqual(lowSupplyOnlyWidget.data.totalMissingDays, 0, 'low-supply-only widget should not fabricate missing-day alerts');
+    assert.strictEqual(lowSupplyOnlyWidget.data.userAlerts.length, 0, 'low-supply-only widget should omit user-level missing-day cards');
+    assert.strictEqual(lowSupplyOnlyWidget.data.lowSupplyAlertCount, 1, 'low-supply-only widget should preserve the alert count');
+    assert.ok(!JSON.stringify(lowSupplyOnlyWidget.data).includes('Evening Med'), 'low-supply-only widget data should remain medication-name free');
+
+    const lowSupplyMirrorDom = new JSDOM('<!DOCTYPE html><div id="root"></div>', { runScripts: 'dangerously' });
+    lowSupplyMirrorDom.window.eval(`${extractFunctionSource(publicSmartMirrorHtml, 'function renderMedications(data)')}`);
+    const lowSupplyRendered = lowSupplyMirrorDom.window.renderMedications(lowSupplyOnlyWidget.data);
+    assert.ok(lowSupplyRendered, 'mirror renderer should return content for low-supply-only alerts');
+    lowSupplyMirrorDom.window.document.getElementById('root').appendChild(lowSupplyRendered);
+    const lowSupplyMirrorText = lowSupplyMirrorDom.window.document.getElementById('root').textContent;
+    assert.ok(lowSupplyMirrorText.includes('low-supply medication alert'), 'mirror renderer should summarize low-supply-only alerts');
+    assert.ok(lowSupplyMirrorText.includes('below the configured alert threshold'), 'mirror renderer should explain the privacy-safe low-supply state');
+    assert.ok(!lowSupplyMirrorText.includes('Evening Med'), 'low-supply-only renderer should not reveal medication names');
+    assert.ok(!lowSupplyMirrorText.includes('Casey'), 'low-supply-only renderer should avoid user-specific details when only the privacy-safe alert is shown');
+    lowSupplyMirrorDom.window.close();
 
     console.log('✅ Smart widget medications test passed');
   } finally {

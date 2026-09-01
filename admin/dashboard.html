@@ -4574,8 +4574,9 @@
                             </div>
                         </div>
                         <div class="form-group" style="max-width: 260px;">
-                            <label for="medicationAlertThresholdDays">Alert Threshold (days before empty)</label>
+                            <label for="medicationAlertThresholdDays">Alert Threshold (remaining pills)</label>
                             <input type="number" id="medicationAlertThresholdDays" placeholder="7" min="0" step="1" value="7">
+                            <small style="color: #666;">Highlight this medication when the estimated remaining pills reach this number or lower.</small>
                         </div>
                         <div class="form-group">
                             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
@@ -29756,16 +29757,18 @@
 
             // Collect alerts
             const alertItems = houseMedicationsData.filter(med => {
-                if (med.daysUntilEmpty === null || med.daysUntilEmpty === undefined) return false;
+                const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
+                    ? Number(med.estimatedRemainingPillCount)
+                    : NaN;
                 const threshold = (med.alertThresholdDays !== null && med.alertThresholdDays !== undefined)
                     ? Number(med.alertThresholdDays) : 7;
-                return med.daysUntilEmpty <= threshold;
+                return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
             });
 
             if (alertBanner) {
                 if (alertItems.length > 0) {
                     const list = alertItems.map(m =>
-                        `<strong>${escapeHtml(m.name)}</strong> &mdash; ${m.daysUntilEmpty} day(s) remaining`
+                        `<strong>${escapeHtml(m.name)}</strong> &mdash; about ${escapeHtml(String(m.estimatedRemainingPillCount))} pill(s) remaining`
                     ).join('<br>');
                     alertBanner.innerHTML = `⚠️ <strong>Refill Alert${alertItems.length > 1 ? 's' : ''}:</strong><br>${list}`;
                     alertBanner.style.display = 'block';
@@ -29780,11 +29783,19 @@
             }
 
             const rows = houseMedicationsData.map(med => {
-                const isAlert = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined &&
-                    med.daysUntilEmpty <= ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
+                const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
+                    ? Number(med.estimatedRemainingPillCount)
+                    : NaN;
+                const isAlert = med.belowAlertThreshold === true || (
+                    Number.isFinite(estimatedRemaining) &&
+                    estimatedRemaining <= ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7)
+                );
                 const rowStyle = isAlert ? 'background: #fff8e1;' : '';
                 const daysText = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined
                     ? `${med.daysUntilEmpty} day(s)` : '—';
+                const estimatedRemainingText = Number.isFinite(estimatedRemaining)
+                    ? `${estimatedRemaining}`
+                    : '—';
                 const refillNeeded = med.refillNeededDate || '—';
                 const usageText = med.dailyUsage !== null && med.dailyUsage !== undefined
                     ? `${med.dailyUsage}/day` : '—';
@@ -29798,6 +29809,9 @@
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
                             ${med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '—'}
+                        </td>
+                        <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; ${isAlert ? 'color: #c0392b; font-weight: 600;' : ''}">
+                            ${estimatedRemainingText}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
                             ${usageText}
@@ -29823,6 +29837,7 @@
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Name</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Description</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Pills</th>
+                                <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Est. Remaining</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Usage</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Days Left</th>
                                 <th style="text-align: left; padding: 0.6rem; border-bottom: 2px solid #cbd5e0;">Refill Needed</th>
