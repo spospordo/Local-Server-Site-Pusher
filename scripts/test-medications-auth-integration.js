@@ -16,6 +16,10 @@ const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 
+process.env.MEDICATION_ACCESS_TOKEN_SECRET = process.env.MEDICATION_ACCESS_TOKEN_SECRET || 'medications-auth-integration-secret';
+
+const house = require('../modules/house');
+
 const repoRoot = path.join(__dirname, '..');
 const PORT = 3000;
 const BASE_HOST = 'localhost';
@@ -288,6 +292,9 @@ async function run() {
     await test('Secure access link verification establishes a portal session', async () => {
       const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userA.id });
       assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
+      assert.strictEqual(accessLinkRes.json.link.startsWith(`http://${BASE_HOST}:${PORT}/medications/access/`), true, 'access link should preserve the current host and port');
+      assert.strictEqual(accessLinkRes.json.accessLink.status, 'active', 'newly issued access link metadata should report an active status');
+      assert.ok(accessLinkRes.json.accessLink.id, 'newly issued access link should include a record id for admin management');
 
       const accessJar = createJar();
       const verifyRes = await requestJson(accessJar, 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
@@ -299,6 +306,69 @@ async function run() {
       const dashboardRes = await requestJson(accessJar, 'GET', '/medications/api/dashboard');
       assert.strictEqual(dashboardRes.statusCode, 200, 'secure-link session should access the dashboard');
       assert.strictEqual(dashboardRes.json.user.id, userA.id);
+    });
+
+    await test('Used access links return a specific recovery code', async () => {
+      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userA.id });
+      assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
+
+      const accessJar = createJar();
+      const firstUseRes = await requestJson(accessJar, 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
+      assert.strictEqual(firstUseRes.statusCode, 200, `first access-link use should succeed: ${firstUseRes.body}`);
+
+      const secondUseRes = await requestJson(createJar(), 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
+      assert.strictEqual(secondUseRes.statusCode, 401);
+      assert.strictEqual(secondUseRes.json.code, 'USED_ACCESS_LINK');
+
+      const redirectRes = await requestJson(createJar(), 'GET', `/medications/access/${accessLinkRes.json.token}`);
+      assert.strictEqual(redirectRes.statusCode, 302);
+      assert.strictEqual(redirectRes.headers.location, '/medications?error=USED_ACCESS_LINK');
+    });
+
+    await test('Admin medication payload exposes safe access-link metadata without raw tokens', async () => {
+      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userB.id });
+      assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
+
+      const listRes = await requestJson(adminJar, 'GET', '/admin/api/house/medications');
+      assert.strictEqual(listRes.statusCode, 200, `admin medication listing failed: ${listRes.body}`);
+      const portalUser = (listRes.json.portalUsers || []).find(user => user.id === userB.id);
+      assert.ok(portalUser, 'admin medication listing should include medication portal users');
+      assert.ok(Array.isArray(portalUser.accessLinks), 'admin medication listing should include access-link metadata');
+      assert.ok(portalUser.accessLinks.some(link => link.id === accessLinkRes.json.accessLink.id && link.status === 'active'), 'admin medication listing should expose the issued access link');
+      assert.ok(!JSON.stringify(portalUser).includes(accessLinkRes.json.token), 'admin medication listing must not expose raw access tokens');
+    });
+
+    await test('Revoked access links can be managed by admins and return a revoked recovery code', async () => {
+      const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userB.id });
+      assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
+
+      const revokeRes = await requestJson(adminJar, 'POST', `/admin/api/house/medications/access-links/${accessLinkRes.json.accessLink.id}/revoke`);
+      assert.strictEqual(revokeRes.statusCode, 200, `access link revoke failed: ${revokeRes.body}`);
+      assert.strictEqual(revokeRes.json.record.status, 'revoked');
+
+      const verifyRes = await requestJson(createJar(), 'POST', '/medications/api/access/verify', { token: accessLinkRes.json.token });
+      assert.strictEqual(verifyRes.statusCode, 401);
+      assert.strictEqual(verifyRes.json.code, 'REVOKED_ACCESS_LINK');
+
+      const redirectRes = await requestJson(createJar(), 'GET', `/medications/access/${accessLinkRes.json.token}`);
+      assert.strictEqual(redirectRes.statusCode, 302);
+      assert.strictEqual(redirectRes.headers.location, '/medications?error=REVOKED_ACCESS_LINK');
+    });
+
+    await test('Expired access links return a specific recovery code', async () => {
+      const expiredTokenResult = house.issueMedicationAccessToken(userB.id, {
+        scope: 'medication:access',
+        ttlMs: -1
+      });
+      assert.strictEqual(expiredTokenResult.success, true, 'expired access link should be created for testing');
+
+      const verifyRes = await requestJson(createJar(), 'POST', '/medications/api/access/verify', { token: expiredTokenResult.token });
+      assert.strictEqual(verifyRes.statusCode, 401);
+      assert.strictEqual(verifyRes.json.code, 'EXPIRED_ACCESS_LINK');
+
+      const redirectRes = await requestJson(createJar(), 'GET', `/medications/access/${expiredTokenResult.token}`);
+      assert.strictEqual(redirectRes.statusCode, 302);
+      assert.strictEqual(redirectRes.headers.location, '/medications?error=EXPIRED_ACCESS_LINK');
     });
 
     await test('Admin can create a medication and assign it to a single user', async () => {
@@ -317,6 +387,18 @@ async function run() {
         userIds: [userA.id]
       });
       assert.strictEqual(assignRes.json.success, true, `assignment failed: ${assignRes.body}`);
+    });
+
+    await test('Frontend copy explains secure-link and password fallback workflows', async () => {
+      const publicHtml = fs.readFileSync(path.join(repoRoot, 'public', 'medications.html'), 'utf8');
+      const adminHtml = fs.readFileSync(path.join(repoRoot, 'admin', 'dashboard.html'), 'utf8');
+
+      assert.ok(publicHtml.includes('paste the full link, the <code>/medications/access/...'), 'public medications page should explain accepted access-link formats');
+      assert.ok(publicHtml.includes('expired, revoked, already used, or unavailable'), 'public medications page should keep password fallback visible');
+      assert.ok(adminHtml.includes('Medication portal access links'), 'admin dashboard should expose the secure access-link workflow');
+      assert.ok(adminHtml.includes('Generate access link'), 'admin dashboard should expose secure-link generation controls');
+      assert.ok(adminHtml.includes('Copy link'), 'admin dashboard should expose copy controls for generated links');
+      assert.ok(adminHtml.includes('Revoke'), 'admin dashboard should expose link revocation controls');
     });
 
     await test('Assigned user sees the medication on their own dashboard', async () => {

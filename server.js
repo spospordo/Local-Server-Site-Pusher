@@ -1294,22 +1294,84 @@ function buildMedicationAccessLink(req, token) {
     return `${normalizedBaseUrl}/medications/access/${encodeURIComponent(token)}`;
   }
 
-  const host = req.hostname || req.get('host') || 'localhost';
-  const protocol = req.secure ? 'https' : 'http';
+  const host = req.get('host') || req.hostname || 'localhost';
+  const protocol = req.protocol || (req.secure ? 'https' : 'http');
   return `${protocol}://${host}/medications/access/${encodeURIComponent(token)}`;
+}
+
+function getMedicationAccessErrorCode(reason) {
+  switch (reason) {
+    case 'expired_token':
+      return 'EXPIRED_ACCESS_LINK';
+    case 'revoked_token':
+      return 'REVOKED_ACCESS_LINK';
+    case 'used_token':
+      return 'USED_ACCESS_LINK';
+    default:
+      return 'INVALID_ACCESS_LINK';
+  }
+}
+
+function getMedicationAccessErrorMessage(code) {
+  switch (code) {
+    case 'EXPIRED_ACCESS_LINK':
+      return 'This access link has expired. Use your password or request a new link.';
+    case 'REVOKED_ACCESS_LINK':
+      return 'This access link has been revoked. Use your password or request a new link.';
+    case 'USED_ACCESS_LINK':
+      return 'This access link has already been used. Use your password or request a new link.';
+    default:
+      return 'This access link is invalid. Use your password or request a new link.';
+  }
+}
+
+function serializeMedicationAccessRecord(record) {
+  if (!record) return null;
+
+  const expiresAtTime = new Date(record.expiresAt).getTime();
+  let status = 'active';
+
+  if (record.revoked) {
+    status = 'revoked';
+  } else if (record.usedAt) {
+    status = 'used';
+  } else if (!Number.isFinite(expiresAtTime) || expiresAtTime <= Date.now()) {
+    status = 'expired';
+  }
+
+  return {
+    id: record.id,
+    tokenPrefix: record.tokenPrefix,
+    createdAt: record.createdAt,
+    expiresAt: record.expiresAt,
+    usedAt: record.usedAt,
+    revoked: !!record.revoked,
+    revokedAt: record.revokedAt,
+    status
+  };
 }
 
 function buildMedicationAdminPayload() {
   const data = house.getMedicationsData();
-  const portalUsers = (data.portalUsers || []).map(serializeMedicationPortalUser);
-  const usernameById = new Map(portalUsers.map(user => [user.id, user.username]));
+  const usernameById = new Map((data.portalUsers || []).map(user => [user.id, user.username]));
+  const medicationNameById = new Map((data.medications || []).map(medication => [medication.id, medication.name]));
   const assignmentsByMedicationId = new Map();
+  const medicationNamesByUserId = new Map();
+  const accessLinksByUserId = new Map();
 
   (data.assignments || []).forEach(assignment => {
     if (!assignmentsByMedicationId.has(assignment.medicationId)) {
       assignmentsByMedicationId.set(assignment.medicationId, []);
     }
     assignmentsByMedicationId.get(assignment.medicationId).push(assignment.userId);
+
+    const medicationName = medicationNameById.get(assignment.medicationId);
+    if (medicationName) {
+      if (!medicationNamesByUserId.has(assignment.userId)) {
+        medicationNamesByUserId.set(assignment.userId, []);
+      }
+      medicationNamesByUserId.get(assignment.userId).push(medicationName);
+    }
   });
 
   const medications = (data.medications || []).map(medication => {
@@ -1323,6 +1385,29 @@ function buildMedicationAdminPayload() {
         .filter(Boolean)
     };
   });
+
+  (data.accessTokens || [])
+    .filter(record => record?.scope === 'medication:access')
+    .sort((left, right) => {
+      const leftTime = new Date(left?.createdAt || 0).getTime();
+      const rightTime = new Date(right?.createdAt || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .forEach(record => {
+      if (!accessLinksByUserId.has(record.userId)) {
+        accessLinksByUserId.set(record.userId, []);
+      }
+      const links = accessLinksByUserId.get(record.userId);
+      if (links.length < 5) {
+        links.push(serializeMedicationAccessRecord(record));
+      }
+    });
+
+  const portalUsers = (data.portalUsers || []).map(portalUser => ({
+    ...serializeMedicationPortalUser(portalUser),
+    assignedMedicationNames: medicationNamesByUserId.get(portalUser.id) || [],
+    accessLinks: accessLinksByUserId.get(portalUser.id) || []
+  }));
 
   return { medications, portalUsers };
 }
@@ -1383,7 +1468,7 @@ app.get('/medications/access/:token', medicationAccessTokenRateLimiter, (req, re
   const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
 
   if (!validation.valid) {
-    const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
+    const code = getMedicationAccessErrorCode(validation.reason);
     logSecurityEvent('Rejected medication access link', req, {
       reason: validation.reason || code,
       path: req.originalUrl || req.path
@@ -1402,16 +1487,14 @@ app.post('/medications/api/access/verify', medicationAccessTokenRateLimiter, (re
   const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
 
   if (!validation.valid) {
-    const code = validation.reason === 'expired_token' ? 'EXPIRED_ACCESS_LINK' : 'INVALID_ACCESS_LINK';
+    const code = getMedicationAccessErrorCode(validation.reason);
     logSecurityEvent('Rejected medication access token verification', req, {
-      reason: code,
+      reason: validation.reason || code,
       username: req.body?.username || req.session?.medicationPortalUsername || ''
     });
     return res.status(401).json({
       success: false,
-      error: code === 'EXPIRED_ACCESS_LINK'
-        ? 'This access link has expired. Use your password or request a new link.'
-        : 'This access link is invalid or has already been used. Use your password or request a new link.',
+      error: getMedicationAccessErrorMessage(code),
       code
     });
   }
@@ -1451,7 +1534,8 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
     user: serializeMedicationPortalUser(portalUser),
     token: tokenResult.token,
     link: buildMedicationAccessLink(req, tokenResult.token),
-    expiresAt: tokenResult.record.expiresAt
+    expiresAt: tokenResult.record.expiresAt,
+    accessLink: serializeMedicationAccessRecord(tokenResult.record)
   });
 });
 
@@ -11349,6 +11433,28 @@ app.put('/admin/api/house/medications/:id/assignments', requireAuth, (req, res) 
     res.json({ success: true, message: 'Medication assignments updated successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update medication assignments: ' + err.message });
+  }
+});
+
+app.post('/admin/api/house/medications/access-links/:id/revoke', requireAuth, (req, res) => {
+  try {
+    const result = house.revokeMedicationAccessToken(req.params.id, { scope: 'medication:access' });
+    if (!result.success) {
+      const statusCode = /not found/i.test(result.error || '') ? 404 : 400;
+      return res.status(statusCode).json({ success: false, error: result.error });
+    }
+
+    logSecurityEvent('Medication access link revoked', req, {
+      reason: 'revoked_access_link',
+      path: req.originalUrl || req.path
+    });
+
+    return res.json({
+      success: true,
+      record: serializeMedicationAccessRecord(result.record)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to revoke medication access link: ' + err.message });
   }
 });
 
