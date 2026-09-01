@@ -1567,6 +1567,7 @@ function buildMedicationAdminPayload() {
     return {
       ...medication,
       ...currentRegimen,
+      id: medication.id,
       regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
       ...house.computeMedicationForecast(medication, {
         asOfDate: getMedicationPortalToday(),
@@ -1715,6 +1716,7 @@ function buildMedicationPortalDashboard(userId) {
     return {
       ...medication,
       ...currentRegimen,
+      id: medication.id,
       regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
       ...house.computeMedicationForecast(medication, {
         asOfDate: today,
@@ -11755,6 +11757,20 @@ app.put('/admin/api/house/medications/:id', requireAuth, (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update medication: ' + err.message });
+  }
+});
+
+// Save a dated medication regimen change
+app.put('/admin/api/house/medications/:id/regimen', requireAuth, (req, res) => {
+  try {
+    const result = house.saveMedicationRegimen(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Regimen change saved successfully' });
+    } else {
+      res.status(result.error === 'Medication not found' ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save regimen change: ' + err.message });
   }
 });
 
