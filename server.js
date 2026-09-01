@@ -1524,7 +1524,6 @@ function buildMedicationAdminPayload() {
   const summaryDays = getMedicationAdminSummaryDateRange();
   const usernameById = new Map((data.portalUsers || []).map(user => [user.id, user.username]));
   const medicationById = new Map((data.medications || []).map(medication => [medication.id, medication]));
-  const medicationNameById = new Map((data.medications || []).map(medication => [medication.id, medication.name]));
   const assignmentsByMedicationId = new Map();
   const assignmentsByUserId = new Map();
   const medicationNamesByUserId = new Map();
@@ -1537,7 +1536,7 @@ function buildMedicationAdminPayload() {
     }
     assignmentsByMedicationId.get(assignment.medicationId).push(assignment.userId);
 
-    const medicationName = medicationNameById.get(assignment.medicationId);
+    const medicationName = medicationById.get(assignment.medicationId)?.name;
     if (medicationName) {
       if (!medicationNamesByUserId.has(assignment.userId)) {
         medicationNamesByUserId.set(assignment.userId, []);
