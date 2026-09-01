@@ -370,6 +370,7 @@ async function run() {
     assert.strictEqual(summaryPayload.adherenceSummaryWindowDays[0], today, 'summary window should start with today');
     const eveningMedicationSummary = summaryPayload.medications.find(medication => medication.name === 'Evening Med');
     assert.ok(eveningMedicationSummary, 'medications payload should include the evening medication');
+    assert.strictEqual(eveningMedicationSummary.alertThresholdPillCount, 5, 'admin medications payload should expose the pill-count alert threshold explicitly');
     assert.strictEqual(eveningMedicationSummary.estimatedRemainingPillCount, 4, 'admin medications payload should expose estimated remaining pill counts');
     assert.strictEqual(eveningMedicationSummary.belowAlertThreshold, true, 'admin medications payload should flag medications that are below the threshold');
 

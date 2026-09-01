@@ -98,6 +98,7 @@ function run() {
     const medication = house.getMedicationsData().medications[0];
     assert.strictEqual(medication.usage, 'Blood pressure support', 'medication usage should be stored');
     const forecast = house.computeMedicationForecast(medication);
+    assert.strictEqual(forecast.alertThresholdPillCount, 29, 'forecast should expose the configured pill-count threshold explicitly');
     assert.strictEqual(forecast.estimatedRemainingPillCount, 29, 'forecast should estimate remaining pills from refill date and daily usage');
     assert.strictEqual(forecast.daysUntilEmpty, 29, 'forecast should update remaining days based on estimated pills');
     assert.strictEqual(forecast.belowAlertThreshold, true, 'forecast should flag medications at or below the configured threshold');

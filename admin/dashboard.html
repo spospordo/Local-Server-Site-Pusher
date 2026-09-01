@@ -29760,8 +29760,9 @@
                 const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
                     ? Number(med.estimatedRemainingPillCount)
                     : NaN;
-                const threshold = (med.alertThresholdDays !== null && med.alertThresholdDays !== undefined)
-                    ? Number(med.alertThresholdDays) : 7;
+                const threshold = (med.alertThresholdPillCount !== null && med.alertThresholdPillCount !== undefined)
+                    ? Number(med.alertThresholdPillCount)
+                    : ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
                 return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
             });
 
@@ -29786,9 +29787,12 @@
                 const estimatedRemaining = med.estimatedRemainingPillCount !== null && med.estimatedRemainingPillCount !== undefined
                     ? Number(med.estimatedRemainingPillCount)
                     : NaN;
+                const threshold = (med.alertThresholdPillCount !== null && med.alertThresholdPillCount !== undefined)
+                    ? Number(med.alertThresholdPillCount)
+                    : ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7);
                 const isAlert = med.belowAlertThreshold === true || (
                     Number.isFinite(estimatedRemaining) &&
-                    estimatedRemaining <= ((med.alertThresholdDays !== null && med.alertThresholdDays !== undefined) ? Number(med.alertThresholdDays) : 7)
+                    estimatedRemaining <= threshold
                 );
                 const rowStyle = isAlert ? 'background: #fff8e1;' : '';
                 const daysText = med.daysUntilEmpty !== null && med.daysUntilEmpty !== undefined

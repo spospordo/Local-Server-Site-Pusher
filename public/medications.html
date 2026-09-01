@@ -843,9 +843,11 @@
                 const estimatedRemaining = medication?.estimatedRemainingPillCount !== null && medication?.estimatedRemainingPillCount !== undefined
                     ? Number(medication.estimatedRemainingPillCount)
                     : NaN;
-                const threshold = medication?.alertThresholdDays !== null && medication?.alertThresholdDays !== undefined
-                    ? Number(medication.alertThresholdDays)
-                    : 7;
+                const threshold = medication?.alertThresholdPillCount !== null && medication?.alertThresholdPillCount !== undefined
+                    ? Number(medication.alertThresholdPillCount)
+                    : (medication?.alertThresholdDays !== null && medication?.alertThresholdDays !== undefined
+                        ? Number(medication.alertThresholdDays)
+                        : 7);
                 return Number.isFinite(estimatedRemaining) && estimatedRemaining <= threshold;
             });
         }

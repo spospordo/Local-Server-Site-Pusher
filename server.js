@@ -1656,10 +1656,13 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
 
   const lowSupplyMedicationIds = new Set();
   selectedUsers.forEach(user => {
-    const dashboard = buildMedicationPortalDashboard(user.id);
-    (dashboard.medications || []).forEach(medication => {
-      if (medication.belowAlertThreshold) {
-        lowSupplyMedicationIds.add(String(medication.id || ''));
+    house.getAssignedMedicationsForUser(user.id).forEach(medication => {
+      const medicationWithForecast = {
+        ...medication,
+        ...house.computeMedicationForecast(medication)
+      };
+      if (medicationWithForecast.belowAlertThreshold) {
+        lowSupplyMedicationIds.add(String(medicationWithForecast.id || ''));
       }
     });
   });

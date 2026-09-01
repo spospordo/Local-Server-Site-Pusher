@@ -1719,6 +1719,9 @@ function computeMedicationForecast(med) {
   const alertThresholdDays = typeof med.alertThresholdDays === 'number'
     ? med.alertThresholdDays
     : parseFloat(med.alertThresholdDays);
+  const alertThresholdPillCount = Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0
+    ? alertThresholdDays
+    : null;
   const refillDateText = String(med.refillDate || '').trim().slice(0, 10);
   const refillDate = /^\d{4}-\d{2}-\d{2}$/.test(refillDateText) ? new Date(`${refillDateText}T00:00:00`) : null;
 
@@ -1741,20 +1744,21 @@ function computeMedicationForecast(med) {
     neededDate.setDate(neededDate.getDate() + daysUntilEmpty);
     refillNeededDate = neededDate.toISOString().slice(0, 10);
 
-    if (Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0) {
-      const alertDays = Math.max(0, daysUntilEmpty - alertThresholdDays);
+    if (alertThresholdPillCount !== null) {
+      const alertDays = Math.max(0, Math.floor((estimatedRemainingPillCount - alertThresholdPillCount) / dailyUsage));
       const aDate = new Date();
       aDate.setDate(aDate.getDate() + alertDays);
       alertDate = aDate.toISOString().slice(0, 10);
     }
   }
 
-  if (estimatedRemainingPillCount !== null && Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0) {
-    belowAlertThreshold = estimatedRemainingPillCount <= alertThresholdDays;
+  if (estimatedRemainingPillCount !== null && alertThresholdPillCount !== null) {
+    belowAlertThreshold = estimatedRemainingPillCount <= alertThresholdPillCount;
   }
 
   return {
     dailyUsage,
+    alertThresholdPillCount,
     estimatedRemainingPillCount,
     daysUntilEmpty,
     refillNeededDate,
