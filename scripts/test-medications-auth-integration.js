@@ -22,7 +22,7 @@ const BASE_HOST = 'localhost';
 
 let testsPassed = 0;
 let testsFailed = 0;
-let serverLogs = '';
+let serverLogChunks = [];
 
 function log(message, type = 'info') {
   const symbols = { success: '✅', error: '❌', info: 'ℹ️ ' };
@@ -43,14 +43,21 @@ async function test(description, testFn) {
 
 function appendServerLogs(chunk) {
   if (chunk) {
-    serverLogs += chunk.toString();
+    serverLogChunks.push(chunk.toString());
   }
+}
+
+function getServerLogs() {
+  return serverLogChunks.join('');
 }
 
 async function waitForLog(snippet, options = {}) {
   const { timeoutMs = 5000, startIndex = 0 } = options;
   const start = Date.now();
-  while (!serverLogs.slice(startIndex).includes(snippet)) {
+  while (true) {
+    if (getServerLogs().slice(startIndex).includes(snippet)) {
+      return;
+    }
     if (Date.now() - start >= timeoutMs) {
       throw new Error(`Timed out waiting for server log: ${snippet}`);
     }
@@ -189,7 +196,7 @@ async function run() {
 
     // ---- No anonymous access to medication APIs ----
     await test('Unauthenticated dashboard request is rejected with 401', async () => {
-      const logStart = serverLogs.length;
+      const logStart = getServerLogs().length;
       const res = await requestJson(createJar(), 'GET', '/medications/api/dashboard');
       assert.strictEqual(res.statusCode, 401);
       assert.strictEqual(res.json.success, false);
@@ -218,7 +225,7 @@ async function run() {
     });
 
     await test('Invalid access link redirects to a safe recovery state', async () => {
-      const logStart = serverLogs.length;
+      const logStart = getServerLogs().length;
       const res = await requestJson(createJar(), 'GET', '/medications/access/not-a-real-token');
       assert.strictEqual(res.statusCode, 302);
       assert.strictEqual(res.headers.location, '/medications?error=INVALID_ACCESS_LINK');
@@ -228,7 +235,7 @@ async function run() {
     await test('Portal login/register without CSRF token is rejected with 403', async () => {
       const jar = createJar();
       await fetchCsrfToken(jar); // establishes a session with a csrf token, but we won't send it
-      const logStart = serverLogs.length;
+      const logStart = getServerLogs().length;
       const res = await requestJson(jar, 'POST', '/medications/api/login', { username: 'nobody', password: 'irrelevant' });
       assert.strictEqual(res.statusCode, 403);
       assert.strictEqual(res.json.code, 'INVALID_CSRF_TOKEN');

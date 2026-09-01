@@ -78,7 +78,7 @@ The server exposes the validation and revocation logic through `issueMedicationA
 - Tokens never appear in plaintext in persisted records.
 - Access tokens are scoped to the medication portal, not shared across unrelated routes.
 - A bad token redirects to `/medications?error=INVALID_ACCESS_LINK` or `EXPIRED_ACCESS_LINK` for user-friendly recovery, while the internal validation layer still emits structured reasons such as `invalid_token`, `expired_token`, `revoked_token`, and `used_token` for API logging and debugging.
-- Security logs are emitted for rejected unauthenticated portal access, invalid CSRF submissions, access-link issuance, and rejected access-link verification/redirect attempts.
+- Security logs are emitted for rejected unauthenticated portal access, invalid CSRF submissions, access-link issuance, and rejected access-link verification/redirect attempts. Pre-auth access-link rejections log IP/path/reason without attaching a username because the link has not yet been trusted and resolved to a user session.
 - Password logins and access-link verifications are both rate-limited.
 
 ## Regression coverage
