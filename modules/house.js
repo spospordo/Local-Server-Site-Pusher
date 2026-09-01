@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
-const { randomUUID } = require('crypto');
+const { randomUUID, randomBytes, createHash } = require('crypto');
 const Tesseract = require('tesseract.js');
 const pdfParse = require('pdf-parse');
 
@@ -56,7 +56,8 @@ function getDefaultHouseData() {
       medications: [],
       portalUsers: [],
       assignments: [],
-      adherenceRecords: []
+      adherenceRecords: [],
+      accessTokens: []
     }
   };
 }
@@ -1762,7 +1763,8 @@ function getMedicationsData() {
     medications: Array.isArray(medications.medications) ? medications.medications : [],
     portalUsers: Array.isArray(medications.portalUsers) ? medications.portalUsers : [],
     assignments: Array.isArray(medications.assignments) ? medications.assignments : [],
-    adherenceRecords: Array.isArray(medications.adherenceRecords) ? medications.adherenceRecords : []
+    adherenceRecords: Array.isArray(medications.adherenceRecords) ? medications.adherenceRecords : [],
+    accessTokens: Array.isArray(medications.accessTokens) ? medications.accessTokens : []
   };
 }
 
@@ -1861,6 +1863,176 @@ function getMedicationPortalUserByUsername(username) {
   const usernameKey = getMedicationPortalUsernameKey(username);
   if (!usernameKey) return null;
   return getMedicationPortalUsers().find(user => user.usernameKey === usernameKey) || null;
+}
+
+function normalizeMedicationAccessScope(scope) {
+  const normalized = String(scope || 'medication:access').trim();
+  return normalized || 'medication:access';
+}
+
+function getMedicationAccessTokenSecret() {
+  const secret = process.env.MEDICATION_ACCESS_TOKEN_SECRET;
+  if (!secret || !secret.trim()) {
+    const generatedSecret = randomBytes(32).toString('hex');
+    process.env.MEDICATION_ACCESS_TOKEN_SECRET = generatedSecret;
+    console.warn('[House] MEDICATION_ACCESS_TOKEN_SECRET missing; generated an ephemeral secret for this process. Set it in the environment to keep access links valid across restarts.');
+  }
+  return String(process.env.MEDICATION_ACCESS_TOKEN_SECRET || '').trim();
+}
+
+function hashMedicationAccessToken(rawToken) {
+  const token = String(rawToken || '');
+  if (!token) {
+    return '';
+  }
+  const secret = getMedicationAccessTokenSecret();
+  return createHash('sha256').update(`${secret}:${token}`).digest('hex');
+}
+
+function getMedicationAccessTokens() {
+  return getMedicationsData().accessTokens || [];
+}
+
+function issueMedicationAccessToken(userId, options = {}) {
+  const medsData = getMedicationsData();
+  const portalUser = medsData.portalUsers.find(user => user.id === userId);
+  if (!portalUser) {
+    return { success: false, error: 'Medication portal user not found' };
+  }
+
+  const scope = normalizeMedicationAccessScope(options.scope || 'medication:access');
+  const ttlMs = Number.isFinite(Number(options.ttlMs)) ? Number(options.ttlMs) : 15 * 60 * 1000;
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = hashMedicationAccessToken(rawToken);
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  const record = {
+    id: generateId(),
+    userId: portalUser.id,
+    scope,
+    tokenHash,
+    tokenPrefix: rawToken.slice(0, 12),
+    createdAt,
+    expiresAt,
+    usedAt: null,
+    revoked: false,
+    revokedAt: null
+  };
+
+  medsData.accessTokens = [...(medsData.accessTokens || []), record];
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success
+    ? { ...saveResult, success: true, token: rawToken, record }
+    : saveResult;
+}
+
+function revokeMedicationAccessToken(tokenOrId, options = {}) {
+  const medsData = getMedicationsData();
+  const scope = normalizeMedicationAccessScope(options.scope || 'medication:access');
+  const identifier = String(tokenOrId || '');
+
+  const accessRecordIndex = medsData.accessTokens.findIndex(record => {
+    if (!record) return false;
+    if (identifier && record.id === identifier) {
+      return true;
+    }
+    if (identifier && record.tokenHash === hashMedicationAccessToken(identifier)) {
+      return true;
+    }
+    return false;
+  });
+
+  if (accessRecordIndex === -1) {
+    return { success: false, error: 'Medication access token not found' };
+  }
+
+  const current = medsData.accessTokens[accessRecordIndex];
+  if (scope && current.scope !== scope) {
+    return { success: false, error: 'Medication access token scope mismatch' };
+  }
+
+  medsData.accessTokens[accessRecordIndex] = {
+    ...current,
+    revoked: true,
+    revokedAt: new Date().toISOString()
+  };
+
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success ? { ...saveResult, success: true, record: medsData.accessTokens[accessRecordIndex] } : saveResult;
+}
+
+function validateMedicationAccessToken(rawToken, options = {}) {
+  const token = String(rawToken || '');
+  if (!token) {
+    return { valid: false, reason: 'missing_token' };
+  }
+
+  const scope = normalizeMedicationAccessScope(options.scope || 'medication:access');
+  const tokenHash = hashMedicationAccessToken(token);
+  const medsData = getMedicationsData();
+  const record = medsData.accessTokens.find(entry => entry.tokenHash === tokenHash && entry.scope === scope);
+
+  if (!record) {
+    return { valid: false, reason: 'invalid_token' };
+  }
+
+  const now = Date.now();
+  const expiresAt = new Date(record.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+    return { valid: false, reason: 'expired_token', expiresAt: record.expiresAt };
+  }
+
+  if (record.revoked) {
+    return { valid: false, reason: 'revoked_token', revokedAt: record.revokedAt };
+  }
+
+  if (record.usedAt) {
+    return { valid: false, reason: 'used_token', usedAt: record.usedAt };
+  }
+
+  const user = medsData.portalUsers.find(entry => entry.id === record.userId);
+  if (!user) {
+    return { valid: false, reason: 'user_not_found' };
+  }
+
+  return {
+    valid: true,
+    user,
+    tokenId: record.id,
+    scope: record.scope,
+    expiresAt: record.expiresAt,
+    createdAt: record.createdAt
+  };
+}
+
+function verifyMedicationAccessToken(rawToken, options = {}) {
+  const validation = validateMedicationAccessToken(rawToken, options);
+  if (!validation.valid) {
+    return validation;
+  }
+
+  const medsData = getMedicationsData();
+  const recordIndex = medsData.accessTokens.findIndex(entry => entry.id === validation.tokenId);
+  if (recordIndex === -1) {
+    return { valid: false, reason: 'token_record_missing' };
+  }
+
+  medsData.accessTokens[recordIndex] = {
+    ...medsData.accessTokens[recordIndex],
+    usedAt: new Date().toISOString()
+  };
+
+  const saveResult = saveMedicationsData(medsData);
+  if (!saveResult.success) {
+    return { valid: false, reason: 'token_persistence_failed', error: saveResult.error };
+  }
+
+  return {
+    ...validation,
+    valid: true,
+    usedAt: medsData.accessTokens[recordIndex].usedAt,
+    success: true
+  };
 }
 
 function createMedicationPortalUser(user) {
@@ -2080,6 +2252,11 @@ module.exports = {
   getMedicationPortalUsers,
   getMedicationPortalUserById,
   getMedicationPortalUserByUsername,
+  getMedicationAccessTokens,
+  issueMedicationAccessToken,
+  revokeMedicationAccessToken,
+  validateMedicationAccessToken,
+  verifyMedicationAccessToken,
   createMedicationPortalUser,
   getMedicationAssignments,
   setMedicationAssignments,

@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+process.env.MEDICATION_ACCESS_TOKEN_SECRET = process.env.MEDICATION_ACCESS_TOKEN_SECRET || 'medications-test-secret';
+
 const repoRoot = path.join(__dirname, '..');
 const house = require(path.join(repoRoot, 'modules', 'house.js'));
 
@@ -107,6 +109,54 @@ function run() {
     assert.strictEqual(house.getMedicationAssignments().length, 0, 'deleting medication should remove assignments');
     assert.strictEqual(house.getMedicationAdherenceRecords().length, 0, 'deleting medication should remove adherence records');
     log('✅ Deleting a medication cleans up linked portal data');
+
+    const accessUserResult = house.createMedicationPortalUser({
+      username: 'AccessUser',
+      passwordHash: 'salt:accesshash'
+    });
+    assert.strictEqual(accessUserResult.success, true, 'access user should be created');
+
+    const accessTokenResult = house.issueMedicationAccessToken(accessUserResult.user.id, {
+      scope: 'medication:access',
+      ttlMs: 60 * 1000
+    });
+    assert.strictEqual(accessTokenResult.success, true, 'issueMedicationAccessToken should succeed');
+    assert.ok(accessTokenResult.token.length >= 32, 'issued token should be high entropy');
+    assert.ok(!Object.prototype.hasOwnProperty.call(accessTokenResult.record, 'rawToken'), 'raw token should not be stored in metadata');
+    assert.ok(accessTokenResult.record.tokenHash, 'token hash should be stored instead of plaintext');
+    assert.strictEqual(accessTokenResult.record.scope, 'medication:access', 'access token should be scoped to medication access');
+    assert.strictEqual(house.getMedicationAccessTokens().length >= 1, true, 'issued access token should be persisted');
+
+    const validResult = house.verifyMedicationAccessToken(accessTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(validResult.valid, true, 'valid medication access token should authenticate the intended user');
+    assert.strictEqual(validResult.user.id, accessUserResult.user.id, 'token should resolve to the intended portal user');
+    assert.ok(validResult.usedAt, 'token should be marked used after verification');
+
+    const duplicateResult = house.verifyMedicationAccessToken(accessTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(duplicateResult.valid, false, 'used medication access token should be rejected');
+    assert.strictEqual(duplicateResult.reason, 'used_token', 'used token should fail with used_token reason');
+
+    const expiredTokenResult = house.issueMedicationAccessToken(accessUserResult.user.id, {
+      scope: 'medication:access',
+      ttlMs: -1
+    });
+    assert.strictEqual(expiredTokenResult.success, true, 'expired token should be created for validation');
+    const expiredResult = house.validateMedicationAccessToken(expiredTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(expiredResult.valid, false, 'expired token should be rejected');
+    assert.strictEqual(expiredResult.reason, 'expired_token', 'expired tokens should be rejected explicitly');
+
+    const revokedTokenResult = house.issueMedicationAccessToken(accessUserResult.user.id, { scope: 'medication:access', ttlMs: 60 * 1000 });
+    assert.strictEqual(revokedTokenResult.success, true, 'revoked token should be created');
+    const revokeResult = house.revokeMedicationAccessToken(revokedTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(revokeResult.success, true, 'revocation should succeed');
+    const revokedResult = house.validateMedicationAccessToken(revokedTokenResult.token, { scope: 'medication:access' });
+    assert.strictEqual(revokedResult.valid, false, 'revoked token should be rejected');
+    assert.strictEqual(revokedResult.reason, 'revoked_token', 'revoked tokens should fail with revoked_token');
+
+    const missingResult = house.validateMedicationAccessToken('definitely-not-real', { scope: 'medication:access' });
+    assert.strictEqual(missingResult.valid, false, 'invalid token should be rejected');
+    assert.strictEqual(missingResult.reason, 'invalid_token', 'invalid tokens should fail with invalid_token');
+    log('✅ Medication access links are secure, scoped, expiring, single-use, and hashed');
   } finally {
     cleanup(tempDir);
   }

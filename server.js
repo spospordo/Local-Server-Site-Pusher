@@ -985,6 +985,18 @@ const sessionConfig = {
   }
 };
 
+const medicationAccessTokenRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many medication access verification attempts. Please try again later.',
+    code: 'RATE_LIMITED'
+  }
+});
+
 // Control session store warnings based on environment and preference
 const isProduction = process.env.NODE_ENV === 'production';
 const suppressWarnings = process.env.SUPPRESS_SESSION_WARNINGS === 'true';
@@ -1202,6 +1214,18 @@ function requireMedicationPortalCsrf(req, res, next) {
   return next();
 }
 
+function buildMedicationAccessLink(req, token) {
+  const configuredBaseUrl = String(config?.server?.publicUrl || '').trim();
+  if (configuredBaseUrl) {
+    const normalizedBaseUrl = configuredBaseUrl.replace(/\/$/, '');
+    return `${normalizedBaseUrl}/medications/access/${encodeURIComponent(token)}`;
+  }
+
+  const host = req.hostname || req.get('host') || 'localhost';
+  const protocol = req.secure ? 'https' : 'http';
+  return `${protocol}://${host}/medications/access/${encodeURIComponent(token)}`;
+}
+
 function buildMedicationAdminPayload() {
   const data = house.getMedicationsData();
   const portalUsers = (data.portalUsers || []).map(serializeMedicationPortalUser);
@@ -1278,6 +1302,68 @@ app.get('/medications/api/session', (req, res) => {
     authenticated: true,
     user: serializeMedicationPortalUser(portalUser),
     csrfToken: ensureMedicationPortalCsrfToken(req)
+  });
+});
+
+app.get('/medications/access/:token', medicationAccessTokenRateLimiter, (req, res) => {
+  const rawToken = String(req.params.token || '').trim();
+  const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
+
+  if (!validation.valid) {
+    const reason = validation.reason || 'invalid_access_link';
+    logger.warning(logger.categories.SYSTEM, `Rejected medication access link token: ${reason}`);
+    return res.redirect(`/medications?error=${encodeURIComponent(reason)}`);
+  }
+
+  req.session.medicationPortalUserId = validation.user.id;
+  req.session.medicationPortalUsername = validation.user.username;
+  logger.success(logger.categories.SYSTEM, `Medication access token authenticated user: ${validation.user.username}`);
+  return res.redirect('/medications');
+});
+
+app.post('/medications/api/access/verify', medicationAccessTokenRateLimiter, (req, res) => {
+  const rawToken = String(req.body?.token || '').trim();
+  const validation = house.verifyMedicationAccessToken(rawToken, { scope: 'medication:access' });
+
+  if (!validation.valid) {
+    return res.status(401).json({
+      success: false,
+      error: validation.reason || 'Invalid medication access token',
+      code: validation.reason || 'INVALID_ACCESS_TOKEN'
+    });
+  }
+
+  return res.json({
+    success: true,
+    user: serializeMedicationPortalUser(validation.user),
+    tokenId: validation.tokenId,
+    expiresAt: validation.expiresAt,
+    usedAt: validation.usedAt
+  });
+});
+
+app.post('/medications/api/access-link', requireAuth, (req, res) => {
+  const userId = String(req.body?.userId || '').trim();
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'User ID is required' });
+  }
+
+  const portalUser = house.getMedicationPortalUserById(userId);
+  if (!portalUser) {
+    return res.status(404).json({ success: false, error: 'Medication portal user not found' });
+  }
+
+  const tokenResult = house.issueMedicationAccessToken(userId, { scope: 'medication:access', ttlMs: 15 * 60 * 1000 });
+  if (!tokenResult.success) {
+    return res.status(400).json({ success: false, error: tokenResult.error || 'Failed to issue medication access token' });
+  }
+
+  return res.json({
+    success: true,
+    user: serializeMedicationPortalUser(portalUser),
+    token: tokenResult.token,
+    link: buildMedicationAccessLink(req, tokenResult.token),
+    expiresAt: tokenResult.record.expiresAt
   });
 });
 
