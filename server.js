@@ -11751,7 +11751,7 @@ app.put('/admin/api/house/medications/:id', requireAuth, (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'Medication updated successfully' });
     } else {
-      res.status(404).json({ error: result.error });
+      res.status(result.error === 'Medication not found' ? 404 : 400).json({ error: result.error });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to update medication: ' + err.message });

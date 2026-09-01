@@ -29775,17 +29775,36 @@
             return `${formattedPillsPerDose} pill${formattedPillsPerDose === 1 ? '' : 's'} per dose • ${frequency}`;
         }
 
+        function sortMedicationRegimenHistory(history) {
+            return [...history].sort((left, right) => {
+                const dateCompare = String(left?.effectiveDate || '').localeCompare(String(right?.effectiveDate || ''));
+                if (dateCompare !== 0) return dateCompare;
+                return String(left?.createdAt || '').localeCompare(String(right?.createdAt || ''));
+            });
+        }
+
+        function getLatestMedicationRegimenEntry(med) {
+            const history = Array.isArray(med?.regimenHistory) ? sortMedicationRegimenHistory(med.regimenHistory) : [];
+            return history.length > 0 ? history[history.length - 1] : med;
+        }
+
+        function getUpcomingMedicationRegimenEntry(med) {
+            const today = new Date().toISOString().slice(0, 10);
+            const history = Array.isArray(med?.regimenHistory) ? sortMedicationRegimenHistory(med.regimenHistory) : [];
+            return history.find(entry => String(entry?.effectiveDate || '') > today) || null;
+        }
+
         function renderMedicationRegimenHistory(med) {
             const container = document.getElementById('medicationRegimenHistory');
             if (!container) return;
 
-            const history = Array.isArray(med?.regimenHistory) ? [...med.regimenHistory] : [];
+            const history = Array.isArray(med?.regimenHistory) ? sortMedicationRegimenHistory(med.regimenHistory) : [];
             if (history.length === 0) {
                 container.textContent = med ? 'No saved regimen changes yet for this medication.' : 'New medications will start a regimen history when you save them.';
                 return;
             }
 
-            history.sort((left, right) => String(right.effectiveDate || '').localeCompare(String(left.effectiveDate || '')));
+            history.reverse();
             container.innerHTML = history
                 .map(entry => `<div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.25rem 0;">
                     <strong>${escapeHtml(entry.effectiveDate || 'Unknown date')}</strong>
@@ -29854,7 +29873,11 @@
                 const usageText = med.dailyUsage !== null && med.dailyUsage !== undefined
                     ? `${med.dailyUsage}/day` : '—';
                 const regimenHistoryCount = Array.isArray(med.regimenHistory) ? med.regimenHistory.length : 0;
-                const regimenHistoryLabel = regimenHistoryCount > 1 ? ` (${regimenHistoryCount} dated entries)` : '';
+                const upcomingRegimen = getUpcomingMedicationRegimenEntry(med);
+                const regimenHistoryLabel = regimenHistoryCount > 1 ? `${regimenHistoryCount} dated entries saved` : '';
+                const regimenDetail = upcomingRegimen
+                    ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">Saved change ${escapeHtml(upcomingRegimen.effectiveDate || '')}: ${escapeHtml(formatMedicationRegimenSummary(upcomingRegimen))}</div>`
+                    : (regimenHistoryLabel ? `<div style="margin-top: 0.25rem; color: #555; font-size: 0.8rem;">${escapeHtml(regimenHistoryLabel)}</div>` : '');
                 return `
                     <tr style="${rowStyle}">
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-weight: 600;">
@@ -29873,7 +29896,8 @@
                             ${usageText}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem;">
-                            ${escapeHtml(formatMedicationRegimenSummary(med))}${escapeHtml(regimenHistoryLabel)}
+                            <div>${escapeHtml(formatMedicationRegimenSummary(med))}</div>
+                            ${regimenDetail}
                         </td>
                         <td style="padding: 0.6rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; ${isAlert ? 'color: #c0392b; font-weight: 600;' : ''}">
                             ${daysText}
@@ -29917,6 +29941,7 @@
         }
 
         function showMedicationForm(med) {
+            const latestRegimen = med ? getLatestMedicationRegimenEntry(med) : null;
             document.getElementById('medicationFormContainer').style.display = 'block';
             document.getElementById('medicationFormTitle').textContent = med ? 'Edit Medication' : 'Add Medication';
             document.getElementById('medicationId').value = med ? med.id : '';
@@ -29924,8 +29949,8 @@
             document.getElementById('medicationDescription').value = med ? (med.description || '') : '';
             document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
             document.getElementById('medicationInstructions').value = med ? (med.instructions || '') : '';
-            document.getElementById('medicationScheduleFrequency').value = med ? (med.scheduleFrequency || '') : '';
-            document.getElementById('medicationPillsPerDose').value = med && med.pillsPerDose !== null && med.pillsPerDose !== undefined ? med.pillsPerDose : 1;
+            document.getElementById('medicationScheduleFrequency').value = latestRegimen ? (latestRegimen.scheduleFrequency || '') : '';
+            document.getElementById('medicationPillsPerDose').value = latestRegimen && latestRegimen.pillsPerDose !== null && latestRegimen.pillsPerDose !== undefined ? latestRegimen.pillsPerDose : 1;
             document.getElementById('medicationRefillDate').value = med ? (med.refillDate || '') : '';
             document.getElementById('medicationPillCount').value = med && med.pillCount !== null && med.pillCount !== undefined ? med.pillCount : '';
             document.getElementById('medicationRefillExpiration').value = med ? (med.refillExpiration || '') : '';
