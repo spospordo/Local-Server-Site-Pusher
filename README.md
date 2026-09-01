@@ -176,6 +176,58 @@ To safely update the container while preserving all settings:
    - Edit configuration in real-time
    - Monitor integrations
 
+## Medication Portal Secure Links
+
+The medication portal supports a secure access-link flow for assigned users as a fallback when a password is unavailable or has been forgotten.
+
+### How the secure access link works
+
+1. An authenticated admin opens the medication portal and generates a one-time access link for a user.
+2. The server issues a cryptographically hashed token with a scoped TTL (`15 minutes` by default).
+3. The user visits `/medications/access/:token`; the token is validated server-side before establishing a session.
+4. A valid token authenticates the user for the portal and issues a fresh CSRF token for later API requests.
+5. After a single successful verification, the token is marked as used and cannot be reused.
+
+### Required safeguards
+
+- Tokens are stored as a SHA-256 hash, never as raw plaintext.
+- Each token is scoped to `medication:access` and rejected if the scope mismatches.
+- Expired, revoked, or already-used tokens return specific internal validation reasons such as `invalid_token`, `expired_token`, `revoked_token`, and `used_token` in API responses; user-facing redirects instead show friendly query values like `INVALID_ACCESS_LINK` and `EXPIRED_ACCESS_LINK`.
+- Password login remains available as the normal path; access links are strictly an alternate recovery/authentication method.
+- The medication portal enforces per-user authorization and blocks cross-user access to other patients' medication records.
+
+### Operator workflow
+
+```bash
+# Set a stable secret so access links remain valid across restarts
+export MEDICATION_ACCESS_TOKEN_SECRET="long-random-secret"
+
+# Restart the app, then generate a link from the admin medication portal for a user
+# /medications/api/access-link
+```
+
+The secure-link endpoint returns:
+- `token`: the raw token used for the link
+- `link`: the fully-qualified URL to the access route
+- `expiresAt`: the token expiry time
+
+### Revocation and recovery
+
+If a link is suspected to be compromised:
+
+- Revoke the token in the application logic (`revokeMedicationAccessToken(...)`) or by removing it from persisted access-token records.
+- Reissue a fresh link from the admin medication screen.
+- Instruct the user to use the password login flow if they still have their portal credentials.
+- Require re-authentication after logout or after any token validation failure.
+
+### Security notes
+
+- Access links are short-lived and should not be shared outside the intended user.
+- Keep `MEDICATION_ACCESS_TOKEN_SECRET` in the environment or a secret manager; do not commit it to source control.
+- In production, keep the medication portal behind the same LAN/network protections as the rest of the admin surfaces.
+
+For detailed implementation and regression tests, see [MEDICATION_ACCESS_LINKS.md](MEDICATION_ACCESS_LINKS.md).
+
 ## API Endpoints
 
 ### Status Endpoint (for integrations)
