@@ -8,8 +8,10 @@ The medication portal supports two login paths:
 
 - Password login via `/medications/api/login`
 - Secure access link via `/medications/api/access-link` and `/medications/access/:token`
+- Admin-managed local-network direct link via `/medications/:username`
 
 The secure-link path is intended for controlled recovery or guest access when a user cannot log in with a password but still needs access to their assigned medication data.
+The local-network direct-link path is a separate opt-in admin feature for trusted browser access on the local network when password or token sign-in is unreliable for a specific user.
 
 ## Token lifecycle
 
@@ -44,6 +46,7 @@ The token validation logic is implemented in `modules/house.js` because the medi
 ## Password fallback and authorization
 
 The portal keeps password-based login as the primary authentication method. The secure-link flow is a fallback that still uses the same session enforcement and authorization checks.
+The local-network direct-link flow is separate from secure tokens: it only works when an admin explicitly enables it for a specific username, and it still lands in the same per-user session and authorization checks as the other portal login methods.
 
 To keep access limited:
 

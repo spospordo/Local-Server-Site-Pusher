@@ -4,7 +4,7 @@
  *
  * Spawns the real server (server.js) and exercises the HTTP endpoints to
  * confirm:
- *  - No anonymous access to medication pages/APIs
+ *  - No anonymous access to medication pages/APIs unless an admin-enabled local-network direct link is used
  *  - Cross-user access to another user's medication data is blocked
  *  - All medication endpoints are guarded (401 when unauthenticated,
  *    403 when CSRF is missing/invalid)
@@ -266,6 +266,29 @@ async function run() {
       await waitForLog('Rejected medication portal request with invalid CSRF token', { startIndex: logStart });
     });
 
+    const userAName = `AuthTestUserA${Date.now()}`;
+    const userBName = `AuthTestUserB${Date.now()}`;
+    const { jar: jarA, user: userA, csrfToken: csrfA } = await registerPortalUser(userAName, 'S3curePass!');
+    const { jar: jarB, user: userB, csrfToken: csrfB } = await registerPortalUser(userBName, 'S3curePass!');
+
+    await test('Password login still establishes a portal session', async () => {
+      const passwordJar = createJar();
+      const csrfToken = await fetchCsrfToken(passwordJar);
+      const loginRes = await requestJson(passwordJar, 'POST', '/medications/api/login', {
+        username: userAName,
+        password: 'S3curePass!'
+      }, {
+        'x-medications-csrf-token': csrfToken
+      });
+      assert.strictEqual(loginRes.statusCode, 200, `password login failed: ${loginRes.body}`);
+      assert.strictEqual(loginRes.json.success, true);
+      assert.strictEqual(loginRes.json.user.id, userA.id);
+
+      const dashboardRes = await requestJson(passwordJar, 'GET', '/medications/api/dashboard');
+      assert.strictEqual(dashboardRes.statusCode, 200, 'password-authenticated session should access the dashboard');
+      assert.strictEqual(dashboardRes.json.user.id, userA.id);
+    });
+
     await test('Password login is throttled after repeated failures', async () => {
       const jar = createJar();
       const csrfToken = await fetchCsrfToken(jar);
@@ -288,12 +311,6 @@ async function run() {
       assert.strictEqual(sessionRes.statusCode, 200);
       assert.ok((sessionRes.headers['cache-control'] || '').includes('no-store'));
     });
-
-    // ---- Set up two portal users and an admin session ----
-    const userAName = `AuthTestUserA${Date.now()}`;
-    const userBName = `AuthTestUserB${Date.now()}`;
-    const { jar: jarA, user: userA, csrfToken: csrfA } = await registerPortalUser(userAName, 'S3curePass!');
-    const { jar: jarB, user: userB, csrfToken: csrfB } = await registerPortalUser(userBName, 'S3curePass!');
 
     const adminJar = createJar();
     let medicationId;
@@ -389,6 +406,7 @@ async function run() {
       const portalUser = (listRes.json.portalUsers || []).find(user => user.id === userB.id);
       assert.ok(portalUser, 'admin medication listing should include medication portal users');
       assert.ok(Array.isArray(portalUser.accessLinks), 'admin medication listing should include access-link metadata');
+      assert.strictEqual(portalUser.localAccessEnabled, false, 'local-network direct links should stay disabled until explicitly enabled');
       assert.ok(portalUser.accessLinks.some(link => link.id === accessLinkRes.json.accessLink.id && link.status === 'active'), 'admin medication listing should expose the issued access link');
       assert.ok(portalUser.accessLinks.some(link => link.id === accessLinkRes.json.accessLink.id && link.expiration === '3_months' && link.expirationLabel === '3 months'), 'admin medication listing should expose selected expiration metadata');
       assert.ok(!JSON.stringify(portalUser).includes(accessLinkRes.json.token), 'admin medication listing must not expose raw access tokens');
@@ -427,6 +445,48 @@ async function run() {
       assert.strictEqual(redirectRes.headers.location, '/medications?error=EXPIRED_ACCESS_LINK');
     });
 
+    await test('Disabled local-network direct links fall back safely without creating a session', async () => {
+      const localAccessJar = createJar();
+      const redirectRes = await requestJson(localAccessJar, 'GET', `/medications/${encodeURIComponent(userA.username)}`);
+      assert.strictEqual(redirectRes.statusCode, 302);
+      assert.strictEqual(redirectRes.headers.location, '/medications?error=INVALID_LOCAL_ACCESS_LINK');
+
+      const dashboardRes = await requestJson(localAccessJar, 'GET', '/medications/api/dashboard');
+      assert.strictEqual(dashboardRes.statusCode, 401, 'disabled local-network direct links must not authenticate a user');
+    });
+
+    await test('Admin can enable a persistent local-network direct link for a specific user', async () => {
+      const enableRes = await requestJson(adminJar, 'POST', `/admin/api/house/medications/portal-users/${userA.id}/local-access`, {
+        enabled: true
+      });
+      assert.strictEqual(enableRes.statusCode, 200, `enable local-network direct link failed: ${enableRes.body}`);
+      assert.strictEqual(enableRes.json.success, true);
+      assert.strictEqual(enableRes.json.user.localAccessEnabled, true);
+      assert.strictEqual(enableRes.json.user.localAccessPath, `/medications/${encodeURIComponent(userA.username)}`);
+      assert.strictEqual(enableRes.json.user.localAccessLink, `http://${BASE_HOST}:${PORT}/medications/${encodeURIComponent(userA.username)}`);
+
+      const listRes = await requestJson(adminJar, 'GET', '/admin/api/house/medications');
+      const portalUser = (listRes.json.portalUsers || []).find(user => user.id === userA.id);
+      assert.ok(portalUser, 'admin medication listing should include the updated medication portal user');
+      assert.strictEqual(portalUser.localAccessEnabled, true, 'admin medication listing should expose enabled local-network direct links');
+    });
+
+    await test('Enabled local-network direct link opens the correct medication portal without password or token auth', async () => {
+      const localAccessJar = createJar();
+      const redirectRes = await requestJson(localAccessJar, 'GET', `/medications/${encodeURIComponent(userA.username)}`);
+      assert.strictEqual(redirectRes.statusCode, 302);
+      assert.strictEqual(redirectRes.headers.location, '/medications');
+
+      const sessionRes = await requestJson(localAccessJar, 'GET', '/medications/api/session');
+      assert.strictEqual(sessionRes.statusCode, 200);
+      assert.strictEqual(sessionRes.json.authenticated, true);
+      assert.strictEqual(sessionRes.json.user.id, userA.id);
+
+      const dashboardRes = await requestJson(localAccessJar, 'GET', '/medications/api/dashboard');
+      assert.strictEqual(dashboardRes.statusCode, 200);
+      assert.strictEqual(dashboardRes.json.user.id, userA.id);
+    });
+
     await test('Admin can create a medication and assign it to a single user', async () => {
       const addRes = await requestJson(adminJar, 'POST', '/admin/api/house/medications', {
         name: `AuthTestMed${Date.now()}`,
@@ -453,6 +513,9 @@ async function run() {
       assert.ok(publicHtml.includes('expired, revoked, already used, or unavailable'), 'public medications page should keep password fallback visible');
       assert.ok(adminHtml.includes('Medication portal access links'), 'admin dashboard should expose the secure access-link workflow');
       assert.ok(adminHtml.includes('Generate access link'), 'admin dashboard should expose secure-link generation controls');
+      assert.ok(adminHtml.includes('Local-network direct link'), 'admin dashboard should expose the persistent local-network direct-link workflow');
+      assert.ok(adminHtml.includes('Enable direct link'), 'admin dashboard should let admins enable a local-network direct link');
+      assert.ok(adminHtml.includes('Disable direct link'), 'admin dashboard should let admins disable a local-network direct link');
       assert.ok(adminHtml.includes('Expires after'), 'admin dashboard should expose expiration selection controls');
       assert.ok(adminHtml.includes('1 day'), 'admin dashboard should include the 1 day access-link option');
       assert.ok(adminHtml.includes('1 month'), 'admin dashboard should include the 1 month access-link option');
@@ -462,6 +525,7 @@ async function run() {
       assert.ok(adminHtml.includes('Access duration:'), 'admin dashboard should display the selected expiration after generation');
       assert.ok(adminHtml.includes('Copy link'), 'admin dashboard should expose copy controls for generated links');
       assert.ok(adminHtml.includes('Revoke'), 'admin dashboard should expose link revocation controls');
+      assert.ok(publicHtml.includes('INVALID_LOCAL_ACCESS_LINK'), 'public medications page should handle local-network direct-link fallback errors');
     });
 
     await test('Assigned user sees the medication on their own dashboard', async () => {

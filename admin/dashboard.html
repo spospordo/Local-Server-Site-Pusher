@@ -30449,6 +30449,18 @@
             });
         }
 
+        function updateMedicationPortalUserLocalAccess(userId, updatedUser) {
+            medicationPortalUsers = medicationPortalUsers.map(user => {
+                if (user.id !== userId) return user;
+                return {
+                    ...user,
+                    localAccessEnabled: !!updatedUser?.localAccessEnabled,
+                    localAccessPath: updatedUser?.localAccessPath || user.localAccessPath || '',
+                    localAccessLink: updatedUser?.localAccessLink || user.localAccessLink || ''
+                };
+            });
+        }
+
         function renderMedicationPortalAccessLinks() {
             const container = document.getElementById('medicationPortalAccessLinks');
             if (!container) return;
@@ -30486,6 +30498,27 @@
                                 </div>
                                 <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
                                     Password login at <code>/medications</code> remains available if the link expires, is revoked, or has already been used.
+                                </div>
+                                <div style="margin-top: 0.85rem; padding: 0.85rem; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff;">
+                                    <div style="display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                                        <div>
+                                            <div style="font-weight: 600; color: #1e3a8a;">Local-network direct link</div>
+                                            <div style="font-size: 0.85rem; color: #475569; margin-top: 0.25rem;">
+                                                Admin-managed persistent browser link for trusted local-network use. This path skips password and token sign-in.
+                                            </div>
+                                        </div>
+                                        <button class="btn ${user.localAccessEnabled ? 'btn-danger' : 'btn-secondary'} med-local-access-toggle-btn" type="button" data-user-id="${escapeHtml(user.id)}" data-enabled="${user.localAccessEnabled ? 'true' : 'false'}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">${user.localAccessEnabled ? 'Disable direct link' : 'Enable direct link'}</button>
+                                    </div>
+                                    ${user.localAccessEnabled ? `
+                                        <div style="margin-top: 0.75rem;">
+                                            <label for="med-local-access-link-${escapeHtml(user.id)}" style="display: block; font-size: 0.85rem; color: #1e3a8a; margin-bottom: 0.25rem;">Persistent local-network link</label>
+                                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                <input id="med-local-access-link-${escapeHtml(user.id)}" type="text" readonly value="${escapeHtml(user.localAccessLink || '')}" style="flex: 1; min-width: 240px;">
+                                                <button class="btn btn-success med-local-access-copy-btn" type="button" data-user-id="${escapeHtml(user.id)}" style="font-size: 0.85rem; padding: 0.45rem 0.75rem;">Copy link</button>
+                                            </div>
+                                            <div style="font-size: 0.82rem; color: #475569; margin-top: 0.4rem;">Path: <code>${escapeHtml(user.localAccessPath || '')}</code></div>
+                                        </div>
+                                    ` : '<div style="font-size: 0.82rem; color: #64748b; margin-top: 0.65rem;">Disabled by default until an admin explicitly enables it for this user.</div>'}
                                 </div>
                                 ${generated ? `
                                     <div style="margin-top: 0.85rem; padding: 0.85rem; background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 8px;">
@@ -30559,8 +30592,26 @@
                 btn.addEventListener('click', () => copyMedicationAccessLinkValue(btn.dataset.userId, btn.dataset.copyField));
             });
 
+            container.querySelectorAll('.med-local-access-copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => copyMedicationLocalAccessLink(btn.dataset.userId));
+            });
+
             container.querySelectorAll('.med-access-revoke-btn').forEach(btn => {
                 btn.addEventListener('click', () => revokeMedicationAccessLink(btn.dataset.userId, btn.dataset.linkId));
+            });
+
+            container.querySelectorAll('.med-local-access-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    btn.disabled = true;
+                    const originalText = btn.textContent;
+                    btn.textContent = btn.dataset.enabled === 'true' ? 'Disabling...' : 'Enabling...';
+                    try {
+                        await setMedicationLocalAccess(btn.dataset.userId, btn.dataset.enabled !== 'true');
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                });
             });
         }
 
@@ -30647,6 +30698,61 @@
                 }
             } catch (err) {
                 showAlert('Error revoking medication access link: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        async function copyMedicationLocalAccessLink(userId) {
+            const user = medicationPortalUsers.find(entry => entry.id === userId);
+            const value = user?.localAccessLink || '';
+            if (!value) {
+                showAlert('Enable the local-network direct link before copying it.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const input = document.getElementById(`med-local-access-link-${userId}`);
+            try {
+                await navigator.clipboard.writeText(value);
+            } catch (error) {
+                let copied = false;
+                if (input) {
+                    input.focus();
+                    input.select();
+                    copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+                }
+                if (!copied) {
+                    showAlert('Clipboard access is unavailable. The direct link has been selected so you can copy it manually.', 'error', 'medicationsAlert');
+                    return;
+                }
+            }
+
+            showAlert('Medication local-network direct link copied to clipboard.', 'success', 'medicationsAlert');
+        }
+
+        async function setMedicationLocalAccess(userId, enabled) {
+            if (!enabled && !confirm('Disable this local-network direct link? Password and secure access-link sign-in will remain available.')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/medications/portal-users/${encodeURIComponent(userId)}/local-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const result = await response.json();
+                if (response.ok && result.success && result.user) {
+                    updateMedicationPortalUserLocalAccess(userId, result.user);
+                    renderMedicationPortalAccessLinks();
+                    showAlert(
+                        enabled
+                            ? 'Medication local-network direct link enabled.'
+                            : 'Medication local-network direct link disabled.',
+                        'success',
+                        'medicationsAlert'
+                    );
+                } else {
+                    showAlert(result.error || 'Failed to update medication local-network direct link.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error updating medication local-network direct link: ' + err.message, 'error', 'medicationsAlert');
             }
         }
     </script>
