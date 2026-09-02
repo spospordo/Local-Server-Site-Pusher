@@ -1683,6 +1683,7 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
 
   const lowSupplyMedicationIds = new Set();
   const medicationPayloadById = new Map((medicationPayload.medications || []).map(medication => [medication.id, medication]));
+  const today = getMedicationPortalToday();
   selectedUsers.forEach(user => {
     house.getAssignedMedicationsForUser(user.id).forEach(medication => {
       const medicationWithForecast = medicationPayloadById.get(medication.id) || {
@@ -1698,6 +1699,12 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
     });
   });
 
+  const currentDayStatuses = selectedUsers
+    .map(user => (user.adherenceSummary?.recentDays || []).find(day => day.date === today))
+    .filter(Boolean);
+  const currentDayPartialCount = currentDayStatuses.filter(day => day.status === 'partial').length;
+  const currentDayMissingCount = currentDayStatuses.filter(day => day.status === 'missing_day').length;
+
   const userAlerts = selectedUsers
     .map(user => ({
       userId: user.id,
@@ -1711,13 +1718,17 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
     }))
     .filter(user => user.missingDays.length > 0);
 
-  if (userAlerts.length === 0 && lowSupplyMedicationIds.size === 0) {
+  if (userAlerts.length === 0 && lowSupplyMedicationIds.size === 0 && currentDayPartialCount === 0 && currentDayMissingCount === 0) {
     return null;
   }
 
   return {
     selectedUserCount: selectedUsers.length,
     lowSupplyAlertCount: lowSupplyMedicationIds.size,
+    currentDayIncomplete: currentDayPartialCount > 0 || currentDayMissingCount > 0,
+    currentDayIncompleteUserCount: currentDayPartialCount + currentDayMissingCount,
+    currentDayPartialCount,
+    currentDayMissingCount,
     totalMissingDays: userAlerts.reduce((sum, user) => sum + user.missingDays.length, 0),
     summaryWindowDays: medicationPayload.adherenceSummaryWindowDays || [],
     userAlerts
@@ -9386,6 +9397,9 @@ function estimateContentSize(subWidgetData) {
       return (data.devices || []).length > 3 ? 'medium' : 'small';
 
     case 'medications':
+      if (data.currentDayIncomplete) {
+        return 'small';
+      }
       return (data.userAlerts || []).length > 2 || (data.totalMissingDays || 0) > 3 ? 'medium' : 'small';
 
     case 'qrCodes':
@@ -10349,7 +10363,7 @@ app.get('/api/smart-mirror/smart-widget', async (req, res) => {
             const medicationSummary = buildMedicationSmartWidgetSummary(subWidget.selectedUserIds);
             if (medicationSummary) {
               logger.success(logger.categories.SMART_MIRROR,
-                `Medications sub-widget: ${medicationSummary.totalMissingDays} missing day(s) and ${medicationSummary.lowSupplyAlertCount || 0} low-supply alert(s)`);
+                `Medications sub-widget: ${medicationSummary.currentDayIncompleteUserCount || 0} current-day incomplete user(s), ${medicationSummary.totalMissingDays} missing day(s), and ${medicationSummary.lowSupplyAlertCount || 0} low-supply alert(s)`);
               subWidgetData = {
                 type: 'medications',
                 priority: subWidget.priority,
