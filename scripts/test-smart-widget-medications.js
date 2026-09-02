@@ -443,6 +443,10 @@ async function run() {
     assert.strictEqual(smartWidgetResponse.json.success, true, 'smart widget endpoint should report success');
     const medicationsWidget = smartWidgetResponse.json.subWidgets.find(subWidget => subWidget.type === 'medications');
     assert.ok(medicationsWidget, 'medications sub-widget should be returned when selected users have missing days');
+    assert.strictEqual(medicationsWidget.data.currentDayIncomplete, true, 'medications sub-widget should detect incomplete current-day use');
+    assert.strictEqual(medicationsWidget.data.currentDayIncompleteUserCount, 2, 'both selected users should contribute to the current-day incomplete reminder');
+    assert.strictEqual(medicationsWidget.data.currentDayPartialCount, 1, 'partial current-day adherence should be counted');
+    assert.strictEqual(medicationsWidget.data.currentDayMissingCount, 1, 'fully missing current-day adherence should be counted');
     assert.strictEqual(medicationsWidget.data.userAlerts.length, 2, 'multiple selected users should remain grouped in one medications sub-widget');
     assert.strictEqual(medicationsWidget.data.totalMissingDays, 3, 'multiple missing days should be aggregated inside the same medications sub-widget');
     assert.strictEqual(medicationsWidget.data.lowSupplyAlertCount, 1, 'medications sub-widget should include privacy-safe low-supply alert counts');
@@ -498,10 +502,12 @@ async function run() {
     assert.ok(renderedMedications, 'public smart mirror renderer should return content for medication alerts');
     mirrorDom.window.document.getElementById('root').appendChild(renderedMedications);
     const mirrorText = mirrorDom.window.document.getElementById('root').textContent;
-    assert.ok(mirrorText.includes('Medications'), 'mirror renderer should label the medications widget');
-    assert.ok(mirrorText.includes('Casey'), 'mirror renderer should include selected user names');
-    assert.ok(mirrorText.includes('Missing days') || mirrorText.includes('Missing day'), 'mirror renderer should only describe missing-day follow-up');
-    assert.ok(mirrorText.includes('below the configured alert threshold'), 'mirror renderer should show a privacy-safe low-supply alert');
+    assert.strictEqual(renderedMedications.children.length, 1, 'current-day incomplete reminder should render as a single line');
+    assert.strictEqual(renderedMedications.firstElementChild?.style.whiteSpace, 'nowrap', 'current-day incomplete reminder should stay constrained to one line');
+    assert.ok(mirrorText.includes('Medication check-in needed today'), 'mirror renderer should show a concise current-day reminder');
+    assert.ok(!mirrorText.includes('Casey'), 'current-day incomplete reminder should not expose selected user names');
+    assert.ok(!mirrorText.includes('Missing days') && !mirrorText.includes('Missing day'), 'current-day incomplete reminder should avoid detailed missing-day follow-up text');
+    assert.ok(!mirrorText.includes('below the configured alert threshold'), 'current-day incomplete reminder should stay visually minimal when other medication alerts are also present');
     assert.ok(!mirrorText.includes('Evening Med'), 'mirror renderer should not reveal medication names');
     mirrorDom.window.close();
 
@@ -518,6 +524,34 @@ async function run() {
     const hiddenDuringVacationResponse = await requestJson('GET', '/api/smart-mirror/smart-widget');
     assert.strictEqual(hiddenDuringVacationResponse.statusCode, 200, 'smart widget endpoint should still succeed when widget is hidden during a vacation');
     assert.ok(!hiddenDuringVacationResponse.json.subWidgets.find(subWidget => subWidget.type === 'medications'), 'medications widget should hide during active vacations when configured to do so');
+
+    assert.strictEqual(house.recordMedicationAdherence(caseyPortalUser.user.id, eveningMed.id, 'took', today).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(morganPortalUser.user.id, vitamin.id, 'took', today).success, true);
+
+    const noCurrentIncompleteConfig = configuredSmartMirror.loadConfig();
+    updateMedicationSubWidget(noCurrentIncompleteConfig, { hideDuringParties: false, hideDuringVacations: false });
+    configuredSmartMirror.saveConfig(noCurrentIncompleteConfig);
+
+    const noCurrentIncompleteResponse = await requestJson('GET', '/api/smart-mirror/smart-widget');
+    assert.strictEqual(noCurrentIncompleteResponse.statusCode, 200, 'smart widget endpoint should still succeed when only prior missing days and low supply remain');
+    const noCurrentIncompleteWidget = noCurrentIncompleteResponse.json.subWidgets.find(subWidget => subWidget.type === 'medications');
+    assert.ok(noCurrentIncompleteWidget, 'medications widget should still render for prior missing days and low-supply alerts');
+    assert.strictEqual(noCurrentIncompleteWidget.data.currentDayIncomplete, false, 'prior-day alert rendering should not be flagged as an incomplete current-day reminder');
+    assert.strictEqual(noCurrentIncompleteWidget.data.totalMissingDays, 2, 'prior missing-day totals should remain available when current-day reminders are cleared');
+    assert.strictEqual(noCurrentIncompleteWidget.data.lowSupplyAlertCount, 1, 'low-supply totals should remain available when current-day reminders are cleared');
+
+    const noCurrentIncompleteMirrorDom = new JSDOM('<!DOCTYPE html><div id="root"></div>', { runScripts: 'dangerously' });
+    noCurrentIncompleteMirrorDom.window.eval(`${extractFunctionSource(publicSmartMirrorHtml, 'function renderMedications(data)')}`);
+    const noCurrentIncompleteRendered = noCurrentIncompleteMirrorDom.window.renderMedications(noCurrentIncompleteWidget.data);
+    assert.ok(noCurrentIncompleteRendered, 'mirror renderer should still render prior-day medication alerts');
+    noCurrentIncompleteMirrorDom.window.document.getElementById('root').appendChild(noCurrentIncompleteRendered);
+    const noCurrentIncompleteText = noCurrentIncompleteMirrorDom.window.document.getElementById('root').textContent;
+    assert.ok(noCurrentIncompleteText.includes('Medications'), 'renderer should restore the standard medications label when current-day reminders are cleared');
+    assert.ok(noCurrentIncompleteText.includes('Casey'), 'renderer should restore selected user names for prior missing-day follow-up');
+    assert.ok(noCurrentIncompleteText.includes('Missing days') || noCurrentIncompleteText.includes('Missing day'), 'renderer should restore prior missing-day details when current-day reminders are cleared');
+    assert.ok(noCurrentIncompleteText.includes('below the configured alert threshold'), 'renderer should restore the privacy-safe low-supply message when current-day reminders are cleared');
+    assert.ok(!noCurrentIncompleteText.includes('Evening Med'), 'renderer should still avoid medication names when current-day reminders are cleared');
+    noCurrentIncompleteMirrorDom.window.close();
 
     const lowSupplyOnlyData = house.getMedicationsData();
     lowSupplyOnlyData.assignments = lowSupplyOnlyData.assignments.map(assignment => ({

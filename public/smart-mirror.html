@@ -5489,11 +5489,26 @@
         function renderMedications(data) {
             const userAlerts = Array.isArray(data?.userAlerts) ? data.userAlerts : [];
             const lowSupplyAlertCount = Number(data?.lowSupplyAlertCount || 0);
-            if (userAlerts.length === 0 && lowSupplyAlertCount === 0) {
+            const currentDayIncomplete = !!data?.currentDayIncomplete;
+            if (userAlerts.length === 0 && lowSupplyAlertCount === 0 && !currentDayIncomplete) {
                 return null;
             }
 
             const container = document.createElement('div');
+
+            if (currentDayIncomplete) {
+                const reminder = document.createElement('div');
+                reminder.style.fontSize = '1rem';
+                reminder.style.fontWeight = '700';
+                reminder.style.color = '#d6ccff';
+                reminder.style.lineHeight = '1.3';
+                reminder.style.whiteSpace = 'nowrap';
+                reminder.style.overflow = 'hidden';
+                reminder.style.textOverflow = 'ellipsis';
+                reminder.textContent = '💊 Medication check-in needed today';
+                container.appendChild(reminder);
+                return container;
+            }
 
             const sectionHeading = document.createElement('div');
             sectionHeading.style.fontSize = '0.75rem';
