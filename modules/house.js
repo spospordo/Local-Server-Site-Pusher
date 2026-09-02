@@ -2261,6 +2261,20 @@ function getMedicationPortalUserByUsername(username) {
   return getMedicationPortalUsers().find(user => user.usernameKey === usernameKey) || null;
 }
 
+function canUseMedicationPortalUsernameForLocalAccess(username) {
+  const usernameKey = getMedicationPortalUsernameKey(username);
+  if (!usernameKey) return false;
+  return !['api', 'access'].includes(usernameKey);
+}
+
+function getMedicationPortalUserByLocalAccessUsername(username) {
+  const portalUser = getMedicationPortalUserByUsername(username);
+  if (!portalUser || !portalUser.localAccessEnabled) {
+    return null;
+  }
+  return canUseMedicationPortalUsernameForLocalAccess(portalUser.username) ? portalUser : null;
+}
+
 function normalizeMedicationAccessScope(scope) {
   const normalized = String(scope || 'medication:access').trim();
   return normalized || 'medication:access';
@@ -2491,6 +2505,7 @@ function createMedicationPortalUser(user) {
     username,
     usernameKey,
     passwordHash,
+    localAccessEnabled: false,
     createdAt: new Date().toISOString()
   };
 
@@ -2498,6 +2513,30 @@ function createMedicationPortalUser(user) {
   const saveResult = saveMedicationsData(medsData);
   return saveResult.success
     ? { ...saveResult, user: { id: portalUser.id, username: portalUser.username, createdAt: portalUser.createdAt } }
+    : saveResult;
+}
+
+function setMedicationPortalLocalAccess(userId, enabled) {
+  const medsData = getMedicationsData();
+  const portalUserIndex = medsData.portalUsers.findIndex(user => user.id === userId);
+  if (portalUserIndex === -1) {
+    return { success: false, error: 'Medication portal user not found' };
+  }
+
+  const localAccessEnabled = enabled !== false;
+  const portalUser = medsData.portalUsers[portalUserIndex];
+  if (localAccessEnabled && !canUseMedicationPortalUsernameForLocalAccess(portalUser.username)) {
+    return { success: false, error: 'This username cannot be used for a local-network medication link' };
+  }
+
+  medsData.portalUsers[portalUserIndex] = {
+    ...portalUser,
+    localAccessEnabled
+  };
+
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success
+    ? { ...saveResult, success: true, user: medsData.portalUsers[portalUserIndex] }
     : saveResult;
 }
 
@@ -2724,12 +2763,15 @@ module.exports = {
   getMedicationPortalUsers,
   getMedicationPortalUserById,
   getMedicationPortalUserByUsername,
+  getMedicationPortalUserByLocalAccessUsername,
+  canUseMedicationPortalUsernameForLocalAccess,
   getMedicationAccessTokens,
   issueMedicationAccessToken,
   revokeMedicationAccessToken,
   validateMedicationAccessToken,
   verifyMedicationAccessToken,
   createMedicationPortalUser,
+  setMedicationPortalLocalAccess,
   getMedicationAssignments,
   setMedicationAssignments,
   getAssignedMedicationsForUser,

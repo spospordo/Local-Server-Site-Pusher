@@ -1299,6 +1299,22 @@ function buildMedicationAccessLink(req, token) {
   return `${protocol}://${host}/medications/access/${encodeURIComponent(token)}`;
 }
 
+function buildMedicationLocalAccessPath(username) {
+  return `/medications/${encodeURIComponent(String(username || '').trim())}`;
+}
+
+function buildMedicationLocalAccessLink(req, username) {
+  const path = buildMedicationLocalAccessPath(username);
+  const configuredBaseUrl = String(config?.server?.publicUrl || '').trim();
+  if (configuredBaseUrl) {
+    return `${configuredBaseUrl.replace(/\/$/, '')}${path}`;
+  }
+
+  const host = req.get('host') || req.hostname || 'localhost';
+  const protocol = req.protocol || (req.secure ? 'https' : 'http');
+  return `${protocol}://${host}${path}`;
+}
+
 const MEDICATION_ACCESS_LINK_EXPIRATION_OPTIONS = Object.freeze([
   { value: '1_day', label: '1 day' },
   { value: '1_month', label: '1 month' },
@@ -1599,6 +1615,7 @@ function buildMedicationAdminPayload() {
 
   const portalUsers = (data.portalUsers || []).map(portalUser => ({
     ...serializeMedicationPortalUser(portalUser),
+    localAccessEnabled: !!portalUser.localAccessEnabled,
     assignedMedicationNames: medicationNamesByUserId.get(portalUser.id) || [],
     accessLinks: accessLinksByUserId.get(portalUser.id) || [],
     adherenceSummary: buildMedicationAdminAdherenceSummary({
@@ -1782,6 +1799,22 @@ app.get('/medications/access/:token', medicationAccessTokenRateLimiter, (req, re
   req.session.medicationPortalUserId = validation.user.id;
   req.session.medicationPortalUsername = validation.user.username;
   logger.success(logger.categories.SYSTEM, `Medication access token authenticated user: ${validation.user.username}`);
+  return res.redirect('/medications');
+});
+
+app.get('/medications/:username', medicationAccessTokenRateLimiter, (req, res) => {
+  const portalUser = house.getMedicationPortalUserByLocalAccessUsername(req.params.username);
+  if (!portalUser) {
+    logSecurityEvent('Rejected medication local-network access link', req, {
+      reason: 'invalid_or_disabled_local_access',
+      path: req.originalUrl || req.path
+    });
+    return res.redirect('/medications?error=INVALID_LOCAL_ACCESS_LINK');
+  }
+
+  req.session.medicationPortalUserId = portalUser.id;
+  req.session.medicationPortalUsername = portalUser.username;
+  logger.success(logger.categories.SYSTEM, `Medication local-network access authenticated user: ${portalUser.username}`);
   return res.redirect('/medications');
 });
 
@@ -11726,7 +11759,13 @@ app.delete('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) =
 // Get all medications (with computed forecast fields)
 app.get('/admin/api/house/medications', requireAuth, (req, res) => {
   try {
-    res.json(buildMedicationAdminPayload());
+    const payload = buildMedicationAdminPayload();
+    payload.portalUsers = (payload.portalUsers || []).map(portalUser => ({
+      ...portalUser,
+      localAccessPath: buildMedicationLocalAccessPath(portalUser.username),
+      localAccessLink: buildMedicationLocalAccessLink(req, portalUser.username)
+    }));
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: 'Failed to load medications: ' + err.message });
   }
@@ -11822,6 +11861,28 @@ app.post('/admin/api/house/medications/access-links/:id/revoke', requireAuth, (r
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Failed to revoke medication access link: ' + err.message });
+  }
+});
+
+app.post('/admin/api/house/medications/portal-users/:id/local-access', requireAuth, (req, res) => {
+  try {
+    const result = house.setMedicationPortalLocalAccess(req.params.id, req.body?.enabled);
+    if (!result.success) {
+      const statusCode = /not found/i.test(result.error || '') ? 404 : 400;
+      return res.status(statusCode).json({ success: false, error: result.error });
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        ...serializeMedicationPortalUser(result.user),
+        localAccessEnabled: !!result.user.localAccessEnabled,
+        localAccessPath: buildMedicationLocalAccessPath(result.user.username),
+        localAccessLink: buildMedicationLocalAccessLink(req, result.user.username)
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Failed to update medication local-network access: ' + err.message });
   }
 });
 
