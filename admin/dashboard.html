@@ -4544,7 +4544,7 @@
                             <div style="font-weight: 600; color: #1d4f91;">Medication details vs. regimen changes</div>
                             <div style="margin-top: 0.35rem; color: #345; font-size: 0.92rem;">
                                 Use <strong>Save Medication</strong> for medication details like name, description, usage, and alert settings.
-                                Use <strong>Add Refill</strong> to add a new bottle with a refill date and pill count.
+                                Use <strong>Add Refill</strong> to open the refill modal for adding, editing, or deleting bottle history.
                                 Use <strong>Save Regimen Change</strong> to create a dated change for instructions, frequency, or pills per dose.
                             </div>
                         </div>
@@ -4587,12 +4587,14 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="medicationRefillDate">Refill Date</label>
+                                <label for="medicationRefillDate">Current Refill Date</label>
                                 <input type="date" id="medicationRefillDate">
+                                <small style="color: #666;">Existing medications manage refill history from the refill modal.</small>
                             </div>
                             <div class="form-group">
-                                <label for="medicationRefillExpiration">Refill Expiration</label>
+                                <label for="medicationRefillExpiration">Current Refill Expiration</label>
                                 <input type="date" id="medicationRefillExpiration">
+                                <small style="color: #666;">Shown for reference after refill updates.</small>
                             </div>
                         </div>
                         <div class="form-group">
@@ -4621,6 +4623,35 @@
                         <div id="medicationRefillActionHint" style="display: none; margin-top: 0.5rem; color: #555; font-size: 0.9rem;"></div>
                         <div id="medicationRegimenActionHint" style="display: none; margin-top: 0.5rem; color: #555; font-size: 0.9rem;"></div>
                     </form>
+                </div>
+
+                <div id="medicationRefillModal" class="modal" aria-hidden="true">
+                    <div class="modal-content" style="max-width: 560px;">
+                        <div class="modal-header">
+                            <h3 id="medicationRefillModalTitle">Add Refill</h3>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="medicationRefillModalEntryId">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="medicationRefillModalDate">Refill Date <span style="color: red;">*</span></label>
+                                    <input type="date" id="medicationRefillModalDate">
+                                </div>
+                                <div class="form-group">
+                                    <label for="medicationRefillModalPillCount">Pill Count <span style="color: red;">*</span></label>
+                                    <input type="number" id="medicationRefillModalPillCount" min="0" step="1" placeholder="e.g., 30">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="medicationRefillModalExpiration">Refill Expiration</label>
+                                <input type="date" id="medicationRefillModalExpiration">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" id="saveMedicationRefillModalButton" class="btn btn-primary" onclick="submitMedicationRefillModal()">💾 Save</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeMedicationRefillModal()">Cancel</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="medicationsList" style="margin-top: 1rem;">
@@ -29643,6 +29674,7 @@
         let generatedMedicationAccessLinks = {};
         let medicationAdherenceSummaryWindowDays = [];
         let currentMedicationFormSnapshot = null;
+        let currentMedicationRefillModalState = null;
         const medicationAccessLinkExpirationOptions = [
             { value: '1_day', label: '1 day' },
             { value: '1_month', label: '1 month' },
@@ -29834,6 +29866,10 @@
             });
         }
 
+        function getMedicationById(id) {
+            return houseMedicationsData.find(med => String(med?.id || '') === String(id || '')) || null;
+        }
+
         function getCurrentMedicationRefillEntry(med) {
             const today = new Date().toISOString().slice(0, 10);
             const history = Array.isArray(med?.refillHistory) ? sortMedicationRefillHistory(med.refillHistory) : [];
@@ -29913,12 +29949,23 @@
                     return `<div style="padding:0.45rem 0; border-bottom: 1px solid #eef2f7;">
                     <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap;">
                         <strong>${escapeHtml(entry.refillDate || 'Unknown date')}</strong>
-                        <span style="font-size: 0.78rem; color: #4a5568; text-transform: uppercase; letter-spacing: 0.03em;">${escapeHtml(statusLabel)}</span>
+                       <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                           <span style="font-size: 0.78rem; color: #4a5568; text-transform: uppercase; letter-spacing: 0.03em;">${escapeHtml(statusLabel)}</span>
+                           <button type="button" class="btn btn-secondary med-refill-edit-btn" style="font-size: 0.75rem; padding: 0.2rem 0.45rem;" data-refill-id="${escapeHtml(entry.id || '')}">Edit</button>
+                           <button type="button" class="btn btn-danger med-refill-delete-btn" style="font-size: 0.75rem; padding: 0.2rem 0.45rem;" data-refill-id="${escapeHtml(entry.id || '')}">Delete</button>
+                       </div>
                     </div>
                     <div style="margin-top: 0.2rem;">${escapeHtml(countText)}${expirationText ? `<span style="color:#555; font-size:0.86rem;">${escapeHtml(expirationText)}</span>` : ''}</div>
                  </div>`;
                 })
                 .join('');
+
+            container.querySelectorAll('.med-refill-edit-btn').forEach(button => {
+                button.addEventListener('click', () => editMedicationRefillEntry(button.dataset.refillId));
+            });
+            container.querySelectorAll('.med-refill-delete-btn').forEach(button => {
+                button.addEventListener('click', () => deleteMedicationRefillEntry(button.dataset.refillId));
+            });
         }
 
         function setMedicationRegimenActionState(med) {
@@ -29945,7 +29992,7 @@
             if (med && med.id) {
                 button.style.display = 'inline-flex';
                 hint.style.display = 'block';
-                hint.textContent = 'Adding a new bottle? Enter the refill date and bottle pill count, then use Add Refill.';
+                hint.textContent = 'Use Add Refill to open the refill modal and add, edit, or delete bottle history.';
             } else {
                 button.style.display = 'none';
                 hint.style.display = 'block';
@@ -30003,6 +30050,7 @@
             return String(regimenPayload.instructions || '').trim() !== String(currentRegimen.instructions || '').trim()
                 || String(regimenPayload.scheduleFrequency || '') !== String(currentRegimen.scheduleFrequency || '')
                 || String(regimenPayload.pillsPerDose || '') !== String(currentRegimen.pillsPerDose ?? 1)
+                || normalizeMedicationFormPillCount(regimenPayload.pillCount) !== normalizeMedicationFormPillCount(currentRegimen.pillCount)
                 || String(regimenPayload.regimenEffectiveDate || '').trim() !== '';
         }
 
@@ -30014,8 +30062,7 @@
             const currentRefill = getCurrentMedicationRefillEntry(currentMedicationFormSnapshot) || currentMedicationFormSnapshot;
             const refillPayload = getMedicationFormRefillPayload();
             return String(refillPayload.refillDate || '') !== String(currentRefill.refillDate || '')
-                || String(refillPayload.refillExpiration || '') !== String(currentRefill.refillExpiration || '')
-                || normalizeMedicationFormPillCount(refillPayload.pillCount) !== normalizeMedicationFormPillCount(currentMedicationFormSnapshot.pillCount);
+                || String(refillPayload.refillExpiration || '') !== String(currentRefill.refillExpiration || '');
         }
 
         function renderMedications() {
@@ -30166,6 +30213,8 @@
                 ? currentRegimen.pillCount
                 : (currentRefill && currentRefill.pillCount !== null && currentRefill.pillCount !== undefined ? currentRefill.pillCount : '');
             document.getElementById('medicationRefillExpiration').value = currentRefill ? (currentRefill.refillExpiration || '') : (med ? (med.refillExpiration || '') : '');
+            document.getElementById('medicationRefillDate').readOnly = !!(med && med.id);
+            document.getElementById('medicationRefillExpiration').readOnly = !!(med && med.id);
             document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
             document.getElementById('medicationRegimenEffectiveDate').value = '';
             document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
@@ -30177,10 +30226,13 @@
         }
 
         function hideMedicationForm() {
+            closeMedicationRefillModal();
             document.getElementById('medicationFormContainer').style.display = 'none';
             document.getElementById('medicationForm').reset();
             document.getElementById('medicationId').value = '';
             document.getElementById('medicationRegimenEffectiveDate').value = '';
+            document.getElementById('medicationRefillDate').readOnly = false;
+            document.getElementById('medicationRefillExpiration').readOnly = false;
             currentMedicationFormSnapshot = null;
             setMedicationRefillActionState(null);
             setMedicationRegimenActionState(null);
@@ -30231,14 +30283,71 @@
             }
         }
 
-        async function saveMedicationRefill() {
+        function getMedicationRefillModalPayload() {
+            return {
+                refillDate: document.getElementById('medicationRefillModalDate').value,
+                refillExpiration: document.getElementById('medicationRefillModalExpiration').value,
+                pillCount: document.getElementById('medicationRefillModalPillCount').value
+            };
+        }
+
+        function openMedicationRefillModal(refillId = '') {
             const id = document.getElementById('medicationId').value;
             if (!id) {
                 showAlert('Save the medication first before adding a refill.', 'error', 'medicationsAlert');
                 return;
             }
 
-            const payload = getMedicationFormRefillPayload();
+            const medication = getMedicationById(id) || currentMedicationFormSnapshot;
+            const history = Array.isArray(medication?.refillHistory) ? sortMedicationRefillHistory(medication.refillHistory) : [];
+            const refillEntry = history.find(entry => String(entry?.id || '') === String(refillId || '')) || null;
+            const modal = document.getElementById('medicationRefillModal');
+            const dateInput = document.getElementById('medicationRefillModalDate');
+            const expirationInput = document.getElementById('medicationRefillModalExpiration');
+            const pillCountInput = document.getElementById('medicationRefillModalPillCount');
+            document.getElementById('medicationRefillModalEntryId').value = refillEntry ? (refillEntry.id || '') : '';
+            document.getElementById('medicationRefillModalTitle').textContent = refillEntry ? 'Edit Refill' : 'Add Refill';
+            currentMedicationRefillModalState = {
+                medicationId: id,
+                refillId: refillEntry ? String(refillEntry.id || '') : ''
+            };
+            dateInput.value = refillEntry
+                ? (refillEntry.refillDate || '')
+                : (document.getElementById('medicationRefillDate').value || new Date().toISOString().slice(0, 10));
+            expirationInput.value = refillEntry ? (refillEntry.refillExpiration || '') : '';
+            pillCountInput.value = refillEntry
+                ? (refillEntry.pillCount ?? '')
+                : (document.getElementById('medicationPillCount').value || '');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            window.setTimeout(() => dateInput.focus(), 0);
+        }
+
+        function closeMedicationRefillModal() {
+            const modal = document.getElementById('medicationRefillModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            document.getElementById('medicationRefillModalEntryId').value = '';
+            document.getElementById('medicationRefillModalDate').value = '';
+            document.getElementById('medicationRefillModalExpiration').value = '';
+            document.getElementById('medicationRefillModalPillCount').value = '';
+            currentMedicationRefillModalState = null;
+        }
+
+        function saveMedicationRefill() {
+            openMedicationRefillModal();
+        }
+
+        async function submitMedicationRefillModal() {
+            const id = currentMedicationRefillModalState?.medicationId || document.getElementById('medicationId').value;
+            const refillId = currentMedicationRefillModalState?.refillId || document.getElementById('medicationRefillModalEntryId').value;
+            if (!id) {
+                showAlert('Save the medication first before adding a refill.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const payload = getMedicationRefillModalPayload();
             if (!String(payload.refillDate || '').trim()) {
                 showAlert('Refill date is required to save a refill entry.', 'error', 'medicationsAlert');
                 return;
@@ -30249,7 +30358,9 @@
             }
 
             try {
-                const response = await fetch(`/admin/api/house/medications/${id}/refill`, {
+                const response = await fetch(refillId
+                    ? `/admin/api/house/medications/${id}/refill/${encodeURIComponent(refillId)}`
+                    : `/admin/api/house/medications/${id}/refill`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -30258,15 +30369,49 @@
                 if (response.ok && result.success) {
                     await loadHouseMedicationsData();
                     const updatedMedication = houseMedicationsData.find(med => med.id === id) || null;
+                    closeMedicationRefillModal();
                     if (updatedMedication) {
                         showMedicationForm(updatedMedication);
                     }
-                    showAlert('Refill saved.', 'success', 'medicationsAlert');
+                    showAlert(refillId ? 'Refill updated.' : 'Refill saved.', 'success', 'medicationsAlert');
                 } else {
-                    showAlert(result.error || 'Failed to save refill.', 'error', 'medicationsAlert');
+                    showAlert(result.error || `Failed to ${refillId ? 'update' : 'save'} refill.`, 'error', 'medicationsAlert');
                 }
             } catch (err) {
-                showAlert('Error saving refill: ' + err.message, 'error', 'medicationsAlert');
+                showAlert(`Error ${refillId ? 'updating' : 'saving'} refill: ` + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
+        function editMedicationRefillEntry(refillId) {
+            openMedicationRefillModal(refillId);
+        }
+
+        async function deleteMedicationRefillEntry(refillId) {
+            const id = document.getElementById('medicationId').value;
+            if (!id || !refillId) {
+                showAlert('Select a saved refill entry before deleting it.', 'error', 'medicationsAlert');
+                return;
+            }
+            if (!confirm('Delete this refill entry?')) return;
+
+            try {
+                const response = await fetch(`/admin/api/house/medications/${id}/refill/${encodeURIComponent(refillId)}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    await loadHouseMedicationsData();
+                    const updatedMedication = houseMedicationsData.find(med => med.id === id) || null;
+                    closeMedicationRefillModal();
+                    if (updatedMedication) {
+                        showMedicationForm(updatedMedication);
+                    }
+                    showAlert('Refill deleted.', 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to delete refill.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error deleting refill: ' + err.message, 'error', 'medicationsAlert');
             }
         }
 
