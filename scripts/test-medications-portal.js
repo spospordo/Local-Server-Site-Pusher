@@ -154,7 +154,7 @@ function run() {
       refillExpiration: '2027-01-31'
     });
     assert.strictEqual(refillSaveResult.success, true, 'saving a refill should succeed');
-    const updatedRefillMedication = house.getMedicationsData().medications.find(entry => entry.id === refillMedication.id);
+    let updatedRefillMedication = house.getMedicationsData().medications.find(entry => entry.id === refillMedication.id);
     assert.strictEqual(updatedRefillMedication.refillDate, yesterday, 'saving a refill should update the current refill date');
     assert.strictEqual(updatedRefillMedication.refillExpiration, '2027-01-31', 'saving a refill should update the current refill expiration');
     assert.strictEqual(updatedRefillMedication.pillCount, 30, 'saving a refill should update the current bottle pill count');
@@ -163,6 +163,39 @@ function run() {
       house.computeMedicationForecast(updatedRefillMedication, { asOfDate: today }).estimatedRemainingPillCount,
       29,
       'forecasting should reset remaining pills from the latest refill bottle'
+    );
+    const savedRefillEntry = updatedRefillMedication.refillHistory.find(entry => entry.refillDate === yesterday && Number(entry.pillCount) === 30);
+    assert.ok(savedRefillEntry, 'saving a refill should persist an identifiable history entry');
+
+    const editedRefillResult = house.updateMedicationRefill(refillMedication.id, savedRefillEntry.id, {
+      refillDate: today,
+      pillCount: 45,
+      refillExpiration: '2027-02-28'
+    });
+    assert.strictEqual(editedRefillResult.success, true, 'editing a refill should succeed');
+    updatedRefillMedication = house.getMedicationsData().medications.find(entry => entry.id === refillMedication.id);
+    assert.strictEqual(updatedRefillMedication.refillDate, today, 'editing a refill should update the active refill date');
+    assert.strictEqual(updatedRefillMedication.refillExpiration, '2027-02-28', 'editing a refill should update the active refill expiration');
+    assert.strictEqual(updatedRefillMedication.pillCount, 45, 'editing a refill should re-apply the bottle pill count');
+    assert.strictEqual(updatedRefillMedication.refillHistory.length, 2, 'editing a refill should update the existing history entry without duplication');
+    assert.strictEqual(
+      house.computeMedicationForecast(updatedRefillMedication, { asOfDate: today }).estimatedRemainingPillCount,
+      45,
+      'editing a refill should refresh remaining-pill forecasts from the edited bottle'
+    );
+    const editedRefillEntry = updatedRefillMedication.refillHistory.find(entry => entry.id === savedRefillEntry.id);
+    assert.ok(editedRefillEntry && editedRefillEntry.refillDate === today, 'editing a refill should retain the refill entry identity while updating the date');
+
+    const deletedRefillResult = house.deleteMedicationRefill(refillMedication.id, savedRefillEntry.id);
+    assert.strictEqual(deletedRefillResult.success, true, 'deleting a refill should succeed');
+    updatedRefillMedication = house.getMedicationsData().medications.find(entry => entry.id === refillMedication.id);
+    assert.strictEqual(updatedRefillMedication.refillHistory.length, 1, 'deleting a refill should remove the selected history entry');
+    assert.strictEqual(updatedRefillMedication.refillDate, getDateOffset(-5), 'deleting a refill should restore the prior refill date when it becomes current again');
+    assert.strictEqual(updatedRefillMedication.pillCount, 10, 'deleting a refill should restore the prior bottle pill count');
+    assert.strictEqual(
+      house.computeMedicationForecast(updatedRefillMedication, { asOfDate: today }).estimatedRemainingPillCount,
+      5,
+      'deleting a refill should recalculate remaining pills from the restored bottle'
     );
     log('✅ Medication refill history resets remaining-pill forecasts from the latest bottle');
 

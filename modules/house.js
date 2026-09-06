@@ -1932,6 +1932,9 @@ function createMedicationRegimenEntry(medication, effectiveDate, overrides = {})
   const normalizedPillCount = pillCountValue === '' || pillCountValue === null || pillCountValue === undefined
     ? null
     : Number(pillCountValue);
+  const refillEntryId = String(
+    overrides.refillEntryId !== undefined ? overrides.refillEntryId : (medication?.refillEntryId || '')
+  ).trim();
   return {
     id: String(overrides.id || generateId()),
     effectiveDate,
@@ -1948,7 +1951,8 @@ function createMedicationRegimenEntry(medication, effectiveDate, overrides = {})
         : (medication?.instructions || '')
     ).trim(),
     pillCount: Number.isFinite(normalizedPillCount) ? normalizedPillCount : null,
-    createdAt
+    createdAt,
+    ...(refillEntryId ? { refillEntryId } : {})
   };
 }
 
@@ -2066,6 +2070,7 @@ function getLatestMedicationRefillEntry(medication, history) {
 function upsertMedicationRefillHistory(existing, medication, options = {}) {
   const requireRefillDate = options.requireRefillDate === true;
   const requirePillCount = options.requirePillCount === true;
+  const refillId = String(options.refillId || medication.refillId || '').trim();
   const refillDateInput = String(medication.refillDate || '').trim().slice(0, 10);
   const pillCountInput = medication.pillCount;
   const refillExpiration = String(medication.refillExpiration || '').trim().slice(0, 10);
@@ -2089,9 +2094,23 @@ function upsertMedicationRefillHistory(existing, medication, options = {}) {
   }
 
   const refillHistory = normalizeMedicationRefillHistory(existing);
-  const matchingEntryIndex = refillHistory.findIndex(entry => entry.refillDate === refillDateInput);
-  const fallbackRefill = matchingEntryIndex >= 0
-    ? refillHistory[matchingEntryIndex]
+  const matchingEntryIndex = refillId
+    ? refillHistory.findIndex(entry => String(entry.id || '').trim() === refillId)
+    : refillHistory.findIndex(entry => entry.refillDate === refillDateInput);
+  if (refillId && matchingEntryIndex === -1) {
+    return { success: false, error: 'Refill not found' };
+  }
+
+  const conflictingEntryIndex = refillHistory.findIndex((entry, index) => (
+    entry.refillDate === refillDateInput && index !== matchingEntryIndex
+  ));
+  if (conflictingEntryIndex >= 0) {
+    return { success: false, error: 'A refill entry already exists for this date' };
+  }
+
+  const previousEntry = matchingEntryIndex >= 0 ? refillHistory[matchingEntryIndex] : null;
+  const fallbackRefill = previousEntry
+    ? previousEntry
     : getMedicationRefillForDate(existing, refillDateInput, refillHistory);
   const nextEntry = createMedicationRefillEntry({
     ...existing,
@@ -2099,8 +2118,8 @@ function upsertMedicationRefillHistory(existing, medication, options = {}) {
   }, refillDateInput, {
     pillCount: normalizedPillCount,
     refillExpiration,
-    id: matchingEntryIndex >= 0 ? refillHistory[matchingEntryIndex].id : generateId(),
-    createdAt: matchingEntryIndex >= 0 ? refillHistory[matchingEntryIndex].createdAt : new Date().toISOString()
+    id: previousEntry ? previousEntry.id : generateId(),
+    createdAt: previousEntry ? previousEntry.createdAt : new Date().toISOString()
   });
 
   if (matchingEntryIndex >= 0) {
@@ -2110,7 +2129,135 @@ function upsertMedicationRefillHistory(existing, medication, options = {}) {
   }
   sortMedicationRefillHistoryEntries(refillHistory);
 
-  return { success: true, refillHistory };
+  return {
+    success: true,
+    refillHistory,
+    refillEntry: nextEntry,
+    previousEntry
+  };
+}
+
+function findMedicationRegimenEntryIndexForRefill(regimenHistory, refillEntry, previousRefillEntry = null) {
+  const refillEntryId = String(refillEntry?.id || '').trim();
+  if (refillEntryId) {
+    const linkedEntryIndex = regimenHistory.findIndex(entry => String(entry?.refillEntryId || '').trim() === refillEntryId);
+    if (linkedEntryIndex >= 0) {
+      return linkedEntryIndex;
+    }
+  }
+
+  if (previousRefillEntry?.refillDate) {
+    const priorDateIndex = regimenHistory.findIndex(entry => String(entry?.effectiveDate || '') === String(previousRefillEntry.refillDate || ''));
+    if (priorDateIndex >= 0) {
+      return priorDateIndex;
+    }
+  }
+
+  return regimenHistory.findIndex(entry => String(entry?.effectiveDate || '') === String(refillEntry?.refillDate || ''));
+}
+
+function medicationRegimenEntriesMatchDetails(left, right) {
+  return normalizeMedicationScheduleFrequency(left?.scheduleFrequency) === normalizeMedicationScheduleFrequency(right?.scheduleFrequency)
+    && normalizeMedicationPillsPerDose(left?.pillsPerDose, 1) === normalizeMedicationPillsPerDose(right?.pillsPerDose, 1)
+    && String(left?.instructions || '').trim() === String(right?.instructions || '').trim();
+}
+
+function upsertMedicationRegimenHistoryForRefill(existing, refillEntry, options = {}) {
+  const previousRefillEntry = options.previousRefillEntry || null;
+  const regimenHistory = Array.isArray(options.regimenHistory)
+    ? options.regimenHistory.map(entry => ({ ...entry }))
+    : normalizeMedicationRegimenHistory(existing);
+  const linkedEntryIndex = findMedicationRegimenEntryIndexForRefill(regimenHistory, refillEntry, previousRefillEntry);
+  const targetDateEntryIndex = regimenHistory.findIndex((entry, index) => (
+    index !== linkedEntryIndex && String(entry?.effectiveDate || '') === String(refillEntry?.refillDate || '')
+  ));
+  const refillEntryId = String(refillEntry?.id || '').trim();
+
+  if (targetDateEntryIndex >= 0) {
+    const targetEntry = regimenHistory[targetDateEntryIndex];
+    regimenHistory[targetDateEntryIndex] = createMedicationRegimenEntry({
+      ...existing,
+      ...targetEntry
+    }, refillEntry.refillDate, {
+      pillCount: refillEntry.pillCount,
+      id: targetEntry.id,
+      createdAt: targetEntry.createdAt,
+      scheduleFrequency: targetEntry.scheduleFrequency,
+      pillsPerDose: targetEntry.pillsPerDose,
+      instructions: targetEntry.instructions,
+      refillEntryId
+    });
+    if (linkedEntryIndex >= 0) {
+      regimenHistory.splice(linkedEntryIndex > targetDateEntryIndex ? linkedEntryIndex : linkedEntryIndex, 1);
+    }
+    sortMedicationRegimenHistoryEntries(regimenHistory);
+    return { success: true, regimenHistory };
+  }
+
+  const matchingEntryIndex = linkedEntryIndex;
+  const fallbackRegimen = matchingEntryIndex >= 0
+    ? regimenHistory[matchingEntryIndex]
+    : getMedicationRegimenForDate(existing, refillEntry.refillDate);
+  const nextEntry = createMedicationRegimenEntry({
+    ...existing,
+    ...fallbackRegimen
+  }, refillEntry.refillDate, {
+    pillCount: refillEntry.pillCount,
+    id: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].id : generateId(),
+    createdAt: matchingEntryIndex >= 0 ? regimenHistory[matchingEntryIndex].createdAt : String(refillEntry.createdAt || new Date().toISOString()),
+    scheduleFrequency: fallbackRegimen?.scheduleFrequency,
+    pillsPerDose: fallbackRegimen?.pillsPerDose,
+    instructions: fallbackRegimen?.instructions,
+    refillEntryId
+  });
+
+  if (matchingEntryIndex >= 0) {
+    regimenHistory[matchingEntryIndex] = nextEntry;
+  } else {
+    regimenHistory.push(nextEntry);
+  }
+  sortMedicationRegimenHistoryEntries(regimenHistory);
+  return { success: true, regimenHistory };
+}
+
+function deleteMedicationRegimenHistoryForRefill(existing, refillEntry, options = {}) {
+  const regimenHistory = Array.isArray(options.regimenHistory)
+    ? options.regimenHistory.map(entry => ({ ...entry }))
+    : normalizeMedicationRegimenHistory(existing);
+  const matchingEntryIndex = findMedicationRegimenEntryIndexForRefill(regimenHistory, refillEntry);
+  if (matchingEntryIndex === -1) {
+    return { success: true, regimenHistory };
+  }
+
+  const matchingEntry = regimenHistory[matchingEntryIndex];
+  const previousEntry = regimenHistory
+    .filter((entry, index) => index !== matchingEntryIndex && String(entry?.effectiveDate || '') < String(matchingEntry?.effectiveDate || ''))
+    .sort((left, right) => {
+      const dateCompare = String(left.effectiveDate || '').localeCompare(String(right.effectiveDate || ''));
+      if (dateCompare !== 0) return dateCompare;
+      return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
+    })
+    .pop() || null;
+
+  if (!medicationRegimenEntriesMatchDetails(matchingEntry, previousEntry)) {
+    regimenHistory[matchingEntryIndex] = createMedicationRegimenEntry({
+      ...existing,
+      ...matchingEntry
+    }, matchingEntry.effectiveDate, {
+      id: matchingEntry.id,
+      createdAt: matchingEntry.createdAt,
+      scheduleFrequency: matchingEntry.scheduleFrequency,
+      pillsPerDose: matchingEntry.pillsPerDose,
+      instructions: matchingEntry.instructions,
+      pillCount: previousEntry?.pillCount ?? null,
+      refillEntryId: ''
+    });
+  } else {
+    regimenHistory.splice(matchingEntryIndex, 1);
+  }
+
+  sortMedicationRegimenHistoryEntries(regimenHistory);
+  return { success: true, regimenHistory };
 }
 
 function getMedicationRegimenForDateFromHistory(medication, date, history) {
@@ -2377,7 +2524,17 @@ function saveMedicationRegimen(id, medication) {
   return saveMedicationWithRegimenHistory(medsData, index, existing, {}, regimenResult.regimenHistory);
 }
 
-function saveMedicationRefill(id, medication) {
+function getMedicationSavedRefillEntry(existing, refillHistory) {
+  return getMedicationRefillForDate({
+    ...existing,
+    refillHistory
+  }, getMedicationTodayDate(), refillHistory) || getLatestMedicationRefillEntry({
+    ...existing,
+    refillHistory
+  }, refillHistory);
+}
+
+function saveMedicationRefill(id, medication, options = {}) {
   const medsData = getMedicationsData();
   const index = medsData.medications.findIndex(m => m.id === id);
   if (index === -1) {
@@ -2387,34 +2544,59 @@ function saveMedicationRefill(id, medication) {
   const existing = medsData.medications[index];
   const refillResult = upsertMedicationRefillHistory(existing, medication, {
     requireRefillDate: true,
-    requirePillCount: true
+    requirePillCount: true,
+    refillId: options.refillId
   });
   if (!refillResult.success) {
     return refillResult;
   }
 
-  const regimenResult = upsertMedicationRegimenHistory(existing, {
-    pillCount: medication.pillCount,
-    regimenEffectiveDate: medication.refillDate
-  }, {
-    defaultEffectiveDate: medication.refillDate
+  const regimenResult = upsertMedicationRegimenHistoryForRefill(existing, refillResult.refillEntry, {
+    previousRefillEntry: refillResult.previousEntry
   });
   if (!regimenResult.success) {
     return regimenResult;
   }
 
-  const refillEntry = getMedicationRefillForDate({
-    ...existing,
-    refillHistory: refillResult.refillHistory
-  }, getMedicationTodayDate(), refillResult.refillHistory) || getLatestMedicationRefillEntry({
-    ...existing,
-    refillHistory: refillResult.refillHistory
-  }, refillResult.refillHistory);
+  const refillEntry = getMedicationSavedRefillEntry(existing, refillResult.refillHistory);
 
   return saveMedicationWithRegimenHistory(medsData, index, existing, {
     refillDate: refillEntry?.refillDate || existing.refillDate || '',
     refillExpiration: refillEntry?.refillExpiration || '',
     refillHistory: refillResult.refillHistory
+  }, regimenResult.regimenHistory);
+}
+
+function updateMedicationRefill(id, refillId, medication) {
+  return saveMedicationRefill(id, medication, { refillId });
+}
+
+function deleteMedicationRefill(id, refillId) {
+  const medsData = getMedicationsData();
+  const index = medsData.medications.findIndex(m => m.id === id);
+  if (index === -1) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const existing = medsData.medications[index];
+  const refillHistory = normalizeMedicationRefillHistory(existing);
+  const refillIndex = refillHistory.findIndex(entry => String(entry?.id || '').trim() === String(refillId || '').trim());
+  if (refillIndex === -1) {
+    return { success: false, error: 'Refill not found' };
+  }
+
+  const [deletedRefill] = refillHistory.splice(refillIndex, 1);
+  const regimenResult = deleteMedicationRegimenHistoryForRefill(existing, deletedRefill);
+  if (!regimenResult.success) {
+    return regimenResult;
+  }
+
+  const refillEntry = getMedicationSavedRefillEntry(existing, refillHistory);
+
+  return saveMedicationWithRegimenHistory(medsData, index, existing, {
+    refillDate: refillEntry?.refillDate || '',
+    refillExpiration: refillEntry?.refillExpiration || '',
+    refillHistory
   }, regimenResult.regimenHistory);
 }
 
@@ -2944,6 +3126,8 @@ module.exports = {
   updateMedication,
   saveMedicationRegimen,
   saveMedicationRefill,
+  updateMedicationRefill,
+  deleteMedicationRefill,
   deleteMedication,
   getMedicationPortalUsers,
   getMedicationPortalUserById,

@@ -11841,6 +11841,34 @@ app.put('/admin/api/house/medications/:id/refill', requireAuth, (req, res) => {
   }
 });
 
+// Update a medication refill entry
+app.put('/admin/api/house/medications/:id/refill/:refillId', requireAuth, (req, res) => {
+  try {
+    const result = house.updateMedicationRefill(req.params.id, req.params.refillId, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Refill updated successfully' });
+    } else {
+      res.status(['Medication not found', 'Refill not found'].includes(result.error) ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update refill: ' + err.message });
+  }
+});
+
+// Delete a medication refill entry
+app.delete('/admin/api/house/medications/:id/refill/:refillId', requireAuth, (req, res) => {
+  try {
+    const result = house.deleteMedicationRefill(req.params.id, req.params.refillId);
+    if (result.success) {
+      res.json({ success: true, message: 'Refill deleted successfully' });
+    } else {
+      res.status(['Medication not found', 'Refill not found'].includes(result.error) ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete refill: ' + err.message });
+  }
+});
+
 // Delete a medication
 app.delete('/admin/api/house/medications/:id', requireAuth, (req, res) => {
   try {
