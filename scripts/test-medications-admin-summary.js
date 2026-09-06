@@ -453,6 +453,83 @@ async function run() {
       'admin medication saves should persist the future-dated regimen change in regimen history'
     );
 
+    const createMedicationResponse = await requestJson(adminJar, 'POST', '/admin/api/house/medications', {
+      name: 'API Created Med',
+      description: 'Created through save medication',
+      usage: 'Create workflow coverage',
+      instructions: 'Take 1 pill once daily',
+      scheduleFrequency: 'daily',
+      pillsPerDose: 1,
+      refillDate: today,
+      pillCount: 14,
+      refillExpiration: '2027-02-28',
+      alertThresholdDays: 2
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(createMedicationResponse.statusCode, 200, `save medication should create a new medication: ${createMedicationResponse.body}`);
+    assert.strictEqual(createMedicationResponse.json.success, true, 'create medication API should report success');
+
+    const summaryAfterCreateResponse = await requestJson(adminJar, 'GET', '/admin/api/house/medications', undefined, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(summaryAfterCreateResponse.statusCode, 200, `summary should reload after creating a medication: ${summaryAfterCreateResponse.body}`);
+    const createdMedicationSummary = summaryAfterCreateResponse.json.medications.find(medication => medication.name === 'API Created Med');
+    assert.ok(createdMedicationSummary, 'newly created medications should appear in the admin medications payload');
+    assert.strictEqual(createdMedicationSummary.pillCount, 14, 'create workflow should persist the initial bottle pill count');
+    assert.strictEqual(createdMedicationSummary.refillDate, today, 'create workflow should persist the initial refill date');
+    assert.strictEqual(createdMedicationSummary.refillExpiration, '2027-02-28', 'create workflow should persist the initial refill expiration');
+    assert.strictEqual(createdMedicationSummary.regimenHistory.length, 1, 'create workflow should seed regimen history');
+    assert.strictEqual(createdMedicationSummary.refillHistory.length, 1, 'create workflow should seed refill history');
+
+    const editMedicationResponse = await requestJson(adminJar, 'PUT', `/admin/api/house/medications/${createdMedicationSummary.id}`, {
+      name: 'API Created Med Updated',
+      description: 'Updated through save medication',
+      usage: 'Edit workflow coverage',
+      alertThresholdDays: 4,
+      asNeeded: true
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(editMedicationResponse.statusCode, 200, `save medication should update an existing medication: ${editMedicationResponse.body}`);
+    assert.strictEqual(editMedicationResponse.json.success, true, 'edit medication API should report success');
+
+    const refillSaveResponse = await requestJson(adminJar, 'PUT', `/admin/api/house/medications/${morningMed.id}/refill`, {
+      refillDate: today,
+      pillCount: 40,
+      refillExpiration: '2027-01-31'
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(refillSaveResponse.statusCode, 200, `refill saves should succeed for existing medications: ${refillSaveResponse.body}`);
+    assert.strictEqual(refillSaveResponse.json.success, true, 'refill API should report success');
+
+    const summaryAfterRefillResponse = await requestJson(adminJar, 'GET', '/admin/api/house/medications', undefined, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(summaryAfterRefillResponse.statusCode, 200, `summary should reload after edit and refill saves: ${summaryAfterRefillResponse.body}`);
+    const updatedSummaryPayload = summaryAfterRefillResponse.json;
+    const updatedCreatedMedicationSummary = updatedSummaryPayload.medications.find(medication => medication.id === createdMedicationSummary.id);
+    assert.ok(updatedCreatedMedicationSummary, 'edited medications should remain in the summary payload');
+    assert.strictEqual(updatedCreatedMedicationSummary.name, 'API Created Med Updated', 'edit workflow should persist updated medication names');
+    assert.strictEqual(updatedCreatedMedicationSummary.description, 'Updated through save medication', 'edit workflow should persist updated medication descriptions');
+    assert.strictEqual(updatedCreatedMedicationSummary.usage, 'Edit workflow coverage', 'edit workflow should persist updated medication usage');
+    assert.strictEqual(updatedCreatedMedicationSummary.alertThresholdDays, 4, 'edit workflow should persist updated alert thresholds');
+    assert.strictEqual(updatedCreatedMedicationSummary.asNeeded, true, 'edit workflow should persist updated as-needed state');
+    assert.strictEqual(updatedCreatedMedicationSummary.refillHistory.length, 1, 'editing an existing medication should not behave like the create flow or duplicate refill history');
+
+    const morningMedicationAfterRefill = updatedSummaryPayload.medications.find(medication => medication.id === morningMed.id);
+    assert.ok(morningMedicationAfterRefill, 'refilled medication should remain in the summary payload');
+    assert.strictEqual(morningMedicationAfterRefill.pillCount, 40, 'refill saves should reset the current bottle pill count');
+    assert.strictEqual(morningMedicationAfterRefill.refillDate, today, 'refill saves should persist the new refill date');
+    assert.strictEqual(morningMedicationAfterRefill.refillExpiration, '2027-01-31', 'refill saves should persist the refill expiration');
+    assert.strictEqual(morningMedicationAfterRefill.refillHistory.length, 2, 'refill saves should append a dated refill history entry');
+    assert.strictEqual(morningMedicationAfterRefill.estimatedRemainingPillCount, 40, 'remaining-pill forecasting should reset from the latest refill bottle count');
+    assert.ok(
+      morningMedicationAfterRefill.refillHistory.some(entry => entry.refillDate === today && Number(entry.pillCount) === 40),
+      'refill saves should store the new bottle details in refill history'
+    );
+
     const casey = summaryPayload.portalUsers.find(user => user.username === 'Casey');
     const morgan = summaryPayload.portalUsers.find(user => user.username === 'Morgan');
     assert.ok(casey && morgan, 'portal users should be returned in the summary payload');
@@ -556,8 +633,9 @@ async function run() {
     assert.ok(vitaminRow && vitaminRow.textContent.includes('Take before bed'), 'admin medications table should surface saved future regimen instructions after refresh');
     assert.ok(highlightedRow && String(highlightedRow.getAttribute('style') || '').includes('#fff8e1'), 'admin medications table should visually highlight low-supply medications');
     assert.ok(adminDashboardHtml.includes('Save Regimen Change'), 'admin medication form should include a dedicated save regimen button');
+    assert.ok(adminDashboardHtml.includes('Add Refill'), 'admin medication form should include a dedicated add refill button');
 
-    const editDom = new JSDOM(`
+    const medicationFormDomHtml = `
       <!DOCTYPE html>
       <div id="medicationFormContainer" style="display:none;"></div>
       <h3 id="medicationFormTitle"></h3>
@@ -580,11 +658,81 @@ async function run() {
       <input id="medicationAlertThresholdDays">
       <input id="medicationRegimenEffectiveDate">
       <input id="medicationAsNeeded" type="checkbox">
+      <div id="medicationRefillHistory"></div>
       <div id="medicationRegimenHistory"></div>
+      <button id="saveMedicationRefillButton" style="display:none;"></button>
       <button id="saveMedicationRegimenButton" style="display:none;"></button>
+      <div id="medicationRefillActionHint" style="display:none;"></div>
       <div id="medicationRegimenActionHint" style="display:none;"></div>
       <div id="medicationsAlert" class="alert" style="display:none;"></div>
-    `, {
+    `;
+
+    const createDom = new JSDOM(medicationFormDomHtml, {
+      url: 'http://localhost/admin',
+      runScripts: 'dangerously',
+      pretendToBeVisual: true
+    });
+    createDom.window.eval(`
+      ${extractFunctionSource(adminDashboardHtml, 'function escapeHtml(text)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function showAlert(message, type, containerId)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenSummary(regimen)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRegimenHistory(history)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getCurrentMedicationRegimenEntry(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRefillHistory(history)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getCurrentMedicationRefillEntry(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenChangeDetails(regimen)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRegimenHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationDetailsPayload()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationPayload()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRegimenPayload()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRefillPayload()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationFormPillCount(value)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRegimenFormChanges()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRefillFormChanges()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function showMedicationForm(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationForm(event)')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationRefill()')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationRegimenChange()')}
+      var currentMedicationFormSnapshot = null;
+      var houseMedicationsData = [];
+      window.loadCalls = 0;
+      window.hideCalls = 0;
+      async function loadHouseMedicationsData() { window.loadCalls += 1; }
+      function hideMedicationForm() { window.hideCalls += 1; }
+      window.fetchCalls = [];
+      window.fetch = async (url, options = {}) => {
+        window.fetchCalls.push({ url, options });
+        return {
+          ok: true,
+          json: async () => ({ success: true })
+        };
+      };
+    `);
+    createDom.window.document.getElementById('medicationName').value = 'Create DOM Med';
+    createDom.window.document.getElementById('medicationDescription').value = 'Created in DOM';
+    createDom.window.document.getElementById('medicationUsage').value = 'Create flow';
+    createDom.window.document.getElementById('medicationInstructions').value = 'Take 1 pill once daily';
+    createDom.window.document.getElementById('medicationScheduleFrequency').value = 'daily';
+    createDom.window.document.getElementById('medicationPillsPerDose').value = '1';
+    createDom.window.document.getElementById('medicationRefillDate').value = today;
+    createDom.window.document.getElementById('medicationPillCount').value = '21';
+    createDom.window.document.getElementById('medicationRefillExpiration').value = '2027-03-31';
+    createDom.window.document.getElementById('medicationAlertThresholdDays').value = '5';
+    await createDom.window.saveMedicationForm({ preventDefault() {} });
+    assert.strictEqual(createDom.window.fetchCalls.length, 1, 'save medication should submit the create workflow');
+    assert.strictEqual(createDom.window.fetchCalls[0].url, '/admin/api/house/medications', 'create workflow should post to the create medication route');
+    assert.strictEqual(createDom.window.fetchCalls[0].options.method, 'POST', 'create workflow should use POST');
+    const createRequestBody = JSON.parse(createDom.window.fetchCalls[0].options.body);
+    assert.strictEqual(createRequestBody.refillDate, today, 'create workflow should include the initial refill date');
+    assert.strictEqual(createRequestBody.pillCount, '21', 'create workflow should include the initial bottle pill count');
+    assert.strictEqual(createRequestBody.scheduleFrequency, 'daily', 'create workflow should include regimen data for new medications');
+    assert.strictEqual(createDom.window.loadCalls, 1, 'successful create saves should reload medication data');
+    assert.strictEqual(createDom.window.hideCalls, 1, 'successful create saves should hide the form');
+
+    const editDom = new JSDOM(medicationFormDomHtml, {
       url: 'http://localhost/admin',
       runScripts: 'dangerously',
       pretendToBeVisual: true
@@ -595,26 +743,43 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenSummary(regimen)')}
       ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRegimenHistory(history)')}
       ${extractFunctionSource(adminDashboardHtml, 'function getCurrentMedicationRegimenEntry(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function sortMedicationRefillHistory(history)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getCurrentMedicationRefillEntry(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenChangeDetails(regimen)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRegimenHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationDetailsPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRegimenPayload()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRefillPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationFormPillCount(value)')}
       ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRegimenFormChanges()')}
+      ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRefillFormChanges()')}
       ${extractFunctionSource(adminDashboardHtml, 'function showMedicationForm(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationForm(event)')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationRefill()')}
       ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationRegimenChange()')}
       var currentMedicationFormSnapshot = null;
       var houseMedicationsData = [];
-      async function loadHouseMedicationsData() {}
-      function hideMedicationForm() {}
+      window.loadCalls = 0;
+      window.hideCalls = 0;
+      window.fetchMode = 'success';
+      async function loadHouseMedicationsData() { window.loadCalls += 1; }
+      function hideMedicationForm() { window.hideCalls += 1; }
       window.fetchCalls = [];
       window.fetch = async (url, options = {}) => {
         window.fetchCalls.push({ url, options });
+        if (window.fetchMode === 'error') {
+          return {
+            ok: false,
+            json: async () => ({ error: 'A valid regimen effective date is required' })
+          };
+        }
         return {
-          ok: false,
-          json: async () => ({ error: 'A valid regimen effective date is required' })
+          ok: true,
+          json: async () => ({ success: true })
         };
       };
     `);
@@ -624,24 +789,61 @@ async function run() {
     assert.strictEqual(editDom.window.document.getElementById('medicationPillCount').value, '18', 'edit form should retain the saved pill count after refresh');
     assert.strictEqual(editDom.window.document.getElementById('medicationScheduleFrequency').value, 'twice daily', 'edit form should preload the latest saved regimen frequency');
     assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
+    assert.strictEqual(editDom.window.document.getElementById('saveMedicationRefillButton').style.display, 'inline-flex', 'edit form should expose the dedicated refill save button for existing medications');
     assert.strictEqual(editDom.window.document.getElementById('saveMedicationRegimenButton').style.display, 'inline-flex', 'edit form should expose the dedicated regimen save button for existing medications');
+    assert.ok(editDom.window.document.getElementById('medicationRefillActionHint').textContent.includes('Add Refill'), 'edit form should explain the dedicated refill workflow');
     assert.ok(editDom.window.document.getElementById('medicationRegimenActionHint').textContent.includes('Save Regimen Change'), 'edit form should explain the separate regimen workflow');
+    assert.ok(editDom.window.document.getElementById('medicationRefillHistory').textContent.includes(today), 'edit form should show the saved refill history');
     assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes(adminPastRegimenSaveDate), 'edit form should show the persisted past-dated effective date in regimen history');
     assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes(adminFutureRegimenSaveDate), 'edit form should show the persisted future-dated effective date in regimen history');
     assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes('Current'), 'edit form should label the current effective regimen');
     assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes('Upcoming'), 'edit form should label upcoming regimen changes');
 
+    editDom.window.fetchCalls.length = 0;
+    editDom.window.document.getElementById('medicationDescription').value = 'Updated through the edit DOM';
+    await editDom.window.saveMedicationForm({ preventDefault() {} });
+    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'save medication should submit detail-only edits for existing medications');
+    assert.strictEqual(editDom.window.fetchCalls[0].url, `/admin/api/house/medications/${vitamin.id}`, 'edit workflow should submit to the medication update route');
+    assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'PUT', 'edit workflow should use PUT');
+    const editRequestBody = JSON.parse(editDom.window.fetchCalls[0].options.body);
+    assert.strictEqual(editRequestBody.description, 'Updated through the edit DOM', 'edit workflow should submit changed medication details');
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(editRequestBody, 'scheduleFrequency'), false, 'edit workflow should not submit regimen fields through the medication save route');
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(editRequestBody, 'refillDate'), false, 'edit workflow should not submit refill fields through the medication save route');
+    assert.strictEqual(editDom.window.loadCalls, 1, 'successful edit saves should reload medication data');
+    assert.strictEqual(editDom.window.hideCalls, 1, 'successful edit saves should hide the form');
+
+    editDom.window.fetchCalls.length = 0;
+    editDom.window.showMedicationForm(vitaminMedicationSummary);
+    editDom.window.document.getElementById('medicationRefillDate').value = adminFutureRegimenSaveDate;
+    editDom.window.document.getElementById('medicationPillCount').value = '30';
+    await editDom.window.saveMedicationForm({ preventDefault() {} });
+    assert.strictEqual(editDom.window.fetchCalls.length, 0, 'save medication should not submit refill edits through the medication route');
+    assert.ok(editDom.window.document.getElementById('medicationsAlert').textContent.includes('Use Add Refill'), 'save medication should direct admins to the dedicated refill action when refill fields changed');
+
+    editDom.window.fetchCalls.length = 0;
+    await editDom.window.saveMedicationRefill();
+    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'add refill should submit through the refill route');
+    assert.strictEqual(editDom.window.fetchCalls[0].url, `/admin/api/house/medications/${vitamin.id}/refill`, 'add refill should use the dedicated refill route');
+    assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'PUT', 'add refill should use PUT');
+    const refillRequestBody = JSON.parse(editDom.window.fetchCalls[0].options.body);
+    assert.strictEqual(refillRequestBody.refillDate, adminFutureRegimenSaveDate, 'add refill should include the refill date');
+    assert.strictEqual(refillRequestBody.pillCount, '30', 'add refill should include the new bottle pill count');
+
     editDom.window.document.getElementById('medicationScheduleFrequency').value = 'three times daily';
     editDom.window.document.getElementById('medicationPillsPerDose').value = '2';
+    editDom.window.fetchCalls.length = 0;
     await editDom.window.saveMedicationForm({ preventDefault() {} });
     assert.strictEqual(editDom.window.fetchCalls.length, 0, 'save medication should not submit regimen edits through the medication route');
     assert.ok(editDom.window.document.getElementById('medicationsAlert').textContent.includes('Use Save Regimen Change'), 'save medication should direct admins to the dedicated regimen action when regimen fields changed');
 
     editDom.window.document.getElementById('medicationRegimenEffectiveDate').value = '';
+    editDom.window.fetchMode = 'error';
+    editDom.window.fetchCalls.length = 0;
     await editDom.window.saveMedicationRegimenChange();
     assert.strictEqual(editDom.window.fetchCalls.length, 0, 'regimen saves should require an effective date before issuing a request');
     assert.ok(editDom.window.document.getElementById('medicationsAlert').textContent.includes('Regimen effective date is required'), 'missing regimen effective dates should show a visible validation alert');
 
+    createDom.window.close();
     editDom.window.close();
     medicationsDom.window.close();
     dom.window.close();
