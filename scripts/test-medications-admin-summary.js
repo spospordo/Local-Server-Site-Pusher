@@ -741,6 +741,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function setMedicationEditReadOnlyState(inputId, isReadOnly)')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationDetailsPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRegimenPayload()')}
@@ -753,6 +754,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, "function openMedicationRefillModal(refillId = '')")}
       ${extractFunctionSource(adminDashboardHtml, 'function closeMedicationRefillModal()')}
       ${extractFunctionSource(adminDashboardHtml, 'function showMedicationForm(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function hideMedicationForm()')}
       ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationForm(event)')}
       ${extractFunctionSource(adminDashboardHtml, 'function saveMedicationRefill()')}
       ${extractFunctionSource(adminDashboardHtml, 'async function submitMedicationRefillModal()')}
@@ -763,9 +765,7 @@ async function run() {
       var currentMedicationRefillModalState = null;
       var houseMedicationsData = [];
       window.loadCalls = 0;
-      window.hideCalls = 0;
       async function loadHouseMedicationsData() { window.loadCalls += 1; }
-      function hideMedicationForm() { window.hideCalls += 1; }
       window.fetchCalls = [];
       window.confirm = () => true;
       window.fetch = async (url, options = {}) => {
@@ -776,6 +776,7 @@ async function run() {
         };
       };
     `);
+    createDom.window.showMedicationForm();
     createDom.window.document.getElementById('medicationName').value = 'Create DOM Med';
     createDom.window.document.getElementById('medicationDescription').value = 'Created in DOM';
     createDom.window.document.getElementById('medicationUsage').value = 'Create flow';
@@ -795,7 +796,7 @@ async function run() {
     assert.strictEqual(createRequestBody.pillCount, '21', 'create workflow should include the initial bottle pill count');
     assert.strictEqual(createRequestBody.scheduleFrequency, 'daily', 'create workflow should include regimen data for new medications');
     assert.strictEqual(createDom.window.loadCalls, 1, 'successful create saves should reload medication data');
-    assert.strictEqual(createDom.window.hideCalls, 1, 'successful create saves should hide the form');
+    assert.strictEqual(createDom.window.document.getElementById('medicationFormContainer').style.display, 'none', 'successful create saves should hide the form');
 
     const editDom = new JSDOM(medicationFormDomHtml, {
       url: 'http://localhost/admin',
@@ -815,6 +816,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function setMedicationEditReadOnlyState(inputId, isReadOnly)')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationDetailsPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormMedicationPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationFormRegimenPayload()')}
@@ -827,6 +829,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, "function openMedicationRefillModal(refillId = '')")}
       ${extractFunctionSource(adminDashboardHtml, 'function closeMedicationRefillModal()')}
       ${extractFunctionSource(adminDashboardHtml, 'function showMedicationForm(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function hideMedicationForm()')}
       ${extractFunctionSource(adminDashboardHtml, 'async function saveMedicationForm(event)')}
       ${extractFunctionSource(adminDashboardHtml, 'function saveMedicationRefill()')}
       ${extractFunctionSource(adminDashboardHtml, 'async function submitMedicationRefillModal()')}
@@ -837,10 +840,8 @@ async function run() {
       var currentMedicationRefillModalState = null;
       var houseMedicationsData = [];
       window.loadCalls = 0;
-      window.hideCalls = 0;
       window.fetchMode = 'success';
       async function loadHouseMedicationsData() { window.loadCalls += 1; }
-      function hideMedicationForm() { window.hideCalls += 1; }
       window.fetchCalls = [];
       window.confirm = () => true;
       window.fetch = async (url, options = {}) => {
@@ -865,10 +866,13 @@ async function run() {
     assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillDate').readOnly, true, 'edit form should keep refill date changes inside the refill modal');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillExpiration').readOnly, true, 'edit form should keep refill expiration changes inside the refill modal');
+    assert.strictEqual(editDom.window.document.getElementById('medicationRefillDate').disabled, true, 'edit form should visibly disable refill date editing in the main form');
+    assert.strictEqual(editDom.window.document.getElementById('medicationRefillExpiration').disabled, true, 'edit form should visibly disable refill expiration editing in the main form');
     assert.strictEqual(editDom.window.document.getElementById('saveMedicationRefillButton').style.display, 'inline-flex', 'edit form should expose the dedicated refill save button for existing medications');
     assert.strictEqual(editDom.window.document.getElementById('saveMedicationRegimenButton').style.display, 'inline-flex', 'edit form should expose the dedicated regimen save button for existing medications');
     assert.ok(editDom.window.document.getElementById('medicationRefillActionHint').textContent.includes('refill modal'), 'edit form should explain the dedicated refill modal workflow');
-    assert.ok(editDom.window.document.getElementById('medicationRegimenActionHint').textContent.includes('Save Regimen Change'), 'edit form should explain the separate regimen workflow');
+    assert.ok(editDom.window.document.getElementById('medicationRegimenActionHint').textContent.includes('Save Medication updates the editable regimen'), 'edit form should explain that medication saves persist editable regimen fields');
+    assert.ok(editDom.window.document.getElementById('medicationRegimenActionHint').textContent.includes('Save Regimen Change'), 'edit form should explain the optional separate regimen workflow');
     assert.ok(editDom.window.document.getElementById('medicationRefillHistory').textContent.includes(today), 'edit form should show the saved refill history');
     assert.ok(editDom.window.document.getElementById('medicationRefillHistory').textContent.includes('Edit'), 'edit form should render refill entry edit controls');
     assert.ok(editDom.window.document.getElementById('medicationRefillHistory').textContent.includes('Delete'), 'edit form should render refill entry delete controls');
@@ -878,17 +882,33 @@ async function run() {
     assert.ok(editDom.window.document.getElementById('medicationRegimenHistory').textContent.includes('Upcoming'), 'edit form should label upcoming regimen changes');
 
     editDom.window.fetchCalls.length = 0;
+    editDom.window.document.getElementById('medicationName').value = 'Vitamin D Updated in Edit Form';
     editDom.window.document.getElementById('medicationDescription').value = 'Updated through the edit DOM';
+    editDom.window.document.getElementById('medicationUsage').value = 'Updated edit DOM usage';
+    editDom.window.document.getElementById('medicationInstructions').value = 'Take with breakfast';
+    editDom.window.document.getElementById('medicationScheduleFrequency').value = 'daily';
+    editDom.window.document.getElementById('medicationPillsPerDose').value = '2';
+    editDom.window.document.getElementById('medicationPillCount').value = '30';
+    editDom.window.document.getElementById('medicationAlertThresholdDays').value = '6';
+    editDom.window.document.getElementById('medicationAsNeeded').checked = true;
     await editDom.window.saveMedicationForm({ preventDefault() {} });
-    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'save medication should submit detail-only edits for existing medications');
+    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'save medication should submit editable field changes for existing medications');
     assert.strictEqual(editDom.window.fetchCalls[0].url, `/admin/api/house/medications/${vitamin.id}`, 'edit workflow should submit to the medication update route');
     assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'PUT', 'edit workflow should use PUT');
     const editRequestBody = JSON.parse(editDom.window.fetchCalls[0].options.body);
+    assert.strictEqual(editRequestBody.name, 'Vitamin D Updated in Edit Form', 'edit workflow should submit updated medication names');
     assert.strictEqual(editRequestBody.description, 'Updated through the edit DOM', 'edit workflow should submit changed medication details');
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(editRequestBody, 'scheduleFrequency'), false, 'edit workflow should not submit regimen fields through the medication save route');
+    assert.strictEqual(editRequestBody.usage, 'Updated edit DOM usage', 'edit workflow should submit updated medication usage');
+    assert.strictEqual(editRequestBody.instructions, 'Take with breakfast', 'edit workflow should submit updated regimen instructions');
+    assert.strictEqual(editRequestBody.scheduleFrequency, 'daily', 'edit workflow should submit updated regimen frequency');
+    assert.strictEqual(editRequestBody.pillsPerDose, '2', 'edit workflow should submit updated pills per dose');
+    assert.strictEqual(editRequestBody.pillCount, '30', 'edit workflow should submit updated regimen pill counts');
+    assert.strictEqual(editRequestBody.alertThresholdDays, '6', 'edit workflow should submit updated medication alert thresholds');
+    assert.strictEqual(editRequestBody.asNeeded, true, 'edit workflow should submit updated as-needed state');
     assert.strictEqual(Object.prototype.hasOwnProperty.call(editRequestBody, 'refillDate'), false, 'edit workflow should not submit refill fields through the medication save route');
     assert.strictEqual(editDom.window.loadCalls, 1, 'successful edit saves should reload medication data');
-    assert.strictEqual(editDom.window.hideCalls, 1, 'successful edit saves should hide the form');
+    assert.strictEqual(editDom.window.document.getElementById('medicationFormContainer').style.display, 'none', 'successful edit saves should close the edit form and return to the medications list');
+    assert.strictEqual(editDom.window.document.getElementById('medicationId').value, '', 'successful edit saves should clear edit mode state');
 
     editDom.window.fetchCalls.length = 0;
     editDom.window.showMedicationForm(vitaminMedicationSummary);
@@ -935,12 +955,21 @@ async function run() {
     assert.strictEqual(editDom.window.fetchCalls[0].url, `/admin/api/house/medications/${vitamin.id}/refill/${existingRefillId}`, 'deleting a refill should use the dedicated refill delete route');
     assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'DELETE', 'deleting a refill should use DELETE');
 
+    editDom.window.showMedicationForm(vitaminMedicationSummary);
+    editDom.window.document.getElementById('medicationInstructions').value = 'Take before lunch';
+    editDom.window.document.getElementById('medicationScheduleFrequency').value = 'daily';
+    editDom.window.document.getElementById('medicationPillsPerDose').value = '3';
     editDom.window.document.getElementById('medicationPillCount').value = '30';
     editDom.window.fetchCalls.length = 0;
     await editDom.window.saveMedicationForm({ preventDefault() {} });
-    assert.strictEqual(editDom.window.fetchCalls.length, 0, 'save medication should not submit regimen edits through the medication route');
-    assert.ok(editDom.window.document.getElementById('medicationsAlert').textContent.includes('Use Save Regimen Change'), 'save medication should direct admins to the dedicated regimen action when regimen fields changed');
+    assert.strictEqual(editDom.window.fetchCalls.length, 1, 'save medication should submit editable regimen updates through the medication route');
+    const regimenEditRequestBody = JSON.parse(editDom.window.fetchCalls[0].options.body);
+    assert.strictEqual(regimenEditRequestBody.instructions, 'Take before lunch', 'save medication should persist regimen instruction edits');
+    assert.strictEqual(regimenEditRequestBody.scheduleFrequency, 'daily', 'save medication should persist regimen frequency edits');
+    assert.strictEqual(regimenEditRequestBody.pillsPerDose, '3', 'save medication should persist regimen pills-per-dose edits');
+    assert.strictEqual(regimenEditRequestBody.pillCount, '30', 'save medication should persist regimen pill-count edits');
 
+    editDom.window.showMedicationForm(vitaminMedicationSummary);
     editDom.window.document.getElementById('medicationRegimenEffectiveDate').value = '';
     editDom.window.fetchMode = 'error';
     editDom.window.fetchCalls.length = 0;
