@@ -4543,9 +4543,9 @@
                         <div style="margin: 0.25rem 0 0.75rem; padding: 0.75rem; background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 6px;">
                             <div style="font-weight: 600; color: #1d4f91;">Medication details vs. regimen changes</div>
                             <div style="margin-top: 0.35rem; color: #345; font-size: 0.92rem;">
-                                Use <strong>Save Medication</strong> for medication details like name, description, usage, and alert settings.
+                                Use <strong>Save Medication</strong> for medication details like name, description, usage, alert settings, and the editable regimen values shown here.
                                 Use <strong>Add Refill</strong> to open the refill modal for adding, editing, or deleting bottle history.
-                                Use <strong>Save Regimen Change</strong> to create a dated change for instructions, frequency, or pills per dose.
+                                Use <strong>Save Regimen Change</strong> when you want to record a separate dated regimen update without leaving this edit view.
                             </div>
                         </div>
                         <div class="form-row">
@@ -4571,7 +4571,7 @@
                             <div class="form-group" style="max-width: 220px;">
                                 <label for="medicationRegimenEffectiveDate">Regimen change effective date</label>
                                 <input type="date" id="medicationRegimenEffectiveDate">
-                                <small style="color: #666;">When editing frequency or pills per dose, leave blank to apply starting today.</small>
+                                <small style="color: #666;">Leave blank to update the current regimen today, or set a date to save a dated regimen change.</small>
                             </div>
                             <div class="form-group">
                                 <label>Regimen history</label>
@@ -4583,18 +4583,18 @@
                         <div class="form-group">
                             <label for="medicationInstructions">Instructions</label>
                             <input type="text" id="medicationInstructions" placeholder="e.g., Take 1 pill once daily" title="Human-readable instructions displayed to the user">
-                            <small style="color: #666;">Human-readable instructions for display only.</small>
+                            <small style="color: #666;">Saved with regimen updates and shown in medication views.</small>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="medicationRefillDate">Current Refill Date</label>
                                 <input type="date" id="medicationRefillDate">
-                                <small style="color: #666;">Existing medications manage refill history from the refill modal.</small>
+                                <small style="color: #666;">Read-only in edit mode; use Add Refill to update bottle history.</small>
                             </div>
                             <div class="form-group">
                                 <label for="medicationRefillExpiration">Current Refill Expiration</label>
                                 <input type="date" id="medicationRefillExpiration">
-                                <small style="color: #666;">Shown for reference after refill updates.</small>
+                                <small style="color: #666;">Read-only in edit mode and updated from refill history.</small>
                             </div>
                         </div>
                         <div class="form-group">
@@ -29976,7 +29976,7 @@
             if (med && med.id) {
                 button.style.display = 'inline-flex';
                 hint.style.display = 'block';
-                hint.textContent = 'Editing regimen history? Choose an effective date, then use Save Regimen Change.';
+                hint.textContent = 'Save Medication updates the editable regimen shown here. Choose an effective date, then use Save Regimen Change to add a separate dated entry without leaving this view.';
             } else {
                 button.style.display = 'none';
                 hint.style.display = 'block';
@@ -29998,6 +29998,17 @@
                 hint.style.display = 'block';
                 hint.textContent = 'New medications can include the initial bottle when you save them.';
             }
+        }
+
+        function setMedicationEditReadOnlyState(inputId, isReadOnly) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.readOnly = isReadOnly;
+            input.disabled = isReadOnly;
+            input.setAttribute('aria-readonly', isReadOnly ? 'true' : 'false');
+            input.style.backgroundColor = isReadOnly ? '#f1f5f9' : '';
+            input.style.color = isReadOnly ? '#475569' : '';
+            input.style.cursor = isReadOnly ? 'not-allowed' : '';
         }
 
         function getMedicationFormMedicationDetailsPayload() {
@@ -30213,8 +30224,8 @@
                 ? currentRegimen.pillCount
                 : (currentRefill && currentRefill.pillCount !== null && currentRefill.pillCount !== undefined ? currentRefill.pillCount : '');
             document.getElementById('medicationRefillExpiration').value = currentRefill ? (currentRefill.refillExpiration || '') : (med ? (med.refillExpiration || '') : '');
-            document.getElementById('medicationRefillDate').readOnly = !!(med && med.id);
-            document.getElementById('medicationRefillExpiration').readOnly = !!(med && med.id);
+            setMedicationEditReadOnlyState('medicationRefillDate', !!(med && med.id));
+            setMedicationEditReadOnlyState('medicationRefillExpiration', !!(med && med.id));
             document.getElementById('medicationAlertThresholdDays').value = med && med.alertThresholdDays !== null && med.alertThresholdDays !== undefined ? med.alertThresholdDays : 7;
             document.getElementById('medicationRegimenEffectiveDate').value = '';
             document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
@@ -30231,8 +30242,8 @@
             document.getElementById('medicationForm').reset();
             document.getElementById('medicationId').value = '';
             document.getElementById('medicationRegimenEffectiveDate').value = '';
-            document.getElementById('medicationRefillDate').readOnly = false;
-            document.getElementById('medicationRefillExpiration').readOnly = false;
+            setMedicationEditReadOnlyState('medicationRefillDate', false);
+            setMedicationEditReadOnlyState('medicationRefillExpiration', false);
             currentMedicationFormSnapshot = null;
             setMedicationRefillActionState(null);
             setMedicationRegimenActionState(null);
@@ -30248,14 +30259,11 @@
         async function saveMedicationForm(event) {
             event.preventDefault();
             const id = document.getElementById('medicationId').value;
-            const medicationPayload = id ? getMedicationFormMedicationDetailsPayload() : getMedicationFormMedicationPayload();
+            const medicationPayload = id
+                ? { ...getMedicationFormMedicationDetailsPayload(), ...getMedicationFormRegimenPayload() }
+                : getMedicationFormMedicationPayload();
             const regimenPayload = getMedicationFormRegimenPayload();
             const payload = id ? medicationPayload : { ...medicationPayload, ...regimenPayload };
-
-            if (id && hasUnsavedRegimenFormChanges()) {
-                showAlert('Regimen fields changed. Use Save Regimen Change to save instructions, frequency, pills per dose, and effective date history.', 'error', 'medicationsAlert');
-                return;
-            }
 
             if (id && hasUnsavedRefillFormChanges()) {
                 showAlert('Refill fields changed. Use Add Refill to save the new bottle date, pill count, and expiration.', 'error', 'medicationsAlert');
