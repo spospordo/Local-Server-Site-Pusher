@@ -1719,15 +1719,20 @@ function computeMedicationForecast(med, options = {}) {
     ? options.adherenceRecords
     : getMedicationAdherenceRecords().filter(record => record?.medicationId === med?.id);
   const regimenHistory = normalizeMedicationRegimenHistory(med);
+  const refillHistory = normalizeMedicationRefillHistory(med);
+  const refillEntry = getMedicationRefillForDate(med, asOfDate, refillHistory);
   const dailyUsage = getMedicationDailyUsageForDateFromHistory(med, asOfDate, regimenHistory);
-  const pillCount = typeof med.pillCount === 'number' ? med.pillCount : parseFloat(med.pillCount);
+  const pillCountSource = refillEntry && refillEntry.pillCount !== null && refillEntry.pillCount !== undefined
+    ? refillEntry.pillCount
+    : med.pillCount;
+  const pillCount = typeof pillCountSource === 'number' ? pillCountSource : parseFloat(pillCountSource);
   const alertThresholdDays = typeof med.alertThresholdDays === 'number'
     ? med.alertThresholdDays
     : parseFloat(med.alertThresholdDays);
   const alertThresholdPillCount = Number.isFinite(alertThresholdDays) && alertThresholdDays >= 0
     ? alertThresholdDays
     : null;
-  const refillDateText = String(med.refillDate || '').trim().slice(0, 10);
+  const refillDateText = String(refillEntry?.refillDate || med.refillDate || '').trim().slice(0, 10);
   const refillDate = parseMedicationDate(refillDateText);
 
   let estimatedRemainingPillCount = Number.isFinite(pillCount) && pillCount >= 0 ? pillCount : null;
@@ -1977,6 +1982,137 @@ function normalizeMedicationRegimenHistory(medication) {
   return [createMedicationRegimenEntry(medication, getMedicationInitialRegimenEffectiveDate(medication))];
 }
 
+function createMedicationRefillEntry(medication, refillDate, overrides = {}) {
+  const createdAt = String(overrides.createdAt || medication?.createdDate || new Date().toISOString()).trim();
+  const pillCountValue = overrides.pillCount !== undefined ? overrides.pillCount : medication?.pillCount;
+  const normalizedPillCount = pillCountValue === '' || pillCountValue === null || pillCountValue === undefined
+    ? null
+    : Number(pillCountValue);
+  const refillExpiration = String(
+    overrides.refillExpiration !== undefined ? overrides.refillExpiration : (medication?.refillExpiration || '')
+  ).trim().slice(0, 10);
+  return {
+    id: String(overrides.id || generateId()),
+    refillDate,
+    pillCount: Number.isFinite(normalizedPillCount) && normalizedPillCount >= 0 ? normalizedPillCount : null,
+    refillExpiration: isValidMedicationStatusDate(refillExpiration) ? refillExpiration : '',
+    createdAt
+  };
+}
+
+function sortMedicationRefillHistoryEntries(history) {
+  return history.sort((left, right) => {
+    const dateCompare = String(left.refillDate || '').localeCompare(String(right.refillDate || ''));
+    if (dateCompare !== 0) return dateCompare;
+    return String(left.createdAt || '').localeCompare(String(right.createdAt || ''));
+  });
+}
+
+function normalizeMedicationRefillHistory(medication) {
+  const rawHistory = Array.isArray(medication?.refillHistory) ? medication.refillHistory : [];
+  const normalizedHistory = rawHistory
+    .map(entry => {
+      const refillDate = String(entry?.refillDate || '').trim().slice(0, 10);
+      if (!isValidMedicationStatusDate(refillDate)) {
+        return null;
+      }
+      return createMedicationRefillEntry(medication, refillDate, entry);
+    })
+    .filter(Boolean);
+
+  sortMedicationRefillHistoryEntries(normalizedHistory);
+
+  if (normalizedHistory.length > 0) {
+    return normalizedHistory;
+  }
+
+  const refillDate = String(medication?.refillDate || '').trim().slice(0, 10);
+  const refillExpiration = String(medication?.refillExpiration || '').trim().slice(0, 10);
+  const pillCount = medication?.pillCount;
+  const hasLegacyRefillData = isValidMedicationStatusDate(refillDate)
+    || (pillCount !== undefined && pillCount !== null && pillCount !== '')
+    || isValidMedicationStatusDate(refillExpiration);
+
+  if (!hasLegacyRefillData) {
+    return [];
+  }
+
+  return [createMedicationRefillEntry(
+    medication,
+    isValidMedicationStatusDate(refillDate) ? refillDate : getMedicationInitialRegimenEffectiveDate(medication),
+    { createdAt: medication?.createdDate || new Date().toISOString() }
+  )];
+}
+
+function getMedicationRefillForDate(medication, date, history) {
+  const targetDate = isValidMedicationStatusDate(date) ? date : getMedicationTodayDate();
+  const normalizedHistory = Array.isArray(history) ? history : normalizeMedicationRefillHistory(medication);
+  let refill = null;
+
+  normalizedHistory.forEach(entry => {
+    if (entry.refillDate <= targetDate) {
+      refill = entry;
+    }
+  });
+
+  return refill;
+}
+
+function getLatestMedicationRefillEntry(medication, history) {
+  const normalizedHistory = Array.isArray(history) ? history : normalizeMedicationRefillHistory(medication);
+  return normalizedHistory.length > 0 ? normalizedHistory[normalizedHistory.length - 1] : null;
+}
+
+function upsertMedicationRefillHistory(existing, medication, options = {}) {
+  const requireRefillDate = options.requireRefillDate === true;
+  const requirePillCount = options.requirePillCount === true;
+  const refillDateInput = String(medication.refillDate || '').trim().slice(0, 10);
+  const pillCountInput = medication.pillCount;
+  const refillExpiration = String(medication.refillExpiration || '').trim().slice(0, 10);
+
+  if (requireRefillDate && !refillDateInput) {
+    return { success: false, error: 'A refill date is required' };
+  }
+  if (!isValidMedicationStatusDate(refillDateInput)) {
+    return { success: false, error: 'A valid refill date is required' };
+  }
+  if (requirePillCount && (pillCountInput === '' || pillCountInput === null || pillCountInput === undefined)) {
+    return { success: false, error: 'A refill pill count is required' };
+  }
+
+  const normalizedPillCount = typeof pillCountInput === 'number' ? pillCountInput : Number(pillCountInput);
+  if (!Number.isFinite(normalizedPillCount) || normalizedPillCount < 0) {
+    return { success: false, error: 'A valid refill pill count is required' };
+  }
+  if (refillExpiration && !isValidMedicationStatusDate(refillExpiration)) {
+    return { success: false, error: 'A valid refill expiration date is required' };
+  }
+
+  const refillHistory = normalizeMedicationRefillHistory(existing);
+  const matchingEntryIndex = refillHistory.findIndex(entry => entry.refillDate === refillDateInput);
+  const fallbackRefill = matchingEntryIndex >= 0
+    ? refillHistory[matchingEntryIndex]
+    : getMedicationRefillForDate(existing, refillDateInput, refillHistory);
+  const nextEntry = createMedicationRefillEntry({
+    ...existing,
+    ...fallbackRefill
+  }, refillDateInput, {
+    pillCount: normalizedPillCount,
+    refillExpiration,
+    id: matchingEntryIndex >= 0 ? refillHistory[matchingEntryIndex].id : generateId(),
+    createdAt: matchingEntryIndex >= 0 ? refillHistory[matchingEntryIndex].createdAt : new Date().toISOString()
+  });
+
+  if (matchingEntryIndex >= 0) {
+    refillHistory[matchingEntryIndex] = nextEntry;
+  } else {
+    refillHistory.push(nextEntry);
+  }
+  sortMedicationRefillHistoryEntries(refillHistory);
+
+  return { success: true, refillHistory };
+}
+
 function getMedicationRegimenForDateFromHistory(medication, date, history) {
   const targetDate = isValidMedicationStatusDate(date) ? date : getMedicationTodayDate();
   const normalizedHistory = Array.isArray(history) && history.length > 0
@@ -2132,17 +2268,19 @@ function addMedication(medication) {
   }
   const medsData = getMedicationsData();
   const createdDate = new Date().toISOString();
+  const refillDate = String(medication.refillDate || '').trim().slice(0, 10);
+  const refillExpiration = String(medication.refillExpiration || '').trim().slice(0, 10);
   const entry = {
     id: generateId(),
     name: String(medication.name).trim(),
     description: String(medication.description || '').trim(),
     usage: String(medication.usage || '').trim(),
     instructions: String(medication.instructions || '').trim(),
-    refillDate: medication.refillDate || '',
+    refillDate: isValidMedicationStatusDate(refillDate) ? refillDate : '',
     pillCount: medication.pillCount !== undefined && medication.pillCount !== ''
       ? Number(medication.pillCount)
       : null,
-    refillExpiration: medication.refillExpiration || '',
+    refillExpiration: isValidMedicationStatusDate(refillExpiration) ? refillExpiration : '',
     alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
       ? Number(medication.alertThresholdDays)
       : 7,
@@ -2153,6 +2291,13 @@ function addMedication(medication) {
       : 1,
     createdDate
   };
+  if (entry.refillDate || entry.pillCount !== null || entry.refillExpiration) {
+    entry.refillHistory = [createMedicationRefillEntry(
+      entry,
+      entry.refillDate || getMedicationInitialRegimenEffectiveDate(entry),
+      { createdAt: createdDate }
+    )];
+  }
   entry.regimenHistory = [createMedicationRegimenEntry(
     entry,
     isValidMedicationStatusDate(medication.regimenEffectiveDate)
@@ -2207,8 +2352,6 @@ function updateMedication(id, medication) {
     name: medication.name !== undefined ? String(medication.name).trim() : existing.name,
     description: medication.description !== undefined ? String(medication.description).trim() : existing.description,
     usage: medication.usage !== undefined ? String(medication.usage).trim() : (existing.usage || ''),
-    refillDate: medication.refillDate !== undefined ? medication.refillDate : existing.refillDate,
-    refillExpiration: medication.refillExpiration !== undefined ? medication.refillExpiration : existing.refillExpiration,
     alertThresholdDays: medication.alertThresholdDays !== undefined && medication.alertThresholdDays !== ''
       ? Number(medication.alertThresholdDays)
       : existing.alertThresholdDays,
@@ -2232,6 +2375,47 @@ function saveMedicationRegimen(id, medication) {
   }
 
   return saveMedicationWithRegimenHistory(medsData, index, existing, {}, regimenResult.regimenHistory);
+}
+
+function saveMedicationRefill(id, medication) {
+  const medsData = getMedicationsData();
+  const index = medsData.medications.findIndex(m => m.id === id);
+  if (index === -1) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const existing = medsData.medications[index];
+  const refillResult = upsertMedicationRefillHistory(existing, medication, {
+    requireRefillDate: true,
+    requirePillCount: true
+  });
+  if (!refillResult.success) {
+    return refillResult;
+  }
+
+  const regimenResult = upsertMedicationRegimenHistory(existing, {
+    pillCount: medication.pillCount,
+    regimenEffectiveDate: medication.refillDate
+  }, {
+    defaultEffectiveDate: medication.refillDate
+  });
+  if (!regimenResult.success) {
+    return regimenResult;
+  }
+
+  const refillEntry = getMedicationRefillForDate({
+    ...existing,
+    refillHistory: refillResult.refillHistory
+  }, getMedicationTodayDate(), refillResult.refillHistory) || getLatestMedicationRefillEntry({
+    ...existing,
+    refillHistory: refillResult.refillHistory
+  }, refillResult.refillHistory);
+
+  return saveMedicationWithRegimenHistory(medsData, index, existing, {
+    refillDate: refillEntry?.refillDate || existing.refillDate || '',
+    refillExpiration: refillEntry?.refillExpiration || '',
+    refillHistory: refillResult.refillHistory
+  }, regimenResult.regimenHistory);
 }
 
 // Delete a medication
@@ -2759,6 +2943,7 @@ module.exports = {
   addMedication,
   updateMedication,
   saveMedicationRegimen,
+  saveMedicationRefill,
   deleteMedication,
   getMedicationPortalUsers,
   getMedicationPortalUserById,

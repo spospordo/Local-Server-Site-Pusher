@@ -135,6 +135,37 @@ function run() {
     );
     log('✅ Medication regimen history supports dated historical changes');
 
+    const refillMedicationResult = house.addMedication({
+      name: 'Refill History Med',
+      instructions: 'Take 1 pill once daily',
+      scheduleFrequency: 'daily',
+      pillsPerDose: 1,
+      pillCount: 10,
+      refillDate: getDateOffset(-5),
+      alertThresholdDays: 3
+    });
+    assert.strictEqual(refillMedicationResult.success, true, 'refill history medication should be created');
+    const refillMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Refill History Med');
+    assert.ok(refillMedication, 'refill history medication should exist after creation');
+    assert.strictEqual(refillMedication.refillHistory.length, 1, 'new medications should seed refill history from the initial bottle');
+    const refillSaveResult = house.saveMedicationRefill(refillMedication.id, {
+      refillDate: yesterday,
+      pillCount: 30,
+      refillExpiration: '2027-01-31'
+    });
+    assert.strictEqual(refillSaveResult.success, true, 'saving a refill should succeed');
+    const updatedRefillMedication = house.getMedicationsData().medications.find(entry => entry.id === refillMedication.id);
+    assert.strictEqual(updatedRefillMedication.refillDate, yesterday, 'saving a refill should update the current refill date');
+    assert.strictEqual(updatedRefillMedication.refillExpiration, '2027-01-31', 'saving a refill should update the current refill expiration');
+    assert.strictEqual(updatedRefillMedication.pillCount, 30, 'saving a refill should update the current bottle pill count');
+    assert.strictEqual(updatedRefillMedication.refillHistory.length, 2, 'saving a refill should append a new refill history entry');
+    assert.strictEqual(
+      house.computeMedicationForecast(updatedRefillMedication, { asOfDate: today }).estimatedRemainingPillCount,
+      29,
+      'forecasting should reset remaining pills from the latest refill bottle'
+    );
+    log('✅ Medication refill history resets remaining-pill forecasts from the latest bottle');
+
     const createUserResult = house.createMedicationPortalUser({
       username: 'Casey',
       passwordHash: 'salt:hash'

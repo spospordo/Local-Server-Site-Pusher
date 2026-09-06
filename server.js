@@ -11827,6 +11827,20 @@ app.put('/admin/api/house/medications/:id/regimen', requireAuth, (req, res) => {
   }
 });
 
+// Save a medication refill / new bottle entry
+app.put('/admin/api/house/medications/:id/refill', requireAuth, (req, res) => {
+  try {
+    const result = house.saveMedicationRefill(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, message: 'Refill saved successfully' });
+    } else {
+      res.status(result.error === 'Medication not found' ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save refill: ' + err.message });
+  }
+});
+
 // Delete a medication
 app.delete('/admin/api/house/medications/:id', requireAuth, (req, res) => {
   try {
