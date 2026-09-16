@@ -5704,6 +5704,15 @@
                 }
                 card.appendChild(driveRow);
 
+                if (event.isApproximateLocation || event.locationConfidence === 'low') {
+                    const confidenceNote = document.createElement('div');
+                    confidenceNote.style.fontSize = '0.72rem';
+                    confidenceNote.style.opacity = '0.72';
+                    confidenceNote.style.marginTop = '6px';
+                    confidenceNote.textContent = 'Approx. route — location may be incomplete';
+                    card.appendChild(confidenceNote);
+                }
+
                 // Destination weather row (if available)
                 if (event.weather) {
                     const w = event.weather;
