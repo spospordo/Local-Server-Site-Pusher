@@ -42,6 +42,12 @@ const driveTimeCache = {
 const DRIVE_TIME_GEOCODE_TTL = 24 * 60 * 60 * 1000; // 24 hours for geocoded addresses
 const DRIVE_TIME_ROUTE_TTL = 30 * 60 * 1000;         // 30 minutes for route calculations
 const DRIVE_TIME_WEATHER_TTL = 30 * 60 * 1000;       // 30 minutes for destination weather
+const DRIVE_TIME_URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/gi;
+const DRIVE_TIME_VIRTUAL_LOCATION_PATTERN = /\b(?:zoom|google\s+meet|meet\.google|microsoft\s+teams|teams\.microsoft|webex|gotomeeting|go\s+to\s+meeting|whereby|bluejeans|jitsi|dial-?in|conference\s+call|phone\s+call|telehealth|virtual|online|webinar|livestream)\b/i;
+const DRIVE_TIME_STREET_TYPE_PATTERN = /\b(?:st|street|ave|avenue|rd|road|blvd|boulevard|ln|lane|dr|drive|ct|court|cir|circle|trl|trail|ter|terrace|way|pkwy|parkway|pl|place|hwy|highway)\b/i;
+const DRIVE_TIME_CITY_STATE_PATTERN = /,\s*[A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?\b/;
+const DRIVE_TIME_ZIP_PATTERN = /\b\d{5}(?:-\d{4})?\b/;
+const DRIVE_TIME_INTERSECTION_PATTERN = /\b(?:[A-Za-z0-9.'-]+\s+(?:st|street|ave|avenue|rd|road|blvd|boulevard|ln|lane|dr|drive|ct|court|cir|circle|trl|trail|ter|terrace|way|pkwy|parkway|pl|place|hwy|highway))\s*(?:&|and|@)\s*(?:[A-Za-z0-9.'-]+\s+(?:st|street|ave|avenue|rd|road|blvd|boulevard|ln|lane|dr|drive|ct|court|cir|circle|trl|trail|ter|terrace|way|pkwy|parkway|pl|place|hwy|highway))\b/i;
 // Maximum number of 3-hour forecast slots to request (40 ≈ 5 days of data)
 const FORECAST_ITEM_COUNT = 40;
 // Precipitation probability (0-1) at or above which we consider rain "forecast" for the destination
@@ -3120,6 +3126,45 @@ async function fetchDestinationWeatherByCoords(lat, lon, weatherApiKey, units = 
   }
 }
 
+function _classifyDriveTimeLocation(location) {
+  if (!location || !location.trim()) {
+    return { isPhysical: false, confidence: null, cleanedLocation: '', reason: 'missing' };
+  }
+
+  const trimmed = location.trim();
+  const cleanedLocation = trimmed.replace(DRIVE_TIME_URL_PATTERN, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleanedLocation) {
+    return { isPhysical: false, confidence: null, cleanedLocation: '', reason: 'url-only' };
+  }
+
+  const hasStreetNumber = /\b\d+\s+[A-Za-z0-9]/.test(cleanedLocation);
+  const hasStreetType = DRIVE_TIME_STREET_TYPE_PATTERN.test(cleanedLocation);
+  const hasZipCode = DRIVE_TIME_ZIP_PATTERN.test(cleanedLocation);
+  const hasCityState = DRIVE_TIME_CITY_STATE_PATTERN.test(cleanedLocation);
+  const hasIntersection = DRIVE_TIME_INTERSECTION_PATTERN.test(cleanedLocation);
+  const hasLandmarkHint = LANDMARK_PATTERNS.some(pattern => pattern.test(cleanedLocation));
+  const hasPhysicalHint = hasStreetNumber || hasStreetType || hasZipCode || hasCityState || hasIntersection || hasLandmarkHint;
+
+  if (DRIVE_TIME_VIRTUAL_LOCATION_PATTERN.test(trimmed) && !hasPhysicalHint) {
+    return { isPhysical: false, confidence: null, cleanedLocation: '', reason: 'virtual' };
+  }
+
+  if (!hasPhysicalHint || (!hasStreetNumber && !hasStreetType && !hasIntersection && !hasLandmarkHint)) {
+    return { isPhysical: false, confidence: null, cleanedLocation, reason: 'not-physical' };
+  }
+
+  const confidence = (hasStreetNumber && (hasStreetType || hasZipCode || hasCityState))
+    ? 'high'
+    : 'low';
+
+  return {
+    isPhysical: true,
+    confidence,
+    cleanedLocation,
+    reason: confidence === 'high' ? 'full-address' : 'partial-address'
+  };
+}
+
 // Geocode an address using TomTom Search API
 // Results are cached for 24 hours to minimise API usage
 async function geocodeAddressTomTom(address, apiKey) {
@@ -3206,17 +3251,31 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherA
     return { success: false, error: 'Could not fetch calendar events', events: [] };
   }
 
-  // Filter to events in the next 2 days that have a location field
+  // Filter to events in the next 2 days that have a plausible physical location
   const now = new Date();
   const twoDaysEnd = new Date(now);
   twoDaysEnd.setDate(twoDaysEnd.getDate() + 2);
   twoDaysEnd.setHours(23, 59, 59, 999);
 
   const eventsWithLocation = (calendarResult.events || [])
-    .filter(event => {
+    .map(event => {
       const start = new Date(event.start);
-      return start >= now && start <= twoDaysEnd && event.location && event.location.trim();
+      if (!(start >= now && start <= twoDaysEnd)) {
+        return null;
+      }
+
+      const locationInfo = _classifyDriveTimeLocation(event.location);
+      if (!locationInfo.isPhysical) {
+        return null;
+      }
+
+      return {
+        ...event,
+        driveTimeLocation: locationInfo.cleanedLocation,
+        driveTimeLocationConfidence: locationInfo.confidence
+      };
     })
+    .filter(Boolean)
     .slice(0, 5); // Cap at 5 to limit API calls
 
   if (eventsWithLocation.length === 0) {
@@ -3241,7 +3300,7 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherA
 
   for (const event of eventsWithLocation) {
     try {
-      const destCoords = await geocodeAddressTomTom(event.location, tomtomApiKey);
+      const destCoords = await geocodeAddressTomTom(event.driveTimeLocation, tomtomApiKey);
       if (!destCoords) {
         logger.debug(logger.categories.SMART_MIRROR, `Drive-time: skipping "${event.title}" – location not geocodable`);
         continue;
@@ -3290,13 +3349,15 @@ async function fetchDriveTimes(calendarUrls, tomtomApiKey, homeAddress, weatherA
 
         eventsWithDriveTimes.push({
           title: event.title || 'Event',
-          location: event.location,
+          location: event.driveTimeLocation,
           startTime: event.start,
           endTime: event.end || null,
           daysFromNow,
           travelTimeMinutes: travelMinutes,
           trafficDelayMinutes: delayMinutes,
           hasTrafficDelay: routeInfo.trafficDelaySeconds > NOTABLE_TRAFFIC_DELAY_SECONDS,
+          locationConfidence: event.driveTimeLocationConfidence,
+          isApproximateLocation: event.driveTimeLocationConfidence === 'low',
           weather: destWeather
         });
 
