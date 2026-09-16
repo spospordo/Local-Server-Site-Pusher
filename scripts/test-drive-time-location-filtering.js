@@ -133,7 +133,7 @@ async function runModuleTests() {
     'partial physical address should still be geocoded'
   );
   assert.ok(
-    !geocodedAddresses.includes('https://zoom.us/j/123456789'),
+    geocodedAddresses.every(address => !/^https?:\/\//.test(address)),
     'URL-only locations should never be geocoded'
   );
   assert.ok(
