@@ -4659,8 +4659,26 @@
                 </div>
 
                 <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                    <h3 style="margin-top: 0;">Medication portal users</h3>
+                    <p style="margin-bottom: 0.75rem; color: #555;">Create medication portal usernames here for patients or caregivers, or let users create their own account at <code>/medications</code>.</p>
+                    <form id="medicationPortalUserCreateForm" style="display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="medicationPortalUserUsername">Username</label>
+                            <input type="text" id="medicationPortalUserUsername" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g., casey">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="medicationPortalUserPassword">Password</label>
+                            <input type="password" id="medicationPortalUserPassword" autocomplete="new-password" minlength="6" placeholder="At least 6 characters">
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button type="submit" class="btn btn-primary">Create medication portal user</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
                     <h3 style="margin-top: 0;">Medication portal assignments</h3>
-                    <p style="margin-bottom: 0.75rem; color: #555;">Assign medications to usernames created in the user-facing medications portal.</p>
+                    <p style="margin-bottom: 0.75rem; color: #555;">Assign medications to medication portal usernames, whether they were created by an administrator here or by the user at <code>/medications</code>.</p>
                     <div id="medicationAssignmentsList">
                         <div style="text-align: center; opacity: 0.7; padding: 1rem;">Loading medication portal assignments...</div>
                     </div>
@@ -29716,6 +29734,42 @@
             }
         }
 
+        async function createMedicationPortalUser(event) {
+            event.preventDefault();
+
+            const usernameInput = document.getElementById('medicationPortalUserUsername');
+            const passwordInput = document.getElementById('medicationPortalUserPassword');
+            const submitButton = document.querySelector('#medicationPortalUserCreateForm button[type="submit"]');
+            const username = usernameInput?.value.trim() || '';
+            const password = passwordInput?.value || '';
+
+            try {
+                if (submitButton) submitButton.disabled = true;
+                const response = await fetch('/admin/api/house/medications/portal-users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    if (usernameInput) usernameInput.value = '';
+                    if (passwordInput) passwordInput.value = '';
+                    await loadHouseMedicationsData();
+                    showAlert(`Medication portal user "${result.user?.username || username}" created successfully.`, 'success', 'medicationsAlert');
+                } else {
+                    showAlert(result.error || 'Failed to create medication portal user.', 'error', 'medicationsAlert');
+                }
+            } catch (err) {
+                showAlert('Error creating medication portal user: ' + err.message, 'error', 'medicationsAlert');
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('medicationPortalUserCreateForm')?.addEventListener('submit', createMedicationPortalUser);
+        });
+
         async function ensureSmartWidgetMedicationUsersLoaded() {
             if (medicationPortalUsers.length > 0) {
                 return;
@@ -29766,7 +29820,7 @@
 
             const selectedUserIds = new Set(getSmartWidgetMedicationSelectedUserIds());
             if (medicationPortalUsers.length === 0) {
-                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users available yet. Users can create an account at <code>/medications</code> first.</div>';
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users available yet. Create one above or let a user create an account at <code>/medications</code> first.</div>';
                 return;
             }
 
@@ -30479,7 +30533,7 @@
             if (!container) return;
 
             if (medicationPortalUsers.length === 0) {
-                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users must create an account at <code>/medications</code> before assignments can be made.</div>';
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Create one above or let a user create an account at <code>/medications</code> before assignments can be made.</div>';
                 return;
             }
 
@@ -30605,7 +30659,7 @@
             }
 
             if (medicationPortalUsers.length === 0) {
-                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users must create an account at <code>/medications</code> before an adherence summary can be shown.</div>';
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Create one above or let a user create an account at <code>/medications</code> before an adherence summary can be shown.</div>';
                 return;
             }
 
@@ -30773,7 +30827,7 @@
             if (!container) return;
 
             if (medicationPortalUsers.length === 0) {
-                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Users can create an account at <code>/medications</code>, then admins can generate secure sign-in links here.</div>';
+                container.innerHTML = '<div style="opacity: 0.75;">No medication portal users yet. Create one above or let a user create an account at <code>/medications</code>, then admins can generate secure sign-in links here.</div>';
                 return;
             }
 

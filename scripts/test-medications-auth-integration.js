@@ -320,6 +320,38 @@ async function run() {
       assert.ok([200, 302].includes(res.statusCode), `unexpected admin login status ${res.statusCode}`);
     });
 
+    await test('Admin dashboard exposes medication portal user creation controls', async () => {
+      const res = await requestJson(adminJar, 'GET', '/admin');
+      assert.strictEqual(res.statusCode, 200, `admin dashboard should load for authenticated admins: ${res.body}`);
+      assert.ok(res.body.includes('Medication portal users'), 'admin dashboard should show the medication portal users section');
+      assert.ok(res.body.includes('medicationPortalUserCreateForm'), 'admin dashboard should include the medication portal user creation form');
+      assert.ok(res.body.includes('Create medication portal user'), 'admin dashboard should expose a medication portal user creation action');
+    });
+
+    await test('Admin can create a medication portal user while non-admins are rejected', async () => {
+      const unauthorizedRes = await requestJson(createJar(), 'POST', '/admin/api/house/medications/portal-users', {
+        username: `BlockedPortalUser${Date.now()}`,
+        password: 'S3curePass!'
+      });
+      assert.strictEqual(unauthorizedRes.statusCode, 401, 'non-admin medication portal user creation should be rejected');
+      assert.strictEqual(unauthorizedRes.json.code, 'UNAUTHORIZED');
+
+      const createdUsername = `AdminCreatedPortalUser${Date.now()}`;
+      const createRes = await requestJson(adminJar, 'POST', '/admin/api/house/medications/portal-users', {
+        username: createdUsername,
+        password: 'Adm1nPass!'
+      });
+      assert.strictEqual(createRes.statusCode, 201, `admin medication portal user creation failed: ${createRes.body}`);
+      assert.strictEqual(createRes.json.success, true);
+      assert.strictEqual(createRes.json.user.username, createdUsername);
+      assert.strictEqual(createRes.json.user.localAccessEnabled, false, 'new admin-created users should not expose direct links by default');
+
+      const listRes = await requestJson(adminJar, 'GET', '/admin/api/house/medications');
+      assert.strictEqual(listRes.statusCode, 200, `admin medication listing failed after user creation: ${listRes.body}`);
+      assert.ok((listRes.json.portalUsers || []).some(user => user.username === createdUsername), 'admin-created medication portal user should appear in the admin medication listing');
+      assert.ok(house.getMedicationPortalUserByUsername(createdUsername), 'admin-created medication portal user should be persisted in house medication data');
+    });
+
     await test('Secure access link verification establishes a portal session', async () => {
       const accessLinkRes = await requestJson(adminJar, 'POST', '/medications/api/access-link', { userId: userA.id });
       assert.strictEqual(accessLinkRes.statusCode, 200, `access link creation failed: ${accessLinkRes.body}`);
@@ -511,6 +543,9 @@ async function run() {
 
       assert.ok(publicHtml.includes('paste the full link, the <code>/medications/access/...'), 'public medications page should explain accepted access-link formats');
       assert.ok(publicHtml.includes('expired, revoked, already used, or unavailable'), 'public medications page should keep password fallback visible');
+      assert.ok(adminHtml.includes('Medication portal users'), 'admin dashboard should expose medication portal user management');
+      assert.ok(adminHtml.includes('medicationPortalUserCreateForm'), 'admin dashboard should include the medication portal user creation form');
+      assert.ok(adminHtml.includes('Create medication portal user'), 'admin dashboard should expose admin medication portal user creation controls');
       assert.ok(adminHtml.includes('Medication portal access links'), 'admin dashboard should expose the secure access-link workflow');
       assert.ok(adminHtml.includes('Generate access link'), 'admin dashboard should expose secure-link generation controls');
       assert.ok(adminHtml.includes('Local-network direct link'), 'admin dashboard should expose the persistent local-network direct-link workflow');

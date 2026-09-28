@@ -1268,6 +1268,36 @@ function ensureMedicationPortalCsrfToken(req) {
   return req.session.medicationPortalCsrfToken || issueMedicationPortalCsrfToken(req);
 }
 
+function createMedicationPortalAccount(usernameInput, passwordInput) {
+  const username = String(usernameInput || '').trim();
+  const password = typeof passwordInput === 'string' ? passwordInput : '';
+
+  if (!username) {
+    return { success: false, statusCode: 400, error: 'Username is required' };
+  }
+  if (password.length < 6) {
+    return { success: false, statusCode: 400, error: 'Password must be at least 6 characters long' };
+  }
+
+  const passwordSecurity = validatePasswordSecurity(password);
+  if (!passwordSecurity.valid) {
+    return { success: false, statusCode: 400, error: passwordSecurity.reason };
+  }
+
+  try {
+    const result = house.createMedicationPortalUser({
+      username,
+      passwordHash: hashPassword(password)
+    });
+    if (!result.success) {
+      return { success: false, statusCode: 400, error: result.error };
+    }
+    return { success: true, statusCode: 201, user: result.user };
+  } catch (err) {
+    return { success: false, statusCode: 500, error: 'Failed to create medication portal account: ' + err.message };
+  }
+}
+
 function requireMedicationPortalCsrf(req, res, next) {
   const expectedToken = ensureMedicationPortalCsrfToken(req);
   const providedToken = req.get('x-medications-csrf-token');
@@ -1902,42 +1932,19 @@ app.post('/medications/api/access-link', requireAuth, (req, res) => {
 });
 
 app.post('/medications/api/register', requireMedicationPortalCsrf, (req, res) => {
-  const username = String(req.body?.username || '').trim();
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (!username) {
-    return res.status(400).json({ success: false, error: 'Username is required' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+  const result = createMedicationPortalAccount(req.body?.username, req.body?.password);
+  if (!result.success) {
+    return res.status(result.statusCode).json({ success: false, error: result.error });
   }
 
-  const passwordSecurity = validatePasswordSecurity(password);
-  if (!passwordSecurity.valid) {
-    return res.status(400).json({ success: false, error: passwordSecurity.reason });
-  }
-
-  try {
-    const result = house.createMedicationPortalUser({
-      username,
-      passwordHash: hashPassword(password)
-    });
-
-    if (!result.success) {
-      return res.status(400).json({ success: false, error: result.error });
-    }
-
-    req.session.medicationPortalUserId = result.user.id;
-    req.session.medicationPortalUsername = result.user.username;
-    logger.success(logger.categories.SYSTEM, `Medication portal account created for user: ${result.user.username}`);
-    return res.status(201).json({
-      success: true,
-      user: result.user,
-      csrfToken: issueMedicationPortalCsrfToken(req)
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: 'Failed to create medication portal account: ' + err.message });
-  }
+  req.session.medicationPortalUserId = result.user.id;
+  req.session.medicationPortalUsername = result.user.username;
+  logger.success(logger.categories.SYSTEM, `Medication portal account created for user: ${result.user.username}`);
+  return res.status(result.statusCode).json({
+    success: true,
+    user: result.user,
+    csrfToken: issueMedicationPortalCsrfToken(req)
+  });
 });
 
 app.post('/medications/api/login', medicationPasswordLoginRateLimiter, requireMedicationPortalCsrf, (req, res) => {
@@ -11896,6 +11903,23 @@ app.put('/admin/api/house/medications/:id/assignments', requireAuth, (req, res) 
   } catch (err) {
     res.status(500).json({ error: 'Failed to update medication assignments: ' + err.message });
   }
+});
+
+app.post('/admin/api/house/medications/portal-users', requireAuth, (req, res) => {
+  const result = createMedicationPortalAccount(req.body?.username, req.body?.password);
+  if (!result.success) {
+    return res.status(result.statusCode).json({ success: false, error: result.error });
+  }
+
+  return res.status(result.statusCode).json({
+    success: true,
+    user: {
+      ...serializeMedicationPortalUser(result.user),
+      localAccessEnabled: false,
+      localAccessPath: buildMedicationLocalAccessPath(result.user.username),
+      localAccessLink: buildMedicationLocalAccessLink(req, result.user.username)
+    }
+  });
 });
 
 app.post('/admin/api/house/medications/access-links/:id/revoke', requireAuth, (req, res) => {
