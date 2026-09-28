@@ -142,6 +142,24 @@ async function run() {
           { id: 'yesterday-b', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1, scheduleFrequency: 'daily', recordedAt: `${yesterday}T08:30:00.000Z` },
           { id: 'today-b', date: today, status: 'took', pillsTaken: 3, scheduledDailyPillCount: 1, scheduleFrequency: 'daily', recordedAt: `${today}T08:30:00.000Z` }
         ]
+      },
+      {
+        id: 'med-c',
+        name: 'Weekly Injection',
+        description: 'Inject 1 dose once weekly',
+        usage: 'Weekly injection',
+        instructions: 'Inject 1 dose once weekly',
+        pillCount: 4,
+        pillsPerDose: 1,
+        scheduleFrequency: 'weekly',
+        regimenHistory: [{ effectiveDate: today, scheduleFrequency: 'weekly', pillsPerDose: 1, instructions: 'Inject 1 dose once weekly' }],
+        estimatedRemainingPillCount: 4,
+        alertThresholdDays: 1,
+        todayStatus: null,
+        todayRecordedAt: null,
+        adherenceHistory: [
+          { id: 'yesterday-c', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1 / 7, scheduleFrequency: 'weekly', recordedAt: `${yesterday}T08:30:00.000Z` }
+        ]
       }
     ]
   };
@@ -161,7 +179,7 @@ async function run() {
   assert.ok(recordedCard, 'recorded medication card should render');
   assert.ok(recordedCard.textContent.includes('recorded for today'), 'recorded medication should show the persistent recorded state');
   assert.ok(recordedCard.textContent.includes('edit'), 'recorded medication should keep an edit button visible');
-  assert.ok(recordedCard.textContent.includes('Recorded: 3 pill(s)'), 'recorded medication should show the saved pill count');
+  assert.ok(recordedCard.textContent.includes('Recorded: 3 pills'), 'recorded medication should show the saved pill count');
   assert.ok(!recordedCard.textContent.includes('I took today'), 'recorded medication should hide the main action buttons');
 
   const pendingCard = getMedicationCard(document, 'med-a');
@@ -173,7 +191,7 @@ async function run() {
   const updatedPendingCard = getMedicationCard(document, 'med-a');
   assert.ok(updatedPendingCard.textContent.includes('good job!'), 'recording today should briefly show the confirmation state');
   assert.ok(updatedPendingCard.textContent.includes('edit'), 'confirmation state should still offer edit');
-  assert.ok(updatedPendingCard.textContent.includes('Recorded: 1.5 pill(s)'), 'recording should preserve the entered pill count');
+  assert.ok(updatedPendingCard.textContent.includes('Recorded: 1.5 pills'), 'recording should preserve the entered pill count');
   assert.ok(!updatedPendingCard.textContent.includes('I took today'), 'confirmation state should hide the record buttons');
 
   await wait(1300);
@@ -185,6 +203,19 @@ async function run() {
   const editablePendingCard = getMedicationCard(document, 'med-a');
   assert.ok(editablePendingCard.textContent.includes('I took today'), 'edit should restore the main record buttons for corrections');
   assert.ok(editablePendingCard.textContent.includes('Not today'), 'edit should restore both correction actions');
+
+  const weeklyInjectionCard = getMedicationCard(document, 'med-c');
+  assert.ok(weeklyInjectionCard, 'weekly injectable medication card should render');
+  assert.ok(weeklyInjectionCard.textContent.includes('Injections taken'), 'weekly injectable medication should use an injection-specific recording label');
+  assert.strictEqual(
+    weeklyInjectionCard.querySelector('[data-pill-input-for="med-c"]').value,
+    '1',
+    'weekly injectable medication should default to one injection instead of a derived daily pill count'
+  );
+  assert.ok(
+    weeklyInjectionCard.textContent.includes('1 injection per dose • weekly • 1 planned each week'),
+    'weekly injectable medication should describe the weekly regimen using injections instead of daily pill math'
+  );
 
   const allDoneDashboardData = {
     today,

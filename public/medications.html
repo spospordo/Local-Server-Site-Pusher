@@ -593,7 +593,7 @@
             <div id="recordPrevSelected" class="hidden" style="margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:10px;">
                 <div id="recordPrevSelectedDate" style="font-weight:600; margin-bottom:0.5rem;"></div>
                 <label style="display:block; margin-bottom:0.75rem;">
-                    <span style="display:block; font-size:0.85rem; color:var(--muted); margin-bottom:0.25rem;">Pills taken</span>
+                    <span id="recordPrevPillsTakenLabel" style="display:block; font-size:0.85rem; color:var(--muted); margin-bottom:0.25rem;">Pills taken</span>
                     <input type="number" id="recordPrevPillsTaken" min="0" step="0.25" value="1" style="width:120px;">
                 </label>
                 <div class="record-actions">
@@ -843,7 +843,80 @@
             return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2).replace(/\.?0+$/, '');
         }
 
-        function formatMedicationRegimen(regimen, scheduledPills) {
+        function normalizeMedicationAdministrationMethod(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (!normalized) return '';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(normalized)) return 'injectable';
+            if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(normalized)) return 'oral';
+            return normalized;
+        }
+
+        function getMedicationAdministrationMethod(medication, regimen = null) {
+            const structuredMethod = [
+                regimen?.administrationMethod,
+                regimen?.route,
+                regimen?.form,
+                medication?.administrationMethod,
+                medication?.route,
+                medication?.form
+            ]
+                .map(candidate => normalizeMedicationAdministrationMethod(candidate))
+                .find(Boolean);
+            if (structuredMethod) {
+                return structuredMethod;
+            }
+
+            const text = [
+                regimen?.instructions,
+                medication?.instructions,
+                medication?.usage,
+                medication?.description,
+                medication?.name
+            ]
+                .map(value => String(value || '').trim())
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            if (!text) return '';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(text)) return 'injectable';
+            if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(text)) return 'oral';
+            return '';
+        }
+
+        function isWeeklyInjectableMedication(medication, regimen) {
+            return String(regimen?.scheduleFrequency || '').trim() === 'weekly'
+                && getMedicationAdministrationMethod(medication, regimen) === 'injectable';
+        }
+
+        function getMedicationQuantityUnit(medication, regimen = null) {
+            return getMedicationAdministrationMethod(medication, regimen || medication) === 'injectable'
+                ? { singular: 'injection', plural: 'injections', inputLabel: 'Injections taken' }
+                : { singular: 'pill', plural: 'pills', inputLabel: 'Pills taken' };
+        }
+
+        function formatMedicationQuantity(value, medication, regimen = null) {
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue)) return '—';
+            const unit = getMedicationQuantityUnit(medication, regimen || medication);
+            return `${formatMedicationNumber(numericValue)} ${Math.abs(numericValue) === 1 ? unit.singular : unit.plural}`;
+        }
+
+        function getMedicationDefaultRecordedPillsForDate(medication, date) {
+            const regimen = getMedicationRegimenForDate(medication, date);
+            if (isWeeklyInjectableMedication(medication, regimen)) {
+                return regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined
+                    ? Number(regimen.pillsPerDose)
+                    : 1;
+            }
+
+            const scheduledPills = getMedicationScheduledPillsForDate(medication, date);
+            return scheduledPills !== null && scheduledPills !== undefined
+                ? scheduledPills
+                : (medication.pillsPerDose !== null && medication.pillsPerDose !== undefined ? medication.pillsPerDose : 1);
+        }
+
+        function formatMedicationRegimen(regimen, scheduledPills, medication = null) {
             const frequency = String(regimen?.scheduleFrequency || '').trim();
             const pillsPerDose = regimen?.pillsPerDose !== null && regimen?.pillsPerDose !== undefined
                 ? Number(regimen.pillsPerDose)
@@ -851,9 +924,15 @@
             if (!frequency) {
                 return 'Not scheduled';
             }
-            const parts = [`${formatMedicationNumber(pillsPerDose)} pill${Number(pillsPerDose) === 1 ? '' : 's'} per dose`, frequency];
+            const medicationForUnit = medication || regimen;
+            const quantityUnit = getMedicationQuantityUnit(medicationForUnit, regimen);
+            const parts = [`${formatMedicationNumber(pillsPerDose)} ${Number(pillsPerDose) === 1 ? quantityUnit.singular : quantityUnit.plural} per dose`, frequency];
             if (scheduledPills !== null && scheduledPills !== undefined) {
-                parts.push(`${formatMedicationNumber(scheduledPills)} planned per day`);
+                if (isWeeklyInjectableMedication(medicationForUnit, regimen)) {
+                    parts.push(`${formatMedicationNumber(pillsPerDose)} planned each week`);
+                } else {
+                    parts.push(`${formatMedicationNumber(scheduledPills)} planned per day`);
+                }
             }
             return parts.join(' • ');
         }
@@ -955,7 +1034,11 @@
             alertContainer.innerHTML = `
                 <div class="daily-feedback-card alert">
                     ⚠️ Refill alert${lowSupplyMedications.length === 1 ? '' : 's'}:
-                    ${lowSupplyMedications.map(medication => `${escapeHtml(medication.name)} (${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))} pill${Number(medication.estimatedRemainingPillCount) === 1 ? '' : 's'} remaining)`).join(', ')}
+                    ${lowSupplyMedications.map(medication => {
+                        const regimen = getMedicationRegimenForDate(medication, getDisplayDate());
+                        const unit = getMedicationQuantityUnit(medication, regimen);
+                        return `${escapeHtml(medication.name)} (${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))} ${Number(medication.estimatedRemainingPillCount) === 1 ? unit.singular : unit.plural} remaining)`;
+                    }).join(', ')}
                 </div>`;
         }
 
@@ -1024,29 +1107,28 @@
                 const scheduledPills = getMedicationScheduledPillsForDate(medication, displayDate);
                 const regimen = getMedicationRegimenForDate(medication, displayDate);
                 const recordedPills = getMedicationRecordedPills(displayRecord, medication, displayDate);
+                const quantityUnit = getMedicationQuantityUnit(medication, regimen);
                 const defaultPillsTaken = displayRecord?.status === 'took' && recordedPills !== null && recordedPills !== undefined
                     ? recordedPills
-                    : (scheduledPills !== null && scheduledPills !== undefined
-                        ? scheduledPills
-                        : (medication.pillsPerDose !== null && medication.pillsPerDose !== undefined ? medication.pillsPerDose : 1));
+                    : getMedicationDefaultRecordedPillsForDate(medication, displayDate);
                 const plannedDoseHtml = !medication.asNeeded
-                    ? `<div class="pill-meta">Planned regimen: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</div>`
+                    ? `<div class="pill-meta">Planned regimen: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills, medication))}</div>`
                     : '';
                 const statusHtml = showRecordedState
                     ? `<div class="medication-status-row${showFeedback ? ' feedback' : ''}">
-                            <div class="medication-status-label">${showFeedback ? 'good job!' : `recorded for ${escapeHtml(isToday ? 'today' : displayDate)}`}</div>
-                            <button type="button" class="btn-secondary mini-action-btn" data-action="edit-record" data-medication-id="${escapeHtml(medication.id)}">edit</button>
+                           <div class="medication-status-label">${showFeedback ? 'good job!' : `recorded for ${escapeHtml(isToday ? 'today' : displayDate)}`}</div>
+                           <button type="button" class="btn-secondary mini-action-btn" data-action="edit-record" data-medication-id="${escapeHtml(medication.id)}">edit</button>
                        </div>
                        <div class="pill-meta">${displayRecord?.status === 'took'
-                            ? `Recorded: ${escapeHtml(formatMedicationNumber(recordedPills))} pill(s)`
-                            : 'Recorded: not taken'}</div>
+                           ? `Recorded: ${escapeHtml(formatMedicationQuantity(recordedPills, medication, regimen))}`
+                           : 'Recorded: not taken'}</div>
                        ${plannedDoseHtml}`
                     : `<div class="action-row">
-                            <label style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem; margin-right:auto;">
-                                <span style="font-size:0.82rem; color:var(--muted);">Pills taken</span>
-                                <input type="number" min="0" step="0.25" value="${escapeHtml(formatMedicationNumber(defaultPillsTaken))}" data-pill-input-for="${escapeHtml(medication.id)}" style="width:96px;">
-                            </label>
-                            <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
+                           <label style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem; margin-right:auto;">
+                               <span style="font-size:0.82rem; color:var(--muted);">${escapeHtml(quantityUnit.inputLabel)}</span>
+                               <input type="number" min="0" step="0.25" value="${escapeHtml(formatMedicationNumber(defaultPillsTaken))}" data-pill-input-for="${escapeHtml(medication.id)}" style="width:96px;">
+                           </label>
+                           <button type="button" class="btn-success" data-action="record-took" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(tookLabel)}</button>
                             <button type="button" class="btn-danger" data-action="record-not-taken" data-medication-id="${escapeHtml(medication.id)}">${escapeHtml(notTakenLabel)}</button>
                        </div>
                        ${plannedDoseHtml}`;
@@ -1095,16 +1177,17 @@
             const record = getMedicationRecordForDate(medication, selectedDate);
             const scheduledPills = getMedicationScheduledPillsForDate(medication, selectedDate);
             const recordedPills = getMedicationRecordedPills(record, medication, selectedDate);
+            const quantityUnit = getMedicationQuantityUnit(medication, regimen);
             return `
                 <div class="detail-grid">
                     <div class="detail-box"><strong>Description</strong>${escapeHtml(medication.description || '—')}</div>
                     <div class="detail-box"><strong>Usage</strong>${escapeHtml(medication.usage || '—')}</div>
                     <div class="detail-box"><strong>Instructions</strong>${escapeHtml(medication.instructions || '—')}</div>
                     <div class="detail-box"><strong>As needed</strong>${medication.asNeeded ? 'Yes' : 'No'}</div>
-                    <div class="detail-box"><strong>Regimen for ${escapeHtml(selectedDate)}</strong>${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</div>
-                    <div class="detail-box"><strong>Recorded pills for ${escapeHtml(selectedDate)}</strong>${record ? escapeHtml(record.status === 'took' ? formatMedicationNumber(recordedPills) : 'Not taken') : 'No record'}</div>
-                    <div class="detail-box"><strong>Estimated remaining pills</strong>${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))}</div>
-                    <div class="detail-box"><strong>Recorded pill count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
+                    <div class="detail-box"><strong>Regimen for ${escapeHtml(selectedDate)}</strong>${escapeHtml(formatMedicationRegimen(regimen, scheduledPills, medication))}</div>
+                    <div class="detail-box"><strong>Recorded ${escapeHtml(quantityUnit.plural)} for ${escapeHtml(selectedDate)}</strong>${record ? escapeHtml(record.status === 'took' ? formatMedicationNumber(recordedPills) : 'Not taken') : 'No record'}</div>
+                    <div class="detail-box"><strong>Estimated remaining ${escapeHtml(quantityUnit.plural)}</strong>${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))}</div>
+                    <div class="detail-box"><strong>Recorded ${escapeHtml(quantityUnit.singular)} count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
                     <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
                 </div>`;
@@ -1234,8 +1317,10 @@
             buildCalendar('recordPrevCalendar', today.getFullYear(), today.getMonth(), missing, null, recordPrevSelectedDate, (dateStr) => {
                 recordPrevSelectedDate = dateStr;
                 document.getElementById('recordPrevSelectedDate').textContent = `Selected: ${dateStr}`;
-                const plannedPills = getMedicationScheduledPillsForDate(med, dateStr);
-                document.getElementById('recordPrevPillsTaken').value = formatMedicationNumber(plannedPills || med.pillsPerDose || 1);
+                const regimen = getMedicationRegimenForDate(med, dateStr);
+                const quantityUnit = getMedicationQuantityUnit(med, regimen);
+                document.getElementById('recordPrevPillsTakenLabel').textContent = quantityUnit.inputLabel;
+                document.getElementById('recordPrevPillsTaken').value = formatMedicationNumber(getMedicationDefaultRecordedPillsForDate(med, dateStr));
                 document.getElementById('recordPrevSelected').classList.remove('hidden');
                 setStatusMessage('recordPrevMessage', '');
                 renderRecordPrevCalendar();
@@ -1322,10 +1407,11 @@
                         const regimen = getMedicationRegimenForDate(med, record.date);
                         const scheduledPills = getMedicationScheduledPillsForDate(med, record.date);
                         const recordedPills = getMedicationRecordedPills(record, med, record.date);
+                        const quantityUnit = getMedicationQuantityUnit(med, regimen);
                         return `<div class="detail-box" style="margin-top:0.5rem;">
                             <strong>${escapeHtml(record.date)}</strong><br>
-                            ${escapeHtml(record.status === 'took' ? `Recorded ${formatMedicationNumber(recordedPills)} pill(s)` : 'Recorded not taken')}<br>
-                            <span style="color:var(--muted);">Configured: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills))}</span>
+                            ${escapeHtml(record.status === 'took' ? `Recorded ${formatMedicationQuantity(recordedPills, med, regimen)}` : 'Recorded not taken')}<br>
+                            <span style="color:var(--muted);">Configured: ${escapeHtml(formatMedicationRegimen(regimen, scheduledPills, med))}</span>
                         </div>`;
                     });
                 historyDetails.innerHTML = entries.length

@@ -276,6 +276,44 @@ function run() {
     );
     log('✅ Medication adherence records keep editable actual pill counts');
 
+    const weeklyInjectionMedicationResult = house.addMedication({
+      name: 'Weekly Injection',
+      description: 'Injectable medicine',
+      usage: 'Weekly injection',
+      instructions: 'Inject 1 dose once weekly',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 4,
+      refillDate: yesterday
+    });
+    assert.strictEqual(weeklyInjectionMedicationResult.success, true, 'weekly injectable medication should be created');
+    const weeklyInjectionMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Weekly Injection');
+    assert.strictEqual(house.setMedicationAssignments(weeklyInjectionMedication.id, [createUserResult.user.id]).success, true, 'weekly injectable medication should be assigned');
+    const weeklyInjectionRecord = house.recordMedicationAdherence(createUserResult.user.id, weeklyInjectionMedication.id, 'took', today);
+    assert.strictEqual(weeklyInjectionRecord.success, true, 'weekly injectable adherence should be recorded');
+    assert.strictEqual(weeklyInjectionRecord.record.pillsTaken, 1, 'weekly injectable adherence should default to one injection instead of a derived daily pill count');
+    const weeklyInjectionHistory = house.getMedicationAdherenceHistory(createUserResult.user.id, weeklyInjectionMedication.id);
+    assert.strictEqual(weeklyInjectionHistory[0].pillsTaken, 1, 'weekly injectable history should preserve the recorded weekly injection quantity');
+
+    const weeklyOralMedicationResult = house.addMedication({
+      name: 'Weekly Oral Vitamin',
+      instructions: 'Take 1 pill once weekly',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 4,
+      refillDate: yesterday
+    });
+    assert.strictEqual(weeklyOralMedicationResult.success, true, 'weekly oral medication should be created');
+    const weeklyOralMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Weekly Oral Vitamin');
+    assert.strictEqual(house.setMedicationAssignments(weeklyOralMedication.id, [createUserResult.user.id]).success, true, 'weekly oral medication should be assigned');
+    const weeklyOralRecord = house.recordMedicationAdherence(createUserResult.user.id, weeklyOralMedication.id, 'took', today);
+    assert.strictEqual(weeklyOralRecord.success, true, 'weekly oral adherence should be recorded');
+    assert.ok(
+      Math.abs(weeklyOralRecord.record.pillsTaken - (1 / 7)) < 1e-9,
+      'weekly oral adherence should keep the existing daily pill-count default'
+    );
+    log('✅ Weekly injectable recording defaults use dose quantities without changing weekly oral pill defaults');
+
     const deleteMedicationResult = house.deleteMedication(medication.id);
     assert.strictEqual(deleteMedicationResult.success, true, 'deleteMedication should succeed');
     assert.strictEqual(
