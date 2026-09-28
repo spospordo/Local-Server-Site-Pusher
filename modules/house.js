@@ -1912,6 +1912,70 @@ function normalizeMedicationPillsPerDose(value, fallback = 1) {
   return Number.isFinite(normalized) && normalized > 0 ? normalized : fallback;
 }
 
+function normalizeMedicationAdministrationMethod(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(normalized)) {
+    return 'injectable';
+  }
+  if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(normalized)) {
+    return 'oral';
+  }
+  return normalized;
+}
+
+function getMedicationAdministrationMethod(medication, regimen = null) {
+  const methodCandidates = [
+    regimen?.administrationMethod,
+    regimen?.route,
+    regimen?.form,
+    medication?.administrationMethod,
+    medication?.route,
+    medication?.form
+  ];
+  const structuredMethod = methodCandidates
+    .map(candidate => normalizeMedicationAdministrationMethod(candidate))
+    .find(Boolean);
+  if (structuredMethod) {
+    return structuredMethod;
+  }
+
+  const text = [
+    regimen?.instructions,
+    medication?.instructions,
+    medication?.usage,
+    medication?.description,
+    medication?.name
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (!text) return '';
+  if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(text)) {
+    return 'injectable';
+  }
+  if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(text)) {
+    return 'oral';
+  }
+  return '';
+}
+
+function getMedicationDefaultRecordedPillsForDateFromHistory(medication, date, history) {
+  const regimen = getMedicationRegimenForDateFromHistory(medication, date, history);
+  const scheduleFrequency = normalizeMedicationScheduleFrequency(regimen?.scheduleFrequency);
+  const administrationMethod = getMedicationAdministrationMethod(medication, regimen);
+  if (scheduleFrequency === 'weekly' && administrationMethod === 'injectable') {
+    return normalizeMedicationPillsPerDose(regimen?.pillsPerDose, 1);
+  }
+
+  const structuredUsage = computeDailyUsageFromStructured(regimen);
+  return structuredUsage !== null
+    ? structuredUsage
+    : estimateDailyUsageFromInstructions(regimen?.instructions ?? medication?.instructions);
+}
+
 function getMedicationInitialRegimenEffectiveDate(medication) {
   const refillDate = String(medication?.refillDate || '').trim().slice(0, 10);
   if (isValidMedicationStatusDate(refillDate)) {
@@ -2982,7 +3046,11 @@ function recordMedicationAdherence(userId, medicationId, status, date, options =
     return { success: false, error: 'A valid medication date is required' };
   }
 
-  const scheduledPillsTaken = getMedicationDailyUsageForDate(medication, date);
+  const scheduledPillsTaken = getMedicationDefaultRecordedPillsForDateFromHistory(
+    medication,
+    date,
+    normalizeMedicationRegimenHistory(medication)
+  );
   const submittedPillsTaken = options?.pillsTaken;
   const normalizedSubmittedPillsTaken = submittedPillsTaken === undefined || submittedPillsTaken === null || submittedPillsTaken === ''
     ? null
@@ -3045,11 +3113,12 @@ function getMedicationAdherenceHistory(userId, medicationId) {
     .map(record => {
       const regimen = medication ? getMedicationRegimenForDateFromHistory(medication, record.date, regimenHistory) : null;
       const scheduledDailyPillCount = medication ? getMedicationDailyUsageForDateFromHistory(medication, record.date, regimenHistory) : null;
+      const defaultRecordedPills = medication ? getMedicationDefaultRecordedPillsForDateFromHistory(medication, record.date, regimenHistory) : null;
       const normalizedPillsTaken = typeof record?.pillsTaken === 'number' ? record.pillsTaken : parseFloat(record?.pillsTaken);
       return {
         ...record,
         pillsTaken: record.status === 'took'
-          ? (Number.isFinite(normalizedPillsTaken) ? normalizedPillsTaken : scheduledDailyPillCount)
+          ? (Number.isFinite(normalizedPillsTaken) ? normalizedPillsTaken : defaultRecordedPills)
           : null,
         scheduledDailyPillCount,
         scheduledPillsPerDose: regimen ? regimen.pillsPerDose : null,
