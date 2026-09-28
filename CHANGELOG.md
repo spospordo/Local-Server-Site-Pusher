@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.34.4] - 2026-09-28
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #717 from spospordo/copilot/persist-github-pages-upload-setting
+  - Fix GitHub Pages settings tab persistence
+  - Initial plan
+
+
 ## [2.34.3] - 2026-09-28
 
 ### Patch Update
