@@ -5084,8 +5084,8 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="vidiotsGithubEnabled">GitHub Pages Upload</label>
-                        <select id="vidiotsGithubEnabled">
+                        <label for="serverGithubEnabled">GitHub Pages Upload</label>
+                        <select id="serverGithubEnabled">
                             <option value="false">Disabled</option>
                             <option value="true">Enabled</option>
                         </select>
@@ -5103,32 +5103,32 @@
                     <div class="collapsible-content collapsed">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="vidiotsRepoOwner">Repository Owner</label>
-                                <input type="text" id="vidiotsRepoOwner" placeholder="github-username">
+                                <label for="serverGithubRepoOwner">Repository Owner</label>
+                                <input type="text" id="serverGithubRepoOwner" placeholder="github-username">
                             </div>
                             <div class="form-group">
-                                <label for="vidiotsRepoName">Repository Name</label>
-                                <input type="text" id="vidiotsRepoName" placeholder="username.github.io">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="vidiotsRepoBranch">Branch</label>
-                                <input type="text" id="vidiotsRepoBranch" placeholder="main">
-                            </div>
-                            <div class="form-group">
-                                <label for="vidiotsRepoLocalPath">Local Repository Path</label>
-                                <input type="text" id="vidiotsRepoLocalPath" placeholder="/path/to/local/repo">
+                                <label for="serverGithubRepoName">Repository Name</label>
+                                <input type="text" id="serverGithubRepoName" placeholder="username.github.io">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="vidiotsCommitMessage">Commit Message</label>
-                                <input type="text" id="vidiotsCommitMessage" placeholder="Automated vidiots update">
+                                <label for="serverGithubRepoBranch">Branch</label>
+                                <input type="text" id="serverGithubRepoBranch" placeholder="main">
                             </div>
                             <div class="form-group">
-                                <label for="vidiotsAccessToken">GitHub Personal Access Token <span style="color: red;">*</span></label>
-                                <input type="password" id="vidiotsAccessToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                                <label for="serverGithubRepoLocalPath">Local Repository Path</label>
+                                <input type="text" id="serverGithubRepoLocalPath" placeholder="/path/to/local/repo">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="serverGithubCommitMessage">Commit Message</label>
+                                <input type="text" id="serverGithubCommitMessage" placeholder="Automated vidiots update">
+                            </div>
+                            <div class="form-group">
+                                <label for="serverGithubAccessToken">GitHub Personal Access Token <span style="color: red;">*</span></label>
+                                <input type="password" id="serverGithubAccessToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
                                 <small style="color: #666;">Required for authentication. Create at: Settings → Developer settings → Personal access tokens</small>
                             </div>
                         </div>
@@ -13483,6 +13483,92 @@
             }
         }
 
+        const GITHUB_PAGES_FIELD_IDS = {
+            enabled: ['vidiotsGithubEnabled', 'serverGithubEnabled'],
+            repoOwner: ['vidiotsRepoOwner', 'serverGithubRepoOwner'],
+            repoName: ['vidiotsRepoName', 'serverGithubRepoName'],
+            branch: ['vidiotsRepoBranch', 'serverGithubRepoBranch'],
+            repoLocalPath: ['vidiotsRepoLocalPath', 'serverGithubRepoLocalPath'],
+            commitMessage: ['vidiotsCommitMessage', 'serverGithubCommitMessage'],
+            accessToken: ['vidiotsAccessToken', 'serverGithubAccessToken']
+        };
+
+        function isElementVisible(element) {
+            if (!element) {
+                return false;
+            }
+
+            let current = element;
+            while (current) {
+                if (current.classList && current.classList.contains('hidden')) {
+                    return false;
+                }
+                if (current.style && current.style.display === 'none') {
+                    return false;
+                }
+                current = current.parentElement;
+            }
+
+            return true;
+        }
+
+        function getGitHubPagesFieldElement(fieldName) {
+            const ids = GITHUB_PAGES_FIELD_IDS[fieldName] || [];
+            const elements = ids
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+
+            return elements.find(isElementVisible) || elements[0] || null;
+        }
+
+        function getGitHubPagesFieldValue(fieldName) {
+            const element = getGitHubPagesFieldElement(fieldName);
+            return element ? element.value : '';
+        }
+
+        function setGitHubPagesFieldValue(fieldName, value, options = {}) {
+            const { hasToken = false } = options;
+            const ids = GITHUB_PAGES_FIELD_IDS[fieldName] || [];
+
+            ids.forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    return;
+                }
+
+                element.value = value;
+                if (fieldName === 'accessToken') {
+                    element.dataset.hasToken = hasToken ? 'true' : 'false';
+                }
+            });
+        }
+
+        function initializeGitHubPagesFieldSync() {
+            Object.entries(GITHUB_PAGES_FIELD_IDS).forEach(([fieldName, ids]) => {
+                ids.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        return;
+                    }
+
+                    const eventName = element.tagName === 'SELECT' ? 'change' : 'input';
+                    element.addEventListener(eventName, () => {
+                        if (fieldName === 'accessToken' && element.value !== '••••••••••••••••••••') {
+                            element.dataset.hasToken = element.value.trim() ? 'true' : 'false';
+                        }
+
+                        setGitHubPagesFieldValue(fieldName, element.value, {
+                            hasToken: element.dataset.hasToken === 'true'
+                        });
+
+                        if (fieldName === 'enabled') {
+                            toggleGitHubConfig();
+                        }
+                    });
+                });
+            });
+        }
+
         // Vidiots Functions
         async function loadVidiotsConfig() {
             try {
@@ -13504,14 +13590,15 @@
                     
                     // GitHub Pages configuration
                     const githubConfig = config.githubPages || {};
-                    document.getElementById('vidiotsGithubEnabled').value = githubConfig.enabled ? 'true' : 'false';
-                    document.getElementById('vidiotsRepoOwner').value = githubConfig.repoOwner || '';
-                    document.getElementById('vidiotsRepoName').value = githubConfig.repoName || '';
-                    document.getElementById('vidiotsRepoBranch').value = githubConfig.branch || 'main';
-                    document.getElementById('vidiotsRepoLocalPath').value = githubConfig.repoLocalPath || '';
-                    document.getElementById('vidiotsCommitMessage').value = githubConfig.commitMessage || 'Automated vidiots update';
-                    document.getElementById('vidiotsAccessToken').value = githubConfig.accessToken ? '••••••••••••••••••••' : '';
-                    document.getElementById('vidiotsAccessToken').dataset.hasToken = (githubConfig.accessToken ? 'true' : 'false');
+                    setGitHubPagesFieldValue('enabled', githubConfig.enabled ? 'true' : 'false');
+                    setGitHubPagesFieldValue('repoOwner', githubConfig.repoOwner || '');
+                    setGitHubPagesFieldValue('repoName', githubConfig.repoName || '');
+                    setGitHubPagesFieldValue('branch', githubConfig.branch || 'main');
+                    setGitHubPagesFieldValue('repoLocalPath', githubConfig.repoLocalPath || '');
+                    setGitHubPagesFieldValue('commitMessage', githubConfig.commitMessage || 'Automated vidiots update');
+                    setGitHubPagesFieldValue('accessToken', githubConfig.accessToken ? '••••••••••••••••••••' : '', {
+                        hasToken: Boolean(githubConfig.accessToken)
+                    });
                     
                     // Show/hide GitHub config based on enabled status
                     toggleGitHubConfig();
@@ -13700,17 +13787,17 @@
                     maxAgeHours: parseInt(document.getElementById('vidiotsMaxAgeHours').value) || 24,
                     forceUpdate: document.getElementById('vidiotsForceUpdate').value === 'true',
                     githubPages: {
-                        enabled: document.getElementById('vidiotsGithubEnabled').value === 'true',
-                        repoOwner: document.getElementById('vidiotsRepoOwner').value.trim(),
-                        repoName: document.getElementById('vidiotsRepoName').value.trim(),
-                        branch: document.getElementById('vidiotsRepoBranch').value.trim() || 'main',
-                        repoLocalPath: document.getElementById('vidiotsRepoLocalPath').value.trim(),
-                        commitMessage: document.getElementById('vidiotsCommitMessage').value.trim() || 'Automated vidiots update'
+                        enabled: getGitHubPagesFieldValue('enabled') === 'true',
+                        repoOwner: getGitHubPagesFieldValue('repoOwner').trim(),
+                        repoName: getGitHubPagesFieldValue('repoName').trim(),
+                        branch: getGitHubPagesFieldValue('branch').trim() || 'main',
+                        repoLocalPath: getGitHubPagesFieldValue('repoLocalPath').trim(),
+                        commitMessage: getGitHubPagesFieldValue('commitMessage').trim() || 'Automated vidiots update'
                     }
                 };
                 
                 // Handle access token separately (similar to Home Assistant token)
-                const accessTokenField = document.getElementById('vidiotsAccessToken');
+                const accessTokenField = getGitHubPagesFieldElement('accessToken');
                 let accessToken = accessTokenField.value;
                 
                 // If showing masked token and user didn't change it, don't send it
@@ -13734,6 +13821,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    await loadVidiotsConfig();
                     showAlert(result.message || 'Vidiots configuration saved successfully', 'success', 'vidiotsAlert');
                     loadVidiotsStatus(); // Refresh status after config change
                     markSaved('GitHub Repository Settings'); // Clear unsaved changes
@@ -14500,11 +14588,14 @@
         }
 
         function toggleGitHubConfig() {
-            const githubEnabled = document.getElementById('vidiotsGithubEnabled').value === 'true';
-            const githubConfig = document.getElementById('githubPagesConfig');
-            if (githubConfig) {
-                githubConfig.style.display = githubEnabled ? 'block' : 'none';
-            }
+            const githubEnabled = getGitHubPagesFieldValue('enabled') === 'true';
+
+            ['githubPagesConfig', 'github-repository-settings'].forEach(id => {
+                const githubConfig = document.getElementById(id);
+                if (githubConfig) {
+                    githubConfig.style.display = githubEnabled ? 'block' : 'none';
+                }
+            });
         }
 
         async function testGitHubConnection() {
@@ -15029,10 +15120,7 @@
             initializeEspressoEditorUrl();
 
             // Add event listener for GitHub Pages toggle
-            const githubEnabledSelect = document.getElementById('vidiotsGithubEnabled');
-            if (githubEnabledSelect) {
-                githubEnabledSelect.addEventListener('change', toggleGitHubConfig);
-            }
+            initializeGitHubPagesFieldSync();
             
             // Initialize GitHub status and load git identity when the page loads
             if (document.getElementById('githubOperationLog')) {
