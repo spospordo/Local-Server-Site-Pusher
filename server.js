@@ -11905,7 +11905,7 @@ app.put('/admin/api/house/medications/:id/assignments', requireAuth, (req, res) 
   }
 });
 
-app.post('/admin/api/house/medications/portal-users', requireAuth, (req, res) => {
+app.post('/admin/api/house/medications/portal-users', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
   const result = createMedicationPortalAccount(req.body?.username, req.body?.password);
   if (!result.success) {
     return res.status(result.statusCode).json({ success: false, error: result.error });
