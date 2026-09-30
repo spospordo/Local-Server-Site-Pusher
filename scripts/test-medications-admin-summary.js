@@ -459,6 +459,7 @@ async function run() {
       usage: 'Create workflow coverage',
       instructions: 'Take 1 pill once daily',
       scheduleFrequency: 'daily',
+      administrationMethod: 'injectable',
       pillsPerDose: 1,
       refillDate: today,
       pillCount: 14,
@@ -479,7 +480,9 @@ async function run() {
     assert.strictEqual(createdMedicationSummary.pillCount, 14, 'create workflow should persist the initial bottle pill count');
     assert.strictEqual(createdMedicationSummary.refillDate, today, 'create workflow should persist the initial refill date');
     assert.strictEqual(createdMedicationSummary.refillExpiration, '2027-02-28', 'create workflow should persist the initial refill expiration');
+    assert.strictEqual(createdMedicationSummary.administrationMethod, 'injectable', 'create workflow should persist the selected medication form');
     assert.strictEqual(createdMedicationSummary.regimenHistory.length, 1, 'create workflow should seed regimen history');
+    assert.strictEqual(createdMedicationSummary.regimenHistory[0].administrationMethod, 'injectable', 'create workflow should copy the selected medication form into regimen history');
     assert.strictEqual(createdMedicationSummary.refillHistory.length, 1, 'create workflow should seed refill history');
 
     const editMedicationResponse = await requestJson(adminJar, 'PUT', `/admin/api/house/medications/${createdMedicationSummary.id}`, {
@@ -700,6 +703,11 @@ async function run() {
         <option value="twice daily">twice daily</option>
         <option value="three times daily">three times daily</option>
       </select>
+      <select id="medicationAdministrationMethod">
+        <option value=""></option>
+        <option value="oral">oral</option>
+        <option value="injectable">injectable</option>
+      </select>
       <input id="medicationPillsPerDose">
       <input id="medicationRefillDate">
       <input id="medicationPillCount">
@@ -782,6 +790,7 @@ async function run() {
     createDom.window.document.getElementById('medicationUsage').value = 'Create flow';
     createDom.window.document.getElementById('medicationInstructions').value = 'Take 1 pill once daily';
     createDom.window.document.getElementById('medicationScheduleFrequency').value = 'daily';
+    createDom.window.document.getElementById('medicationAdministrationMethod').value = 'injectable';
     createDom.window.document.getElementById('medicationPillsPerDose').value = '1';
     createDom.window.document.getElementById('medicationRefillDate').value = today;
     createDom.window.document.getElementById('medicationPillCount').value = '21';
@@ -795,6 +804,7 @@ async function run() {
     assert.strictEqual(createRequestBody.refillDate, today, 'create workflow should include the initial refill date');
     assert.strictEqual(createRequestBody.pillCount, '21', 'create workflow should include the initial bottle pill count');
     assert.strictEqual(createRequestBody.scheduleFrequency, 'daily', 'create workflow should include regimen data for new medications');
+    assert.strictEqual(createRequestBody.administrationMethod, 'injectable', 'create workflow should include the selected medication form');
     assert.strictEqual(createDom.window.loadCalls, 1, 'successful create saves should reload medication data');
     assert.strictEqual(createDom.window.document.getElementById('medicationFormContainer').style.display, 'none', 'successful create saves should hide the form');
 
@@ -863,6 +873,7 @@ async function run() {
     assert.strictEqual(editDom.window.document.getElementById('medicationInstructions').value, 'Take with dinner', 'edit form should retain saved instructions after refresh');
     assert.strictEqual(editDom.window.document.getElementById('medicationPillCount').value, '18', 'edit form should retain the saved pill count after refresh');
     assert.strictEqual(editDom.window.document.getElementById('medicationScheduleFrequency').value, 'twice daily', 'edit form should preload the latest saved regimen frequency');
+    assert.strictEqual(editDom.window.document.getElementById('medicationAdministrationMethod').value, '', 'edit form should preload a blank form selector when no administration method was saved');
     assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillDate').readOnly, true, 'edit form should keep refill date changes inside the refill modal');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillExpiration').readOnly, true, 'edit form should keep refill expiration changes inside the refill modal');
@@ -887,6 +898,7 @@ async function run() {
     editDom.window.document.getElementById('medicationUsage').value = 'Updated edit DOM usage';
     editDom.window.document.getElementById('medicationInstructions').value = 'Take with breakfast';
     editDom.window.document.getElementById('medicationScheduleFrequency').value = 'daily';
+    editDom.window.document.getElementById('medicationAdministrationMethod').value = 'oral';
     editDom.window.document.getElementById('medicationPillsPerDose').value = '2';
     editDom.window.document.getElementById('medicationPillCount').value = '30';
     editDom.window.document.getElementById('medicationAlertThresholdDays').value = '6';
@@ -901,6 +913,7 @@ async function run() {
     assert.strictEqual(editRequestBody.usage, 'Updated edit DOM usage', 'edit workflow should submit updated medication usage');
     assert.strictEqual(editRequestBody.instructions, 'Take with breakfast', 'edit workflow should submit updated regimen instructions');
     assert.strictEqual(editRequestBody.scheduleFrequency, 'daily', 'edit workflow should submit updated regimen frequency');
+    assert.strictEqual(editRequestBody.administrationMethod, 'oral', 'edit workflow should submit the selected medication form');
     assert.strictEqual(editRequestBody.pillsPerDose, '2', 'edit workflow should submit updated pills per dose');
     assert.strictEqual(editRequestBody.pillCount, '30', 'edit workflow should submit updated regimen pill counts');
     assert.strictEqual(editRequestBody.alertThresholdDays, '6', 'edit workflow should submit updated medication alert thresholds');
