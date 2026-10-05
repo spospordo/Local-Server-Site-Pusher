@@ -4562,6 +4562,15 @@
                                 <small style="color: #666;">Used for countdown and refill forecasting.</small>
                             </div>
                             <div class="form-group" style="max-width: 180px;">
+                                <label for="medicationAdministrationMethod">Form</label>
+                                <select id="medicationAdministrationMethod">
+                                    <option value="">— not specified —</option>
+                                    <option value="oral">Oral</option>
+                                    <option value="injectable">Injectable</option>
+                                </select>
+                                <small style="color: #666;">Used for dose labels and weekly injectable forecasting.</small>
+                            </div>
+                            <div class="form-group" style="max-width: 180px;">
                                 <label for="medicationPillsPerDose">Pills per dose</label>
                                 <input type="number" id="medicationPillsPerDose" placeholder="1" min="0.25" step="0.25" value="1">
                                 <small style="color: #666;">Number of pills taken per dose.</small>
@@ -30175,6 +30184,7 @@
             return {
                 instructions: document.getElementById('medicationInstructions').value.trim(),
                 scheduleFrequency: document.getElementById('medicationScheduleFrequency').value,
+                administrationMethod: document.getElementById('medicationAdministrationMethod').value,
                 pillsPerDose: document.getElementById('medicationPillsPerDose').value,
                 regimenEffectiveDate: document.getElementById('medicationRegimenEffectiveDate').value,
                 pillCount: document.getElementById('medicationPillCount').value
@@ -30193,6 +30203,14 @@
             return value === '' || value === null || value === undefined ? '' : String(value);
         }
 
+        function normalizeMedicationAdministrationMethod(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (!normalized) return '';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|sub-?q|subq|intramuscular|intravenous|iv|pen|syringe|autoinjector)\b/.test(normalized)) return 'injectable';
+            if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(normalized)) return 'oral';
+            return '';
+        }
+
         function hasUnsavedRegimenFormChanges() {
             if (!currentMedicationFormSnapshot || !currentMedicationFormSnapshot.id) {
                 return false;
@@ -30202,6 +30220,7 @@
             const regimenPayload = getMedicationFormRegimenPayload();
             return String(regimenPayload.instructions || '').trim() !== String(currentRegimen.instructions || '').trim()
                 || String(regimenPayload.scheduleFrequency || '') !== String(currentRegimen.scheduleFrequency || '')
+                || normalizeMedicationAdministrationMethod(regimenPayload.administrationMethod || '') !== normalizeMedicationAdministrationMethod(currentRegimen.administrationMethod || currentMedicationFormSnapshot.administrationMethod || '')
                 || String(regimenPayload.pillsPerDose || '') !== String(currentRegimen.pillsPerDose ?? 1)
                 || normalizeMedicationFormPillCount(regimenPayload.pillCount) !== normalizeMedicationFormPillCount(currentRegimen.pillCount)
                 || String(regimenPayload.regimenEffectiveDate || '').trim() !== '';
@@ -30360,6 +30379,9 @@
             document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
             document.getElementById('medicationInstructions').value = currentRegimen ? (currentRegimen.instructions || '') : (med ? (med.instructions || '') : '');
             document.getElementById('medicationScheduleFrequency').value = currentRegimen ? (currentRegimen.scheduleFrequency || '') : '';
+            document.getElementById('medicationAdministrationMethod').value = normalizeMedicationAdministrationMethod(currentRegimen
+                ? (currentRegimen.administrationMethod || '')
+                : (med ? (med.administrationMethod || '') : ''));
             document.getElementById('medicationPillsPerDose').value = currentRegimen && currentRegimen.pillsPerDose !== null && currentRegimen.pillsPerDose !== undefined ? currentRegimen.pillsPerDose : 1;
             document.getElementById('medicationRefillDate').value = currentRefill ? (currentRefill.refillDate || '') : (med ? (med.refillDate || '') : '');
             document.getElementById('medicationPillCount').value = currentRegimen && currentRegimen.pillCount !== null && currentRegimen.pillCount !== undefined

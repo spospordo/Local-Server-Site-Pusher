@@ -846,9 +846,9 @@
         function normalizeMedicationAdministrationMethod(value) {
             const normalized = String(value || '').trim().toLowerCase();
             if (!normalized) return '';
-            if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(normalized)) return 'injectable';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|sub-?q|subq|intramuscular|intravenous|iv|pen|syringe|autoinjector)\b/.test(normalized)) return 'injectable';
             if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(normalized)) return 'oral';
-            return normalized;
+            return '';
         }
 
         function getMedicationAdministrationMethod(medication, regimen = null) {
@@ -879,7 +879,7 @@
                 .toLowerCase();
 
             if (!text) return '';
-            if (/\b(inject(?:ion|able)?|shot|subcutaneous|intramuscular|intravenous|iv)\b/.test(text)) return 'injectable';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|sub-?q|subq|intramuscular|intravenous|iv|pen|syringe|autoinjector)\b/.test(text)) return 'injectable';
             if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(text)) return 'oral';
             return '';
         }

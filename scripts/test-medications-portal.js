@@ -271,29 +271,97 @@ function run() {
         asOfDate: today,
         adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record.medicationId === doseEditMedication.id)
       }).estimatedRemainingPillCount,
-      8,
+      8.5,
       'forecasts should use actual recorded pill counts when they are available'
     );
     log('✅ Medication adherence records keep editable actual pill counts');
 
     const weeklyInjectionMedicationResult = house.addMedication({
-      name: 'Weekly Injection',
-      description: 'Injectable medicine',
-      usage: 'Weekly injection',
-      instructions: 'Inject 1 dose once weekly',
+      name: 'Ozempic',
+      description: '0.5 mg weekly',
+      usage: '0.5 mg weekly maintenance',
+      instructions: 'Take 0.5 mg weekly',
+      administrationMethod: 'injectable',
       scheduleFrequency: 'weekly',
       pillsPerDose: 1,
       pillCount: 4,
-      refillDate: yesterday
+      refillDate: getDateOffset(-7)
     });
     assert.strictEqual(weeklyInjectionMedicationResult.success, true, 'weekly injectable medication should be created');
-    const weeklyInjectionMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Weekly Injection');
+    const weeklyInjectionMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Ozempic');
+    assert.strictEqual(weeklyInjectionMedication.administrationMethod, 'injectable', 'weekly injectable medication should persist the explicit administration method');
+    assert.strictEqual(weeklyInjectionMedication.regimenHistory[0].administrationMethod, 'injectable', 'weekly injectable regimen history should persist the explicit administration method');
     assert.strictEqual(house.setMedicationAssignments(weeklyInjectionMedication.id, [createUserResult.user.id]).success, true, 'weekly injectable medication should be assigned');
-    const weeklyInjectionRecord = house.recordMedicationAdherence(createUserResult.user.id, weeklyInjectionMedication.id, 'took', today);
+    const weeklyInjectionRecord = house.recordMedicationAdherence(createUserResult.user.id, weeklyInjectionMedication.id, 'took', yesterday);
     assert.strictEqual(weeklyInjectionRecord.success, true, 'weekly injectable adherence should be recorded');
     assert.strictEqual(weeklyInjectionRecord.record.pillsTaken, 1, 'weekly injectable adherence should default to one injection instead of a derived daily pill count');
     const weeklyInjectionHistory = house.getMedicationAdherenceHistory(createUserResult.user.id, weeklyInjectionMedication.id);
     assert.strictEqual(weeklyInjectionHistory[0].pillsTaken, 1, 'weekly injectable history should preserve the recorded weekly injection quantity');
+    const weeklyInjectionForecast = house.computeMedicationForecast(weeklyInjectionMedication, {
+      asOfDate: today,
+      adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record.medicationId === weeklyInjectionMedication.id)
+    });
+    assert.strictEqual(weeklyInjectionForecast.estimatedRemainingPillCount, 3, 'weekly injectable forecasts should subtract one dose for the week instead of daily fractions');
+    assert.strictEqual(weeklyInjectionForecast.belowAlertThreshold, false, 'weekly injectable forecasts should not show a low-supply alert with three doses remaining');
+    assert.strictEqual(weeklyInjectionForecast.alertThresholdPillCount, 1, 'weekly injectable forecasts should convert the day threshold into a weekly dose quantity');
+
+    const weeklyInjectionNoAlertResult = house.addMedication({
+      name: 'Mounjaro',
+      description: '5 mg weekly',
+      usage: '5 mg weekly maintenance',
+      instructions: 'Take 5 mg weekly',
+      administrationMethod: 'injectable',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 4,
+      refillDate: today
+    });
+    assert.strictEqual(weeklyInjectionNoAlertResult.success, true, 'weekly injectable no-alert medication should be created');
+    const weeklyInjectionNoAlertMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Mounjaro');
+    assert.strictEqual(
+      house.computeMedicationForecast(weeklyInjectionNoAlertMedication, { asOfDate: today }).belowAlertThreshold,
+      false,
+      'weekly injectable medications should not immediately show a refill alert on refill day'
+    );
+
+    const weeklyInjectionRegimenChangeResult = house.addMedication({
+      name: 'Wegovy',
+      description: '0.25 mg weekly',
+      usage: '0.25 mg weekly maintenance',
+      instructions: 'Take 0.25 mg weekly',
+      administrationMethod: 'injectable',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 4,
+      refillDate: '2026-10-01'
+    });
+    assert.strictEqual(weeklyInjectionRegimenChangeResult.success, true, 'weekly injectable regimen-change medication should be created');
+    const weeklyInjectionRegimenChangeMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Wegovy');
+    const baselineWeeklyInjectionForecast = house.computeMedicationForecast(weeklyInjectionRegimenChangeMedication, { asOfDate: '2026-10-10' });
+    assert.strictEqual(
+      house.saveMedicationRegimen(weeklyInjectionRegimenChangeMedication.id, {
+        instructions: 'Take 0.25 mg weekly after dinner',
+        scheduleFrequency: 'weekly',
+        pillsPerDose: 1,
+        administrationMethod: 'injectable',
+        regimenEffectiveDate: '2026-10-04',
+        pillCount: 4
+      }).success,
+      true,
+      'weekly injectable regimen changes should save successfully'
+    );
+    const weeklyInjectionAfterRegimenChange = house.getMedicationsData().medications.find(entry => entry.id === weeklyInjectionRegimenChangeMedication.id);
+    const weeklyInjectionAfterRegimenChangeForecast = house.computeMedicationForecast(weeklyInjectionAfterRegimenChange, { asOfDate: '2026-10-10' });
+    assert.strictEqual(
+      weeklyInjectionAfterRegimenChangeForecast.estimatedRemainingPillCount,
+      baselineWeeklyInjectionForecast.estimatedRemainingPillCount,
+      'mid-cycle weekly regimen edits should preserve the existing weekly dose cadence'
+    );
+    assert.strictEqual(
+      weeklyInjectionAfterRegimenChangeForecast.refillNeededDate,
+      baselineWeeklyInjectionForecast.refillNeededDate,
+      'mid-cycle weekly regimen edits should not postpone the next refill date by resetting the weekly cadence'
+    );
 
     const weeklyOralMedicationResult = house.addMedication({
       name: 'Weekly Oral Vitamin',
