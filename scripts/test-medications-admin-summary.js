@@ -757,6 +757,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationById(id)')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationRefillModalPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationFormPillCount(value)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationAdministrationMethod(value)')}
       ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRegimenFormChanges()')}
       ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRefillFormChanges()')}
       ${extractFunctionSource(adminDashboardHtml, "function openMedicationRefillModal(refillId = '')")}
@@ -834,6 +835,7 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationById(id)')}
       ${extractFunctionSource(adminDashboardHtml, 'function getMedicationRefillModalPayload()')}
       ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationFormPillCount(value)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function normalizeMedicationAdministrationMethod(value)')}
       ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRegimenFormChanges()')}
       ${extractFunctionSource(adminDashboardHtml, 'function hasUnsavedRefillFormChanges()')}
       ${extractFunctionSource(adminDashboardHtml, "function openMedicationRefillModal(refillId = '')")}
@@ -875,6 +877,27 @@ async function run() {
     assert.strictEqual(editDom.window.document.getElementById('medicationScheduleFrequency').value, 'twice daily', 'edit form should preload the latest saved regimen frequency');
     assert.strictEqual(editDom.window.document.getElementById('medicationAdministrationMethod').value, '', 'edit form should preload a blank form selector when no administration method was saved');
     assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
+
+    const legacyInjectableSummary = {
+      ...vitaminMedicationSummary,
+      administrationMethod: 'subcutaneous',
+      regimenHistory: [{
+        ...(vitaminMedicationSummary.regimenHistory[0] || {}),
+        administrationMethod: 'subcutaneous'
+      }]
+    };
+    editDom.window.showMedicationForm(legacyInjectableSummary);
+    assert.strictEqual(
+      editDom.window.document.getElementById('medicationAdministrationMethod').value,
+      'injectable',
+      'edit form should normalize legacy injectable administration methods into the injectable selector option'
+    );
+    assert.strictEqual(
+      editDom.window.hasUnsavedRegimenFormChanges(),
+      false,
+      'normalizing a legacy injectable administration method should not create a spurious unsaved-regimen state'
+    );
+    editDom.window.showMedicationForm(vitaminMedicationSummary);
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillDate').readOnly, true, 'edit form should keep refill date changes inside the refill modal');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillExpiration').readOnly, true, 'edit form should keep refill expiration changes inside the refill modal');
     assert.strictEqual(editDom.window.document.getElementById('medicationRefillDate').disabled, true, 'edit form should visibly disable refill date editing in the main form');

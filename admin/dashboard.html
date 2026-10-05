@@ -30203,6 +30203,14 @@
             return value === '' || value === null || value === undefined ? '' : String(value);
         }
 
+        function normalizeMedicationAdministrationMethod(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (!normalized) return '';
+            if (/\b(inject(?:ion|able)?|shot|subcutaneous|sub-?q|subq|intramuscular|intravenous|iv|pen|syringe|autoinjector)\b/.test(normalized)) return 'injectable';
+            if (/\b(oral|pill|tablet|capsule|caplet|cap|tab)\b/.test(normalized)) return 'oral';
+            return '';
+        }
+
         function hasUnsavedRegimenFormChanges() {
             if (!currentMedicationFormSnapshot || !currentMedicationFormSnapshot.id) {
                 return false;
@@ -30212,7 +30220,7 @@
             const regimenPayload = getMedicationFormRegimenPayload();
             return String(regimenPayload.instructions || '').trim() !== String(currentRegimen.instructions || '').trim()
                 || String(regimenPayload.scheduleFrequency || '') !== String(currentRegimen.scheduleFrequency || '')
-                || String(regimenPayload.administrationMethod || '') !== String(currentRegimen.administrationMethod || currentMedicationFormSnapshot.administrationMethod || '')
+                || normalizeMedicationAdministrationMethod(regimenPayload.administrationMethod || '') !== normalizeMedicationAdministrationMethod(currentRegimen.administrationMethod || currentMedicationFormSnapshot.administrationMethod || '')
                 || String(regimenPayload.pillsPerDose || '') !== String(currentRegimen.pillsPerDose ?? 1)
                 || normalizeMedicationFormPillCount(regimenPayload.pillCount) !== normalizeMedicationFormPillCount(currentRegimen.pillCount)
                 || String(regimenPayload.regimenEffectiveDate || '').trim() !== '';
@@ -30371,9 +30379,9 @@
             document.getElementById('medicationUsage').value = med ? (med.usage || '') : '';
             document.getElementById('medicationInstructions').value = currentRegimen ? (currentRegimen.instructions || '') : (med ? (med.instructions || '') : '');
             document.getElementById('medicationScheduleFrequency').value = currentRegimen ? (currentRegimen.scheduleFrequency || '') : '';
-            document.getElementById('medicationAdministrationMethod').value = currentRegimen
+            document.getElementById('medicationAdministrationMethod').value = normalizeMedicationAdministrationMethod(currentRegimen
                 ? (currentRegimen.administrationMethod || '')
-                : (med ? (med.administrationMethod || '') : '');
+                : (med ? (med.administrationMethod || '') : ''));
             document.getElementById('medicationPillsPerDose').value = currentRegimen && currentRegimen.pillsPerDose !== null && currentRegimen.pillsPerDose !== undefined ? currentRegimen.pillsPerDose : 1;
             document.getElementById('medicationRefillDate').value = currentRefill ? (currentRefill.refillDate || '') : (med ? (med.refillDate || '') : '');
             document.getElementById('medicationPillCount').value = currentRegimen && currentRegimen.pillCount !== null && currentRegimen.pillCount !== undefined

@@ -324,6 +324,45 @@ function run() {
       'weekly injectable medications should not immediately show a refill alert on refill day'
     );
 
+    const weeklyInjectionRegimenChangeResult = house.addMedication({
+      name: 'Wegovy',
+      description: '0.25 mg weekly',
+      usage: '0.25 mg weekly maintenance',
+      instructions: 'Take 0.25 mg weekly',
+      administrationMethod: 'injectable',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 4,
+      refillDate: '2026-10-01'
+    });
+    assert.strictEqual(weeklyInjectionRegimenChangeResult.success, true, 'weekly injectable regimen-change medication should be created');
+    const weeklyInjectionRegimenChangeMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Wegovy');
+    const baselineWeeklyInjectionForecast = house.computeMedicationForecast(weeklyInjectionRegimenChangeMedication, { asOfDate: '2026-10-10' });
+    assert.strictEqual(
+      house.saveMedicationRegimen(weeklyInjectionRegimenChangeMedication.id, {
+        instructions: 'Take 0.25 mg weekly after dinner',
+        scheduleFrequency: 'weekly',
+        pillsPerDose: 1,
+        administrationMethod: 'injectable',
+        regimenEffectiveDate: '2026-10-04',
+        pillCount: 4
+      }).success,
+      true,
+      'weekly injectable regimen changes should save successfully'
+    );
+    const weeklyInjectionAfterRegimenChange = house.getMedicationsData().medications.find(entry => entry.id === weeklyInjectionRegimenChangeMedication.id);
+    const weeklyInjectionAfterRegimenChangeForecast = house.computeMedicationForecast(weeklyInjectionAfterRegimenChange, { asOfDate: '2026-10-10' });
+    assert.strictEqual(
+      weeklyInjectionAfterRegimenChangeForecast.estimatedRemainingPillCount,
+      baselineWeeklyInjectionForecast.estimatedRemainingPillCount,
+      'mid-cycle weekly regimen edits should preserve the existing weekly dose cadence'
+    );
+    assert.strictEqual(
+      weeklyInjectionAfterRegimenChangeForecast.refillNeededDate,
+      baselineWeeklyInjectionForecast.refillNeededDate,
+      'mid-cycle weekly regimen edits should not postpone the next refill date by resetting the weekly cadence'
+    );
+
     const weeklyOralMedicationResult = house.addMedication({
       name: 'Weekly Oral Vitamin',
       instructions: 'Take 1 pill once weekly',

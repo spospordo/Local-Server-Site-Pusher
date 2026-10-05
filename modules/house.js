@@ -1782,13 +1782,19 @@ function computeMedicationForecast(med, options = {}) {
         const nextAdherenceDate = adherenceDates[nextAdherenceDateIndex] || asOfDate;
 
         if (scheduleFrequency === 'weekly') {
-          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen);
+          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen, regimenHistory);
           const anchor = parseMedicationDate(anchorDate) || cursor;
           const daysSinceAnchor = getMedicationDateDiffInDays(anchor, cursor);
           const periodStart = addMedicationDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
           const periodEnd = addMedicationDays(periodStart, 7);
           const periodEndDate = periodEnd.toISOString().slice(0, 10);
-          const nextBoundaryDate = [periodEndDate, nextRegimenDate, asOfDate]
+          const nextWeeklyBreakingRegimenDate = getMedicationNextWeeklyBreakingRegimenDate(
+            med,
+            futureRegimenDates,
+            nextRegimenDateIndex,
+            regimenHistory
+          );
+          const nextBoundaryDate = [periodEndDate, nextWeeklyBreakingRegimenDate, asOfDate]
             .filter(date => date > cursorDate)
             .sort((left, right) => left.localeCompare(right))[0] || asOfDate;
           const nextBoundary = parseMedicationDate(nextBoundaryDate) || targetDate;
@@ -1869,13 +1875,19 @@ function computeMedicationForecast(med, options = {}) {
 
         const nextRegimenDate = futureRegimenDates[nextRegimenDateIndex] || null;
         if (scheduleFrequency === 'weekly') {
-          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen);
+          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen, regimenHistory);
           const anchor = parseMedicationDate(anchorDate) || cursor;
           const daysSinceAnchor = getMedicationDateDiffInDays(anchor, cursor);
           const periodStart = addMedicationDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
           const periodEnd = addMedicationDays(periodStart, 7);
-          const nextBoundary = nextRegimenDate
-            ? [periodEnd, parseMedicationDate(nextRegimenDate)].filter(Boolean).sort((left, right) => left - right)[0]
+          const nextWeeklyBreakingRegimenDate = getMedicationNextWeeklyBreakingRegimenDate(
+            med,
+            futureRegimenDates,
+            nextRegimenDateIndex,
+            regimenHistory
+          );
+          const nextBoundary = nextWeeklyBreakingRegimenDate
+            ? [periodEnd, parseMedicationDate(nextWeeklyBreakingRegimenDate)].filter(Boolean).sort((left, right) => left - right)[0]
             : periodEnd;
           const segmentDays = Math.max(1, getMedicationDateDiffInDays(cursor, nextBoundary));
           const dose = normalizeMedicationPillsPerDose(regimen?.pillsPerDose, 1);
@@ -2437,19 +2449,40 @@ function getMedicationDailyUsageForDateFromHistory(medication, date, history) {
     : estimateDailyUsageFromInstructions(regimen?.instructions ?? medication?.instructions);
 }
 
-function getMedicationWeeklyRegimenAnchorDate(medication, regimen) {
-  const regimenEffectiveDate = String(regimen?.effectiveDate || '').trim().slice(0, 10);
+function getMedicationWeeklyRegimenAnchorDate(medication, regimen, history = null) {
+  const normalizedHistory = Array.isArray(history) && history.length > 0
+    ? history
+    : normalizeMedicationRegimenHistory(medication);
   const refillDate = String(medication?.refillDate || '').trim().slice(0, 10);
-  if (isValidMedicationStatusDate(regimenEffectiveDate) && isValidMedicationStatusDate(refillDate)) {
-    return regimenEffectiveDate > refillDate ? regimenEffectiveDate : refillDate;
+  const refillAnchorDate = isValidMedicationStatusDate(refillDate) ? refillDate : '';
+  const regimenEffectiveDate = String(regimen?.effectiveDate || '').trim().slice(0, 10);
+  if (!isValidMedicationStatusDate(regimenEffectiveDate)) {
+    return refillAnchorDate || getMedicationInitialRegimenEffectiveDate(medication);
   }
-  if (isValidMedicationStatusDate(regimenEffectiveDate)) {
-    return regimenEffectiveDate;
+
+  let anchorDate = regimenEffectiveDate;
+  const currentIndex = normalizedHistory.findIndex(entry => String(entry?.effectiveDate || '') === regimenEffectiveDate);
+  if (currentIndex === -1) {
+    return refillAnchorDate && refillAnchorDate > anchorDate ? refillAnchorDate : anchorDate;
   }
-  if (isValidMedicationStatusDate(refillDate)) {
-    return refillDate;
+
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const previousEntry = normalizedHistory[index];
+    const previousEffectiveDate = String(previousEntry?.effectiveDate || '').trim().slice(0, 10);
+    if (refillAnchorDate && previousEffectiveDate < refillAnchorDate) {
+      break;
+    }
+    if (normalizeMedicationScheduleFrequency(previousEntry?.scheduleFrequency) !== 'weekly') {
+      break;
+    }
+    anchorDate = previousEffectiveDate;
   }
-  return getMedicationInitialRegimenEffectiveDate(medication);
+
+  if (refillAnchorDate && refillAnchorDate > anchorDate) {
+    return refillAnchorDate;
+  }
+
+  return anchorDate || refillAnchorDate || getMedicationInitialRegimenEffectiveDate(medication);
 }
 
 function getMedicationRecordedUsageForPeriodFromHistory(medication, startDate, endDate, adherenceRecordsByDate = new Map(), history = null) {
@@ -2497,6 +2530,20 @@ function getMedicationForecastWeeklyUsageForPeriod(medication, regimen, periodSt
   }
 
   return normalizeMedicationPillsPerDose(regimen?.pillsPerDose, 1);
+}
+
+function getMedicationNextWeeklyBreakingRegimenDate(medication, futureRegimenDates = [], startIndex = 0, history = null) {
+  const normalizedHistory = Array.isArray(history) && history.length > 0
+    ? history
+    : normalizeMedicationRegimenHistory(medication);
+  for (let index = startIndex; index < futureRegimenDates.length; index += 1) {
+    const date = futureRegimenDates[index];
+    const regimen = getMedicationRegimenForDateFromHistory(medication, date, normalizedHistory);
+    if (normalizeMedicationScheduleFrequency(regimen?.scheduleFrequency) !== 'weekly') {
+      return date;
+    }
+  }
+  return null;
 }
 
 function saveMedicationWithRegimenHistory(medsData, index, existing, nextMedicationFields, regimenHistory) {
