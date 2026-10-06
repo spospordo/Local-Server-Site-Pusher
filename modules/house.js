@@ -2485,6 +2485,46 @@ function getMedicationWeeklyRegimenAnchorDate(medication, regimen, history = nul
   return anchorDate || refillAnchorDate || getMedicationInitialRegimenEffectiveDate(medication);
 }
 
+function getMedicationWeeklyScheduleForDateFromHistory(medication, date, history = null) {
+  const targetDate = isValidMedicationStatusDate(date) ? date : getMedicationTodayDate();
+  const normalizedHistory = Array.isArray(history) && history.length > 0
+    ? history
+    : normalizeMedicationRegimenHistory(medication);
+  const regimen = getMedicationRegimenForDateFromHistory(medication, targetDate, normalizedHistory);
+  if (normalizeMedicationScheduleFrequency(regimen?.scheduleFrequency) !== 'weekly') {
+    return null;
+  }
+
+  const target = parseMedicationDate(targetDate);
+  if (!target) {
+    return null;
+  }
+
+  const anchorDate = getMedicationWeeklyRegimenAnchorDate(medication, regimen, normalizedHistory);
+  const anchor = parseMedicationDate(anchorDate);
+  if (!anchor) {
+    return null;
+  }
+
+  const daysSinceAnchor = getMedicationDateDiffInDays(anchor, target);
+  const periodStart = addMedicationDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
+  const periodEnd = addMedicationDays(periodStart, 7);
+  const periodStartDate = periodStart.toISOString().slice(0, 10);
+
+  return {
+    regimen,
+    anchorDate,
+    periodStartDate,
+    periodEndDate: periodEnd.toISOString().slice(0, 10),
+    isScheduledDate: periodStartDate === targetDate
+  };
+}
+
+function isMedicationScheduledForDate(medication, date, history = null) {
+  const weeklySchedule = getMedicationWeeklyScheduleForDateFromHistory(medication, date, history);
+  return weeklySchedule ? weeklySchedule.isScheduledDate : true;
+}
+
 function getMedicationRecordedUsageForPeriodFromHistory(medication, startDate, endDate, adherenceRecordsByDate = new Map(), history = null) {
   const normalizedHistory = Array.isArray(history) ? history : normalizeMedicationRegimenHistory(medication);
   let hasRecords = false;
@@ -3421,6 +3461,7 @@ module.exports = {
   recordMedicationAdherence,
   getMedicationAdherenceHistory,
   getMedicationRegimenForDate,
+  isMedicationScheduledForDate,
   getMedicationDailyUsageForDate,
   estimateDailyUsageFromInstructions,
   computeMedicationForecast
