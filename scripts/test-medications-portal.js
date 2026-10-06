@@ -362,6 +362,21 @@ function run() {
       baselineWeeklyInjectionForecast.refillNeededDate,
       'mid-cycle weekly regimen edits should not postpone the next refill date by resetting the weekly cadence'
     );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(weeklyInjectionAfterRegimenChange, '2026-10-08'),
+      true,
+      'weekly medications should be scheduled on the anchored weekly dose day'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(weeklyInjectionAfterRegimenChange, '2026-10-09'),
+      false,
+      'weekly medications should be hidden on non-dose days between anchored doses'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(weeklyInjectionAfterRegimenChange, '2026-10-15'),
+      true,
+      'weekly medications should reappear on the next weekly anchored dose day'
+    );
 
     const weeklyOralMedicationResult = house.addMedication({
       name: 'Weekly Oral Vitamin',

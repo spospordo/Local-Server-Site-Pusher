@@ -1501,6 +1501,9 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
         name: medication.name,
         instructions: medication.instructions || '',
         scheduleFrequency: house.getMedicationRegimenForDate(medication, getMedicationPortalToday()).scheduleFrequency || '',
+        refillDate: medication.refillDate || '',
+        createdDate: medication.createdDate || '',
+        regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
         asNeeded: !!medication.asNeeded,
         assignedAt: assignment.assignedAt || ''
       };
@@ -1511,7 +1514,9 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
   const recentDays = summaryDays.map(date => {
     const medications = assignedMedications.map(medication => {
       const assignedAtDate = String(medication.assignedAt || '').slice(0, 10);
-      const expected = !medication.asNeeded && (!assignedAtDate || assignedAtDate <= date);
+      const expected = !medication.asNeeded
+        && (!assignedAtDate || assignedAtDate <= date)
+        && house.isMedicationScheduledForDate(medication, date);
       const record = recordByKey.get(`${portalUser.id}:${medication.id}:${date}`) || null;
       const status = record
         ? record.status

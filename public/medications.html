@@ -812,6 +812,90 @@
             };
         }
 
+        function parseMedicationScheduleDate(value) {
+            const text = String(value || '').trim().slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+            const parsed = new Date(`${text}T00:00:00Z`);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        function addMedicationScheduleDays(date, days) {
+            const next = new Date(date.getTime());
+            next.setUTCDate(next.getUTCDate() + days);
+            return next;
+        }
+
+        function getMedicationScheduleDateDiffInDays(startDate, endDate) {
+            return Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
+        }
+
+        function getMedicationWeeklyScheduleForDate(medication, date) {
+            const regimen = getMedicationRegimenForDate(medication, date);
+            if (String(regimen?.scheduleFrequency || '').trim() !== 'weekly') {
+                return null;
+            }
+
+            const target = parseMedicationScheduleDate(date);
+            if (!target) return null;
+
+            const history = Array.isArray(medication?.regimenHistory) ? [...medication.regimenHistory] : [];
+            history.sort((left, right) => String(left?.effectiveDate || '').localeCompare(String(right?.effectiveDate || '')));
+            const refillAnchorDate = parseMedicationScheduleDate(medication?.refillDate)
+                ? String(medication.refillDate).trim().slice(0, 10)
+                : '';
+            const regimenEffectiveDate = String(regimen?.effectiveDate || '').trim().slice(0, 10);
+            let anchorDate = regimenEffectiveDate || refillAnchorDate || date;
+            const currentIndex = history.findIndex(entry => String(entry?.effectiveDate || '').trim().slice(0, 10) === regimenEffectiveDate);
+
+            if (currentIndex >= 0) {
+                for (let index = currentIndex - 1; index >= 0; index -= 1) {
+                    const previousEntry = history[index];
+                    const previousEffectiveDate = String(previousEntry?.effectiveDate || '').trim().slice(0, 10);
+                    if (refillAnchorDate && previousEffectiveDate < refillAnchorDate) break;
+                    if (String(previousEntry?.scheduleFrequency || '').trim() !== 'weekly') break;
+                    anchorDate = previousEffectiveDate;
+                }
+            }
+
+            if (refillAnchorDate && (!anchorDate || refillAnchorDate > anchorDate)) {
+                anchorDate = refillAnchorDate;
+            }
+
+            const anchor = parseMedicationScheduleDate(anchorDate);
+            if (!anchor) return null;
+
+            const daysSinceAnchor = getMedicationScheduleDateDiffInDays(anchor, target);
+            const periodStart = addMedicationScheduleDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
+            const periodEnd = addMedicationScheduleDays(periodStart, 7);
+            const periodStartDate = periodStart.toISOString().slice(0, 10);
+
+            return {
+                periodStartDate,
+                periodEndDate: periodEnd.toISOString().slice(0, 10),
+                isScheduledDate: periodStartDate === String(date || '')
+            };
+        }
+
+        function shouldShowMedicationOnDate(medication, date) {
+            const weeklySchedule = getMedicationWeeklyScheduleForDate(medication, date);
+            if (!weeklySchedule) return true;
+
+            const adherenceHistory = Array.isArray(medication?.adherenceHistory) ? medication.adherenceHistory : [];
+            if (!weeklySchedule.isScheduledDate) {
+                return false;
+            }
+
+            return !adherenceHistory.some(record => (
+                record?.date >= weeklySchedule.periodStartDate
+                && record?.date < weeklySchedule.periodEndDate
+                && record?.date !== date
+            )) || adherenceHistory.some(record => record?.date === date);
+        }
+
+        function getVisibleMedicationsForDate(medications, date) {
+            return (medications || []).filter(medication => shouldShowMedicationOnDate(medication, date));
+        }
+
         function getMedicationScheduledPillsForDate(medication, date) {
             const record = getMedicationRecordForDate(medication, date);
             if (record?.scheduledDailyPillCount !== null && record?.scheduledDailyPillCount !== undefined) {
@@ -981,8 +1065,10 @@
             }
 
             const yesterday = getDateForOffset(-1);
-            const missingPreviousDayCount = data.medications.filter(medication => !getMedicationRecordForDate(medication, yesterday)).length;
-            const allDoneToday = data.medications.every(medication => Boolean(medication.todayStatus));
+            const visibleYesterdayMedications = getVisibleMedicationsForDate(data.medications, yesterday);
+            const visibleTodayMedications = getVisibleMedicationsForDate(data.medications, data.today);
+            const missingPreviousDayCount = visibleYesterdayMedications.filter(medication => !getMedicationRecordForDate(medication, yesterday)).length;
+            const allDoneToday = visibleTodayMedications.length > 0 && visibleTodayMedications.every(medication => Boolean(medication.todayStatus));
             const parts = [];
 
             if (missingPreviousDayCount > 0) {
@@ -1094,9 +1180,10 @@
             const isToday = currentDayOffset === 0;
             const tookLabel = isToday ? 'I took today' : 'I took it';
             const notTakenLabel = isToday ? 'Not today' : 'Not taken';
+            const visibleMedications = getVisibleMedicationsForDate(data.medications, displayDate);
             buildDashboardFeedback(data);
 
-            const cards = data.medications.map(medication => {
+            const cards = visibleMedications.map(medication => {
                 const guidance = getDailyGuidance(medication);
                 const guidanceHtml = guidance
                     ? `<div class="pill-guidance${guidance.cls ? ' ' + guidance.cls : ''}">${escapeHtml(guidance.text)}</div>`
@@ -1141,7 +1228,9 @@
                     </div>`;
             }).join('');
 
-            container.innerHTML = `<div class="medication-grid">${cards}</div>`;
+            container.innerHTML = cards
+                ? `<div class="medication-grid">${cards}</div>`
+                : `<div class="card empty-state">No medications scheduled for this day.</div>`;
             renderDashboardSupplyAlert(data);
         }
 
@@ -1278,7 +1367,6 @@
 
         function getMissingDates(medication) {
             const today = new Date();
-            const todayStr = getDateForOffset(0);
             const recorded = new Set((medication.adherenceHistory || []).map(r => r.date));
             const missing = new Set();
             // Go back up to 90 days
@@ -1286,7 +1374,7 @@
                 const d = new Date(today);
                 d.setDate(d.getDate() - i);
                 const ds = d.toISOString().slice(0, 10);
-                if (!recorded.has(ds)) missing.add(ds);
+                if (shouldShowMedicationOnDate(medication, ds) && !recorded.has(ds)) missing.add(ds);
             }
             return missing;
         }

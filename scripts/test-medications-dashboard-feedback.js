@@ -158,8 +158,23 @@ async function run() {
         alertThresholdDays: 1,
         todayStatus: null,
         todayRecordedAt: null,
+        adherenceHistory: []
+      },
+      {
+        id: 'med-d',
+        name: 'Weekly Hidden',
+        description: 'Weekly med already handled yesterday',
+        instructions: 'Take 1 pill once weekly',
+        pillCount: 8,
+        pillsPerDose: 1,
+        scheduleFrequency: 'weekly',
+        regimenHistory: [{ effectiveDate: yesterday, scheduleFrequency: 'weekly', pillsPerDose: 1, instructions: 'Take 1 pill once weekly' }],
+        estimatedRemainingPillCount: 8,
+        alertThresholdDays: 2,
+        todayStatus: null,
+        todayRecordedAt: null,
         adherenceHistory: [
-          { id: 'yesterday-c', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1 / 7, scheduleFrequency: 'weekly', recordedAt: `${yesterday}T08:30:00.000Z` }
+          { id: 'yesterday-d', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1 / 7, scheduleFrequency: 'weekly', recordedAt: `${yesterday}T07:30:00.000Z` }
         ]
       }
     ]
@@ -217,6 +232,17 @@ async function run() {
     weeklyInjectionCard.textContent.includes('1 injection per dose • weekly • 1 planned each week'),
     'weekly injectable medication should describe the weekly regimen using injections instead of daily pill math'
   );
+  assert.strictEqual(getMedicationCard(document, 'med-d'), null, 'weekly medications should stay hidden on non-dose days after the scheduled day passes');
+  const weeklyMissingDates = window.eval(`Array.from(getMissingDates(dashboardData.medications.find(medication => medication.id === 'med-c')))`); 
+  assert.ok(!weeklyMissingDates.includes(yesterday), 'record-previous-day highlights should skip non-dose days for weekly medications');
+
+  window.eval(`currentDayOffset = -1; renderDashboard(dashboardData);`);
+  assert.strictEqual(getMedicationCard(document, 'med-c'), null, 'weekly medications should not render on anchor-adjacent non-dose days when viewing prior dates');
+  const yesterdayWeeklyCard = getMedicationCard(document, 'med-d');
+  assert.ok(yesterdayWeeklyCard, 'weekly medications should still render on their scheduled day when viewing prior dates');
+  assert.ok(yesterdayWeeklyCard.textContent.includes('recorded for '), 'scheduled weekly medications should show their recorded state on the scheduled day');
+
+  window.eval(`currentDayOffset = 0; renderDashboard(dashboardData);`);
 
   const allDoneDashboardData = {
     today,

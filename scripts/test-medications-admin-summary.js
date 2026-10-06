@@ -280,6 +280,7 @@ async function run() {
     house.init(testConfig);
     const today = getDateOffset(0);
     const yesterday = getDateOffset(-1);
+    const tomorrow = getDateOffset(1);
 
     const morningMedResult = house.addMedication({
       name: 'Morning Med',
@@ -306,10 +307,21 @@ async function run() {
       refillDate: today,
       alertThresholdDays: 3
     });
+    const weeklyPortalOnlyResult = house.addMedication({
+      name: 'Weekly Portal Check',
+      instructions: 'Take 1 pill once weekly',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 8,
+      regimenEffectiveDate: tomorrow,
+      refillDate: tomorrow,
+      alertThresholdDays: 2
+    });
 
     assert.strictEqual(morningMedResult.success, true, 'morning medication should be created');
     assert.strictEqual(eveningMedResult.success, true, 'evening medication should be created');
     assert.strictEqual(vitaminResult.success, true, 'vitamin medication should be created');
+    assert.strictEqual(weeklyPortalOnlyResult.success, true, 'weekly portal-check medication should be created');
 
     const portalUserA = house.createMedicationPortalUser({ username: 'Casey', passwordHash: 'salt:hash-a' });
     const portalUserB = house.createMedicationPortalUser({ username: 'Morgan', passwordHash: 'salt:hash-b' });
@@ -320,7 +332,8 @@ async function run() {
     const morningMed = medsData.medications.find(item => item.name === 'Morning Med');
     const eveningMed = medsData.medications.find(item => item.name === 'Evening Med');
     const vitamin = medsData.medications.find(item => item.name === 'Vitamin D');
-    assert.ok(morningMed && eveningMed && vitamin, 'seed medications should be present');
+    const weeklyPortalOnly = medsData.medications.find(item => item.name === 'Weekly Portal Check');
+    assert.ok(morningMed && eveningMed && vitamin && weeklyPortalOnly, 'seed medications should be present');
 
     const regimenChangeDate = getDateOffset(-2);
     assert.strictEqual(house.updateMedication(morningMed.id, {
@@ -335,6 +348,7 @@ async function run() {
     assert.strictEqual(house.setMedicationAssignments(morningMed.id, [portalUserA.user.id, portalUserB.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(eveningMed.id, [portalUserA.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(vitamin.id, [portalUserB.user.id]).success, true);
+    assert.strictEqual(house.setMedicationAssignments(weeklyPortalOnly.id, [portalUserA.user.id]).success, true);
 
     const assignedBeforeWindow = `${getDateOffset(-8)}T08:00:00.000Z`;
     const seededData = house.getMedicationsData();
@@ -589,7 +603,7 @@ async function run() {
     const caseyYesterday = casey.adherenceSummary.recentDays.find(day => day.date === yesterday);
     const morganToday = morgan.adherenceSummary.recentDays.find(day => day.date === today);
 
-    assert.strictEqual(casey.adherenceSummary.assignedMedications.length, 2, 'Casey should include all assigned medications');
+    assert.strictEqual(casey.adherenceSummary.assignedMedications.length, 3, 'Casey should include all assigned medications');
     assert.strictEqual(caseyToday.status, 'partial', 'Casey should show a partial day when one medication entry is missing');
     assert.strictEqual(caseyToday.missingCount, 1, 'Casey should show one missing medication entry for today');
     assert.ok(caseyToday.alert.includes('Missing 1 medication entry: Evening Med'), 'Casey partial-day alert should name the missing medication');
@@ -599,6 +613,11 @@ async function run() {
     assert.strictEqual(caseyTodayStatuses.get('Evening Med'), 'missing', 'Casey should show the missing medication status');
     const caseyMorningEntry = caseyToday.medications.find(entry => entry.name === 'Morning Med');
     assert.strictEqual(caseyMorningEntry.pillsTaken, 3, 'admin adherence summaries should expose recorded pill counts');
+    assert.strictEqual(
+      caseyToday.medications.find(entry => entry.name === 'Weekly Portal Check')?.status,
+      'not_assigned_yet',
+      'weekly medications should not be expected on non-dose days in adherence summaries'
+    );
 
     assert.strictEqual(caseyYesterday.status, 'missing_day', 'Casey should show a missing-day alert when no medications were recorded');
     assert.strictEqual(caseyYesterday.recordedCount, 0, 'Casey missing day should have zero recorded entries');
