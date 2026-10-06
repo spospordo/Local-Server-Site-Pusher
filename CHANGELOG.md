@@ -9,6 +9,16 @@ All notable changes to this project will be documented in this file.
 - **Improved Flight Validation Logging**: Added detailed logging to track API key usage and presence during flight validation operations for easier debugging.
 - **Enhanced Error Messages**: Flight validation errors now provide more specific and actionable guidance, directing users to Smart Mirror settings when API key issues occur.
 
+## [2.34.7] - 2026-10-06
+
+### Patch Update
+- Automated version bump based on recent changes
+- Changes included:
+  - Merge pull request #723 from spospordo/copilot/fix-weekly-medications-display
+  - Fix weekly medication portal visibility
+  - Initial plan
+
+
 ## [2.34.6] - 2026-10-05
 
 ### Patch Update
