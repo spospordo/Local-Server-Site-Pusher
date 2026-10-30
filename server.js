@@ -1317,6 +1317,26 @@ function requireMedicationPortalCsrf(req, res, next) {
   return next();
 }
 
+function ensureAdminCsrfToken(req) {
+  if (!req.session.adminCsrfToken) {
+    req.session.adminCsrfToken = crypto.randomBytes(32).toString('hex');
+  }
+  return req.session.adminCsrfToken;
+}
+
+function requireAdminCsrf(req, res, next) {
+  const expectedToken = req.session?.adminCsrfToken;
+  const providedToken = req.get('x-admin-csrf-token');
+  if (!expectedToken || !providedToken || providedToken !== expectedToken) {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid admin security token',
+      code: 'INVALID_CSRF_TOKEN'
+    });
+  }
+  return next();
+}
+
 function buildMedicationAccessLink(req, token) {
   const configuredBaseUrl = String(config?.server?.publicUrl || '').trim();
   if (configuredBaseUrl) {
@@ -11799,6 +11819,10 @@ app.delete('/admin/api/house/lists/:id/items/:itemId', requireAuth, (req, res) =
 // House Medications API
 // =============================================================================
 
+app.get('/admin/api/csrf-token', requireAuth, (req, res) => {
+  res.json({ csrfToken: ensureAdminCsrfToken(req) });
+});
+
 // Get all medications (with computed forecast fields)
 app.get('/admin/api/house/medications', requireAuth, (req, res) => {
   try {
@@ -11895,6 +11919,23 @@ app.delete('/admin/api/house/medications/:id/refill/:refillId', requireAuth, (re
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete refill: ' + err.message });
+  }
+});
+
+app.post('/admin/api/house/medications/:id/pill-count-adjustments', requireAuth, requireSameOriginForAdminWrite, requireAdminCsrf, (req, res) => {
+  try {
+    const result = house.adjustMedicationPillCount(
+      req.params.id,
+      req.body,
+      config.server.admin.username
+    );
+    if (result.success) {
+      res.json({ success: true, message: 'Pill count adjusted successfully', adjustment: result.adjustment });
+    } else {
+      res.status(result.error === 'Medication not found' ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to adjust medication pill count: ' + err.message });
   }
 });
 

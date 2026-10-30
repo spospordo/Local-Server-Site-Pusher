@@ -104,6 +104,67 @@ function run() {
     assert.strictEqual(forecast.belowAlertThreshold, true, 'forecast should flag medications at or below the configured threshold');
     log('✅ Medication entries store the new usage field');
 
+    const adjustmentMedicationResult = house.addMedication({
+      name: 'Adjustment Test',
+      instructions: 'Take 1 pill once daily',
+      scheduleFrequency: 'daily',
+      pillsPerDose: 1,
+      pillCount: 10,
+      refillDate: yesterday
+    });
+    assert.strictEqual(adjustmentMedicationResult.success, true, 'adjustment test medication should be created');
+    let adjustmentMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Adjustment Test');
+    const adjustmentRefillHistory = JSON.stringify(adjustmentMedication.refillHistory);
+    const adjustmentAdherenceHistory = JSON.stringify(house.getMedicationAdherenceRecords());
+    const increaseResult = house.adjustMedicationPillCount(adjustmentMedication.id, { delta: 4, note: 'Counted bottle' }, 'admin');
+    assert.strictEqual(increaseResult.success, true, 'pill count adjustments should allow increasing the count');
+    assert.strictEqual(increaseResult.adjustment.previousCount, 9, 'adjustment audit should record the prior forecasted count');
+    assert.strictEqual(increaseResult.adjustment.newCount, 13, 'adjustment audit should record the new count');
+    assert.strictEqual(increaseResult.adjustment.delta, 4, 'adjustment audit should record the count delta');
+    assert.strictEqual(increaseResult.adjustment.admin, 'admin', 'adjustment audit should identify the admin');
+    assert.strictEqual(increaseResult.adjustment.note, 'Counted bottle', 'adjustment audit should retain the optional reason');
+    assert.ok(Number.isFinite(new Date(increaseResult.adjustment.timestamp).getTime()), 'adjustment audit should include a valid timestamp');
+    assert.strictEqual(
+      house.computeMedicationForecast(house.getMedicationsData().medications.find(entry => entry.id === adjustmentMedication.id), {
+        asOfDate: getDateOffset(1),
+        adherenceRecords: [{ date: today, status: 'took', pillsTaken: 1 }]
+      }).estimatedRemainingPillCount,
+      12,
+      'taken doses should continue to decrement from the adjusted count'
+    );
+
+    const decreaseResult = house.adjustMedicationPillCount(adjustmentMedication.id, { delta: -3 }, 'admin');
+    assert.strictEqual(decreaseResult.success, true, 'pill count adjustments should allow decreasing the count');
+    assert.strictEqual(decreaseResult.adjustment.newCount, 10, 'decrease should apply to the adjusted current count');
+    const exactCountResult = house.adjustMedicationPillCount(adjustmentMedication.id, { count: 6 }, 'admin');
+    assert.strictEqual(exactCountResult.success, true, 'pill count adjustments should allow setting an exact count');
+    assert.strictEqual(exactCountResult.adjustment.delta, -4, 'exact-count audit should calculate its delta');
+    const exactCountForecast = house.computeMedicationForecast(
+      house.getMedicationsData().medications.find(entry => entry.id === adjustmentMedication.id)
+    );
+    assert.strictEqual(exactCountForecast.estimatedRemainingPillCount, 6, 'exact count should recalculate the estimated remaining count');
+    assert.strictEqual(exactCountForecast.daysUntilEmpty, 6, 'exact count should recalculate the forecasted run-out date');
+    assert.strictEqual(exactCountForecast.belowAlertThreshold, true, 'adjusted counts should recalculate low-supply alerts');
+
+    const negativeCountResult = house.adjustMedicationPillCount(adjustmentMedication.id, { count: -1 }, 'admin');
+    assert.strictEqual(negativeCountResult.success, false, 'exact counts below zero should be rejected');
+    assert.strictEqual(house.adjustMedicationPillCount(adjustmentMedication.id, { count: null }, 'admin').success, false, 'null exact counts should be rejected instead of coercing to zero');
+    const belowZeroResult = house.adjustMedicationPillCount(adjustmentMedication.id, { delta: -7 }, 'admin');
+    assert.strictEqual(belowZeroResult.success, false, 'decreases that would cross below zero should be rejected');
+    const zeroCountResult = house.adjustMedicationPillCount(adjustmentMedication.id, { delta: -6 }, 'admin');
+    assert.strictEqual(zeroCountResult.success, true, 'the current count may be adjusted down to zero');
+    const belowFloorResult = house.adjustMedicationPillCount(adjustmentMedication.id, { delta: -1 }, 'admin');
+    assert.strictEqual(belowFloorResult.success, false, 'the current count cannot be decreased below zero');
+    assert.ok(belowFloorResult.error.includes('zero'), 'below-zero errors should explain the count floor');
+    assert.strictEqual(house.adjustMedicationPillCount(adjustmentMedication.id, { delta: 1, count: 1 }, 'admin').success, false, 'requests must provide exactly one adjustment mode');
+
+    adjustmentMedication = house.getMedicationsData().medications.find(entry => entry.name === 'Adjustment Test');
+    assert.strictEqual(house.computeMedicationForecast(adjustmentMedication).estimatedRemainingPillCount, 0, 'adjusted baseline should feed the daily forecast');
+    assert.strictEqual(adjustmentMedication.pillCountAdjustments.length, 4, 'each successful adjustment should be recorded separately');
+    assert.strictEqual(JSON.stringify(adjustmentMedication.refillHistory), adjustmentRefillHistory, 'adjustments should not alter refill history');
+    assert.strictEqual(JSON.stringify(house.getMedicationAdherenceRecords()), adjustmentAdherenceHistory, 'adjustments should not create or alter adherence records');
+    log('✅ Pill-count increases, decreases, exact counts, zero floor, and audit history are independent of dose/refill history');
+
     assert.ok(Array.isArray(medication.regimenHistory), 'medications should persist regimen history');
     assert.strictEqual(medication.regimenHistory.length, 1, 'new medications should start with one regimen history entry');
 
@@ -304,6 +365,16 @@ function run() {
     assert.strictEqual(weeklyInjectionForecast.estimatedRemainingPillCount, 3, 'weekly injectable forecasts should subtract one dose for the week instead of daily fractions');
     assert.strictEqual(weeklyInjectionForecast.belowAlertThreshold, false, 'weekly injectable forecasts should not show a low-supply alert with three doses remaining');
     assert.strictEqual(weeklyInjectionForecast.alertThresholdPillCount, 1, 'weekly injectable forecasts should convert the day threshold into a weekly dose quantity');
+    const weeklyAdjustmentResult = house.adjustMedicationPillCount(weeklyInjectionMedication.id, { delta: 2 }, 'admin');
+    assert.strictEqual(weeklyAdjustmentResult.success, true, 'weekly injectable counts should support adjustments');
+    assert.strictEqual(
+      house.computeMedicationForecast(house.getMedicationsData().medications.find(entry => entry.id === weeklyInjectionMedication.id), {
+        asOfDate: today,
+        adherenceRecords: house.getMedicationAdherenceRecords().filter(record => record.medicationId === weeklyInjectionMedication.id)
+      }).estimatedRemainingPillCount,
+      5,
+      'weekly injectable forecasts should use the adjusted count without changing the recorded dose'
+    );
 
     const weeklyInjectionNoAlertResult = house.addMedication({
       name: 'Mounjaro',

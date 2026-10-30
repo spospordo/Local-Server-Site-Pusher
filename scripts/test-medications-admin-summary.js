@@ -399,6 +399,15 @@ async function run() {
     await wait(100);
 
     const adminJar = createJar();
+    const unauthenticatedAdjustmentResponse = await requestJson(
+      createJar(),
+      'POST',
+      `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`,
+      { delta: 1 },
+      { Accept: 'application/json' }
+    );
+    assert.strictEqual(unauthenticatedAdjustmentResponse.statusCode, 401, 'non-admin users must not adjust medication pill counts');
+
     const loginResponse = await requestJson(adminJar, 'POST', '/admin/login', {
       username: 'admin',
       password: 'admin123'
@@ -406,6 +415,10 @@ async function run() {
       Accept: 'application/json'
     });
     assert.ok([200, 302].includes(loginResponse.statusCode), `admin login should succeed: ${loginResponse.body || serverLogs.join('')}`);
+    const adminCsrfResponse = await requestJson(adminJar, 'GET', '/admin/api/csrf-token', undefined, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(adminCsrfResponse.statusCode, 200, 'authenticated admins should be able to obtain an adjustment security token');
 
     const adminPastRegimenSaveDate = getDateOffset(-1);
     const adminFutureRegimenSaveDate = getDateOffset(3);
@@ -666,6 +679,38 @@ async function run() {
     assert.strictEqual(morganToday.status, 'complete', 'Morgan should show a complete day when all scheduled medications are recorded');
     assert.strictEqual(morganToday.recordedCount, 2, 'Morgan complete day should count both recorded medications');
 
+    const adjustmentMedicationSummary = summaryPayload.medications.find(medication => medication.id === vitamin.id);
+    const adjustmentCountBefore = adjustmentMedicationSummary.estimatedRemainingPillCount;
+    const invalidAdjustmentResponse = await requestJson(adminJar, 'POST', `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, {
+      count: -1
+    }, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(invalidAdjustmentResponse.statusCode, 403, 'admin adjustment endpoint should reject requests without a CSRF token');
+    const invalidCountAdjustmentResponse = await requestJson(adminJar, 'POST', `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, {
+      count: -1
+    }, {
+      Accept: 'application/json',
+      'X-Admin-CSRF-Token': adminCsrfResponse.json.csrfToken
+    });
+    assert.strictEqual(invalidCountAdjustmentResponse.statusCode, 400, 'admin adjustment endpoint should reject negative counts');
+    assert.ok(invalidCountAdjustmentResponse.json.error.includes('valid pill count'), 'invalid adjustment responses should explain the validation failure');
+    const validAdjustmentResponse = await requestJson(adminJar, 'POST', `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, {
+      delta: 2,
+      note: 'Admin integration check'
+    }, {
+      Accept: 'application/json',
+      'X-Admin-CSRF-Token': adminCsrfResponse.json.csrfToken
+    });
+    assert.strictEqual(validAdjustmentResponse.statusCode, 200, `admin adjustment endpoint should accept valid adjustments: ${validAdjustmentResponse.body}`);
+    assert.strictEqual(validAdjustmentResponse.json.adjustment.admin, 'admin', 'admin adjustment endpoint should record the authenticated admin');
+    const adjustedSummaryResponse = await requestJson(adminJar, 'GET', '/admin/api/house/medications', undefined, {
+      Accept: 'application/json'
+    });
+    const adjustedVitamin = adjustedSummaryResponse.json.medications.find(medication => medication.id === vitamin.id);
+    assert.strictEqual(adjustedVitamin.estimatedRemainingPillCount, adjustmentCountBefore + 2, 'admin medication payload should recalculate the forecast after adjustment');
+    assert.strictEqual(adjustedVitamin.pillCountAdjustments.at(-1).note, 'Admin integration check', 'admin medication payload should include the adjustment audit history');
+
     const dom = new JSDOM(`
       <!DOCTYPE html>
       <div id="medicationAdherenceSummaryOverview"></div>
@@ -745,6 +790,9 @@ async function run() {
     assert.ok(adminDashboardHtml.includes('Save Regimen Change'), 'admin medication form should include a dedicated save regimen button');
     assert.ok(adminDashboardHtml.includes('Add Refill'), 'admin medication form should include a dedicated add refill button');
     assert.ok(adminDashboardHtml.includes('medicationRefillModal'), 'admin medication form should include a dedicated refill modal');
+    assert.ok(adminDashboardHtml.includes('medicationPillCountAdjustmentSection'), 'admin medication form should provide pill-count adjustment controls');
+    assert.ok(adminDashboardHtml.includes('submitMedicationPillCountAdjustment'), 'admin medication form should submit adjustments through its dedicated action');
+    assert.ok(adminDashboardHtml.includes('pillCountAdjustments'), 'admin medication form should render the adjustment audit history');
 
     const medicationFormDomHtml = `
       <!DOCTYPE html>
@@ -775,6 +823,16 @@ async function run() {
       <input id="medicationRegimenEffectiveDate">
       <input id="medicationAsNeeded" type="checkbox">
       <div id="medicationRefillHistory"></div>
+      <div id="medicationPillCountAdjustmentSection" style="display:none;">
+        <div id="medicationCurrentPillCount"></div>
+        <select id="medicationPillCountAdjustmentMode">
+          <option value="delta">delta</option>
+          <option value="count">count</option>
+        </select>
+        <input id="medicationPillCountAdjustmentValue">
+        <input id="medicationPillCountAdjustmentNote">
+        <div id="medicationPillCountAdjustmentHistory"></div>
+      </div>
       <div id="medicationRegimenHistory"></div>
       <button id="saveMedicationRefillButton" style="display:none;"></button>
       <button id="saveMedicationRegimenButton" style="display:none;"></button>
@@ -806,6 +864,9 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenChangeDetails(regimen)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRegimenHistory(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationPillCountAdjustments(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function updateMedicationPillCountAdjustmentMode()')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function submitMedicationPillCountAdjustment()')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationEditReadOnlyState(inputId, isReadOnly)')}
@@ -884,6 +945,9 @@ async function run() {
       ${extractFunctionSource(adminDashboardHtml, 'function formatMedicationRegimenChangeDetails(regimen)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRegimenHistory(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationRefillHistory(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function renderMedicationPillCountAdjustments(med)')}
+      ${extractFunctionSource(adminDashboardHtml, 'function updateMedicationPillCountAdjustmentMode()')}
+      ${extractFunctionSource(adminDashboardHtml, 'async function submitMedicationPillCountAdjustment()')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRefillActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationRegimenActionState(med)')}
       ${extractFunctionSource(adminDashboardHtml, 'function setMedicationEditReadOnlyState(inputId, isReadOnly)')}
@@ -925,7 +989,9 @@ async function run() {
         }
         return {
           ok: true,
-          json: async () => ({ success: true })
+          json: async () => (url === '/admin/api/csrf-token'
+            ? { csrfToken: 'test-token' }
+            : { success: true })
         };
       };
     `);
@@ -936,6 +1002,21 @@ async function run() {
     assert.strictEqual(editDom.window.document.getElementById('medicationScheduleFrequency').value, 'twice daily', 'edit form should preload the latest saved regimen frequency');
     assert.strictEqual(editDom.window.document.getElementById('medicationAdministrationMethod').value, '', 'edit form should preload a blank form selector when no administration method was saved');
     assert.strictEqual(editDom.window.document.getElementById('medicationPillsPerDose').value, '1.5', 'edit form should preload the latest saved pills per dose');
+    assert.strictEqual(editDom.window.document.getElementById('medicationPillCountAdjustmentSection').style.display, 'block', 'saved medication edit form should expose count adjustments');
+    assert.ok(editDom.window.document.getElementById('medicationCurrentPillCount').textContent.includes(String(vitaminMedicationSummary.estimatedRemainingPillCount)), 'adjustment panel should show the forecasted current count');
+    editDom.window.document.getElementById('medicationPillCountAdjustmentMode').value = 'count';
+    editDom.window.updateMedicationPillCountAdjustmentMode();
+    assert.strictEqual(editDom.window.document.getElementById('medicationPillCountAdjustmentValue').min, '0', 'exact count input should enforce the zero floor');
+    editDom.window.document.getElementById('medicationPillCountAdjustmentValue').value = '12';
+    editDom.window.document.getElementById('medicationPillCountAdjustmentNote').value = 'DOM adjustment';
+    await editDom.window.submitMedicationPillCountAdjustment();
+    assert.strictEqual(editDom.window.fetchCalls[0].url, '/admin/api/csrf-token', 'admin form should retrieve an adjustment security token');
+    assert.strictEqual(editDom.window.fetchCalls[1].url, `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, 'admin form should use the dedicated adjustment endpoint');
+    assert.strictEqual(editDom.window.fetchCalls[1].options.method, 'POST', 'admin form should post count adjustments');
+    assert.strictEqual(editDom.window.fetchCalls[1].options.headers['X-Admin-CSRF-Token'], 'test-token', 'admin form should attach the CSRF token');
+    assert.deepStrictEqual(JSON.parse(editDom.window.fetchCalls[1].options.body), { count: '12', note: 'DOM adjustment' }, 'admin form should submit exact count and optional note');
+    editDom.window.fetchCalls.length = 0;
+    editDom.window.loadCalls = 0;
 
     const legacyInjectableSummary = {
       ...vitaminMedicationSummary,
