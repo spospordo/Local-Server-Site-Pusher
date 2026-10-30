@@ -30187,9 +30187,18 @@
                 note: document.getElementById('medicationPillCountAdjustmentNote').value
             };
             try {
+                const csrfResponse = await fetch('/admin/api/csrf-token');
+                const csrfResult = await csrfResponse.json();
+                if (!csrfResponse.ok || !csrfResult.csrfToken) {
+                    showAlert(csrfResult.error || 'Failed to verify admin security token.', 'error', 'medicationsAlert');
+                    return;
+                }
                 const response = await fetch(`/admin/api/house/medications/${encodeURIComponent(id)}/pill-count-adjustments`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-CSRF-Token': csrfResult.csrfToken
+                    },
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();

@@ -415,6 +415,10 @@ async function run() {
       Accept: 'application/json'
     });
     assert.ok([200, 302].includes(loginResponse.statusCode), `admin login should succeed: ${loginResponse.body || serverLogs.join('')}`);
+    const adminCsrfResponse = await requestJson(adminJar, 'GET', '/admin/api/csrf-token', undefined, {
+      Accept: 'application/json'
+    });
+    assert.strictEqual(adminCsrfResponse.statusCode, 200, 'authenticated admins should be able to obtain an adjustment security token');
 
     const adminPastRegimenSaveDate = getDateOffset(-1);
     const adminFutureRegimenSaveDate = getDateOffset(3);
@@ -682,13 +686,21 @@ async function run() {
     }, {
       Accept: 'application/json'
     });
-    assert.strictEqual(invalidAdjustmentResponse.statusCode, 400, 'admin adjustment endpoint should reject negative counts');
-    assert.ok(invalidAdjustmentResponse.json.error.includes('valid pill count'), 'invalid adjustment responses should explain the validation failure');
+    assert.strictEqual(invalidAdjustmentResponse.statusCode, 403, 'admin adjustment endpoint should reject requests without a CSRF token');
+    const invalidCountAdjustmentResponse = await requestJson(adminJar, 'POST', `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, {
+      count: -1
+    }, {
+      Accept: 'application/json',
+      'X-Admin-CSRF-Token': adminCsrfResponse.json.csrfToken
+    });
+    assert.strictEqual(invalidCountAdjustmentResponse.statusCode, 400, 'admin adjustment endpoint should reject negative counts');
+    assert.ok(invalidCountAdjustmentResponse.json.error.includes('valid pill count'), 'invalid adjustment responses should explain the validation failure');
     const validAdjustmentResponse = await requestJson(adminJar, 'POST', `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, {
       delta: 2,
       note: 'Admin integration check'
     }, {
-      Accept: 'application/json'
+      Accept: 'application/json',
+      'X-Admin-CSRF-Token': adminCsrfResponse.json.csrfToken
     });
     assert.strictEqual(validAdjustmentResponse.statusCode, 200, `admin adjustment endpoint should accept valid adjustments: ${validAdjustmentResponse.body}`);
     assert.strictEqual(validAdjustmentResponse.json.adjustment.admin, 'admin', 'admin adjustment endpoint should record the authenticated admin');
@@ -977,7 +989,9 @@ async function run() {
         }
         return {
           ok: true,
-          json: async () => ({ success: true })
+          json: async () => (url === '/admin/api/csrf-token'
+            ? { csrfToken: 'test-token' }
+            : { success: true })
         };
       };
     `);
@@ -996,9 +1010,11 @@ async function run() {
     editDom.window.document.getElementById('medicationPillCountAdjustmentValue').value = '12';
     editDom.window.document.getElementById('medicationPillCountAdjustmentNote').value = 'DOM adjustment';
     await editDom.window.submitMedicationPillCountAdjustment();
-    assert.strictEqual(editDom.window.fetchCalls[0].url, `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, 'admin form should use the dedicated adjustment endpoint');
-    assert.strictEqual(editDom.window.fetchCalls[0].options.method, 'POST', 'admin form should post count adjustments');
-    assert.deepStrictEqual(JSON.parse(editDom.window.fetchCalls[0].options.body), { count: '12', note: 'DOM adjustment' }, 'admin form should submit exact count and optional note');
+    assert.strictEqual(editDom.window.fetchCalls[0].url, '/admin/api/csrf-token', 'admin form should retrieve an adjustment security token');
+    assert.strictEqual(editDom.window.fetchCalls[1].url, `/admin/api/house/medications/${vitamin.id}/pill-count-adjustments`, 'admin form should use the dedicated adjustment endpoint');
+    assert.strictEqual(editDom.window.fetchCalls[1].options.method, 'POST', 'admin form should post count adjustments');
+    assert.strictEqual(editDom.window.fetchCalls[1].options.headers['X-Admin-CSRF-Token'], 'test-token', 'admin form should attach the CSRF token');
+    assert.deepStrictEqual(JSON.parse(editDom.window.fetchCalls[1].options.body), { count: '12', note: 'DOM adjustment' }, 'admin form should submit exact count and optional note');
     editDom.window.fetchCalls.length = 0;
     editDom.window.loadCalls = 0;
 
