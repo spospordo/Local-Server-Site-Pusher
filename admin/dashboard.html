@@ -4612,6 +4612,23 @@
                                 New medications can include an initial bottle when you save them.
                             </div>
                         </div>
+                        <div id="medicationPillCountAdjustmentSection" class="form-group" style="display: none;">
+                            <label>Current pill count adjustment</label>
+                            <div id="medicationCurrentPillCount" style="margin-bottom: 0.5rem; font-weight: 600;"></div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <select id="medicationPillCountAdjustmentMode" onchange="updateMedicationPillCountAdjustmentMode()">
+                                    <option value="delta">Increase or decrease by</option>
+                                    <option value="count">Set exact count to</option>
+                                </select>
+                                <input type="number" id="medicationPillCountAdjustmentValue" step="any" placeholder="e.g., -1">
+                                <input type="text" id="medicationPillCountAdjustmentNote" maxlength="500" placeholder="Optional reason">
+                                <button type="button" class="btn btn-primary" onclick="submitMedicationPillCountAdjustment()">Adjust count</button>
+                            </div>
+                            <small style="color: #666;">Adjustments are separate from dose and refill history. Negative counts are not allowed.</small>
+                            <div id="medicationPillCountAdjustmentHistory" style="margin-top: 0.5rem; min-height: 42px; padding: 0.75rem; background: #fff; border: 1px solid #d7dde5; border-radius: 6px; color: #555;">
+                                No pill-count adjustments yet.
+                            </div>
+                        </div>
                         <div class="form-group" style="max-width: 260px;">
                             <label for="medicationAlertThresholdDays">Alert Threshold (remaining pills)</label>
                             <input type="number" id="medicationAlertThresholdDays" placeholder="7" min="0" step="1" value="7">
@@ -30119,6 +30136,82 @@
             });
         }
 
+        function renderMedicationPillCountAdjustments(med) {
+            const section = document.getElementById('medicationPillCountAdjustmentSection');
+            const currentCount = document.getElementById('medicationCurrentPillCount');
+            const historyContainer = document.getElementById('medicationPillCountAdjustmentHistory');
+            if (!section || !currentCount || !historyContainer) return;
+
+            section.style.display = med?.id ? 'block' : 'none';
+            const value = med?.estimatedRemainingPillCount;
+            currentCount.textContent = `Estimated current count: ${value !== null && value !== undefined ? value : '—'}`;
+            const history = Array.isArray(med?.pillCountAdjustments)
+                ? med.pillCountAdjustments.slice().sort((left, right) => String(right.timestamp || '').localeCompare(String(left.timestamp || '')))
+                : [];
+            if (history.length === 0) {
+                historyContainer.textContent = 'No pill-count adjustments yet.';
+                return;
+            }
+
+            historyContainer.innerHTML = history.map(entry => `
+                <div style="padding:0.45rem 0; border-bottom: 1px solid #eef2f7;">
+                    <strong>${escapeHtml(entry.timestamp || 'Unknown time')}</strong>
+                    <span> — ${escapeHtml(entry.previousCount)} → ${escapeHtml(entry.newCount)} (${Number(entry.delta) > 0 ? '+' : ''}${escapeHtml(entry.delta)})</span>
+                    <div style="color:#555; font-size:0.86rem;">${escapeHtml(entry.admin || 'Admin')}${entry.note ? ` · ${escapeHtml(entry.note)}` : ''}</div>
+                </div>`).join('');
+        }
+
+        function updateMedicationPillCountAdjustmentMode() {
+            const mode = document.getElementById('medicationPillCountAdjustmentMode').value;
+            const input = document.getElementById('medicationPillCountAdjustmentValue');
+            input.min = mode === 'count' ? '0' : '';
+            input.placeholder = mode === 'count' ? 'e.g., 12' : 'e.g., -1';
+        }
+
+        async function submitMedicationPillCountAdjustment() {
+            const id = document.getElementById('medicationId').value;
+            if (!id) {
+                showAlert('Save the medication first before adjusting its pill count.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const mode = document.getElementById('medicationPillCountAdjustmentMode').value;
+            const value = document.getElementById('medicationPillCountAdjustmentValue').value;
+            if (!String(value).trim() || (mode === 'count' && Number(value) < 0)) {
+                showAlert('Enter a valid pill-count adjustment. The count cannot be negative.', 'error', 'medicationsAlert');
+                return;
+            }
+
+            const payload = {
+                [mode === 'count' ? 'count' : 'delta']: value,
+                note: document.getElementById('medicationPillCountAdjustmentNote').value
+            };
+            try {
+                const response = await fetch(`/admin/api/house/medications/${encodeURIComponent(id)}/pill-count-adjustments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    showAlert(result.error || 'Failed to adjust pill count.', 'error', 'medicationsAlert');
+                    return;
+                }
+
+                document.getElementById('medicationPillCountAdjustmentValue').value = '';
+                document.getElementById('medicationPillCountAdjustmentNote').value = '';
+                await loadHouseMedicationsData();
+                const updatedMedication = getMedicationById(id);
+                if (updatedMedication) {
+                    currentMedicationFormSnapshot = JSON.parse(JSON.stringify(updatedMedication));
+                    renderMedicationPillCountAdjustments(updatedMedication);
+                }
+                showAlert('Pill count adjusted.', 'success', 'medicationsAlert');
+            } catch (err) {
+                showAlert('Error adjusting pill count: ' + err.message, 'error', 'medicationsAlert');
+            }
+        }
+
         function setMedicationRegimenActionState(med) {
             const button = document.getElementById('saveMedicationRegimenButton');
             const hint = document.getElementById('medicationRegimenActionHint');
@@ -30394,6 +30487,7 @@
             document.getElementById('medicationRegimenEffectiveDate').value = '';
             document.getElementById('medicationAsNeeded').checked = med ? !!med.asNeeded : false;
             renderMedicationRefillHistory(med || null);
+            renderMedicationPillCountAdjustments(med || null);
             renderMedicationRegimenHistory(med || null);
             setMedicationRefillActionState(med || null);
             setMedicationRegimenActionState(med || null);
@@ -30412,6 +30506,7 @@
             setMedicationRefillActionState(null);
             setMedicationRegimenActionState(null);
             renderMedicationRefillHistory(null);
+            renderMedicationPillCountAdjustments(null);
             renderMedicationRegimenHistory(null);
         }
 

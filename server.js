@@ -11898,6 +11898,23 @@ app.delete('/admin/api/house/medications/:id/refill/:refillId', requireAuth, (re
   }
 });
 
+app.post('/admin/api/house/medications/:id/pill-count-adjustments', requireAuth, requireSameOriginForAdminWrite, (req, res) => {
+  try {
+    const result = house.adjustMedicationPillCount(
+      req.params.id,
+      req.body,
+      config.server.admin.username
+    );
+    if (result.success) {
+      res.json({ success: true, message: 'Pill count adjusted successfully', adjustment: result.adjustment });
+    } else {
+      res.status(result.error === 'Medication not found' ? 404 : 400).json({ error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to adjust medication pill count: ' + err.message });
+  }
+});
+
 // Delete a medication
 app.delete('/admin/api/house/medications/:id', requireAuth, (req, res) => {
   try {

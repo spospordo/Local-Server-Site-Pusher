@@ -1304,7 +1304,7 @@
                     <div class="detail-box"><strong>Regimen for ${escapeHtml(selectedDate)}</strong>${escapeHtml(formatMedicationRegimen(regimen, scheduledPills, medication))}</div>
                     <div class="detail-box"><strong>Recorded ${escapeHtml(quantityUnit.plural)} for ${escapeHtml(selectedDate)}</strong>${record ? escapeHtml(record.status === 'took' ? formatMedicationNumber(recordedPills) : 'Not taken') : 'No record'}</div>
                     <div class="detail-box"><strong>Estimated remaining ${escapeHtml(quantityUnit.plural)}</strong>${escapeHtml(getMedicationEstimatedRemainingPillCountText(medication))}</div>
-                    <div class="detail-box"><strong>Recorded ${escapeHtml(quantityUnit.singular)} count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
+                    <div class="detail-box"><strong>Starting refill count</strong>${escapeHtml(medication.pillCount ?? '—')}</div>
                     <div class="detail-box"><strong>Last refill</strong>${escapeHtml(medication.refillDate || '—')}</div>
                     <div class="detail-box"><strong>Refill expiration</strong>${escapeHtml(medication.refillExpiration || '—')}</div>
                 </div>`;

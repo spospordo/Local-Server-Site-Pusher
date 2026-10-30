@@ -60,6 +60,7 @@ function getDefaultHouseData() {
       portalUsers: [],
       assignments: [],
       adherenceRecords: [],
+      pillCountAdjustments: [],
       accessTokens: [],
       accessTokenSecret: ""
     }
@@ -1720,6 +1721,7 @@ function computeMedicationForecast(med, options = {}) {
     : getMedicationAdherenceRecords().filter(record => record?.medicationId === med?.id);
   const regimenHistory = normalizeMedicationRegimenHistory(med);
   const refillHistory = normalizeMedicationRefillHistory(med);
+  const adjustmentHistory = normalizeMedicationPillCountAdjustments(med);
   const refillEntry = getMedicationRefillForDate(med, asOfDate, refillHistory);
   const dailyUsage = getMedicationDailyUsageForDateFromHistory(med, asOfDate, regimenHistory);
   const pillCountSource = refillEntry && refillEntry.pillCount !== null && refillEntry.pillCount !== undefined
@@ -1734,6 +1736,22 @@ function computeMedicationForecast(med, options = {}) {
     : null;
   const refillDateText = String(refillEntry?.refillDate || med.refillDate || '').trim().slice(0, 10);
   const refillDate = parseMedicationDate(refillDateText);
+  const applicableAdjustments = adjustmentHistory.filter(entry => (
+    entry.timestamp.slice(0, 10) <= asOfDate
+      && (!refillDate || entry.timestamp.slice(0, 10) >= refillDateText)
+  ));
+  const adjustmentsByDate = new Map();
+  applicableAdjustments.forEach(entry => {
+    const date = entry.timestamp.slice(0, 10);
+    adjustmentsByDate.set(date, (adjustmentsByDate.get(date) || 0) + entry.delta);
+  });
+  const applyAdjustmentsForDate = date => {
+    const delta = adjustmentsByDate.get(date);
+    if (delta !== undefined && estimatedRemainingPillCount !== null) {
+      estimatedRemainingPillCount = Math.max(0, roundMedicationQuantity(estimatedRemainingPillCount + delta));
+      adjustmentsByDate.delete(date);
+    }
+  };
 
   let estimatedRemainingPillCount = Number.isFinite(pillCount) && pillCount >= 0 ? pillCount : null;
   let daysUntilEmpty = null;
@@ -1769,6 +1787,7 @@ function computeMedicationForecast(med, options = {}) {
 
       while (targetDate && cursor < targetDate) {
         const cursorDate = cursor.toISOString().slice(0, 10);
+        applyAdjustmentsForDate(cursorDate);
         const regimen = getMedicationRegimenForDateFromHistory(med, cursorDate, regimenHistory);
         const scheduleFrequency = normalizeMedicationScheduleFrequency(regimen?.scheduleFrequency);
         while (futureRegimenDates[nextRegimenDateIndex] && futureRegimenDates[nextRegimenDateIndex] <= cursorDate) {
@@ -1780,6 +1799,9 @@ function computeMedicationForecast(med, options = {}) {
 
         const nextRegimenDate = futureRegimenDates[nextRegimenDateIndex] || asOfDate;
         const nextAdherenceDate = adherenceDates[nextAdherenceDateIndex] || asOfDate;
+        const nextAdjustmentDate = Array.from(adjustmentsByDate.keys())
+          .filter(date => date > cursorDate)
+          .sort((left, right) => left.localeCompare(right))[0] || asOfDate;
 
         if (scheduleFrequency === 'weekly') {
           const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen, regimenHistory, cursorDate);
@@ -1810,12 +1832,18 @@ function computeMedicationForecast(med, options = {}) {
           if (usage !== null && Number.isFinite(usage) && usage > 0) {
             estimatedRemainingPillCount = Math.max(0, estimatedRemainingPillCount - usage);
           }
+          adjustmentsByDate.forEach((delta, date) => {
+            if (date > cursorDate && date <= nextBoundaryDate) {
+              estimatedRemainingPillCount = Math.max(0, roundMedicationQuantity(estimatedRemainingPillCount + delta));
+              adjustmentsByDate.delete(date);
+            }
+          });
           cursor = nextBoundary;
           continue;
         }
 
         if (!adherenceRecordsByDate.has(cursorDate)) {
-          const nextBoundaryDate = [nextRegimenDate, nextAdherenceDate, asOfDate]
+          const nextBoundaryDate = [nextRegimenDate, nextAdherenceDate, nextAdjustmentDate, asOfDate]
             .filter(date => date > cursorDate)
             .sort((left, right) => left.localeCompare(right))[0] || asOfDate;
           const nextBoundary = parseMedicationDate(nextBoundaryDate) || targetDate;
@@ -1835,6 +1863,11 @@ function computeMedicationForecast(med, options = {}) {
         cursor = addMedicationDays(cursor, 1);
       }
     }
+    adjustmentsByDate.forEach((delta, date) => {
+      if (date <= asOfDate && estimatedRemainingPillCount !== null) {
+        estimatedRemainingPillCount = Math.max(0, roundMedicationQuantity(estimatedRemainingPillCount + delta));
+      }
+    });
     estimatedRemainingPillCount = estimatedRemainingPillCount !== null
       ? Math.max(0, roundMedicationQuantity(estimatedRemainingPillCount))
       : null;
@@ -2217,6 +2250,36 @@ function getMedicationRefillForDate(medication, date, history) {
   });
 
   return refill;
+}
+
+function normalizeMedicationPillCountAdjustments(medication) {
+  return (Array.isArray(medication?.pillCountAdjustments) ? medication.pillCountAdjustments : [])
+    .map(entry => {
+      const timestamp = String(entry?.timestamp || '').trim();
+      const previousCount = Number(entry?.previousCount);
+      const newCount = Number(entry?.newCount);
+      const delta = Number(entry?.delta);
+      if (
+        !timestamp
+        || !Number.isFinite(new Date(timestamp).getTime())
+        || !Number.isFinite(previousCount)
+        || !Number.isFinite(newCount)
+        || !Number.isFinite(delta)
+      ) {
+        return null;
+      }
+      return {
+        id: String(entry?.id || ''),
+        timestamp,
+        admin: String(entry?.admin || ''),
+        previousCount,
+        newCount,
+        delta,
+        note: String(entry?.note || '')
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
 }
 
 function getLatestMedicationRefillEntry(medication, history) {
@@ -2896,6 +2959,69 @@ function saveMedicationRefill(id, medication, options = {}) {
   }, regimenResult.regimenHistory);
 }
 
+function adjustMedicationPillCount(id, adjustment, admin) {
+  const medsData = getMedicationsData();
+  const index = medsData.medications.findIndex(medication => medication.id === id);
+  if (index === -1) {
+    return { success: false, error: 'Medication not found' };
+  }
+
+  const hasDelta = adjustment?.delta !== undefined;
+  const hasCount = adjustment?.count !== undefined;
+  if (hasDelta === hasCount) {
+    return { success: false, error: 'Provide either a pill-count delta or an exact count' };
+  }
+
+  const valueInput = hasDelta ? adjustment.delta : adjustment.count;
+  if (
+    valueInput === null
+    || typeof valueInput === 'boolean'
+    || (typeof valueInput === 'string' && !valueInput.trim())
+    || !['number', 'string'].includes(typeof valueInput)
+  ) {
+    return { success: false, error: 'A valid pill count is required' };
+  }
+  const value = Number(valueInput);
+  if (!Number.isFinite(value) || (!hasDelta && value < 0) || (hasDelta && value === 0)) {
+    return { success: false, error: 'A valid pill count adjustment is required' };
+  }
+
+  const medication = medsData.medications[index];
+  const currentCount = computeMedicationForecast(medication).estimatedRemainingPillCount;
+  if (!Number.isFinite(currentCount)) {
+    return { success: false, error: 'Current pill count is not available for this medication' };
+  }
+
+  const newCount = hasDelta ? roundMedicationQuantity(currentCount + value) : roundMedicationQuantity(value);
+  if (newCount < 0) {
+    return { success: false, error: 'Pill count cannot be less than zero' };
+  }
+  if (newCount === currentCount) {
+    return { success: false, error: 'Pill count is unchanged' };
+  }
+
+  const note = String(adjustment.note || '').trim();
+  if (note.length > 500) {
+    return { success: false, error: 'Adjustment note must be 500 characters or fewer' };
+  }
+
+  const adjustmentEntry = {
+    id: generateId(),
+    timestamp: new Date().toISOString(),
+    admin: String(admin || '').trim(),
+    previousCount: currentCount,
+    newCount,
+    delta: roundMedicationQuantity(newCount - currentCount),
+    note
+  };
+  medication.pillCountAdjustments = normalizeMedicationPillCountAdjustments(medication);
+  medication.pillCountAdjustments.push(adjustmentEntry);
+  const saveResult = saveMedicationsData(medsData);
+  return saveResult.success
+    ? { success: true, adjustment: adjustmentEntry }
+    : saveResult;
+}
+
 function updateMedicationRefill(id, refillId, medication) {
   return saveMedicationRefill(id, medication, { refillId });
 }
@@ -3460,6 +3586,7 @@ module.exports = {
   updateMedication,
   saveMedicationRegimen,
   saveMedicationRefill,
+  adjustMedicationPillCount,
   updateMedicationRefill,
   deleteMedicationRefill,
   deleteMedication,
