@@ -1875,7 +1875,7 @@ function computeMedicationForecast(med, options = {}) {
 
         const nextRegimenDate = futureRegimenDates[nextRegimenDateIndex] || null;
         if (scheduleFrequency === 'weekly') {
-          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen, regimenHistory, cursorDate);
+          const anchorDate = getMedicationWeeklyRegimenAnchorDate(medicationWithRefillAnchor, regimen, regimenHistory, asOfDate);
           const anchor = parseMedicationDate(anchorDate) || cursor;
           const daysSinceAnchor = getMedicationDateDiffInDays(anchor, cursor);
           const periodStart = addMedicationDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
@@ -2455,8 +2455,13 @@ function getMedicationWeeklyRegimenAnchorDate(medication, regimen, history = nul
     : normalizeMedicationRegimenHistory(medication);
   const refillHistory = normalizeMedicationRefillHistory(medication);
   const refillEntry = getMedicationRefillForDate(medication, date, refillHistory);
-  const refillAnchorDate = String(refillEntry?.refillDate || '').trim().slice(0, 10);
   const hasRegimenHistory = Array.isArray(medication?.regimenHistory) && medication.regimenHistory.length > 0;
+  const hasExplicitRefillDate = isValidMedicationStatusDate(medication?.refillDate)
+    || (Array.isArray(medication?.refillHistory)
+      && medication.refillHistory.some(entry => isValidMedicationStatusDate(entry?.refillDate)));
+  const refillAnchorDate = hasExplicitRefillDate
+    ? String(refillEntry?.refillDate || '').trim().slice(0, 10)
+    : '';
   const regimenEffectiveDate = hasRegimenHistory
     ? String(regimen?.effectiveDate || '').trim().slice(0, 10)
     : '';

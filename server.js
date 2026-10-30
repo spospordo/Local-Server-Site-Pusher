@@ -1517,7 +1517,8 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
       const assignedAtDate = String(medication.assignedAt || '').slice(0, 10);
       const assigned = !assignedAtDate || assignedAtDate <= date;
       const regimen = house.getMedicationRegimenForDate(medication, date);
-      const regimenEffectiveDate = String(regimen?.effectiveDate || '').slice(0, 10);
+      const hasRegimenHistory = Array.isArray(medication.regimenHistory) && medication.regimenHistory.length > 0;
+      const regimenEffectiveDate = hasRegimenHistory ? String(regimen?.effectiveDate || '').slice(0, 10) : '';
       const scheduled = house.isMedicationScheduledForDate(medication, date);
       const expected = !medication.asNeeded && assigned && scheduled;
       const record = recordByKey.get(`${portalUser.id}:${medication.id}:${date}`) || null;
@@ -1782,6 +1783,9 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
 
 function buildMedicationPortalDashboard(userId) {
   const today = getMedicationPortalToday();
+  const adherenceWindowStart = new Date(`${today}T00:00:00.000Z`);
+  adherenceWindowStart.setUTCDate(adherenceWindowStart.getUTCDate() - 90);
+  const adherenceWindowStartDate = adherenceWindowStart.toISOString().slice(0, 10);
   const medications = house.getAssignedMedicationsForUser(userId).map(medication => {
     const adherenceHistory = house.getMedicationAdherenceHistory(userId, medication.id);
     const todayRecord = adherenceHistory.find(record => record.date === today) || null;
@@ -1799,7 +1803,7 @@ function buildMedicationPortalDashboard(userId) {
       todayStatus: todayRecord ? todayRecord.status : null,
       todayRecordedAt: todayRecord ? todayRecord.recordedAt : null,
       todayPillsTaken: todayRecord ? todayRecord.pillsTaken ?? null : null,
-      adherenceHistory: adherenceHistory.slice(0, 14)
+      adherenceHistory: adherenceHistory.filter(record => record.date >= adherenceWindowStartDate)
     };
   });
 

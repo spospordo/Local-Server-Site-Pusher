@@ -145,6 +145,12 @@ function getDurationMs(startValue, endValue) {
   return endTime - startTime;
 }
 
+function getDateOffset(daysOffset) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysOffset);
+  return date.toISOString().slice(0, 10);
+}
+
 function assertAccessLinkDurationRange(accessLink, minMs, maxMs, description) {
   const durationMs = getDurationMs(accessLink.createdAt, accessLink.expiresAt);
   assert.ok(durationMs >= minMs, `${description} should be at least ${minMs}ms, received ${durationMs}ms`);
@@ -522,7 +528,10 @@ async function run() {
     await test('Admin can create a medication and assign it to a single user', async () => {
       const addRes = await requestJson(adminJar, 'POST', '/admin/api/house/medications', {
         name: `AuthTestMed${Date.now()}`,
-        pillCount: 30
+        pillCount: 30,
+        scheduleFrequency: 'weekly',
+        pillsPerDose: 1,
+        refillDate: getDateOffset(-40)
       });
       assert.strictEqual(addRes.json.success, true, `add medication failed: ${addRes.body}`);
 
@@ -567,6 +576,34 @@ async function run() {
       const res = await requestJson(jarA, 'GET', '/medications/api/dashboard');
       assert.strictEqual(res.statusCode, 200);
       assert.ok(res.json.medications.some(m => m.id === medicationId), 'assigned medication should appear for user A');
+    });
+
+    await test('Dashboard includes off-schedule adherence records throughout the 90-day navigation window', async () => {
+      const olderDate = getDateOffset(-30);
+      for (let offset = -29; offset >= -16; offset -= 1) {
+        const recordRes = await requestJson(jarA, 'POST', `/medications/api/medications/${medicationId}/adherence`, {
+          status: 'not_taken',
+          date: getDateOffset(offset)
+        }, {
+          'x-medications-csrf-token': csrfA
+        });
+        assert.strictEqual(recordRes.statusCode, 200, `historical adherence recording should succeed: ${recordRes.body}`);
+      }
+      const olderRecordRes = await requestJson(jarA, 'POST', `/medications/api/medications/${medicationId}/adherence`, {
+        status: 'not_taken',
+        date: olderDate
+      }, {
+        'x-medications-csrf-token': csrfA
+      });
+      assert.strictEqual(olderRecordRes.statusCode, 200, `off-schedule historical adherence recording should succeed: ${olderRecordRes.body}`);
+
+      const dashboardRes = await requestJson(jarA, 'GET', '/medications/api/dashboard');
+      const medication = dashboardRes.json.medications.find(item => item.id === medicationId);
+      assert.ok(medication, 'assigned medication should remain visible');
+      assert.ok(
+        medication.adherenceHistory.some(record => record.date === olderDate),
+        'an older off-schedule record should be returned even when fourteen newer records exist'
+      );
     });
 
     await test('Unassigned user does NOT see another user\'s medication (authorization enforced)', async () => {
