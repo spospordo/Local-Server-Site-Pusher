@@ -502,3 +502,7 @@ For issues or questions:
 ## License
 
 This module is part of Local-Server-Site-Pusher and follows the same MIT License.
+
+## Read-only data access
+
+The chat can optionally call read-only tools for application data, sanitized settings and logs. See [AI_ASSISTANT.md](AI_ASSISTANT.md) for model compatibility, setup, permissions, log retention and privacy.

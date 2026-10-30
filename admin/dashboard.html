@@ -3329,6 +3329,26 @@
 
                 <div class="section-divider"></div>
 
+                <!-- AI Data Access (read-only tool calling) -->
+                <div class="finance-subsection">
+                    <h3>🔎 AI Data Access (read-only)</h3>
+                    <p class="help-text">
+                        Let the assistant look up application data, sanitized settings and logs by calling read-only tools.
+                        Requires a tool-capable model. Requested data is sent to your configured model service, which may have its own retention settings.
+                        Credentials are redacted before anything is sent. See AI_ASSISTANT.md.
+                    </p>
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:0.5rem;">
+                            <input type="checkbox" id="ollamaDataAccessEnabled" onchange="saveOllamaDataAccess()">
+                            <strong>Enable AI data access (master switch)</strong>
+                        </label>
+                    </div>
+                    <div id="ollamaDataAccessDomains" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:0.5rem;">
+                        <em>Loading data domains...</em>
+                    </div>
+                    <p class="help-text" id="ollamaDataAccessStatus" style="margin-top:0.5rem;"></p>
+                </div>
+
                 <!-- Prompt & Response Section -->
                 <div class="finance-subsection">
                     <h3>💬 AI Interaction</h3>
@@ -24128,6 +24148,8 @@
             }
             
             // Load conversation history from localStorage (temporary until backend storage is implemented)
+            loadOllamaDataAccess();
+
             const savedHistory = localStorage.getItem('ollamaConversationHistory');
             if (savedHistory) {
                 ollamaConversationHistory = JSON.parse(savedHistory);
@@ -24239,6 +24261,41 @@
             }
         }
         
+        async function loadOllamaDataAccess() {
+            const container = document.getElementById('ollamaDataAccessDomains');
+            if (!container) return;
+            try {
+                const response = await fetch('/admin/api/ollama/data-access');
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Failed to load');
+                document.getElementById('ollamaDataAccessEnabled').checked = !!data.enabled;
+                container.innerHTML = data.domains.map(d => `
+                    <label title="${escapeHtml(d.description)}" style="display:flex; align-items:flex-start; gap:0.5rem;">
+                        <input type="checkbox" class="ollama-domain-toggle" data-domain="${escapeHtml(d.id)}" ${d.enabled ? 'checked' : ''} onchange="saveOllamaDataAccess()">
+                        <span>${escapeHtml(d.label)}${d.sensitive ? ' 🔒' : ''}<br><small class="help-text">${escapeHtml(d.description)}</small></span>
+                    </label>`).join('');
+            } catch (err) {
+                container.innerHTML = '<em>Could not load data access settings: ' + escapeHtml(err.message) + '</em>';
+            }
+        }
+
+        async function saveOllamaDataAccess() {
+            const domains = {};
+            document.querySelectorAll('.ollama-domain-toggle').forEach(cb => { domains[cb.dataset.domain] = cb.checked; });
+            const status = document.getElementById('ollamaDataAccessStatus');
+            try {
+                const response = await fetch('/admin/api/ollama/data-access', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: document.getElementById('ollamaDataAccessEnabled').checked, domains })
+                });
+                const result = await response.json();
+                status.textContent = result.success ? 'Data access settings saved.' : 'Error: ' + (result.error || 'Unknown error');
+            } catch (err) {
+                status.textContent = 'Error saving data access settings: ' + err.message;
+            }
+        }
+
         async function sendOllamaPrompt() {
             const promptInput = document.getElementById('ollamaPrompt');
             const prompt = promptInput.value.trim();
@@ -24295,9 +24352,17 @@
                     // Clear prompt
                     promptInput.value = '';
                     
-                    showOllamaAlert('Response received', 'success');
+                    const access = result.dataAccess;
+                    let note = 'Response received';
+                    if (access && access.toolCalls && access.toolCalls.length) {
+                        note += ' (data tools used: ' + access.toolCalls.map(c => c.tool + (c.ok ? '' : ' [' + c.error + ']')).join(', ') + ')';
+                    }
+                    if (access && access.warnings && access.warnings.length) {
+                        note += ' - ' + access.warnings.join(' ');
+                    }
+                    showOllamaAlert(note, access && access.warnings && access.warnings.length ? 'error' : 'success');
                 } else {
-                    showOllamaAlert('Error: ' + (result.error || 'Unknown error'), 'error');
+                    showOllamaAlert('Error: ' + (result.error || 'Unknown error') + (result.details && result.details.suggestion ? ' ' + result.details.suggestion : ''), 'error');
                 }
             } catch (error) {
                 showOllamaAlert('Error sending prompt: ' + error.message, 'error');
