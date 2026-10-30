@@ -829,6 +829,20 @@
             return Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
         }
 
+        function getMedicationRefillForDate(medication, date) {
+            const history = Array.isArray(medication?.refillHistory) ? medication.refillHistory : [];
+            const validRefillDates = history
+                .map(entry => String(entry?.refillDate || '').trim().slice(0, 10))
+                .filter(refillDate => parseMedicationScheduleDate(refillDate));
+            if (validRefillDates.length > 0) {
+                const refillDatesInEffect = validRefillDates.filter(refillDate => refillDate <= date);
+                return refillDatesInEffect.sort().pop() || '';
+            }
+
+            const refillDate = String(medication?.refillDate || '').trim().slice(0, 10);
+            return parseMedicationScheduleDate(refillDate) && refillDate <= date ? refillDate : '';
+        }
+
         function getMedicationWeeklyScheduleForDate(medication, date) {
             const regimen = getMedicationRegimenForDate(medication, date);
             if (String(regimen?.scheduleFrequency || '').trim() !== 'weekly') {
@@ -840,11 +854,15 @@
 
             const history = Array.isArray(medication?.regimenHistory) ? [...medication.regimenHistory] : [];
             history.sort((left, right) => String(left?.effectiveDate || '').localeCompare(String(right?.effectiveDate || '')));
-            const refillAnchorDate = parseMedicationScheduleDate(medication?.refillDate)
-                ? String(medication.refillDate).trim().slice(0, 10)
+            const refillAnchorDate = getMedicationRefillForDate(medication, String(date || ''));
+            const regimenEffectiveDate = parseMedicationScheduleDate(regimen?.effectiveDate)
+                ? String(regimen.effectiveDate).trim().slice(0, 10)
                 : '';
-            const regimenEffectiveDate = String(regimen?.effectiveDate || '').trim().slice(0, 10);
-            let anchorDate = regimenEffectiveDate || refillAnchorDate || date;
+            const createdDate = String(medication?.createdDate || '').trim().slice(0, 10);
+            let anchorDate = regimenEffectiveDate
+                || refillAnchorDate
+                || (parseMedicationScheduleDate(createdDate) ? createdDate : '')
+                || String(dashboardData?.today || new Date().toISOString().slice(0, 10));
             const currentIndex = history.findIndex(entry => String(entry?.effectiveDate || '').trim().slice(0, 10) === regimenEffectiveDate);
 
             if (currentIndex >= 0) {
@@ -865,6 +883,14 @@
             if (!anchor) return null;
 
             const daysSinceAnchor = getMedicationScheduleDateDiffInDays(anchor, target);
+            if (daysSinceAnchor < 0) {
+                return {
+                    periodStartDate: null,
+                    periodEndDate: null,
+                    isScheduledDate: false
+                };
+            }
+
             const periodStart = addMedicationScheduleDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
             const periodEnd = addMedicationScheduleDays(periodStart, 7);
             const periodStartDate = periodStart.toISOString().slice(0, 10);
@@ -882,13 +908,15 @@
 
             const adherenceHistory = Array.isArray(medication?.adherenceHistory) ? medication.adherenceHistory : [];
             if (!weeklySchedule.isScheduledDate) {
-                return false;
+                return adherenceHistory.some(record => record?.date === date);
             }
 
+            const refillDate = getMedicationRefillForDate(medication, String(date || ''));
             return !adherenceHistory.some(record => (
                 record?.date >= weeklySchedule.periodStartDate
                 && record?.date < weeklySchedule.periodEndDate
                 && record?.date !== date
+                && getMedicationRefillForDate(medication, record.date) === refillDate
             )) || adherenceHistory.some(record => record?.date === date);
         }
 

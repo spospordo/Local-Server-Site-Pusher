@@ -1502,6 +1502,7 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
         instructions: medication.instructions || '',
         scheduleFrequency: house.getMedicationRegimenForDate(medication, getMedicationPortalToday()).scheduleFrequency || '',
         refillDate: medication.refillDate || '',
+        refillHistory: Array.isArray(medication.refillHistory) ? medication.refillHistory : [],
         createdDate: medication.createdDate || '',
         regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
         asNeeded: !!medication.asNeeded,
@@ -1514,13 +1515,22 @@ function buildMedicationAdminAdherenceSummary({ portalUser, userAssignments, med
   const recentDays = summaryDays.map(date => {
     const medications = assignedMedications.map(medication => {
       const assignedAtDate = String(medication.assignedAt || '').slice(0, 10);
-      const expected = !medication.asNeeded
-        && (!assignedAtDate || assignedAtDate <= date)
-        && house.isMedicationScheduledForDate(medication, date);
+      const assigned = !assignedAtDate || assignedAtDate <= date;
+      const regimen = house.getMedicationRegimenForDate(medication, date);
+      const hasRegimenHistory = Array.isArray(medication.regimenHistory) && medication.regimenHistory.length > 0;
+      const regimenEffectiveDate = hasRegimenHistory ? String(regimen?.effectiveDate || '').slice(0, 10) : '';
+      const scheduled = house.isMedicationScheduledForDate(medication, date);
+      const expected = !medication.asNeeded && assigned && scheduled;
       const record = recordByKey.get(`${portalUser.id}:${medication.id}:${date}`) || null;
       const status = record
         ? record.status
-        : (expected ? 'missing' : (medication.asNeeded ? 'as_needed' : 'not_assigned_yet'));
+        : (expected
+          ? 'missing'
+          : (medication.asNeeded
+            ? 'as_needed'
+            : (!assigned || (regimenEffectiveDate && regimenEffectiveDate > date)
+              ? 'not_assigned_yet'
+              : (!scheduled ? 'not_scheduled' : 'not_assigned_yet'))));
 
       return {
         id: medication.id,
@@ -1620,6 +1630,7 @@ function buildMedicationAdminPayload() {
       ...currentRegimen,
       id: medication.id,
       regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
+      refillHistory: Array.isArray(medication.refillHistory) ? medication.refillHistory : [],
       ...house.computeMedicationForecast(medication, {
         asOfDate: getMedicationPortalToday(),
         adherenceRecords
@@ -1772,6 +1783,9 @@ function buildMedicationSmartWidgetSummary(selectedUserIds) {
 
 function buildMedicationPortalDashboard(userId) {
   const today = getMedicationPortalToday();
+  const adherenceWindowStart = new Date(`${today}T00:00:00.000Z`);
+  adherenceWindowStart.setUTCDate(adherenceWindowStart.getUTCDate() - 90);
+  const adherenceWindowStartDate = adherenceWindowStart.toISOString().slice(0, 10);
   const medications = house.getAssignedMedicationsForUser(userId).map(medication => {
     const adherenceHistory = house.getMedicationAdherenceHistory(userId, medication.id);
     const todayRecord = adherenceHistory.find(record => record.date === today) || null;
@@ -1781,6 +1795,7 @@ function buildMedicationPortalDashboard(userId) {
       ...currentRegimen,
       id: medication.id,
       regimenHistory: Array.isArray(medication.regimenHistory) ? medication.regimenHistory : [],
+      refillHistory: Array.isArray(medication.refillHistory) ? medication.refillHistory : [],
       ...house.computeMedicationForecast(medication, {
         asOfDate: today,
         adherenceRecords: adherenceHistory
@@ -1788,7 +1803,9 @@ function buildMedicationPortalDashboard(userId) {
       todayStatus: todayRecord ? todayRecord.status : null,
       todayRecordedAt: todayRecord ? todayRecord.recordedAt : null,
       todayPillsTaken: todayRecord ? todayRecord.pillsTaken ?? null : null,
-      adherenceHistory: adherenceHistory.slice(0, 14)
+      adherenceHistory: adherenceHistory.filter((record, index) => (
+        index < 14 || record.date >= adherenceWindowStartDate
+      ))
     };
   });
 

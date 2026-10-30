@@ -313,15 +313,24 @@ async function run() {
       scheduleFrequency: 'weekly',
       pillsPerDose: 1,
       pillCount: 8,
-      regimenEffectiveDate: tomorrow,
-      refillDate: tomorrow,
+      regimenEffectiveDate: getDateOffset(-2),
+      refillDate: getDateOffset(-2),
       alertThresholdDays: 2
+    });
+    const legacyWeeklyResult = house.addMedication({
+      name: 'Legacy Weekly',
+      instructions: 'Take 1 pill once weekly',
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 8,
+      refillDate: getDateOffset(-9)
     });
 
     assert.strictEqual(morningMedResult.success, true, 'morning medication should be created');
     assert.strictEqual(eveningMedResult.success, true, 'evening medication should be created');
     assert.strictEqual(vitaminResult.success, true, 'vitamin medication should be created');
     assert.strictEqual(weeklyPortalOnlyResult.success, true, 'weekly portal-check medication should be created');
+    assert.strictEqual(legacyWeeklyResult.success, true, 'legacy weekly medication should be created');
 
     const portalUserA = house.createMedicationPortalUser({ username: 'Casey', passwordHash: 'salt:hash-a' });
     const portalUserB = house.createMedicationPortalUser({ username: 'Morgan', passwordHash: 'salt:hash-b' });
@@ -333,7 +342,15 @@ async function run() {
     const eveningMed = medsData.medications.find(item => item.name === 'Evening Med');
     const vitamin = medsData.medications.find(item => item.name === 'Vitamin D');
     const weeklyPortalOnly = medsData.medications.find(item => item.name === 'Weekly Portal Check');
-    assert.ok(morningMed && eveningMed && vitamin && weeklyPortalOnly, 'seed medications should be present');
+    const legacyWeekly = medsData.medications.find(item => item.name === 'Legacy Weekly');
+    assert.ok(morningMed && eveningMed && vitamin && weeklyPortalOnly && legacyWeekly, 'seed medications should be present');
+    assert.strictEqual(house.saveMedicationRefill(legacyWeekly.id, {
+      refillDate: getDateOffset(-2),
+      pillCount: 8
+    }).success, true, 'legacy weekly medication should retain its newer refill');
+    const legacyMedicationData = house.getMedicationsData();
+    legacyMedicationData.medications.find(item => item.id === legacyWeekly.id).regimenHistory = [];
+    assert.strictEqual(house.saveMedicationsData(legacyMedicationData).success, true, 'legacy weekly medication should use legacy regimen data');
 
     const regimenChangeDate = getDateOffset(-2);
     assert.strictEqual(house.updateMedication(morningMed.id, {
@@ -349,6 +366,11 @@ async function run() {
     assert.strictEqual(house.setMedicationAssignments(eveningMed.id, [portalUserA.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(vitamin.id, [portalUserB.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(weeklyPortalOnly.id, [portalUserA.user.id]).success, true);
+    assert.strictEqual(house.setMedicationAssignments(legacyWeekly.id, [portalUserA.user.id]).success, true);
+    assert.strictEqual(house.saveMedicationRefill(weeklyPortalOnly.id, {
+      refillDate: today,
+      pillCount: 8
+    }).success, true, 'weekly portal-check medication should retain its newer refill in history');
 
     const assignedBeforeWindow = `${getDateOffset(-8)}T08:00:00.000Z`;
     const seededData = house.getMedicationsData();
@@ -359,6 +381,7 @@ async function run() {
     assert.strictEqual(house.saveMedicationsData(seededData).success, true, 'seed assignments should be backdated into the summary window');
 
     assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, morningMed.id, 'took', today, { pillsTaken: 3 }).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, weeklyPortalOnly.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, morningMed.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, vitamin.id, 'not_taken', today).success, true);
 
@@ -601,9 +624,11 @@ async function run() {
 
     const caseyToday = casey.adherenceSummary.recentDays.find(day => day.date === today);
     const caseyYesterday = casey.adherenceSummary.recentDays.find(day => day.date === yesterday);
+    const caseyTwoDaysAgo = casey.adherenceSummary.recentDays.find(day => day.date === getDateOffset(-2));
+    const caseyThreeDaysAgo = casey.adherenceSummary.recentDays.find(day => day.date === getDateOffset(-3));
     const morganToday = morgan.adherenceSummary.recentDays.find(day => day.date === today);
 
-    assert.strictEqual(casey.adherenceSummary.assignedMedications.length, 3, 'Casey should include all assigned medications');
+    assert.strictEqual(casey.adherenceSummary.assignedMedications.length, 4, 'Casey should include all assigned medications');
     assert.strictEqual(caseyToday.status, 'partial', 'Casey should show a partial day when one medication entry is missing');
     assert.strictEqual(caseyToday.missingCount, 1, 'Casey should show one missing medication entry for today');
     assert.ok(caseyToday.alert.includes('Missing 1 medication entry: Evening Med'), 'Casey partial-day alert should name the missing medication');
@@ -614,9 +639,23 @@ async function run() {
     const caseyMorningEntry = caseyToday.medications.find(entry => entry.name === 'Morning Med');
     assert.strictEqual(caseyMorningEntry.pillsTaken, 3, 'admin adherence summaries should expose recorded pill counts');
     assert.strictEqual(
-      caseyToday.medications.find(entry => entry.name === 'Weekly Portal Check')?.status,
-      'not_assigned_yet',
-      'weekly medications should not be expected on non-dose days in adherence summaries'
+      caseyYesterday.medications.find(entry => entry.name === 'Weekly Portal Check')?.status,
+      'not_scheduled',
+      'assigned weekly medications should use the not-scheduled status on off-dose days'
+    );
+    assert.strictEqual(
+      caseyTwoDaysAgo.medications.find(entry => entry.name === 'Weekly Portal Check')?.expected,
+      true,
+      'admin summaries should count a historical weekly dose before the latest refill as expected'
+    );
+    assert.strictEqual(
+      caseyThreeDaysAgo.medications.find(entry => entry.name === 'Legacy Weekly')?.status,
+      'not_scheduled',
+      'legacy weekly off-dose days should not be classified as starting later because of a newer refill'
+    );
+    assert.ok(
+      summaryPayload.medications.find(medication => medication.id === weeklyPortalOnly.id)?.refillHistory?.length === 2,
+      'admin medication payloads should retain refill history for schedule calculations'
     );
 
     assert.strictEqual(caseyYesterday.status, 'missing_day', 'Casey should show a missing-day alert when no medications were recorded');
@@ -663,6 +702,7 @@ async function run() {
     assert.ok(summaryText.includes('Partial'), 'summary UI should label partially recorded days');
     assert.ok(summaryText.includes('No medication records for this day.'), 'summary UI should render missing-day alerts');
     assert.ok(summaryText.includes('Missing 1 medication entry: Evening Med'), 'summary UI should render partial-day medication alerts');
+    assert.ok(summaryText.includes('Not scheduled'), 'summary UI should label off-dose days as not scheduled');
     assert.ok(summaryText.includes('Morgan'), 'summary UI should keep complete users visible for scanning');
 
     const medicationsDom = new JSDOM(`

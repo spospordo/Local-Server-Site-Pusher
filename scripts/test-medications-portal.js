@@ -377,6 +377,77 @@ function run() {
       true,
       'weekly medications should reappear on the next weekly anchored dose day'
     );
+    const weeklyMedicationAcrossRefills = {
+      scheduleFrequency: 'weekly',
+      refillDate: '2026-10-06',
+      refillHistory: [
+        { refillDate: '2026-09-28' },
+        { refillDate: '2026-10-06' }
+      ],
+      regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly' }]
+    };
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(weeklyMedicationAcrossRefills, '2026-10-05'),
+      true,
+      'weekly scheduling should use the refill in effect on the checked historical date'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate({
+        scheduleFrequency: 'weekly',
+        createdDate: '2026-09-30',
+        pillCount: 8,
+        regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly', pillsPerDose: 1 }],
+        refillHistory: []
+      }, '2026-10-05'),
+      true,
+      'synthesized legacy refill dates should not override explicit regimen anchors'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate({
+        ...weeklyMedicationAcrossRefills,
+        regimenHistory: []
+      }, '2026-10-05'),
+      true,
+      'weekly scheduling without regimen history should also use the historical refill anchor'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate({
+        scheduleFrequency: 'weekly',
+        regimenHistory: [{ effectiveDate: '2026-10-06', scheduleFrequency: 'weekly' }]
+      }, '2026-09-29'),
+      false,
+      'weekly medications should not be scheduled before their first regimen anchor'
+    );
+    const olderWeeklyMedication = {
+      scheduleFrequency: 'weekly',
+      createdDate: '2026-09-28'
+    };
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(olderWeeklyMedication, '2026-10-05'),
+      true,
+      'older weekly medications without regimen or refill history should use their creation date'
+    );
+    assert.strictEqual(
+      house.isMedicationScheduledForDate(olderWeeklyMedication, '2026-09-27'),
+      false,
+      'older weekly medications should not be scheduled before their creation date'
+    );
+    const weeklyForecastAcrossFutureRefill = house.computeMedicationForecast({
+      scheduleFrequency: 'weekly',
+      pillsPerDose: 1,
+      pillCount: 3,
+      refillDate: '2026-09-28',
+      refillHistory: [
+        { refillDate: '2026-09-28', pillCount: 3 },
+        { refillDate: '2026-10-06', pillCount: 20 }
+      ],
+      regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly', pillsPerDose: 1 }]
+    }, { asOfDate: '2026-10-04' });
+    assert.strictEqual(
+      weeklyForecastAcrossFutureRefill.refillNeededDate,
+      '2026-10-19',
+      'weekly projections should keep the as-of refill anchor when a future refill quantity is not forecast'
+    );
 
     const weeklyOralMedicationResult = house.addMedication({
       name: 'Weekly Oral Vitamin',
