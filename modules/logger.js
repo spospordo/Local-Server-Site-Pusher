@@ -5,6 +5,7 @@ class Logger {
   constructor(maxLogs = 500) {
     this.logs = [];
     this.maxLogs = maxLogs;
+    this.emitting = false;
     
     // Log categories/modules
     this.categories = {
@@ -52,7 +53,13 @@ class Logger {
       'DEBUG': '🔍'
     }[level.toUpperCase()] || '📝';
 
-    console.log(`${levelEmoji} [${category}] ${message}`);
+    // Flag lets the AI assistant's output capture recognize lines already stored here
+    this.emitting = true;
+    try {
+      console.log(`${levelEmoji} [${category}] ${message}`);
+    } finally {
+      this.emitting = false;
+    }
   }
 
   info(category, message) {

@@ -88,7 +88,8 @@ class OllamaIntegration {
           webUIUrl: '',
           apiKey: '',
           model: '',
-          enabled: false
+          enabled: false,
+          dataAccess: { enabled: false, domains: {} }
         };
       }
 
@@ -101,7 +102,8 @@ class OllamaIntegration {
         webUIUrl: '',
         apiKey: '',
         model: '',
-        enabled: false
+        enabled: false,
+        dataAccess: { enabled: false, domains: {} }
       };
     }
   }
@@ -113,7 +115,9 @@ class OllamaIntegration {
         webUIUrl: config.webUIUrl || '',
         apiKey: config.apiKey || '',
         model: config.model || '',
-        enabled: config.enabled || false
+        enabled: config.enabled || false,
+        // Read-only AI assistant data access (master switch + per-domain enablement)
+        dataAccess: config.dataAccess || { enabled: false, domains: {} }
       };
 
       const encrypted = this.encrypt(JSON.stringify(configData));

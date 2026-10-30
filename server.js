@@ -25,6 +25,11 @@ const aviationstack = require('./modules/aviationstack');
 const flightScheduler = require('./modules/flight-scheduler');
 const remoteMgmt = require('./modules/remote-management');
 const rateLimit = require('express-rate-limit');
+const aiRedact = require('./modules/ai-redact');
+const { AppOutputStore, buildLogSources, createLogService } = require('./modules/ai-log-store');
+const { createCalendarService } = require('./modules/ai-calendar');
+const { createToolRegistry, DOMAINS: AI_DOMAINS } = require('./modules/ai-tools');
+const { createAssistant, normalizeDataAccess } = require('./modules/ai-assistant');
 
 const app = express();
 const trustProxy = Number.parseInt(process.env.TRUST_PROXY || '0', 10);
@@ -33,6 +38,19 @@ const configDir = path.join(__dirname, 'config');
 const configPath = path.join(configDir, 'config.json');
 const clientPasswordPath = path.join(configDir, '.client_auth');
 const uploadsDir = path.join(__dirname, 'uploads');
+
+// AI assistant: redaction + application output capture (stdout/stderr, redacted before storage).
+// Capture starts here so later output is retained; set AI_LOG_CAPTURE=false to disable.
+const aiRedactor = aiRedact.createRedactor();
+const appOutputStore = new AppOutputStore({
+  filePath: path.join(configDir, 'ai-assistant', 'app-output.jsonl'),
+  redact: text => aiRedactor.redactString(text),
+  isDuplicate: () => logger.emitting
+});
+if (process.env.AI_LOG_CAPTURE !== 'false') {
+  appOutputStore.restore();
+  appOutputStore.install();
+}
 
 // Ensure uploads directory exists
 if (!fs.existsSync(uploadsDir)) {
@@ -908,6 +926,60 @@ aviationstack.setMonthlyLimit(config.flightApi?.monthlyLimit || 100);
 
 // Initialize Ollama integration module
 const ollama = new OllamaIntegration(configDir);
+
+// Read-only dashboard AI assistant (tool registry + orchestration). See AI_ASSISTANT.md.
+const aiDefaultTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || process.env.TZ || 'UTC';
+function getAiCalendarFeeds() {
+  const widget = (smartMirror.loadConfig().widgets || {}).calendar || {};
+  const urls = [].concat(widget.calendarUrls || [], widget.calendarUrl ? [widget.calendarUrl] : []);
+  return urls.filter(u => typeof u === 'string' && u.trim()).map((u, i) => {
+    const url = u.trim().replace(/^webcal:\/\//i, 'https://');
+    return { id: `calendar-${i + 1}`, url, label: `Calendar ${i + 1} (${aiRedact.redactUrl(url)})` };
+  });
+}
+const aiCalendar = createCalendarService({
+  defaultTimeZone: aiDefaultTimeZone,
+  redactError: text => aiRedactor.redactString(text),
+  fetchText: async url => {
+    if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) calendar feeds are supported');
+    const response = await axios.get(url, { timeout: 10000, responseType: 'text', maxContentLength: 10 * 1024 * 1024, maxRedirects: 3 });
+    return response.data;
+  }
+});
+const aiLogService = createLogService(
+  buildLogSources({ logger, regenerator: publicFilesRegenerator, appOutput: appOutputStore }),
+  text => aiRedactor.redactString(text)
+);
+const aiToolRegistry = createToolRegistry({
+  redactor: aiRedactor,
+  house, finance, espresso, vidiots, webhooks, flightScheduler,
+  calendar: aiCalendar,
+  logs: aiLogService,
+  getCalendarFeeds: getAiCalendarFeeds,
+  getMainConfig: () => config,
+  defaultTimeZone: aiDefaultTimeZone,
+  version: require('./package.json').version,
+  now: () => Date.now(),
+  getSettingsSources: () => ({
+    main: { description: 'Main application configuration (config.json): server, Home Assistant, storage, client, Vidiots, Espresso, flight API, GitHub Pages, etc.', load: () => config },
+    smart_mirror: { description: 'Smart Mirror widgets, layouts, calendars, weather, news and display settings.', encrypted: true, load: () => smartMirror.loadConfig() },
+    ollama: { description: 'Ollama / Open WebUI connection and AI data-access settings.', encrypted: true, load: () => ollama.loadConfig() },
+    sftp: { description: 'SFTP backup destination settings.', encrypted: true, load: () => sftp.getConfigSafe() || {} },
+    webhooks: { description: 'Configured webhooks.', encrypted: true, load: () => webhooks.getAllWebhooks() },
+    finance_advanced: { description: 'Finance advanced planning settings.', encrypted: true, load: () => finance.getAdvancedSettings() },
+    flight_api_usage: { description: 'Flight API usage counters and limits.', load: () => aviationstack.getUsageStats() }
+  })
+});
+aiRedactor.addSecretsFrom(config);
+const aiAssistant = createAssistant({
+  ollama,
+  registry: aiToolRegistry,
+  redactor: aiRedactor,
+  defaultTimeZone: aiDefaultTimeZone,
+  // Audit only metadata (tool, domain, outcome, duration): never prompts, arguments or results.
+  audit: entry => logger.info(logger.categories.OLLAMA,
+    `AI data access: tool=${entry.tool} domain=${entry.domain || 'n/a'} status=${entry.ok ? 'success' : 'failure(' + entry.kind + ')'} duration=${entry.durationMs}ms`)
+});
 
 // Automatic repository sync on startup
 // This ensures repositories are cloned or pulled when GitHub Pages upload is enabled
@@ -7900,7 +7972,8 @@ app.post('/admin/api/ollama/config', requireAuth, (req, res) => {
       webUIUrl: webUIUrl !== undefined ? webUIUrl : existingConfig.webUIUrl,
       apiKey: apiKey !== undefined ? apiKey : existingConfig.apiKey,
       model: model !== undefined ? model : existingConfig.model,
-      enabled: enabled !== undefined ? enabled : existingConfig.enabled
+      enabled: enabled !== undefined ? enabled : existingConfig.enabled,
+      dataAccess: existingConfig.dataAccess
     };
     
     const result = ollama.saveConfig(configToSave);
@@ -7944,7 +8017,50 @@ app.get('/admin/api/ollama/models', requireAuth, async (req, res) => {
   }
 });
 
-// Send chat prompt to Ollama
+// Read-only AI assistant data-access settings (master switch + per-domain enablement)
+app.get('/admin/api/ollama/data-access', requireAuth, (req, res) => {
+  try {
+    const dataAccess = normalizeDataAccess(ollama.loadConfig().dataAccess);
+    res.json({
+      success: true,
+      enabled: dataAccess.enabled,
+      domains: aiToolRegistry.domains().map(d => ({ ...d, enabled: dataAccess.domains[d.id] })),
+      logSources: aiLogService.listSources().sources.map(s => ({ source: s.source, available: s.available, entryCount: s.entryCount }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to get data access settings: ' + err.message });
+  }
+});
+
+app.post('/admin/api/ollama/data-access', requireAuth, (req, res) => {
+  try {
+    const { enabled, domains } = req.body || {};
+    if (enabled !== undefined && typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled must be a boolean' });
+    }
+    if (domains !== undefined && (typeof domains !== 'object' || domains === null || Array.isArray(domains))) {
+      return res.status(400).json({ success: false, error: 'domains must be an object of domain id to boolean' });
+    }
+    for (const [id, value] of Object.entries(domains || {})) {
+      if (!AI_DOMAINS[id]) return res.status(400).json({ success: false, error: `Unknown data domain: ${id}` });
+      if (typeof value !== 'boolean') return res.status(400).json({ success: false, error: `Domain ${id} must be a boolean` });
+    }
+    const existing = ollama.loadConfig();
+    const current = normalizeDataAccess(existing.dataAccess);
+    const updated = {
+      enabled: enabled !== undefined ? enabled : current.enabled,
+      domains: { ...current.domains, ...(domains || {}) }
+    };
+    const result = ollama.saveConfig({ ...existing, dataAccess: updated });
+    if (!result.success) return res.status(500).json({ success: false, error: result.error });
+    logger.info(logger.categories.OLLAMA, `AI data access settings updated (enabled: ${updated.enabled}, domains: ${Object.keys(updated.domains).filter(k => updated.domains[k]).join(', ') || 'none'})`);
+    res.json({ success: true, enabled: updated.enabled, domains: updated.domains });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to save data access settings: ' + err.message });
+  }
+});
+
+// Send chat prompt to Ollama (text-only, or with read-only tool calling when data access is enabled)
 app.post('/admin/api/ollama/chat', requireAuth, async (req, res) => {
   try {
     const { prompt, conversationHistory } = req.body;
@@ -7956,13 +8072,17 @@ app.post('/admin/api/ollama/chat', requireAuth, async (req, res) => {
       });
     }
     
-    const config = ollama.loadConfig();
-    const result = await ollama.sendPrompt(config, prompt, conversationHistory || []);
+    const ollamaConfig = ollama.loadConfig();
+    // Make sure every known credential is masked in anything sent to the model
+    aiRedactor.addSecretsFrom(config);
+    aiRedactor.addSecretsFrom(ollamaConfig);
+    // Enablement always comes from saved server-side settings, never from the request
+    const result = await aiAssistant.chat(ollamaConfig, prompt, conversationHistory || [], ollamaConfig.dataAccess, req.session);
     res.json(result);
   } catch (err) {
     res.status(500).json({ 
       success: false, 
-      error: 'Failed to send prompt: ' + err.message 
+      error: 'Failed to send prompt: ' + aiRedactor.redactString(err.message)
     });
   }
 });
