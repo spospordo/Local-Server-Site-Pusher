@@ -313,8 +313,8 @@ async function run() {
       scheduleFrequency: 'weekly',
       pillsPerDose: 1,
       pillCount: 8,
-      regimenEffectiveDate: tomorrow,
-      refillDate: tomorrow,
+      regimenEffectiveDate: getDateOffset(-2),
+      refillDate: getDateOffset(-2),
       alertThresholdDays: 2
     });
 
@@ -349,6 +349,10 @@ async function run() {
     assert.strictEqual(house.setMedicationAssignments(eveningMed.id, [portalUserA.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(vitamin.id, [portalUserB.user.id]).success, true);
     assert.strictEqual(house.setMedicationAssignments(weeklyPortalOnly.id, [portalUserA.user.id]).success, true);
+    assert.strictEqual(house.saveMedicationRefill(weeklyPortalOnly.id, {
+      refillDate: today,
+      pillCount: 8
+    }).success, true, 'weekly portal-check medication should retain its newer refill in history');
 
     const assignedBeforeWindow = `${getDateOffset(-8)}T08:00:00.000Z`;
     const seededData = house.getMedicationsData();
@@ -359,6 +363,7 @@ async function run() {
     assert.strictEqual(house.saveMedicationsData(seededData).success, true, 'seed assignments should be backdated into the summary window');
 
     assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, morningMed.id, 'took', today, { pillsTaken: 3 }).success, true);
+    assert.strictEqual(house.recordMedicationAdherence(portalUserA.user.id, weeklyPortalOnly.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, morningMed.id, 'took', today).success, true);
     assert.strictEqual(house.recordMedicationAdherence(portalUserB.user.id, vitamin.id, 'not_taken', today).success, true);
 
@@ -601,6 +606,7 @@ async function run() {
 
     const caseyToday = casey.adherenceSummary.recentDays.find(day => day.date === today);
     const caseyYesterday = casey.adherenceSummary.recentDays.find(day => day.date === yesterday);
+    const caseyTwoDaysAgo = casey.adherenceSummary.recentDays.find(day => day.date === getDateOffset(-2));
     const morganToday = morgan.adherenceSummary.recentDays.find(day => day.date === today);
 
     assert.strictEqual(casey.adherenceSummary.assignedMedications.length, 3, 'Casey should include all assigned medications');
@@ -614,9 +620,18 @@ async function run() {
     const caseyMorningEntry = caseyToday.medications.find(entry => entry.name === 'Morning Med');
     assert.strictEqual(caseyMorningEntry.pillsTaken, 3, 'admin adherence summaries should expose recorded pill counts');
     assert.strictEqual(
-      caseyToday.medications.find(entry => entry.name === 'Weekly Portal Check')?.status,
-      'not_assigned_yet',
-      'weekly medications should not be expected on non-dose days in adherence summaries'
+      caseyYesterday.medications.find(entry => entry.name === 'Weekly Portal Check')?.status,
+      'not_scheduled',
+      'assigned weekly medications should use the not-scheduled status on off-dose days'
+    );
+    assert.strictEqual(
+      caseyTwoDaysAgo.medications.find(entry => entry.name === 'Weekly Portal Check')?.expected,
+      true,
+      'admin summaries should count a historical weekly dose before the latest refill as expected'
+    );
+    assert.ok(
+      summaryPayload.medications.find(medication => medication.id === weeklyPortalOnly.id)?.refillHistory?.length === 2,
+      'admin medication payloads should retain refill history for schedule calculations'
     );
 
     assert.strictEqual(caseyYesterday.status, 'missing_day', 'Casey should show a missing-day alert when no medications were recorded');
@@ -663,6 +678,7 @@ async function run() {
     assert.ok(summaryText.includes('Partial'), 'summary UI should label partially recorded days');
     assert.ok(summaryText.includes('No medication records for this day.'), 'summary UI should render missing-day alerts');
     assert.ok(summaryText.includes('Missing 1 medication entry: Evening Med'), 'summary UI should render partial-day medication alerts');
+    assert.ok(summaryText.includes('Not scheduled'), 'summary UI should label off-dose days as not scheduled');
     assert.ok(summaryText.includes('Morgan'), 'summary UI should keep complete users visible for scanning');
 
     const medicationsDom = new JSDOM(`

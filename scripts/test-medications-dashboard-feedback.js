@@ -105,6 +105,7 @@ function getMedicationCard(document, medicationId) {
 async function run() {
   const today = getDateOffset(0);
   const yesterday = getDateOffset(-1);
+  const tomorrow = getDateOffset(1);
   const initialDashboardData = {
     today,
     waitingForAdmin: false,
@@ -176,6 +177,18 @@ async function run() {
         adherenceHistory: [
           { id: 'yesterday-d', date: yesterday, status: 'took', pillsTaken: 1, scheduledDailyPillCount: 1 / 7, scheduleFrequency: 'weekly', recordedAt: `${yesterday}T07:30:00.000Z` }
         ]
+      },
+      {
+        id: 'med-e',
+        name: 'Weekly Recorded Off Day',
+        instructions: 'Take 1 pill once weekly',
+        pillCount: 8,
+        pillsPerDose: 1,
+        scheduleFrequency: 'weekly',
+        regimenHistory: [{ effectiveDate: yesterday, scheduleFrequency: 'weekly', pillsPerDose: 1 }],
+        adherenceHistory: [
+          { id: 'today-e', date: today, status: 'took', pillsTaken: 1, scheduleFrequency: 'weekly', recordedAt: `${today}T07:30:00.000Z` }
+        ]
       }
     ]
   };
@@ -233,7 +246,35 @@ async function run() {
     'weekly injectable medication should describe the weekly regimen using injections instead of daily pill math'
   );
   assert.strictEqual(getMedicationCard(document, 'med-d'), null, 'weekly medications should stay hidden on non-dose days after the scheduled day passes');
-  const weeklyMissingDates = window.eval(`Array.from(getMissingDates(dashboardData.medications.find(medication => medication.id === 'med-c')))`); 
+  const recordedOffDayCard = getMedicationCard(document, 'med-e');
+  assert.ok(recordedOffDayCard, 'a recorded weekly entry should remain visible on a non-dose day');
+  assert.ok(recordedOffDayCard.querySelector('[data-action="edit-record"]'), 'a recorded non-dose-day entry should remain editable');
+  assert.strictEqual(
+    window.eval(`shouldShowMedicationOnDate({ scheduleFrequency: 'weekly', regimenHistory: [{ effectiveDate: '${today}', scheduleFrequency: 'weekly' }], adherenceHistory: [] }, '${yesterday}')`),
+    false,
+    'an unrecorded non-dose day should stay hidden'
+  );
+  assert.strictEqual(
+    window.eval(`getMedicationWeeklyScheduleForDate({ scheduleFrequency: 'weekly', refillDate: '2026-10-06', refillHistory: [{ refillDate: '2026-09-28' }, { refillDate: '2026-10-06' }], regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly' }] }, '2026-10-05').isScheduledDate`),
+    true,
+    'the portal should use the refill in effect on the date being checked'
+  );
+  assert.strictEqual(
+    window.eval(`getMedicationWeeklyScheduleForDate({ scheduleFrequency: 'weekly', createdDate: '2026-09-28' }, '2026-10-05').isScheduledDate`),
+    true,
+    'the portal should anchor older weekly medications with only a creation date'
+  );
+  assert.strictEqual(
+    window.eval(`getMedicationWeeklyScheduleForDate({ scheduleFrequency: 'weekly', regimenHistory: [{ effectiveDate: '${tomorrow}', scheduleFrequency: 'weekly' }] }, '${today}').isScheduledDate`),
+    false,
+    'the portal should not schedule dates before the first regimen anchor'
+  );
+  assert.strictEqual(
+    window.eval(`getMissingDates({ scheduleFrequency: 'weekly', regimenHistory: [{ effectiveDate: '${tomorrow}', scheduleFrequency: 'weekly' }], adherenceHistory: [] }).size`),
+    0,
+    'the portal should not offer missing dates before the first regimen anchor'
+  );
+  const weeklyMissingDates = window.eval(`Array.from(getMissingDates(dashboardData.medications.find(medication => medication.id === 'med-c')))`);
   assert.ok(!weeklyMissingDates.includes(yesterday), 'record-previous-day highlights should skip non-dose days for weekly medications');
 
   window.eval(`currentDayOffset = -1; renderDashboard(dashboardData);`);
