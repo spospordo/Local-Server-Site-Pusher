@@ -578,9 +578,30 @@ async function run() {
       assert.ok(res.json.medications.some(m => m.id === medicationId), 'assigned medication should appear for user A');
     });
 
+    await test('Dashboard retains the latest fourteen adherence records outside the 90-day navigation window', async () => {
+      const latestOldDate = getDateOffset(-106);
+      for (let offset = -106; offset >= -120; offset -= 1) {
+        const recordRes = await requestJson(jarA, 'POST', `/medications/api/medications/${medicationId}/adherence`, {
+          status: 'not_taken',
+          date: getDateOffset(offset)
+        }, {
+          'x-medications-csrf-token': csrfA
+        });
+        assert.strictEqual(recordRes.statusCode, 200, `old adherence recording should succeed: ${recordRes.body}`);
+      }
+
+      const dashboardRes = await requestJson(jarA, 'GET', '/medications/api/dashboard');
+      const medication = dashboardRes.json.medications.find(item => item.id === medicationId);
+      assert.ok(medication, 'assigned medication should remain visible');
+      assert.ok(
+        medication.adherenceHistory.some(record => record.date === latestOldDate),
+        'the latest fourteen records should remain available even when all are outside the navigation window'
+      );
+    });
+
     await test('Dashboard includes off-schedule adherence records throughout the 90-day navigation window', async () => {
       const olderDate = getDateOffset(-30);
-      for (let offset = -29; offset >= -16; offset -= 1) {
+      for (let offset = -16; offset >= -29; offset -= 1) {
         const recordRes = await requestJson(jarA, 'POST', `/medications/api/medications/${medicationId}/adherence`, {
           status: 'not_taken',
           date: getDateOffset(offset)

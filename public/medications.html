@@ -911,10 +911,12 @@
                 return adherenceHistory.some(record => record?.date === date);
             }
 
+            const refillDate = getMedicationRefillForDate(medication, String(date || ''));
             return !adherenceHistory.some(record => (
                 record?.date >= weeklySchedule.periodStartDate
                 && record?.date < weeklySchedule.periodEndDate
                 && record?.date !== date
+                && getMedicationRefillForDate(medication, record.date) === refillDate
             )) || adherenceHistory.some(record => record?.date === date);
         }
 

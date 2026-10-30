@@ -2517,8 +2517,7 @@ function getMedicationWeeklyScheduleForDateFromHistory(medication, date, history
     return null;
   }
 
-  const daysSinceAnchor = getMedicationDateDiffInDays(anchor, target);
-  if (daysSinceAnchor < 0) {
+  if (targetDate < anchorDate) {
     return {
       regimen,
       anchorDate,
@@ -2528,6 +2527,7 @@ function getMedicationWeeklyScheduleForDateFromHistory(medication, date, history
     };
   }
 
+  const daysSinceAnchor = getMedicationDateDiffInDays(anchor, target);
   const periodStart = addMedicationDays(anchor, Math.floor(daysSinceAnchor / 7) * 7);
   const periodEnd = addMedicationDays(periodStart, 7);
   const periodStartDate = periodStart.toISOString().slice(0, 10);

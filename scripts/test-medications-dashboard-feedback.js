@@ -260,6 +260,16 @@ async function run() {
     'the portal should use the refill in effect on the date being checked'
   );
   assert.strictEqual(
+    window.eval(`shouldShowMedicationOnDate({ scheduleFrequency: 'weekly', refillHistory: [{ refillDate: '2026-09-28' }, { refillDate: '2026-10-06' }], regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly' }], adherenceHistory: [{ date: '2026-10-06' }] }, '2026-10-05')`),
+    true,
+    'a record from a later refill should not hide the earlier refill period dose'
+  );
+  assert.strictEqual(
+    window.eval(`shouldShowMedicationOnDate({ scheduleFrequency: 'weekly', refillHistory: [{ refillDate: '2026-09-28' }], regimenHistory: [{ effectiveDate: '2026-09-28', scheduleFrequency: 'weekly' }], adherenceHistory: [{ date: '2026-10-07' }] }, '2026-10-05')`),
+    false,
+    'a record in the same refill period should continue to hide the earlier scheduled card'
+  );
+  assert.strictEqual(
     window.eval(`getMedicationWeeklyScheduleForDate({ scheduleFrequency: 'weekly', createdDate: '2026-09-28' }, '2026-10-05').isScheduledDate`),
     true,
     'the portal should anchor older weekly medications with only a creation date'

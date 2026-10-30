@@ -1803,7 +1803,9 @@ function buildMedicationPortalDashboard(userId) {
       todayStatus: todayRecord ? todayRecord.status : null,
       todayRecordedAt: todayRecord ? todayRecord.recordedAt : null,
       todayPillsTaken: todayRecord ? todayRecord.pillsTaken ?? null : null,
-      adherenceHistory: adherenceHistory.filter(record => record.date >= adherenceWindowStartDate)
+      adherenceHistory: adherenceHistory.filter((record, index) => (
+        index < 14 || record.date >= adherenceWindowStartDate
+      ))
     };
   });
 
