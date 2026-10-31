@@ -42,6 +42,8 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 - **Smart Matching**: Existing accounts are automatically updated with new balances from the screenshot
 - **Robust Fuzzy Matching**: Handles OCR variations, truncated names, and icon contamination
 - **Ambiguity Confirmation**: If OCR rows are ambiguous, admins must confirm match/create/skip before balances are applied
+- **Near-Duplicate Review**: New accounts within 10% of an existing balance require a merge-or-keep-separate choice
+- **Large Change Warnings**: Import summaries identify existing accounts whose balances changed by more than 10%
 - **Display Name Management**: Admins can set custom display names to correct OCR errors
 - **Auto-Creation**: New accounts detected in the screenshot are automatically created
 - **Category Recognition**: Automatically categorizes accounts as Cash, Investments, Real Estate, or Liabilities
@@ -56,7 +58,7 @@ The Finance Module now supports uploading screenshots of your financial dashboar
 3. Click "Select Screenshot" and choose an image file (JPG, PNG, WebP)
 4. Click "Upload & Process Screenshot"
 5. Wait 30-60 seconds while the system extracts text and updates accounts
-6. Review the results showing accounts created/updated
+6. Review any duplicate choices before import, then review the results showing accounts created/updated and large balance changes
 7. (Optional) Click "Edit Display Name" on any account to set a more descriptive name
 
 **Supported Screenshot Formats:**
@@ -126,7 +128,7 @@ Sometimes processing screenshots inadvertently creates duplicate accounts when f
 
 **Features:**
 - **Multi-Select Interface**: Select 2 or more accounts to merge with checkboxes
-- **Smart Surviving Account**: Automatically uses the most recently updated account as the surviving account
+- **Older Account Name Preserved**: The oldest account survives every merge, retaining its original and display names
 - **Complete History Transfer**: All history entries from merged accounts are transferred to the surviving account
 - **Alias Tracking**: Previous account names are stored to prevent future re-creation of duplicates
 - **Future-Proof Matching**: Screenshot uploads will match against previous names to link to the correct merged account
@@ -140,14 +142,14 @@ Sometimes processing screenshots inadvertently creates duplicate accounts when f
 4. Review the selection count and click "Merge Selected"
 5. Review the confirmation dialog showing:
    - All accounts being merged
-   - Which account will survive (most recently updated)
+   - Which account will survive (oldest account)
    - Warning that action cannot be undone
 6. Confirm to execute the merge
 7. The surviving account now contains all history and has previous names stored
 
 **Merge Behavior:**
-- **Surviving Account Selection**: The account with the most recent `updatedAt` timestamp becomes the surviving account
-- **Balance Preservation**: The surviving account's balance is kept (as it was most recently updated)
+- **Surviving Account Selection**: The account with the earliest `createdAt` timestamp becomes the surviving account (falling back to `updatedAt` when needed)
+- **Balance Preservation**: The most recently updated account's balance is retained on the oldest account
 - **History Transfer**: All history entries from merged accounts are transferred to surviving account
 - **Previous Names**: All merged account names are stored in `previousNames` array
 - **Future Matching**: Screenshot uploads check both current name and `previousNames` for matching
@@ -173,7 +175,7 @@ Sometimes processing screenshots inadvertently creates duplicate accounts when f
 **Best Practices:**
 1. Review all selected accounts carefully before merging
 2. Ensure accounts truly represent the same financial entity
-3. The most recently updated account becomes the survivor - update the correct account last if needed
+3. The oldest account retains its original and display names; balance preservation still follows the surviving account
 4. After merging, consider setting a clear display name on the surviving account
 5. Check the "Merged from" indicator to verify all previous account names are stored correctly
 

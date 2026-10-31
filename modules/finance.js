@@ -33,6 +33,7 @@ const AUTH_TAG_LENGTH = 16;
 const MAX_HISTORY_ENTRIES = 1000; // Maximum history entries to keep
 const MAX_IMPORT_RULE_ENTRIES = 300; // Maximum admin import override/type-edit rules to keep
 const BALANCE_COMPARISON_TOLERANCE = 0.01; // Floating-point tolerance for balance equality checks
+const BALANCE_CHANGE_WARNING_THRESHOLD = 0.1;
 const MIN_GROWTH_HISTORY_DAYS = 30;
 const HISTORICAL_GROWTH_FLOOR = -0.5;
 const HISTORICAL_GROWTH_CEILING = 2.0;
@@ -732,6 +733,13 @@ function removeImportRule(ruleId) {
   return { success: false, error: 'Unsupported rule type' };
 }
 
+function getAccountAgeTimestamp(account) {
+  const createdAt = Date.parse(account.createdAt || '');
+  if (Number.isFinite(createdAt)) return createdAt;
+  const updatedAt = Date.parse(account.updatedAt || '');
+  return Number.isFinite(updatedAt) ? updatedAt : 0;
+}
+
 // Merge multiple accounts into one
 function mergeAccounts(accountIds) {
   if (!Array.isArray(accountIds) || accountIds.length < 2) {
@@ -753,12 +761,18 @@ function mergeAccounts(accountIds) {
     return { success: false, error: 'Some account IDs were not found' };
   }
   
-  // Find the most recently updated account (this becomes the surviving account)
-  const survivingAccount = accountsToMerge.reduce((latest, current) => {
-    const latestTime = new Date(latest.updatedAt || latest.createdAt || 0);
-    const currentTime = new Date(current.updatedAt || current.createdAt || 0);
+  // Keep the oldest account so its original and display names survive.
+  const survivingAccount = accountsToMerge.reduce((oldest, current) => {
+    const oldestTime = getAccountAgeTimestamp(oldest);
+    const currentTime = getAccountAgeTimestamp(current);
+    return currentTime < oldestTime ? current : oldest;
+  });
+  const latestBalanceAccount = accountsToMerge.reduce((latest, current) => {
+    const latestTime = Date.parse(latest.updatedAt || latest.createdAt || '') || 0;
+    const currentTime = Date.parse(current.updatedAt || current.createdAt || '') || 0;
     return currentTime > latestTime ? current : latest;
   });
+  survivingAccount.currentValue = latestBalanceAccount.currentValue;
   
   // Collect accounts to be merged (all except surviving)
   const mergedAccounts = accountsToMerge.filter(a => a.id !== survivingAccount.id);
@@ -775,6 +789,9 @@ function mergeAccounts(accountIds) {
     // Add the account's current name as a previous name
     if (account.name && account.name !== survivingAccount.name) {
       allPreviousNames.add(account.name);
+    }
+    if (account.displayName && account.displayName !== survivingAccount.displayName) {
+      allPreviousNames.add(account.displayName);
     }
     
     // Add any existing previous names from this account
@@ -2648,6 +2665,21 @@ function getScreenshotCandidateAccounts(existingAccounts, parsedAccount) {
   });
 }
 
+function getRelativeBalanceChange(newBalance, oldBalance) {
+  const next = Number(newBalance);
+  const previous = Number(oldBalance);
+  if (!Number.isFinite(next) || !Number.isFinite(previous)) return null;
+  if (previous === 0) return next === 0 ? 0 : Infinity;
+  return Math.abs(next - previous) / Math.abs(previous);
+}
+
+function getSignedBalanceChangePercent(newBalance, oldBalance) {
+  const next = Number(newBalance);
+  const previous = Number(oldBalance);
+  if (!Number.isFinite(next) || !Number.isFinite(previous) || previous === 0) return null;
+  return ((next - previous) / Math.abs(previous)) * 100;
+}
+
 function buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAccounts) {
   const MIN_LABEL_LENGTH_FOR_PREFIX_CHECK = 8;
   const knownDeleted = Array.isArray(deletedAccounts) ? deletedAccounts : [];
@@ -2655,6 +2687,17 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAcco
   const rows = (parsedAccounts || []).map((parsedAccount, index) => {
     const normalizedLabel = normalizeScreenshotAccountLabel(parsedAccount.name || parsedAccount.rawLabel || '');
     const candidateAccounts = getScreenshotCandidateAccounts(existingAccounts, parsedAccount);
+    const nearDuplicateAccounts = (existingAccounts || [])
+      .filter(account => {
+        const change = getRelativeBalanceChange(parsedAccount.balance, account.currentValue || 0);
+        return change !== null && change <= BALANCE_CHANGE_WARNING_THRESHOLD + Number.EPSILON * 10;
+      })
+      .map(account => ({
+        id: account.id,
+        name: account.displayName || account.name,
+        balance: Number(account.currentValue || 0),
+        percentageDifference: getSignedBalanceChangePercent(parsedAccount.balance, account.currentValue || 0)
+      }));
 
     // Check for matches against previously deleted accounts (only relevant when no active match exists)
     const matchedDeletedAccount = candidateAccounts.length === 0
@@ -2675,6 +2718,7 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAcco
         id: account.id,
         name: account.name
       })),
+      nearDuplicateAccounts,
       matchedDeletedAccount: matchedDeletedAccount
         ? { id: matchedDeletedAccount.id, name: matchedDeletedAccount.name, type: matchedDeletedAccount.type, deletedAt: matchedDeletedAccount.deletedAt }
         : null,
@@ -2758,6 +2802,12 @@ function buildScreenshotImportPlan(parsedAccounts, existingAccounts, deletedAcco
 
   // Flag rows that would create a new account matching a previously deleted account
   rows.forEach(row => {
+    if (row.candidateAccounts.length === 0 && row.nearDuplicateAccounts.length > 0) {
+      row.ambiguityReasons.push({
+        code: 'near_duplicate_balance',
+        message: 'A new account has a balance within 10% of an existing account'
+      });
+    }
     if (row.matchedDeletedAccount) {
       row.ambiguityReasons.push({
         code: 'matches_deleted_account',
@@ -2814,6 +2864,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           balance: row.balance,
           category: row.category,
           candidateAccounts: row.candidateAccounts,
+          nearDuplicateAccounts: row.nearDuplicateAccounts,
           matchedDeletedAccount: row.matchedDeletedAccount || null,
           ambiguityReasons: row.ambiguityReasons
         })),
@@ -2837,6 +2888,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
     const newAccounts = [];
     const unchangedAccounts = [];
     const updatedAccounts = [];
+    const significantBalanceChanges = [];
     
     // Map category to default account type
     const categoryToType = {
@@ -2895,7 +2947,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         action = 'create';
       }
       
-      if (!['match', 'create', 'skip', 'allow_deleted'].includes(action)) {
+      if (!['match', 'merge', 'create', 'skip', 'allow_deleted'].includes(action)) {
         return {
           success: false,
           error: `Invalid confirmation action for row ${row.rowIndex + 1}`
@@ -2940,10 +2992,35 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           };
         }
       }
+
+      if (action === 'merge') {
+        if (!targetAccountId || !row.nearDuplicateAccounts.some(candidate => candidate.id === targetAccountId)) {
+          return {
+            success: false,
+            error: `Selected account is not a valid near-duplicate for row ${row.rowIndex + 1}`
+          };
+        }
+        existingAccount = existingAccounts.find(account => account.id === targetAccountId);
+        if (!existingAccount) {
+          return {
+            success: false,
+            error: `Selected account was not found for row ${row.rowIndex + 1}`
+          };
+        }
+        existingAccount.previousNames = Array.isArray(existingAccount.previousNames)
+          ? existingAccount.previousNames
+          : [];
+        [row.name, row.rawLabel].filter(Boolean).forEach(name => {
+          if (name !== existingAccount.name && !existingAccount.previousNames.includes(name)) {
+            existingAccount.previousNames.push(name);
+          }
+        });
+      }
       
       if (existingAccount) {
         // Update existing account
-        const oldBalance = existingAccount.currentValue || 0;
+        const oldBalance = Number(existingAccount.currentValue || 0);
+        const relativeBalanceChange = getRelativeBalanceChange(row.balance, oldBalance);
         const balanceUnchanged = Math.abs(parseFloat(oldBalance) - parseFloat(row.balance)) < BALANCE_COMPARISON_TOLERANCE;
         
         // Determine if we should update the current balance
@@ -2976,6 +3053,17 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
         } else {
           updatedAccounts.push({ name: existingAccount.name, oldBalance: parseFloat(oldBalance), newBalance: row.balance });
           accountsUpdated++;
+          if (
+            relativeBalanceChange === Infinity ||
+            (relativeBalanceChange !== null && relativeBalanceChange > BALANCE_CHANGE_WARNING_THRESHOLD + Number.EPSILON * 10)
+          ) {
+            significantBalanceChanges.push({
+              name: getAccountDisplayName(existingAccount),
+              oldBalance,
+              newBalance: row.balance,
+              percentageChange: getSignedBalanceChangePercent(row.balance, oldBalance)
+            });
+          }
         }
         updatedAccountIds.push(existingAccount.id);
       } else {
@@ -2986,7 +3074,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           name: row.name,
           type: accountType,
           currentValue: row.balance,
-          createdAt: effectiveDateISO,
+          createdAt: new Date().toISOString(),
           updatedAt: effectiveDateISO,
           notes: `Auto-created from screenshot upload on ${new Date().toLocaleDateString()} (As Of: ${effectiveDate})`
         };
@@ -3015,7 +3103,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
           ? (existingAccounts.find(acc => acc.id === targetAccountId) || {}).name || null
           : null;
         upsertImportDecisionRule(data, {
-          action: decision.action,
+          action: decision.action === 'merge' ? 'match' : decision.action,
           normalizedLabel: row.normalizedLabel,
           rawLabel: row.rawLabel,
           matchedAccountId: targetAccountId,
@@ -3051,6 +3139,7 @@ async function updateAccountsFromParsedData(parsedAccounts, groups, netWorth, as
       newAccounts: newAccounts,
       unchangedAccounts: unchangedAccounts,
       updatedAccounts: updatedAccounts,
+      significantBalanceChanges,
       groups: groups,
       netWorth: netWorth
     };
