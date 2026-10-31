@@ -19750,11 +19750,17 @@
                     selectedIds.includes(acc.id)
                 );
                 
-                // Find the most recently updated account (surviving account)
-                const survivingAccount = selectedAccounts.reduce((latest, current) => {
-                    const latestTime = new Date(latest.updatedAt || latest.createdAt || 0);
-                    const currentTime = new Date(current.updatedAt || current.createdAt || 0);
-                    return currentTime > latestTime ? current : latest;
+                const accountAge = (account) => {
+                    const createdAt = Date.parse(account.createdAt || '');
+                    if (Number.isFinite(createdAt)) return createdAt;
+                    const updatedAt = Date.parse(account.updatedAt || '');
+                    return Number.isFinite(updatedAt) ? updatedAt : 0;
+                };
+                // Keep the oldest account so its original and display names survive.
+                const survivingAccount = selectedAccounts.reduce((oldest, current) => {
+                    const oldestTime = accountAge(oldest);
+                    const currentTime = accountAge(current);
+                    return currentTime < oldestTime ? current : oldest;
                 });
                 
                 const accountNames = selectedAccounts
@@ -19763,7 +19769,7 @@
                 
                 const confirmMessage = `You are about to merge ${selectedIds.length} accounts:\n\n${accountNames}\n\n` +
                     `The surviving account will be:\n"${survivingAccount.displayName || survivingAccount.name}" ` +
-                    `(Most recently updated: ${new Date(survivingAccount.updatedAt).toLocaleDateString()})\n\n` +
+                    `(Oldest account: ${new Date(survivingAccount.createdAt || survivingAccount.updatedAt).toLocaleDateString()})\n\n` +
                     `All history and transactions will be transferred to this account.\n` +
                     `The other accounts will be deleted but their names will be saved to prevent future duplicates.\n\n` +
                     `This action cannot be undone. Continue?`;
@@ -20145,6 +20151,9 @@
             statusDiv.className = 'alert alert-success';
 
             const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const fmtPercent = (n) => n === null || !Number.isFinite(Number(n))
+                ? 'N/A (previous balance was $0.00)'
+                : `${Number(n) > 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
 
             const newAccountsHtml = (result.newAccounts && result.newAccounts.length > 0) ? `
                 <div style="margin-top: 0.75rem; background: #fff9c4; border-left: 4px solid #f9a825; border-radius: 4px; padding: 0.6rem 0.85rem;">
@@ -20162,6 +20171,14 @@
                     </ul>
                 </div>` : '';
 
+            const significantBalanceChangesHtml = (result.significantBalanceChanges && result.significantBalanceChanges.length > 0) ? `
+                <div style="margin-top: 0.75rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 0.6rem 0.85rem;">
+                    <strong>⚠️ Large Balance Changes (&gt;10%)</strong>
+                    <ul style="margin: 0.4rem 0 0 1.25rem; padding: 0;">
+                        ${result.significantBalanceChanges.map(a => `<li>${escapeHtml(a.name)} — $${fmt(a.oldBalance)} → $${fmt(a.newBalance)} (${fmtPercent(a.percentageChange)})</li>`).join('')}
+                    </ul>
+                </div>` : '';
+
             statusDiv.innerHTML = `
                 ✅ <strong>Screenshot processed successfully!</strong><br>
                 <ul style="margin: 0.5rem 0 0 1.5rem; text-align: left;">
@@ -20175,6 +20192,7 @@
                 </ul>
                 ${newAccountsHtml}
                 ${unchangedAccountsHtml}
+                ${significantBalanceChangesHtml}
             `;
             statusDiv.style.display = 'block';
         }
@@ -20251,9 +20269,11 @@
                 ` : ''}
                 ${otherAmbiguousRows.length > 0 ? `
                 <div style="margin-bottom: 1rem;">
-                    ${deletedAccountRows.length > 0 ? `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Other Ambiguous Matches</div>` : `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Ambiguous account matches detected</div><p style="margin: 0 0 0.75rem; color: #555; font-size: 0.9rem;">Review each row below. Choose <strong>match</strong>, <strong>create new</strong>, or <strong>skip</strong> before import continues.</p>`}
+                    ${deletedAccountRows.length > 0 ? `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Other Ambiguous Matches</div>` : `<div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Ambiguous account matches detected</div><p style="margin: 0 0 0.75rem; color: #555; font-size: 0.9rem;">Review each row below. Choose to <strong>match</strong>, <strong>merge</strong>, <strong>keep separate</strong>, or <strong>skip</strong> before import continues.</p>`}
                     ${otherAmbiguousRows.map((row, idx) => {
                         const hasDeletedMatch = !!row.matchedDeletedAccount;
+                        const nearDuplicates = row.nearDuplicateAccounts || [];
+                        const hasNameCandidates = (row.candidateAccounts || []).length > 0;
                         const del = row.matchedDeletedAccount;
                         const deletedAt = del && del.deletedAt ? new Date(del.deletedAt).toLocaleString() : 'unknown';
                         return `
@@ -20263,6 +20283,14 @@
                         <div><strong>Normalized:</strong> ${escapeHtml(row.normalizedLabel || '')}</div>
                         <div><strong>Parsed balance:</strong> $${Number(row.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                         <div style="margin: 0.5rem 0;"><strong>Reason:</strong> ${(row.ambiguityReasons || []).filter(r => r.code !== 'matches_deleted_account').map(reason => escapeHtml(reason.message)).join('; ')}</div>
+                        ${nearDuplicates.length > 0 ? `
+                        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 0.5rem 0.6rem; margin: 0.5rem 0;">
+                            <strong>Potential duplicate accounts (within 10% balance):</strong>
+                            <ul style="margin: 0.35rem 0 0 1.25rem;">
+                                ${nearDuplicates.map(candidate => `<li>${escapeHtml(candidate.name)} — $${Number(candidate.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
                         ${hasDeletedMatch ? `
                         <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.4rem 0; font-size: 0.85rem;">
                             ⚠️ Also matches previously deleted account: <strong>${escapeHtml(del.name)}</strong> (deleted ${escapeHtml(deletedAt)})
@@ -20272,17 +20300,25 @@
                             <div class="form-group">
                                 <label for="screenshotDecisionAction-${row.rowIndex}">Decision</label>
                                 <select id="screenshotDecisionAction-${row.rowIndex}" onchange="onScreenshotDecisionActionChange(${row.rowIndex})">
-                                    <option value="match">Match existing</option>
-                                    <option value="create">Create new account</option>
+                                    ${nearDuplicates.length > 0 ? `<option value="" selected disabled>Choose how to proceed</option>` : ''}
+                                    ${hasNameCandidates ? `<option value="match" ${nearDuplicates.length === 0 ? 'selected' : ''}>Match existing by name</option>` : ''}
+                                    ${nearDuplicates.length > 0 ? `<option value="merge">Merge into existing account</option>` : ''}
+                                    <option value="create" ${nearDuplicates.length === 0 && !hasNameCandidates ? 'selected' : ''}>${nearDuplicates.length > 0 ? 'Keep separate (create new account)' : 'Create new account'}</option>
                                     <option value="skip">Skip row</option>
                                 </select>
                             </div>
-                            <div class="form-group" id="screenshotDecisionAccountWrap-${row.rowIndex}">
+                            ${hasNameCandidates ? `<div class="form-group" id="screenshotDecisionAccountWrap-${row.rowIndex}">
                                 <label for="screenshotDecisionAccount-${row.rowIndex}">Candidate account</label>
                                 <select id="screenshotDecisionAccount-${row.rowIndex}">
                                     ${(row.candidateAccounts || []).map(candidate => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</option>`).join('')}
                                 </select>
-                            </div>
+                            </div>` : ''}
+                            ${nearDuplicates.length > 0 ? `<div class="form-group" id="screenshotMergeAccountWrap-${row.rowIndex}" style="display: none;">
+                                <label for="screenshotMergeAccount-${row.rowIndex}">Merge into account</label>
+                                <select id="screenshotMergeAccount-${row.rowIndex}">
+                                    ${nearDuplicates.map(candidate => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)} — $${Number(candidate.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</option>`).join('')}
+                                </select>
+                            </div>` : ''}
                         </div>
                     </div>
                         `;
@@ -20301,9 +20337,13 @@
         function onScreenshotDecisionActionChange(rowIndex) {
             const actionEl = document.getElementById(`screenshotDecisionAction-${rowIndex}`);
             const accountWrap = document.getElementById(`screenshotDecisionAccountWrap-${rowIndex}`);
+            const mergeAccountWrap = document.getElementById(`screenshotMergeAccountWrap-${rowIndex}`);
             if (!actionEl) return;
             if (accountWrap) {
                 accountWrap.style.display = actionEl.value === 'match' ? 'block' : 'none';
+            }
+            if (mergeAccountWrap) {
+                mergeAccountWrap.style.display = actionEl.value === 'merge' ? 'block' : 'none';
             }
         }
 
@@ -20321,12 +20361,27 @@
             for (const actionElement of rows) {
                 const rowIndex = Number(actionElement.id.replace('screenshotDecisionAction-', ''));
                 const action = actionElement.value;
+                if (!action) {
+                    statusDiv.className = 'alert alert-error';
+                    statusDiv.textContent = 'Please choose how to handle each potential duplicate.';
+                    statusDiv.style.display = 'block';
+                    return;
+                }
                 const decision = { rowIndex, action };
                 if (action === 'match') {
                     const accountEl = document.getElementById(`screenshotDecisionAccount-${rowIndex}`);
                     if (!accountEl || !accountEl.value) {
                         statusDiv.className = 'alert alert-error';
                         statusDiv.textContent = 'Please select a candidate account for each "match existing" decision.';
+                        statusDiv.style.display = 'block';
+                        return;
+                    }
+                    decision.accountId = accountEl.value;
+                } else if (action === 'merge') {
+                    const accountEl = document.getElementById(`screenshotMergeAccount-${rowIndex}`);
+                    if (!accountEl || !accountEl.value) {
+                        statusDiv.className = 'alert alert-error';
+                        statusDiv.textContent = 'Please select an existing account to merge into.';
                         statusDiv.style.display = 'block';
                         return;
                     }
